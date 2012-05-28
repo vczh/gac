@@ -1,0 +1,138 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorld", "HelloWorld\HelloWorld.vcxproj", "{1201A21A-E577-4AFA-AA48-5847A0771194}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Controls", "Controls", "{4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Elements", "Elements", "{E3059090-E87A-41E2-B657-C3589AE8EEBF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Layouts", "Layouts", "{C017C3EE-52C1-42E8-99FE-8FD2A8C98C1C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Misc", "Misc", "{DE1AA97C-71E5-46E9-943F-BD852DDF5005}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Label.Hyperlink", "Controls.Label.Hyperlink\Controls.Label.Hyperlink.vcxproj", "{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Button.EnableDisable", "Controls.Button.EnableDisable\Controls.Button.EnableDisable.vcxproj", "{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Button.CheckAndRadio", "Controls.Button.CheckAndRadio\Controls.Button.CheckAndRadio.vcxproj", "{EB8C3EC3-74BC-4A24-97E5-133904A7ACA8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Tab.TextBoxPage", "Controls.Tab.TextBoxPage\Controls.Tab.TextBoxPage.vcxproj", "{683A5E34-D5CA-4CB8-93E6-42D1C41DEE4D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TextBox.Editor", "Controls.TextBox.Editor\Controls.TextBox.Editor.vcxproj", "{12099554-E6D6-4F21-AB43-FEE67E3795A8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TextBox.Colorizer", "Controls.TextBox.Colorizer\Controls.TextBox.Colorizer.vcxproj", "{A20933BA-12B8-4AA5-BDFC-B5CF2579E70E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListBox.NameSelector", "Controls.ListBox.NameSelector\Controls.ListBox.NameSelector.vcxproj", "{5B44540E-78B6-4355-AC15-4DE8B88F3781}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListBox.VirtualMode", "Controls.ListBox.VirtualMode\Controls.ListBox.VirtualMode.vcxproj", "{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListBox.NameEditor", "Controls.ListBox.NameEditor\Controls.ListBox.NameEditor.vcxproj", "{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}"
+EndProject
+Global
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 11
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = HelloWorld\\HelloWorld.vcxproj
+		SccProjectName1 = HelloWorld
+		SccLocalPath1 = HelloWorld
+		SccProjectUniqueName2 = Controls.Label.Hyperlink\\Controls.Label.Hyperlink.vcxproj
+		SccProjectTopLevelParentUniqueName2 = GacUIDemo.sln
+		SccProjectName2 = Controls.Label.Hyperlink
+		SccLocalPath2 = Controls.Label.Hyperlink
+		SccProjectUniqueName3 = Controls.Button.EnableDisable\\Controls.Button.EnableDisable.vcxproj
+		SccProjectTopLevelParentUniqueName3 = GacUIDemo.sln
+		SccProjectName3 = Controls.Button.EnableDisable
+		SccLocalPath3 = Controls.Button.EnableDisable
+		SccProjectUniqueName4 = Controls.Button.CheckAndRadio\\Controls.Button.CheckAndRadio.vcxproj
+		SccProjectTopLevelParentUniqueName4 = GacUIDemo.sln
+		SccProjectName4 = Controls.Button.CheckAndRadio
+		SccLocalPath4 = Controls.Button.CheckAndRadio
+		SccProjectUniqueName5 = Controls.Tab.TextBoxPage\\Controls.Tab.TextBoxPage.vcxproj
+		SccProjectTopLevelParentUniqueName5 = GacUIDemo.sln
+		SccProjectName5 = Controls.Tab.TextBoxPage
+		SccLocalPath5 = Controls.Tab.TextBoxPage
+		SccProjectUniqueName6 = Controls.TextBox.Editor\\Controls.TextBox.Editor.vcxproj
+		SccProjectTopLevelParentUniqueName6 = GacUIDemo.sln
+		SccProjectName6 = Controls.TextBox.Editor
+		SccLocalPath6 = Controls.TextBox.Editor
+		SccProjectUniqueName7 = Controls.TextBox.Colorizer\\Controls.TextBox.Colorizer.vcxproj
+		SccProjectTopLevelParentUniqueName7 = GacUIDemo.sln
+		SccProjectName7 = Controls.TextBox.Colorizer
+		SccLocalPath7 = Controls.TextBox.Colorizer
+		SccProjectUniqueName8 = Controls.ListBox.NameSelector\\Controls.ListBox.NameSelector.vcxproj
+		SccProjectTopLevelParentUniqueName8 = GacUIDemo.sln
+		SccProjectName8 = Controls.ListBox.NameSelector
+		SccLocalPath8 = Controls.ListBox.NameSelector
+		SccProjectUniqueName9 = Controls.ListBox.VirtualMode\\Controls.ListBox.VirtualMode.vcxproj
+		SccProjectTopLevelParentUniqueName9 = GacUIDemo.sln
+		SccProjectName9 = Controls.ListBox.VirtualMode
+		SccLocalPath9 = Controls.ListBox.VirtualMode
+		SccProjectUniqueName10 = Controls.ListBox.NameEditor\\Controls.ListBox.NameEditor.vcxproj
+		SccProjectTopLevelParentUniqueName10 = GacUIDemo.sln
+		SccProjectName10 = Controls.ListBox.NameEditor
+		SccLocalPath10 = Controls.ListBox.NameEditor
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1201A21A-E577-4AFA-AA48-5847A0771194}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1201A21A-E577-4AFA-AA48-5847A0771194}.Debug|Win32.Build.0 = Debug|Win32
+		{1201A21A-E577-4AFA-AA48-5847A0771194}.Release|Win32.ActiveCfg = Release|Win32
+		{1201A21A-E577-4AFA-AA48-5847A0771194}.Release|Win32.Build.0 = Release|Win32
+		{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975}.Debug|Win32.Build.0 = Debug|Win32
+		{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975}.Release|Win32.ActiveCfg = Release|Win32
+		{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975}.Release|Win32.Build.0 = Release|Win32
+		{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4}.Debug|Win32.Build.0 = Debug|Win32
+		{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4}.Release|Win32.ActiveCfg = Release|Win32
+		{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4}.Release|Win32.Build.0 = Release|Win32
+		{EB8C3EC3-74BC-4A24-97E5-133904A7ACA8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EB8C3EC3-74BC-4A24-97E5-133904A7ACA8}.Debug|Win32.Build.0 = Debug|Win32
+		{EB8C3EC3-74BC-4A24-97E5-133904A7ACA8}.Release|Win32.ActiveCfg = Release|Win32
+		{EB8C3EC3-74BC-4A24-97E5-133904A7ACA8}.Release|Win32.Build.0 = Release|Win32
+		{683A5E34-D5CA-4CB8-93E6-42D1C41DEE4D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{683A5E34-D5CA-4CB8-93E6-42D1C41DEE4D}.Debug|Win32.Build.0 = Debug|Win32
+		{683A5E34-D5CA-4CB8-93E6-42D1C41DEE4D}.Release|Win32.ActiveCfg = Release|Win32
+		{683A5E34-D5CA-4CB8-93E6-42D1C41DEE4D}.Release|Win32.Build.0 = Release|Win32
+		{12099554-E6D6-4F21-AB43-FEE67E3795A8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{12099554-E6D6-4F21-AB43-FEE67E3795A8}.Debug|Win32.Build.0 = Debug|Win32
+		{12099554-E6D6-4F21-AB43-FEE67E3795A8}.Release|Win32.ActiveCfg = Release|Win32
+		{12099554-E6D6-4F21-AB43-FEE67E3795A8}.Release|Win32.Build.0 = Release|Win32
+		{A20933BA-12B8-4AA5-BDFC-B5CF2579E70E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A20933BA-12B8-4AA5-BDFC-B5CF2579E70E}.Debug|Win32.Build.0 = Debug|Win32
+		{A20933BA-12B8-4AA5-BDFC-B5CF2579E70E}.Release|Win32.ActiveCfg = Release|Win32
+		{A20933BA-12B8-4AA5-BDFC-B5CF2579E70E}.Release|Win32.Build.0 = Release|Win32
+		{5B44540E-78B6-4355-AC15-4DE8B88F3781}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5B44540E-78B6-4355-AC15-4DE8B88F3781}.Debug|Win32.Build.0 = Debug|Win32
+		{5B44540E-78B6-4355-AC15-4DE8B88F3781}.Release|Win32.ActiveCfg = Release|Win32
+		{5B44540E-78B6-4355-AC15-4DE8B88F3781}.Release|Win32.Build.0 = Release|Win32
+		{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E}.Debug|Win32.Build.0 = Debug|Win32
+		{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E}.Release|Win32.ActiveCfg = Release|Win32
+		{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E}.Release|Win32.Build.0 = Release|Win32
+		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Debug|Win32.Build.0 = Debug|Win32
+		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Release|Win32.ActiveCfg = Release|Win32
+		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{EB8C3EC3-74BC-4A24-97E5-133904A7ACA8} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{683A5E34-D5CA-4CB8-93E6-42D1C41DEE4D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{12099554-E6D6-4F21-AB43-FEE67E3795A8} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{A20933BA-12B8-4AA5-BDFC-B5CF2579E70E} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{5B44540E-78B6-4355-AC15-4DE8B88F3781} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+	EndGlobalSection
+EndGlobal
