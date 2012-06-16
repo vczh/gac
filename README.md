@@ -12,3 +12,12 @@ Here is a simple description to the code
 * **Public** 
     * **Source** GacUI library
     * **Doc** HTML document. Please start at reference_gacui.html
+
+Improvements to the previous release 
+* Added 3 new demos 
+    * Controls.ListView.ViewSwitching
+    * Controls.ListView.VirtualMode
+    * Controls.ListView.SortingAndFiltering
+* Fixed bugs
+* Added a few more APIs
+* Added lost css files to the documentation folder
