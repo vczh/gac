@@ -3443,6 +3443,151 @@ Scrolls
 				GuiScrollContainer(GuiScrollContainer::IStyleProvider* styleProvider);
 				~GuiScrollContainer();
 			};
+			
+			namespace list
+			{
+/***********************************************************************
+List interface common implementation
+***********************************************************************/
+
+				template<typename T, typename K=typename KeyType<T>::Type>
+				class ItemsBase : public Object, public collections::IList<T, K>
+				{
+				protected:
+					collections::List<T, K>					items;
+
+					virtual void							NotifyUpdateInternal(int start, int count, int newCount)=0;
+					
+				public:
+					ItemsBase()
+					{
+					}
+
+					~ItemsBase()
+					{
+					}
+
+					bool NotifyUpdate(int start, int count=1)
+					{
+						if(start<0 || start>=items.Count() || count<=0 || start+count>items.Count())
+						{
+							return false;
+						}
+						else
+						{
+							NotifyUpdateInternal(start, count, count);
+							return true;
+						}
+					}
+
+					collections::IEnumerator<T>* CreateEnumerator()const
+					{
+						return items.Wrap().CreateEnumerator();
+					}
+
+					bool Contains(const K& item)const
+					{
+						return items.Contains(item);
+					}
+
+					vint Count()const
+					{
+						return items.Count();
+					}
+
+					vint Count()
+					{
+						return items.Count();
+					}
+
+					const T& Get(vint index)const
+					{
+						return items.Get(index);
+					}
+
+					const T& operator[](vint index)const
+					{
+						return items.Get(index);
+					}
+
+					vint IndexOf(const K& item)const
+					{
+						return items.IndexOf(item);
+					}
+
+					vint Add(const T& item)
+					{
+						return Insert(items.Count(), item);
+					}
+
+					bool Remove(const K& item)
+					{
+						vint index=items.IndexOf(item);
+						if(index==-1) return false;
+						return RemoveAt(index);
+					}
+
+					bool RemoveAt(vint index)
+					{
+						if(items.RemoveAt(index))
+						{
+							NotifyUpdateInternal(index, 1, 0);
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+
+					bool RemoveRange(vint index, vint count)
+					{
+						if(items.RemoveRange(index, count))
+						{
+							NotifyUpdateInternal(index, count, 0);
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+
+					bool Clear()
+					{
+						vint count=items.Count();
+						if(items.Clear())
+						{
+							NotifyUpdateInternal(0, count, 0);
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+
+					vint Insert(vint index, const T& item)
+					{
+						vint result=items.Insert(index, item);
+						NotifyUpdateInternal(index, 0, 1);
+						return result;
+					}
+
+					bool Set(vint index, const T& item)
+					{
+						if(items.Set(index, item))
+						{
+							NotifyUpdateInternal(index, 1, 1);
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+				};
+			}
 		}
 	}
 }
@@ -3832,9 +3977,9 @@ List Control
 				friend class collections::ReadonlyListEnumerator<Ptr<VisibleStyleHelper>>;
 				collections::Dictionary<IItemStyleController*, Ptr<VisibleStyleHelper>>		visibleStyles;
 
-				void											OnItemMouseEvent(compositions::GuiItemMouseEvent& itemEvent, int itemIndex, compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void											OnItemNotifyEvent(compositions::GuiItemNotifyEvent& itemEvent, int itemIndex, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void											AttachItemEvents(int itemIndex, IItemStyleController* style);
+				void											OnItemMouseEvent(compositions::GuiItemMouseEvent& itemEvent, IItemStyleController* style, compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void											OnItemNotifyEvent(compositions::GuiItemNotifyEvent& itemEvent, IItemStyleController* style, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void											AttachItemEvents(IItemStyleController* style);
 				void											DetachItemEvents(IItemStyleController* style);
 			public:
 				GuiListControl(IStyleProvider* _styleProvider, IItemProvider* _itemProvider, bool acceptFocus=false);
@@ -4120,161 +4265,18 @@ Predefined ItemProvider
 					bool										DetachCallback(GuiListControl::IItemProviderCallback* value);
 				};
 
-				template<typename T, typename K=typename KeyType<T>::Type>
-				class ListWrapperProvider : public ItemProviderBase, public collections::IList<T, K>
-				{
-				protected:
-					collections::IList<T, K>*			proxy;
-
-					ListWrapperProvider()
-						:proxy(0)
-					{
-					}
-				public:
-					ListWrapperProvider(collections::IList<T, K>* _proxy)
-						:proxy(_proxy)
-					{
-					}
-
-					~ListWrapperProvider()
-					{
-					}
-
-					bool NotifyUpdate(int start, int count=1)
-					{
-						if(start<0 || start>=proxy->Count() || count<=0 || start+count>proxy->Count())
-						{
-							return false;
-						}
-						else
-						{
-							InvokeOnItemModified(start, count, count);
-							return true;
-						}
-					}
-
-					collections::IEnumerator<T>* CreateEnumerator()const
-					{
-						return proxy->CreateEnumerator();
-					}
-
-					bool Contains(const K& item)const
-					{
-						return proxy->Contains(item);
-					}
-
-					vint Count()const
-					{
-						return proxy->Count();
-					}
-
-					vint Count()
-					{
-						return proxy->Count();
-					}
-
-					const T& Get(vint index)const
-					{
-						return proxy->Get(index);
-					}
-
-					const T& operator[](vint index)const
-					{
-						return (*proxy)[index];
-					}
-
-					vint IndexOf(const K& item)const
-					{
-						return proxy->IndexOf(item);
-					}
-
-					vint Add(const T& item)
-					{
-						return Insert(proxy->Count(), item);
-					}
-
-					bool Remove(const K& item)
-					{
-						vint index=proxy->IndexOf(item);
-						if(index==-1) return false;
-						return RemoveAt(index);
-					}
-
-					bool RemoveAt(vint index)
-					{
-						if(proxy->RemoveAt(index))
-						{
-							InvokeOnItemModified(index, 1, 0);
-							return true;
-						}
-						else
-						{
-							return false;
-						}
-					}
-
-					bool RemoveRange(vint index, vint count)
-					{
-						if(proxy->RemoveRange(index, count))
-						{
-							InvokeOnItemModified(index, count, 0);
-							return true;
-						}
-						else
-						{
-							return false;
-						}
-					}
-
-					bool Clear()
-					{
-						vint count=proxy->Count();
-						if(proxy->Clear())
-						{
-							InvokeOnItemModified(0, count, 0);
-							return true;
-						}
-						else
-						{
-							return false;
-						}
-					}
-
-					vint Insert(vint index, const T& item)
-					{
-						vint result=proxy->Insert(index, item);
-						InvokeOnItemModified(index, 0, 1);
-						return result;
-					}
-
-					bool Set(vint index, const T& item)
-					{
-						if(proxy->Set(index, item))
-						{
-							InvokeOnItemModified(index, 1, 1);
-							return true;
-						}
-						else
-						{
-							return false;
-						}
-					}
-				};
-
 				template<typename T>
-				class ListProvider : public ListWrapperProvider<T>
+				class ListProvider : public ItemProviderBase, public ItemsBase<T>
 				{
 				protected:
-					collections::List<T>		list;
-
-				public:
-					ListProvider()
+					void NotifyUpdateInternal(int start, int count, int newCount)
 					{
-						proxy=&list.Wrap();
+						InvokeOnItemModified(start, count, newCount);
 					}
-
-					~ListProvider()
+				public:
+					int Count()override
 					{
+						return items.Count();
 					}
 				};
 			}
@@ -4449,6 +4451,154 @@ TextList Control
 #endif
 
 /***********************************************************************
+CONTROLS\EXTENDEDCONTROLS\GUIMENUCONTROLS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIMENUCONTROLS
+#define VCZH_PRESENTATION_CONTROLS_GUIMENUCONTROLS
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+Menu Service
+***********************************************************************/
+
+			class GuiMenu;
+
+			class IGuiMenuService : public virtual IDescriptable, public Description<IGuiMenuService>
+			{
+			public:
+				static const wchar_t* const				Identifier;
+
+				enum Direction
+				{
+					Horizontal,
+					Vertical,
+				};
+			protected:
+				GuiMenu*								openingMenu;
+			public:
+				IGuiMenuService();
+
+				virtual IGuiMenuService*				GetParentMenuService()=0;
+				virtual Direction						GetPreferredDirection()=0;
+				virtual bool							IsActiveState()=0;
+
+				virtual void							MenuItemExecuted();
+				virtual GuiMenu*						GetOpeningMenu();
+				virtual void							MenuOpened(GuiMenu* menu);
+				virtual void							MenuClosed(GuiMenu* menu);
+			};
+
+/***********************************************************************
+Menu
+***********************************************************************/
+
+			class GuiMenu : public GuiPopup, private IGuiMenuService, public Description<GuiMenu>
+			{
+			private:
+				IGuiMenuService*						parentMenuService;
+
+				IGuiMenuService*						GetParentMenuService()override;
+				Direction								GetPreferredDirection()override;
+				bool									IsActiveState()override;
+				void									MenuItemExecuted()override;
+			protected:
+				GuiControl*								owner;
+
+				void									MouseClickedOnOtherWindow(GuiWindow* window)override;
+				void									OnWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnWindowClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				GuiMenu(GuiControl::IStyleController* _styleController, GuiControl* _owner);
+				~GuiMenu();
+
+				void									UpdateMenuService();
+				IDescriptable*							QueryService(const WString& identifier)override;
+			};
+			
+			class GuiMenuBar : public GuiControl, private IGuiMenuService, public Description<GuiMenuBar>
+			{
+			private:
+				IGuiMenuService*						GetParentMenuService()override;
+				Direction								GetPreferredDirection()override;
+				bool									IsActiveState()override;
+			public:
+				GuiMenuBar(GuiControl::IStyleController* _styleController);
+				~GuiMenuBar();
+				
+				IDescriptable*							QueryService(const WString& identifier)override;
+			};
+
+/***********************************************************************
+MenuButton
+***********************************************************************/
+
+			class GuiMenuButton : public GuiButton, public Description<GuiMenuButton>
+			{
+			public:
+				class IStyleController : public GuiButton::IStyleController, public Description<IStyleController>
+				{
+				public:
+					virtual GuiMenu::IStyleController*	CreateSubMenuStyleController()=0;
+					virtual void						SetSubMenuExisting(bool value)=0;
+					virtual void						SetSubMenuOpening(bool value)=0;
+					virtual GuiButton*					GetSubMenuHost()=0;
+				};
+			protected:
+				IStyleController*						styleController;
+				GuiMenu*								subMenu;
+				bool									ownedSubMenu;
+				Size									preferredMenuClientSize;
+				IGuiMenuService*						ownerMenuService;
+
+				GuiButton*								GetSubMenuHost();
+				void									OpenSubMenuInternal();
+				void									OnParentLineChanged()override;
+				void									OnSubMenuWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnSubMenuWindowClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void									OnMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnClicked(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				GuiMenuButton(IStyleController* _styleController);
+				~GuiMenuButton();
+
+				compositions::GuiNotifyEvent			SubMenuOpeningChanged;
+
+				bool									IsSubMenuExists();
+				GuiMenu*								GetSubMenu();
+				void									CreateSubMenu(GuiMenu::IStyleController* subMenuStyleController=0);
+				void									SetSubMenu(GuiMenu* value);
+				void									DestroySubMenu();
+				bool									GetOwnedSubMenu();
+
+				bool									GetSubMenuOpening();
+				void									SetSubMenuOpening(bool value);
+
+				Size									GetPreferredMenuClientSize();
+				void									SetPreferredMenuClientSize(Size value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
 CONTROLS\EXTENDEDCONTROLS\GUILISTVIEWCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
@@ -4509,6 +4659,34 @@ ListView Base
 				};
 			}
 
+			class GuiListViewColumnHeader : public GuiMenuButton, public Description<GuiListViewColumnHeader>
+			{
+			public:
+				enum ColumnSortingState
+				{
+					NotSorted,
+					Ascending,
+					Descending,
+				};
+				
+				class IStyleController : public virtual GuiMenuButton::IStyleController, public Description<IStyleController>
+				{
+				public:
+					virtual void								SetColumnSortingState(ColumnSortingState value)=0;
+				};
+
+			protected:
+				IStyleController*								styleController;
+				ColumnSortingState								columnSortingState;
+
+			public:
+				GuiListViewColumnHeader(IStyleController* _styleController);
+				~GuiListViewColumnHeader();
+
+				ColumnSortingState								GetColumnSortingState();
+				void											SetColumnSortingState(ColumnSortingState value);
+			};
+
 			class GuiListViewBase : public GuiSelectableListControl, public Description<GuiListViewBase>
 			{
 			public:
@@ -4516,7 +4694,7 @@ ListView Base
 				{
 				public:
 					virtual GuiSelectableButton::IStyleController*		CreateItemBackground()=0;
-					virtual GuiSelectableButton::IStyleController*		CreateColumnStyle()=0;
+					virtual GuiListViewColumnHeader::IStyleController*	CreateColumnStyle()=0;
 					virtual Color										GetPrimaryTextColor()=0;
 					virtual Color										GetSecondaryTextColor()=0;
 					virtual Color										GetItemSeparatorColor()=0;
@@ -4528,6 +4706,8 @@ ListView Base
 			public:
 				GuiListViewBase(IStyleProvider* _styleProvider, GuiListControl::IItemProvider* _itemProvider);
 				~GuiListViewBase();
+
+				compositions::GuiItemNotifyEvent				ColumnClicked;
 				
 				IStyleProvider*									GetListViewStyleProvider();
 				Ptr<GuiListControl::IItemStyleProvider>			SetStyleProvider(Ptr<GuiListControl::IItemStyleProvider> value)override;
@@ -4793,7 +4973,7 @@ ListView ItemContentProvider(Detailed)
 
 				class ListViewColumnItemArranger : public FixedHeightItemArranger, public Description<ListViewColumnItemArranger>
 				{
-					typedef collections::List<GuiButton*>								ColumnHeaderButtonList;
+					typedef collections::List<GuiListViewColumnHeader*>					ColumnHeaderButtonList;
 					typedef collections::List<compositions::GuiBoundsComposition*>		ColumnHeaderSplitterList;
 				public:
 					static const int							SplitterWidth=8;
@@ -4802,20 +4982,21 @@ ListView ItemContentProvider(Detailed)
 					{
 					public:
 						virtual void							OnColumnChanged()=0;
-						virtual void							OnColumnSizeChanged(int index)=0;
 					};
 					
 					class IColumnItemView : public virtual IDescriptable, public Description<IColumnItemView>
 					{
 					public:
-						static const wchar_t* const				Identifier;
+						static const wchar_t* const								Identifier;
 						
-						virtual bool							AttachCallback(IColumnItemViewCallback* value)=0;
-						virtual bool							DetachCallback(IColumnItemViewCallback* value)=0;
-						virtual int								GetColumnCount()=0;
-						virtual WString							GetColumnText(int index)=0;
-						virtual int								GetColumnSize(int index)=0;
-						virtual void							SetColumnSize(int index, int value)=0;
+						virtual bool											AttachCallback(IColumnItemViewCallback* value)=0;
+						virtual bool											DetachCallback(IColumnItemViewCallback* value)=0;
+						virtual int												GetColumnCount()=0;
+						virtual WString											GetColumnText(int index)=0;
+						virtual int												GetColumnSize(int index)=0;
+						virtual void											SetColumnSize(int index, int value)=0;
+						virtual GuiMenu*										GetDropdownPopup(int index)=0;
+						virtual GuiListViewColumnHeader::ColumnSortingState		GetSortingState(int index)=0;
 					};
 				protected:
 					class ColumnItemViewCallback : public Object, public virtual IColumnItemViewCallback
@@ -4827,7 +5008,6 @@ ListView ItemContentProvider(Detailed)
 						~ColumnItemViewCallback();
 
 						void									OnColumnChanged();
-						void									OnColumnSizeChanged(int index);
 					};
 
 					GuiListViewBase*							listView;
@@ -4840,6 +5020,7 @@ ListView ItemContentProvider(Detailed)
 					bool										splitterDragging;
 					int											splitterLatestX;
 
+					void										ColumnClicked(int index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 					void										ColumnHeaderSplitterLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 					void										ColumnHeaderSplitterLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 					void										ColumnHeaderSplitterMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
@@ -4850,7 +5031,6 @@ ListView ItemContentProvider(Detailed)
 					Size										OnCalculateTotalSize()override;
 					void										DeleteColumnButtons();
 					void										RebuildColumns();
-					void										UpdateColumnSize(int index);
 				public:
 					ListViewColumnItemArranger();
 					~ListViewColumnItemArranger();
@@ -4895,7 +5075,6 @@ ListView ItemContentProvider(Detailed)
 					ListViewItemStyleProvider*							listViewItemStyleProvider;
 
 					void												OnColumnChanged()override;
-					void												OnColumnSizeChanged(int index)override;
 				public:
 					ListViewDetailContentProvider(Size _iconSize=Size(16, 16));
 					~ListViewDetailContentProvider();
@@ -4926,10 +5105,36 @@ ListView
 				class ListViewColumn
 				{
 				public:
-					WString										text;
-					int											size;
+					WString											text;
+					int												size;
+					GuiMenu*										dropdownPopup;
+					GuiListViewColumnHeader::ColumnSortingState		sortingState;
 
 					ListViewColumn(const WString& _text=L"", int _size=160);
+				};
+
+				class ListViewDataColumns : public ItemsBase<int>
+				{
+					friend class ListViewItemProvider;
+				protected:
+					ListViewItemProvider*						itemProvider;
+
+					void NotifyUpdateInternal(int start, int count, int newCount)override;
+				public:
+					ListViewDataColumns();
+					~ListViewDataColumns();
+				};
+				
+				class ListViewColumns : public ItemsBase<Ptr<ListViewColumn>>
+				{
+					friend class ListViewItemProvider;
+				protected:
+					ListViewItemProvider*						itemProvider;
+
+					void NotifyUpdateInternal(int start, int count, int newCount)override;
+				public:
+					ListViewColumns();
+					~ListViewColumns();
 				};
 				
 				class ListViewItemProvider
@@ -4938,38 +5143,40 @@ ListView
 					, protected virtual ListViewColumnItemArranger::IColumnItemView
 					, public Description<ListViewItemProvider>
 				{
+					friend class ListViewColumns;
+					friend class ListViewDataColumns;
 					typedef collections::List<ListViewColumnItemArranger::IColumnItemViewCallback*>		ColumnItemViewCallbackList;
 				protected:
-					collections::List<int>						dataColumns;
-					collections::List<Ptr<ListViewColumn>>		columns;
-					ColumnItemViewCallbackList					columnItemViewCallbacks;
+					ListViewDataColumns									dataColumns;
+					ListViewColumns										columns;
+					ColumnItemViewCallbackList							columnItemViewCallbacks;
 
-					bool										ContainsPrimaryText(int itemIndex)override;
-					WString										GetPrimaryTextViewText(int itemIndex)override;
-					Ptr<GuiImageData>							GetSmallImage(int itemIndex)override;
-					Ptr<GuiImageData>							GetLargeImage(int itemIndex)override;
-					WString										GetText(int itemIndex)override;
-					WString										GetSubItem(int itemIndex, int index)override;
-					int											GetDataColumnCount()override;
-					int											GetDataColumn(int index)override;
+					bool												ContainsPrimaryText(int itemIndex)override;
+					WString												GetPrimaryTextViewText(int itemIndex)override;
+					Ptr<GuiImageData>									GetSmallImage(int itemIndex)override;
+					Ptr<GuiImageData>									GetLargeImage(int itemIndex)override;
+					WString												GetText(int itemIndex)override;
+					WString												GetSubItem(int itemIndex, int index)override;
+					int													GetDataColumnCount()override;
+					int													GetDataColumn(int index)override;
 
-					bool										AttachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
-					bool										DetachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
-					int											GetColumnCount()override;
-					WString										GetColumnText(int index)override;
-					int											GetColumnSize(int index)override;
-					void										SetColumnSize(int index, int value)override;
+					bool												AttachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
+					bool												DetachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
+					int													GetColumnCount()override;
+					WString												GetColumnText(int index)override;
+					int													GetColumnSize(int index)override;
+					void												SetColumnSize(int index, int value)override;
+					GuiMenu*											GetDropdownPopup(int index)override;
+					GuiListViewColumnHeader::ColumnSortingState			GetSortingState(int index)override;
 				public:
 					ListViewItemProvider();
 					~ListViewItemProvider();
 
-					IDescriptable*								RequestView(const WString& identifier)override;
-					void										ReleaseView(IDescriptable* view)override;
+					IDescriptable*										RequestView(const WString& identifier)override;
+					void												ReleaseView(IDescriptable* view)override;
 
-					collections::IList<int>&					GetDataColumns();
-					void										NotifyDataColumnsUpdated();
-					collections::IList<Ptr<ListViewColumn>>&	GetColumns();
-					void										NotifyColumnsUpdated();
+					ListViewDataColumns&								GetDataColumns();
+					ListViewColumns&									GetColumns();
 				};
 			}
 			
@@ -5652,149 +5859,6 @@ Tab Control
 
 				GuiTabPage*										GetSelectedPage();
 				bool											SetSelectedPage(GuiTabPage* value);
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUIMENUCONTROLS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: ³Âè÷å«(vczh)
-GacUI::Control System
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_CONTROLS_GUIMENUCONTROLS
-#define VCZH_PRESENTATION_CONTROLS_GUIMENUCONTROLS
-
-
-namespace vl
-{
-	namespace presentation
-	{
-		namespace controls
-		{
-
-/***********************************************************************
-Menu Service
-***********************************************************************/
-
-			class GuiMenu;
-
-			class IGuiMenuService : public virtual IDescriptable, public Description<IGuiMenuService>
-			{
-			public:
-				static const wchar_t* const				Identifier;
-
-				enum Direction
-				{
-					Horizontal,
-					Vertical,
-				};
-			protected:
-				GuiMenu*								openingMenu;
-			public:
-				IGuiMenuService();
-
-				virtual IGuiMenuService*				GetParentMenuService()=0;
-				virtual Direction						GetPreferredDirection()=0;
-				virtual bool							IsActiveState()=0;
-
-				virtual void							MenuItemExecuted();
-				virtual GuiMenu*						GetOpeningMenu();
-				virtual void							MenuOpened(GuiMenu* menu);
-				virtual void							MenuClosed(GuiMenu* menu);
-			};
-
-/***********************************************************************
-Menu
-***********************************************************************/
-
-			class GuiMenu : public GuiPopup, private IGuiMenuService, public Description<GuiMenu>
-			{
-			private:
-				IGuiMenuService*						parentMenuService;
-
-				IGuiMenuService*						GetParentMenuService()override;
-				Direction								GetPreferredDirection()override;
-				bool									IsActiveState()override;
-				void									MenuItemExecuted()override;
-			protected:
-				GuiControl*								owner;
-
-				void									MouseClickedOnOtherWindow(GuiWindow* window)override;
-				void									OnWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnWindowClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-			public:
-				GuiMenu(GuiControl::IStyleController* _styleController, GuiControl* _owner);
-				~GuiMenu();
-
-				void									UpdateMenuService();
-				IDescriptable*							QueryService(const WString& identifier)override;
-			};
-			
-			class GuiMenuBar : public GuiControl, private IGuiMenuService, public Description<GuiMenuBar>
-			{
-			private:
-				IGuiMenuService*						GetParentMenuService()override;
-				Direction								GetPreferredDirection()override;
-				bool									IsActiveState()override;
-			public:
-				GuiMenuBar(GuiControl::IStyleController* _styleController);
-				~GuiMenuBar();
-				
-				IDescriptable*							QueryService(const WString& identifier)override;
-			};
-
-/***********************************************************************
-MenuButton
-***********************************************************************/
-
-			class GuiMenuButton : public GuiButton, public Description<GuiMenuButton>
-			{
-			public:
-				class IStyleController : public GuiButton::IStyleController, public Description<IStyleController>
-				{
-				public:
-					virtual GuiMenu::IStyleController*	CreateSubMenuStyleController()=0;
-					virtual void						SetSubMenuExisting(bool value)=0;
-					virtual void						SetSubMenuOpening(bool value)=0;
-				};
-			protected:
-				IStyleController*						styleController;
-				GuiMenu*								subMenu;
-				Size									preferredMenuClientSize;
-				IGuiMenuService*						ownerMenuService;
-
-				void									OpenSubMenuInternal();
-				void									OnParentLineChanged()override;
-				void									OnSubMenuWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnSubMenuWindowClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void									OnMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnClicked(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-			public:
-				GuiMenuButton(IStyleController* _styleController);
-				~GuiMenuButton();
-
-				compositions::GuiNotifyEvent			SubMenuOpeningChanged;
-
-				bool									IsSubMenuExists();
-				GuiMenu*								GetSubMenu();
-				void									CreateSubMenu(GuiMenu::IStyleController* subMenuStyleController=0);
-				void									DestroySubMenu();
-
-				bool									GetSubMenuOpening();
-				void									SetSubMenuOpening(bool value);
-
-				Size									GetPreferredMenuClientSize();
-				void									SetPreferredMenuClientSize(Size value);
 			};
 		}
 	}
@@ -6504,6 +6568,27 @@ Scrolls
 				void												SetPageSize(int value)override;
 				void												SetPosition(int value)override;
 			};
+
+			class CommonFragmentBuilder
+			{
+			private:
+				static compositions::GuiBoundsComposition*			BuildDockedElementContainer(elements::IGuiGraphicsElement* element);
+			public:
+				static void											FillUpArrow(elements::GuiPolygonElement* element);
+				static void											FillDownArrow(elements::GuiPolygonElement* element);
+				static void											FillLeftArrow(elements::GuiPolygonElement* element);
+				static void											FillRightArrow(elements::GuiPolygonElement* element);
+
+				static elements::GuiPolygonElement*					BuildUpArrow();
+				static elements::GuiPolygonElement*					BuildDownArrow();
+				static elements::GuiPolygonElement*					BuildLeftArrow();
+				static elements::GuiPolygonElement*					BuildRightArrow();
+
+				static compositions::GuiBoundsComposition*			BuildUpArrow(elements::GuiPolygonElement*& elementOut);
+				static compositions::GuiBoundsComposition*			BuildDownArrow(elements::GuiPolygonElement*& elementOut);
+				static compositions::GuiBoundsComposition*			BuildLeftArrow(elements::GuiPolygonElement*& elementOut);
+				static compositions::GuiBoundsComposition*			BuildRightArrow(elements::GuiPolygonElement*& elementOut);
+			};
 		}
 	}
 }
@@ -6688,8 +6773,8 @@ Button Configuration
 				compositions::GuiCellComposition*			splitterComposition;
 				elements::GuiSolidLabelElement*				textElement;
 				compositions::GuiBoundsComposition*			textComposition;
-				elements::GuiSolidLabelElement*				subMenuTextElement;
-				compositions::GuiGraphicsComposition*		subMenuTextComposition;
+				elements::GuiPolygonElement*				subMenuArrowElement;
+				compositions::GuiGraphicsComposition*		subMenuArrowComposition;
 				compositions::GuiBoundsComposition*			mainComposition;
 
 				static Win7MenuItemButtonElements			Create();
@@ -6880,6 +6965,7 @@ Container
 
 				Ptr<controls::GuiSelectableButton::MutexGroupController>	headerController;
 				collections::List<controls::GuiSelectableButton*>			headerButtons;
+				elements::GuiPolygonElement*								headerOverflowArrowElement;
 				controls::GuiButton*										headerOverflowButton;
 				controls::GuiMenu*											headerOverflowMenu;
 				compositions::GuiStackComposition*							headerOverflowMenuStack;
@@ -7035,12 +7121,12 @@ Misc Buttons
 				compositions::GuiBoundsComposition*			leftBorderComposition;
 				compositions::GuiBoundsComposition*			borderComposition;
 				compositions::GuiBoundsComposition*			gradientComposition;
-				compositions::GuiBoundsComposition*			textComposition;
+				compositions::GuiBoundsComposition*			arrowComposition;
 
 				elements::GuiGradientBackgroundElement*		leftBorderElement;
 				elements::GuiSolidBorderElement*			borderElement;
 				elements::GuiGradientBackgroundElement*		gradientElement;
-				elements::GuiSolidLabelElement*				textElement;
+				elements::GuiPolygonElement*				arrowElement;
 
 				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected);
 			public:
@@ -7057,26 +7143,31 @@ Misc Buttons
 				void										Transfer(controls::GuiButton::ControlState value)override;
 			};
 			
-			class Win7ListViewColumnHeaderStyle : public Object, public virtual controls::GuiSelectableButton::IStyleController, public Description<Win7ListViewColumnHeaderStyle>
+			class Win7ListViewColumnHeaderStyle : public Object, public virtual controls::GuiListViewColumnHeader::IStyleController, public Description<Win7ListViewColumnHeaderStyle>
 			{
 			protected:
 				controls::GuiButton::ControlState			controlStyle;
 				bool										isVisuallyEnabled;
-				bool										isSelected;
+				bool										isSubMenuExisting;
+				bool										isSubMenuOpening;
 
 				compositions::GuiBoundsComposition*			mainComposition;
 				compositions::GuiBoundsComposition*			rightBorderComposition;
 				compositions::GuiBoundsComposition*			borderComposition;
 				compositions::GuiBoundsComposition*			gradientComposition;
 				compositions::GuiBoundsComposition*			textComposition;
+				compositions::GuiBoundsComposition*			arrowComposition;
 
 				elements::GuiSolidBackgroundElement*		backgroundElement;
 				elements::GuiGradientBackgroundElement*		rightBorderElement;
 				elements::GuiSolidBorderElement*			borderElement;
 				elements::GuiGradientBackgroundElement*		gradientElement;
 				elements::GuiSolidLabelElement*				textElement;
+				elements::GuiPolygonElement*				arrowElement;
 
-				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected);
+				controls::GuiButton*						dropdownButton;
+
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool subMenuExisting, bool subMenuOpening);
 			public:
 				Win7ListViewColumnHeaderStyle();
 				~Win7ListViewColumnHeaderStyle();
@@ -7087,8 +7178,12 @@ Misc Buttons
 				void										SetText(const WString& value)override;
 				void										SetFont(const FontProperties& value)override;
 				void										SetVisuallyEnabled(bool value)override;
-				void										SetSelected(bool value)override;
 				void										Transfer(controls::GuiButton::ControlState value)override;
+				controls::GuiMenu::IStyleController*		CreateSubMenuStyleController()override;
+				void										SetSubMenuExisting(bool value)override;
+				void										SetSubMenuOpening(bool value)override;
+				controls::GuiButton*						GetSubMenuHost()override;
+				void										SetColumnSortingState(controls::GuiListViewColumnHeader::ColumnSortingState value)override;
 			};
 			
 			class Win7TreeViewExpandingButtonStyle : public Object, public virtual controls::GuiSelectableButton::IStyleController, public Description<Win7TreeViewExpandingButtonStyle>
@@ -7142,6 +7237,7 @@ Menu Button
 				controls::GuiMenu::IStyleController*		CreateSubMenuStyleController()override;
 				void										SetSubMenuExisting(bool value)override;
 				void										SetSubMenuOpening(bool value)override;
+				controls::GuiButton*						GetSubMenuHost()override;
 				void										Transfer(controls::GuiButton::ControlState value)override;
 			};
 			
@@ -7167,6 +7263,7 @@ Menu Button
 				controls::GuiMenu::IStyleController*		CreateSubMenuStyleController()override;
 				void										SetSubMenuExisting(bool value)override;
 				void										SetSubMenuOpening(bool value)override;
+				controls::GuiButton*						GetSubMenuHost()override;
 				void										Transfer(controls::GuiButton::ControlState value)override;
 			};
 			
@@ -7199,7 +7296,7 @@ ComboBox
 				compositions::GuiTableComposition*				table;
 				compositions::GuiCellComposition*				textComposition;
 				compositions::GuiCellComposition*				dropDownComposition;
-				elements::GuiSolidLabelElement*					dropDownElement;
+				elements::GuiPolygonElement*					dropDownElement;
 
 				void											TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
 			public:
@@ -7385,7 +7482,7 @@ List
 				~Win7ListViewProvider();
 
 				controls::GuiSelectableButton::IStyleController*		CreateItemBackground()override;
-				controls::GuiSelectableButton::IStyleController*		CreateColumnStyle()override;
+				controls::GuiListViewColumnHeader::IStyleController*	CreateColumnStyle()override;
 				Color													GetPrimaryTextColor()override;
 				Color													GetSecondaryTextColor()override;
 				Color													GetItemSeparatorColor()override;
@@ -8561,6 +8658,100 @@ Renderers
 #endif
 
 /***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSIMAGESERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSIMAGESERIVCE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSIMAGESERIVCE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsImageFrame : public Object, public INativeImageFrame
+			{
+			protected:
+				INativeImage*													image;
+				ComPtr<IWICBitmap>												frameBitmap;
+				collections::Dictionary<void*, Ptr<INativeImageFrameCache>>		caches;
+
+				void										Initialize(IWICBitmapSource* bitmapSource);
+			public:
+				WindowsImageFrame(INativeImage* _image, IWICBitmapFrameDecode* frameDecode);
+				WindowsImageFrame(INativeImage* _image, IWICBitmap* sourceBitmap);
+				~WindowsImageFrame();
+				INativeImage*								GetImage();
+				Size										GetSize();
+				bool										SetCache(void* key, Ptr<INativeImageFrameCache> cache);
+				Ptr<INativeImageFrameCache>					GetCache(void* key);
+				Ptr<INativeImageFrameCache>					RemoveCache(void* key);
+				IWICBitmap*									GetFrameBitmap();
+			};
+
+			class WindowsImage : public Object, public INativeImage
+			{
+			protected:
+				INativeImageService*						imageService;
+				ComPtr<IWICBitmapDecoder>					bitmapDecoder;
+				collections::Array<Ptr<WindowsImageFrame>>	frames;
+			public:
+				WindowsImage(INativeImageService* _imageService, IWICBitmapDecoder* _bitmapDecoder);
+				~WindowsImage();
+				INativeImageService*						GetImageService();
+				FormatType									GetFormat();
+				int											GetFrameCount();
+				INativeImageFrame*							GetFrame(int index);
+			};
+
+			class WindowsBitmapImage : public Object, public INativeImage
+			{
+			protected:
+				INativeImageService*						imageService;
+				Ptr<WindowsImageFrame>						frame;
+				FormatType									formatType;
+			public:
+				WindowsBitmapImage(INativeImageService* _imageService, IWICBitmap* sourceBitmap, FormatType _formatType);
+				~WindowsBitmapImage();
+				INativeImageService*						GetImageService();
+				FormatType									GetFormat();
+				int											GetFrameCount();
+				INativeImageFrame*							GetFrame(int index);
+			};
+
+			class WindowsImageService : public Object, public INativeImageService
+			{
+			protected:
+				ComPtr<IWICImagingFactory>					imagingFactory;
+			public:
+				WindowsImageService();
+				~WindowsImageService();
+				Ptr<INativeImage>							CreateImageFromFile(const WString& path);
+				Ptr<INativeImage>							CreateImageFromHBITMAP(HBITMAP handle);
+				Ptr<INativeImage>							CreateImageFromHICON(HICON handle);
+				IWICImagingFactory*							GetImagingFactory();
+			};
+
+			extern IWICImagingFactory*						GetWICImagingFactory();
+			extern IWICBitmap*								GetWICBitmap(INativeImageFrame* frame);
+			extern Ptr<INativeImage>						CreateImageFromHBITMAP(HBITMAP handle);
+			extern Ptr<INativeImage>						CreateImageFromHICON(HICON handle);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
 NATIVEWINDOW\WINDOWS\WINNATIVEWINDOW.H
 ***********************************************************************/
 /***********************************************************************
@@ -8597,11 +8788,6 @@ Windows Platform Native Controller
 			extern INativeController*						CreateWindowsNativeController(HINSTANCE hInstance);
 			extern IWindowsForm*							GetWindowsForm(INativeWindow* window);
 			extern void										DestroyWindowsNativeController(INativeController* controller);
-
-			extern IWICImagingFactory*						GetWICImagingFactory();
-			extern IWICBitmap*								GetWICBitmap(INativeImageFrame* frame);
-			extern Ptr<INativeImage>						CreateImageFromHBITMAP(HBITMAP handle);
-			extern Ptr<INativeImage>						CreateImageFromHICON(HICON handle);
 		}
 	}
 }
@@ -8666,5 +8852,307 @@ namespace vl
 }
 
 extern int WinMainGDI(HINSTANCE hInstance, void(*RendererMain)());
+
+#endif
+
+/***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSASYNCSERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSASYNCSERVICE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSASYNCSERVICE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsAsyncService : public INativeAsyncService
+			{
+			public:
+				struct TaskItem
+				{
+					Semaphore*							semaphore;
+					INativeAsyncService::AsyncTaskProc*	proc;
+					void*								argument;
+
+					TaskItem();
+					TaskItem(Semaphore* _semaphore, INativeAsyncService::AsyncTaskProc* _proc, void* _argument);
+					~TaskItem();
+
+					bool operator==(const TaskItem& item)const{return false;}
+					bool operator!=(const TaskItem& item)const{return true;}
+				};
+			protected:
+				int								mainThreadId;
+				SpinLock						taskListLock;
+				collections::List<TaskItem>		taskItems;
+			public:
+				WindowsAsyncService();
+				~WindowsAsyncService();
+				void							ExecuteAsyncTasks();
+				bool							IsInMainThread();
+				void							InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument);
+				void							InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument);
+				bool							InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, int milliseconds);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSCALLBACKSERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSCALLBACKSERVICE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSCALLBACKSERVICE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsCallbackService : public Object, public INativeCallbackService
+			{
+			protected:
+				collections::List<INativeControllerListener*>	listeners;
+
+			public:
+				WindowsCallbackService();
+				bool											InstallListener(INativeControllerListener* listener);
+				bool											UninstallListener(INativeControllerListener* listener);
+
+				void											InvokeMouseHook(WPARAM message, Point location);
+				void											InvokeGlobalTimer();
+				void											InvokeClipboardUpdated();
+				void											InvokeNativeWindowCreated(INativeWindow* window);
+				void											InvokeNativeWindowDestroyed(INativeWindow* window);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSCLIPBOARDSERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSCLIPBOARDSERVICE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSCLIPBOARDSERVICE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsClipboardService : public Object, public INativeClipboardService
+			{
+			protected:
+				HWND					ownerHandle;
+			public:
+				WindowsClipboardService();
+				void					SetOwnerHandle(HWND handle);
+				bool					ContainsText();
+				WString					GetText();
+				bool					SetText(const WString& value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSINPUTSERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSINPUTSERVICE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSINPUTSERVICE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsInputService : public Object, public INativeInputService
+			{
+			protected:
+				HWND								ownerHandle;
+				HHOOK								mouseHook;
+				bool								isTimerEnabled;
+				HOOKPROC							mouseProc;
+			public:
+				WindowsInputService(HOOKPROC _mouseProc);
+
+				void								SetOwnerHandle(HWND handle);
+				void								StartHookMouse();
+				void								StopHookMouse();
+				bool								IsHookingMouse();
+				void								StartTimer();
+				void								StopTimer();
+				bool								IsTimerEnabled();
+				bool								IsKeyPressing(int code);
+				bool								IsKeyToggled(int code);
+			};
+
+			extern bool								WinIsKeyPressing(int code);
+			extern bool								WinIsKeyToggled(int code);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSRESOURCESERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSRESOURCESERVICE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSRESOURCESERVICE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsCursor : public Object, public INativeCursor
+			{
+			protected:
+				HCURSOR										handle;
+				bool										isSystemCursor;
+				SystemCursorType							systemCursorType;
+			public:
+				WindowsCursor(HCURSOR _handle);
+				WindowsCursor(SystemCursorType type);
+				bool										IsSystemCursor();
+				SystemCursorType							GetSystemCursorType();
+				HCURSOR										GetCursorHandle();
+			};
+
+			class WindowsResourceService : public Object, public INativeResourceService
+			{
+			protected:
+				collections::Array<Ptr<WindowsCursor>>		systemCursors;
+				FontProperties								defaultFont;
+			public:
+				WindowsResourceService();
+				INativeCursor*								GetSystemCursor(INativeCursor::SystemCursorType type);
+				INativeCursor*								GetDefaultSystemCursor();
+				FontProperties								GetDefaultFont();
+				void										SetDefaultFont(const FontProperties& value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+NATIVEWINDOW\WINDOWS\SERVICESIMPL\WINDOWSSCREENSERVICE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: ³Âè÷å«(vczh)
+GacUI::Native Window::Windows Implementation
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSSCREENSERVICE
+#define VCZH_PRESENTATION_WINDOWS_SERVICESIMPL_WINDOWSSCREENSERVICE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			class WindowsScreen : public Object, public INativeScreen
+			{
+				friend class WindowsScreenService;
+			protected:
+				HMONITOR										monitor;
+			public:
+				WindowsScreen();
+				Rect											GetBounds();
+				Rect											GetClientBounds();
+				WString											GetName();
+				bool											IsPrimary();
+			};
+
+			class WindowsScreenService : public Object, public INativeScreenService
+			{
+				typedef HWND (*HandleRetriver)(INativeWindow*);
+			protected:
+				collections::List<Ptr<WindowsScreen>>			screens;
+				HandleRetriver									handleRetriver;
+			public:
+
+				struct MonitorEnumProcData
+				{
+					WindowsScreenService*	screenService;
+					int						currentScreen;
+				};
+
+				WindowsScreenService(HandleRetriver _handleRetriver);
+
+				static BOOL CALLBACK							MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData);
+				void											RefreshScreenInformation();
+				int												GetScreenCount();
+				INativeScreen*									GetScreen(int index);
+				INativeScreen*									GetScreen(INativeWindow* window);
+			};
+		}
+	}
+}
 
 #endif

@@ -29,9 +29,15 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListBox.VirtualMod
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListBox.NameEditor", "Controls.ListBox.NameEditor\Controls.ListBox.NameEditor.vcxproj", "{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListView.ViewSwitching", "Controls.ListView.ViewSwitching\Controls.ListView.ViewSwitching.vcxproj", "{88EA0F51-415E-4F4A-980D-5F6602903704}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListView.VirtualMode", "Controls.ListView.VirtualMode\Controls.ListView.VirtualMode.vcxproj", "{978EB4E8-7462-40C5-9049-83FF9592BA75}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListView.SortingAndFiltering", "Controls.ListView.SortingAndFiltering\Controls.ListView.SortingAndFiltering.vcxproj", "{EFB47B32-B002-4B92-A313-ACA8D96B266B}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 11
+		SccNumberOfProjects = 14
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -74,6 +80,18 @@ Global
 		SccProjectTopLevelParentUniqueName10 = GacUIDemo.sln
 		SccProjectName10 = Controls.ListBox.NameEditor
 		SccLocalPath10 = Controls.ListBox.NameEditor
+		SccProjectUniqueName11 = Controls.ListView.ViewSwitching\\Controls.ListView.ViewSwitching.vcxproj
+		SccProjectTopLevelParentUniqueName11 = GacUIDemo.sln
+		SccProjectName11 = Controls.ListView.ViewSwitching
+		SccLocalPath11 = Controls.ListView.ViewSwitching
+		SccProjectUniqueName12 = Controls.ListView.VirtualMode\\Controls.ListView.VirtualMode.vcxproj
+		SccProjectTopLevelParentUniqueName12 = GacUIDemo.sln
+		SccProjectName12 = Controls.ListView.VirtualMode
+		SccLocalPath12 = Controls.ListView.VirtualMode
+		SccProjectUniqueName13 = Controls.ListView.SortingAndFiltering\\Controls.ListView.SortingAndFiltering.vcxproj
+		SccProjectTopLevelParentUniqueName13 = GacUIDemo.sln
+		SccProjectName13 = Controls.ListView.SortingAndFiltering
+		SccLocalPath13 = Controls.ListView.SortingAndFiltering
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -120,6 +138,18 @@ Global
 		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Debug|Win32.Build.0 = Debug|Win32
 		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Release|Win32.ActiveCfg = Release|Win32
 		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C}.Release|Win32.Build.0 = Release|Win32
+		{88EA0F51-415E-4F4A-980D-5F6602903704}.Debug|Win32.ActiveCfg = Debug|Win32
+		{88EA0F51-415E-4F4A-980D-5F6602903704}.Debug|Win32.Build.0 = Debug|Win32
+		{88EA0F51-415E-4F4A-980D-5F6602903704}.Release|Win32.ActiveCfg = Release|Win32
+		{88EA0F51-415E-4F4A-980D-5F6602903704}.Release|Win32.Build.0 = Release|Win32
+		{978EB4E8-7462-40C5-9049-83FF9592BA75}.Debug|Win32.ActiveCfg = Debug|Win32
+		{978EB4E8-7462-40C5-9049-83FF9592BA75}.Debug|Win32.Build.0 = Debug|Win32
+		{978EB4E8-7462-40C5-9049-83FF9592BA75}.Release|Win32.ActiveCfg = Release|Win32
+		{978EB4E8-7462-40C5-9049-83FF9592BA75}.Release|Win32.Build.0 = Release|Win32
+		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Debug|Win32.Build.0 = Debug|Win32
+		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Release|Win32.ActiveCfg = Release|Win32
+		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -134,5 +164,8 @@ Global
 		{5B44540E-78B6-4355-AC15-4DE8B88F3781} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{0BFBD83F-961F-4A6E-A6D7-3B771B298D2E} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{3BEB18C5-2F88-447F-B52E-1EE3A912F81C} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{88EA0F51-415E-4F4A-980D-5F6602903704} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{978EB4E8-7462-40C5-9049-83FF9592BA75} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{EFB47B32-B002-4B92-A313-ACA8D96B266B} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 	EndGlobalSection
 EndGlobal

@@ -540,6 +540,36 @@ ListViewItemStyleProviderBase
 			}
 
 /***********************************************************************
+GuiListViewColumnHeader
+***********************************************************************/
+			
+			GuiListViewColumnHeader::GuiListViewColumnHeader(IStyleController* _styleController)
+				:GuiMenuButton(_styleController)
+				,columnSortingState(NotSorted)
+				,styleController(_styleController)
+			{
+				styleController->SetColumnSortingState(columnSortingState);
+			}
+
+			GuiListViewColumnHeader::~GuiListViewColumnHeader()
+			{
+			}
+
+			GuiListViewColumnHeader::ColumnSortingState GuiListViewColumnHeader::GetColumnSortingState()
+			{
+				return columnSortingState;
+			}
+
+			void GuiListViewColumnHeader::SetColumnSortingState(ColumnSortingState value)
+			{
+				if(columnSortingState!=value)
+				{
+					columnSortingState=value;
+					styleController->SetColumnSortingState(columnSortingState);
+				}
+			}
+
+/***********************************************************************
 GuiListViewBase
 ***********************************************************************/
 
@@ -548,6 +578,7 @@ GuiListViewBase
 				,styleProvider(0)
 			{
 				styleProvider=dynamic_cast<IStyleProvider*>(styleController->GetStyleProvider());
+				ColumnClicked.SetAssociatedComposition(boundsComposition);
 			}
 
 			GuiListViewBase::~GuiListViewBase()
@@ -1342,17 +1373,19 @@ ListViewColumnItemArranger::ColumnItemViewCallback
 				{
 					arranger->RebuildColumns();
 				}
-
-				void ListViewColumnItemArranger::ColumnItemViewCallback::OnColumnSizeChanged(int index)
-				{
-					arranger->UpdateColumnSize(index);
-				}
 				
 /***********************************************************************
 ListViewColumnItemArranger
 ***********************************************************************/
 
 				const wchar_t* const ListViewColumnItemArranger::IColumnItemView::Identifier = L"vl::presentation::controls::list::ListViewColumnItemArranger::IColumnItemView";
+
+				void ListViewColumnItemArranger::ColumnClicked(int index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+				{
+					GuiItemEventArgs args(listView->ColumnClicked.GetAssociatedComposition());
+					args.itemIndex=index;
+					listView->ColumnClicked.Execute(args);
+				}
 
 				void ListViewColumnItemArranger::ColumnHeaderSplitterLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
 				{
@@ -1444,62 +1477,66 @@ ListViewColumnItemArranger
 
 				void ListViewColumnItemArranger::RebuildColumns()
 				{
-					DeleteColumnButtons();
-					if(columnItemView)
+					if(columnItemView && columnHeaderButtons.Count()==columnItemView->GetColumnCount())
 					{
 						for(int i=0;i<columnItemView->GetColumnCount();i++)
 						{
-							GuiBoundsComposition* splitterComposition=new GuiBoundsComposition;
-							splitterComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
-							splitterComposition->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::SizeWE));
-							splitterComposition->SetAlignmentToParent(Margin(0, 0, -1, 0));
-							splitterComposition->SetPreferredMinSize(Size(SplitterWidth, 0));
-							columnHeaderSplitters.Add(splitterComposition);
-
-							splitterComposition->GetEventReceiver()->leftButtonDown.AttachMethod(this, &ListViewColumnItemArranger::ColumnHeaderSplitterLeftButtonDown);
-							splitterComposition->GetEventReceiver()->leftButtonUp.AttachMethod(this, &ListViewColumnItemArranger::ColumnHeaderSplitterLeftButtonUp);
-							splitterComposition->GetEventReceiver()->mouseMove.AttachMethod(this, &ListViewColumnItemArranger::ColumnHeaderSplitterMouseMove);
-						}
-						for(int i=0;i<columnItemView->GetColumnCount();i++)
-						{
-							GuiButton* button=new GuiButton(styleProvider->CreateColumnStyle());
+							GuiListViewColumnHeader* button=columnHeaderButtons[i];
 							button->SetText(columnItemView->GetColumnText(i));
+							button->SetSubMenu(columnItemView->GetDropdownPopup(i));
+							button->SetColumnSortingState(columnItemView->GetSortingState(i));
 							button->GetBoundsComposition()->SetBounds(Rect(Point(0, 0), Size(columnItemView->GetColumnSize(i), 0)));
-							columnHeaderButtons.Add(button);
-							if(i>0)
-							{
-								button->GetContainerComposition()->AddChild(columnHeaderSplitters[i-1]);
-							}
-
-							GuiStackItemComposition* item=new GuiStackItemComposition;
-							item->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-							item->AddChild(button->GetBoundsComposition());
-							columnHeaders->AddChild(item);
 						}
-						if(columnItemView->GetColumnCount()>0)
+					}
+					else
+					{
+						DeleteColumnButtons();
+						if(columnItemView)
 						{
-							GuiBoundsComposition* splitterComposition=columnHeaderSplitters[columnItemView->GetColumnCount()-1];
+							for(int i=0;i<columnItemView->GetColumnCount();i++)
+							{
+								GuiBoundsComposition* splitterComposition=new GuiBoundsComposition;
+								splitterComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+								splitterComposition->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::SizeWE));
+								splitterComposition->SetAlignmentToParent(Margin(0, 0, -1, 0));
+								splitterComposition->SetPreferredMinSize(Size(SplitterWidth, 0));
+								columnHeaderSplitters.Add(splitterComposition);
 
-							GuiStackItemComposition* item=new GuiStackItemComposition;
-							item->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-							item->AddChild(splitterComposition);
-							columnHeaders->AddChild(item);
+								splitterComposition->GetEventReceiver()->leftButtonDown.AttachMethod(this, &ListViewColumnItemArranger::ColumnHeaderSplitterLeftButtonDown);
+								splitterComposition->GetEventReceiver()->leftButtonUp.AttachMethod(this, &ListViewColumnItemArranger::ColumnHeaderSplitterLeftButtonUp);
+								splitterComposition->GetEventReceiver()->mouseMove.AttachMethod(this, &ListViewColumnItemArranger::ColumnHeaderSplitterMouseMove);
+							}
+							for(int i=0;i<columnItemView->GetColumnCount();i++)
+							{
+								GuiListViewColumnHeader* button=new GuiListViewColumnHeader(styleProvider->CreateColumnStyle());
+								button->SetText(columnItemView->GetColumnText(i));
+								button->SetSubMenu(columnItemView->GetDropdownPopup(i));
+								button->SetColumnSortingState(columnItemView->GetSortingState(i));
+								button->GetBoundsComposition()->SetBounds(Rect(Point(0, 0), Size(columnItemView->GetColumnSize(i), 0)));
+								button->Clicked.AttachLambda(Curry(Func<void(int, GuiGraphicsComposition*, GuiEventArgs&)>(this, &ListViewColumnItemArranger::ColumnClicked))(i));
+								columnHeaderButtons.Add(button);
+								if(i>0)
+								{
+									button->GetContainerComposition()->AddChild(columnHeaderSplitters[i-1]);
+								}
+
+								GuiStackItemComposition* item=new GuiStackItemComposition;
+								item->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+								item->AddChild(button->GetBoundsComposition());
+								columnHeaders->AddChild(item);
+							}
+							if(columnItemView->GetColumnCount()>0)
+							{
+								GuiBoundsComposition* splitterComposition=columnHeaderSplitters[columnItemView->GetColumnCount()-1];
+
+								GuiStackItemComposition* item=new GuiStackItemComposition;
+								item->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+								item->AddChild(splitterComposition);
+								columnHeaders->AddChild(item);
+							}
 						}
 					}
 					callback->OnTotalSizeChanged();
-				}
-
-				void ListViewColumnItemArranger::UpdateColumnSize(int index)
-				{
-					if(index>=0 && index<columnHeaderButtons.Count())
-					{
-						int size=columnItemView->GetColumnSize(index);
-						GuiBoundsComposition* buttonBounds=columnHeaderButtons[index]->GetBoundsComposition();
-						Rect bounds=buttonBounds->GetBounds();
-						Rect newBounds(bounds.LeftTop(), Size(size, bounds.Height()));
-						buttonBounds->SetBounds(newBounds);
-						callback->OnTotalSizeChanged();
-					}
 				}
 
 				ListViewColumnItemArranger::ListViewColumnItemArranger()
@@ -1688,26 +1725,6 @@ ListViewDetailContentProvider
 				{
 				}
 
-				void ListViewDetailContentProvider::OnColumnSizeChanged(int index)
-				{
-					int itemCount=listViewItemStyleProvider->GetCreatedItemStyles().Count();
-					for(int i=0;i<itemCount;i++)
-					{
-						ListViewItemStyleProvider::ListViewContentItemStyleController* itemStyle
-							=dynamic_cast<ListViewItemStyleProvider::ListViewContentItemStyleController*>(
-								listViewItemStyleProvider->GetCreatedItemStyles()[i]
-								);
-						if(itemStyle && listViewItemStyleProvider->IsItemStyleAttachedToListView(itemStyle))
-						{
-							ItemContent* itemContent=dynamic_cast<ItemContent*>(itemStyle->GetItemContent());
-							if(itemContent)
-							{
-								itemContent->UpdateSubItemSize();
-							}
-						}
-					}
-				}
-
 				ListViewDetailContentProvider::ListViewDetailContentProvider(Size _iconSize)
 					:iconSize(_iconSize)
 					,itemProvider(0)
@@ -1758,14 +1775,60 @@ ListViewDetailContentProvider
 				}
 
 /***********************************************************************
-ListViewItemProvider
+ListViewColumn
 ***********************************************************************/
 
 				ListViewColumn::ListViewColumn(const WString& _text, int _size)
 					:text(_text)
 					,size(_size)
+					,dropdownPopup(0)
+					,sortingState(GuiListViewColumnHeader::NotSorted)
 				{
 				}
+
+/***********************************************************************
+ListViewDataColumns
+***********************************************************************/
+
+				void ListViewDataColumns::NotifyUpdateInternal(int start, int count, int newCount)
+				{
+					itemProvider->NotifyUpdate(0, itemProvider->Count());
+				}
+
+				ListViewDataColumns::ListViewDataColumns()
+					:itemProvider(0)
+				{
+				}
+
+				ListViewDataColumns::~ListViewDataColumns()
+				{
+				}
+
+/***********************************************************************
+ListViewColumns
+***********************************************************************/
+
+				void ListViewColumns::NotifyUpdateInternal(int start, int count, int newCount)
+				{
+					for(int i=0;i<itemProvider->columnItemViewCallbacks.Count();i++)
+					{
+						itemProvider->columnItemViewCallbacks[i]->OnColumnChanged();
+					}
+					itemProvider->NotifyUpdate(0, itemProvider->Count());
+				}
+
+				ListViewColumns::ListViewColumns()
+					:itemProvider(0)
+				{
+				}
+
+				ListViewColumns::~ListViewColumns()
+				{
+				}
+
+/***********************************************************************
+ListViewItemProvider
+***********************************************************************/
 
 				bool ListViewItemProvider::ContainsPrimaryText(int itemIndex)
 				{
@@ -1878,13 +1941,39 @@ ListViewItemProvider
 						columns[index]->size=value;
 						for(int i=0;i<columnItemViewCallbacks.Count();i++)
 						{
-							columnItemViewCallbacks[i]->OnColumnSizeChanged(index);
+							columnItemViewCallbacks[i]->OnColumnChanged();
 						}
+					}
+				}
+
+				GuiMenu* ListViewItemProvider::GetDropdownPopup(int index)
+				{
+					if(index<0 || index>=columns.Count())
+					{
+						return 0;
+					}
+					else
+					{
+						return columns[index]->dropdownPopup;
+					}
+				}
+
+				GuiListViewColumnHeader::ColumnSortingState ListViewItemProvider::GetSortingState(int index)
+				{
+					if(index<0 || index>=columns.Count())
+					{
+						return GuiListViewColumnHeader::NotSorted;
+					}
+					else
+					{
+						return columns[index]->sortingState;
 					}
 				}
 
 				ListViewItemProvider::ListViewItemProvider()
 				{
+					columns.itemProvider=this;
+					dataColumns.itemProvider=this;
 				}
 
 				ListViewItemProvider::~ListViewItemProvider()
@@ -1915,27 +2004,14 @@ ListViewItemProvider
 				{
 				}
 
-				collections::IList<int>& ListViewItemProvider::GetDataColumns()
+				ListViewDataColumns& ListViewItemProvider::GetDataColumns()
 				{
-					return dataColumns.Wrap();
+					return dataColumns;
 				}
 
-				void ListViewItemProvider::NotifyDataColumnsUpdated()
+				ListViewColumns& ListViewItemProvider::GetColumns()
 				{
-					NotifyUpdate(0, Count());
-				}
-
-				collections::IList<Ptr<ListViewColumn>>& ListViewItemProvider::GetColumns()
-				{
-					return columns.Wrap();
-				}
-
-				void ListViewItemProvider::NotifyColumnsUpdated()
-				{
-					for(int i=0;i<columnItemViewCallbacks.Count();i++)
-					{
-						columnItemViewCallbacks[i]->OnColumnChanged();
-					}
+					return columns;
 				}
 			}
 
@@ -2174,6 +2250,12 @@ GuiMenuBar
 GuiMenuButton
 ***********************************************************************/
 
+			GuiButton* GuiMenuButton::GetSubMenuHost()
+			{
+				GuiButton* button=styleController->GetSubMenuHost();
+				return button?button:this;
+			}
+
 			void GuiMenuButton::OpenSubMenuInternal()
 			{
 				if(!GetSubMenuOpening())
@@ -2246,18 +2328,19 @@ GuiMenuButton
 				:GuiButton(_styleController)
 				,styleController(_styleController)
 				,subMenu(0)
+				,ownedSubMenu(false)
 				,ownerMenuService(0)
 			{
 				SetClickOnMouseUp(false);
 				SubMenuOpeningChanged.SetAssociatedComposition(boundsComposition);
-				Clicked.AttachMethod(this, &GuiMenuButton::OnClicked);
-				GetEventReceiver()->leftButtonDown.AttachMethod(this, &GuiMenuButton::OnLeftButtonDown);
-				GetEventReceiver()->mouseEnter.AttachMethod(this, &GuiMenuButton::OnMouseEnter);
+				GetSubMenuHost()->Clicked.AttachMethod(this, &GuiMenuButton::OnClicked);
+				GetSubMenuHost()->GetEventReceiver()->leftButtonDown.AttachMethod(this, &GuiMenuButton::OnLeftButtonDown);
+				GetSubMenuHost()->GetEventReceiver()->mouseEnter.AttachMethod(this, &GuiMenuButton::OnMouseEnter);
 			}
 
 			GuiMenuButton::~GuiMenuButton()
 			{
-				if(subMenu)
+				if(subMenu && ownedSubMenu)
 				{
 					delete subMenu;
 				}
@@ -2281,17 +2364,41 @@ GuiMenuButton
 					subMenu->WindowOpened.AttachMethod(this, &GuiMenuButton::OnSubMenuWindowOpened);
 					subMenu->WindowClosed.AttachMethod(this, &GuiMenuButton::OnSubMenuWindowClosed);
 					styleController->SetSubMenuExisting(true);
+					ownedSubMenu=true;
 				}
+			}
+
+			void GuiMenuButton::SetSubMenu(GuiMenu* value)
+			{
+				if(subMenu)
+				{
+					if(ownedSubMenu)
+					{
+						delete subMenu;
+					}
+				}
+				subMenu=value;
+				ownedSubMenu=false;
+				styleController->SetSubMenuExisting(subMenu!=0);
 			}
 
 			void GuiMenuButton::DestroySubMenu()
 			{
 				if(subMenu)
 				{
-					delete subMenu;
+					if(ownedSubMenu)
+					{
+						delete subMenu;
+					}
 					subMenu=0;
+					ownedSubMenu=false;
 					styleController->SetSubMenuExisting(false);
 				}
+			}
+
+			bool GuiMenuButton::GetOwnedSubMenu()
+			{
+				return subMenu && ownedSubMenu;
 			}
 
 			bool GuiMenuButton::GetSubMenuOpening()
@@ -2314,7 +2421,7 @@ GuiMenuButton
 					{
 						subMenu->SetClientSize(preferredMenuClientSize);
 						IGuiMenuService::Direction direction=ownerMenuService?ownerMenuService->GetPreferredDirection():IGuiMenuService::Horizontal;
-						subMenu->ShowPopup(this, direction==IGuiMenuService::Horizontal);
+						subMenu->ShowPopup(GetSubMenuHost(), direction==IGuiMenuService::Horizontal);
 					}
 					else
 					{
@@ -2595,7 +2702,7 @@ TextItemProvider
 
 				void TextItemProvider::SetCheckedSilently(int itemIndex, bool value)
 				{
-					list[itemIndex].checked=value;
+					items[itemIndex].checked=value;
 				}
 
 				TextItemProvider::TextItemProvider()
@@ -2608,7 +2715,7 @@ TextItemProvider
 					
 				void TextItemProvider::SetText(int itemIndex, const WString& value)
 				{
-					list[itemIndex].text=value;
+					items[itemIndex].text=value;
 					InvokeOnItemModified(itemIndex, 1, 1);
 				}
 
@@ -5030,7 +5137,7 @@ GuiScrollView::StyleController
 			void GuiScrollView::StyleController::AdjustView(Size fullSize)
 			{
 				Size viewSize=containerComposition->GetBounds().GetSize();
-				if(fullSize.x<viewSize.x)
+				if(fullSize.x<=viewSize.x)
 				{
 					horizontalScroll->SetEnabled(false);
 					horizontalScroll->SetPosition(0);
@@ -5041,7 +5148,7 @@ GuiScrollView::StyleController
 					horizontalScroll->SetTotalSize(fullSize.x);
 					horizontalScroll->SetPageSize(viewSize.x);
 				}
-				if(fullSize.y<viewSize.y)
+				if(fullSize.y<=viewSize.y)
 				{
 					verticalScroll->SetEnabled(false);
 					verticalScroll->SetPosition(0);
@@ -5482,7 +5589,7 @@ GuiListControl
 
 			void GuiListControl::OnStyleInstalled(int itemIndex, IItemStyleController* style)
 			{
-				AttachItemEvents(itemIndex, style);
+				AttachItemEvents(style);
 			}
 
 			void GuiListControl::OnStyleUninstalled(IItemStyleController* style)
@@ -5558,41 +5665,59 @@ GuiListControl
 				CalculateView();
 			}
 
-			void GuiListControl::OnItemMouseEvent(compositions::GuiItemMouseEvent& itemEvent, int itemIndex, compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+			void GuiListControl::OnItemMouseEvent(compositions::GuiItemMouseEvent& itemEvent, IItemStyleController* style, compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
 			{
-				GuiItemMouseEventArgs redirectArguments;
-				(GuiMouseEventArgs&)redirectArguments=arguments;
-				redirectArguments.itemIndex=itemIndex;
-				itemEvent.Execute(redirectArguments);
-				arguments=redirectArguments;
+				if(itemArranger)
+				{
+					int itemIndex=itemArranger->GetVisibleIndex(style);
+					if(itemIndex!=-1)
+					{
+						GuiItemMouseEventArgs redirectArguments;
+						(GuiMouseEventArgs&)redirectArguments=arguments;
+						redirectArguments.compositionSource=GetBoundsComposition();
+						redirectArguments.eventSource=GetBoundsComposition();
+						redirectArguments.itemIndex=itemIndex;
+						itemEvent.Execute(redirectArguments);
+						arguments=redirectArguments;
+					}
+				}
 			}
 
-			void GuiListControl::OnItemNotifyEvent(compositions::GuiItemNotifyEvent& itemEvent, int itemIndex, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			void GuiListControl::OnItemNotifyEvent(compositions::GuiItemNotifyEvent& itemEvent, IItemStyleController* style, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
 			{
-				GuiItemEventArgs redirectArguments;
-				(GuiEventArgs&)redirectArguments=arguments;
-				redirectArguments.itemIndex=itemIndex;
-				itemEvent.Execute(redirectArguments);
-				arguments=redirectArguments;
+				if(itemArranger)
+				{
+					int itemIndex=itemArranger->GetVisibleIndex(style);
+					if(itemIndex!=-1)
+					{
+						GuiItemEventArgs redirectArguments;
+						(GuiEventArgs&)redirectArguments=arguments;
+						redirectArguments.compositionSource=GetBoundsComposition();
+						redirectArguments.eventSource=GetBoundsComposition();
+						redirectArguments.itemIndex=itemIndex;
+						itemEvent.Execute(redirectArguments);
+						arguments=redirectArguments;
+					}
+				}
 			}
 
 #define ATTACH_ITEM_MOUSE_EVENT(EVENTNAME, ITEMEVENTNAME)\
 					{\
-						Func<void(GuiItemMouseEvent&, int, GuiGraphicsComposition*, GuiMouseEventArgs&)> func(this, &GuiListControl::OnItemMouseEvent);\
+						Func<void(GuiItemMouseEvent&, IItemStyleController*, GuiGraphicsComposition*, GuiMouseEventArgs&)> func(this, &GuiListControl::OnItemMouseEvent);\
 						helper->EVENTNAME##Handler=style->GetBoundsComposition()->GetEventReceiver()->EVENTNAME.AttachFunction(\
-							Curry(Curry(func)(ITEMEVENTNAME))(itemIndex)\
+							Curry(Curry(func)(ITEMEVENTNAME))(style)\
 							);\
 					}\
 
 #define ATTACH_ITEM_NOTIFY_EVENT(EVENTNAME, ITEMEVENTNAME)\
 					{\
-						Func<void(GuiItemNotifyEvent&, int, GuiGraphicsComposition*, GuiEventArgs&)> func(this, &GuiListControl::OnItemNotifyEvent);\
+						Func<void(GuiItemNotifyEvent&, IItemStyleController*, GuiGraphicsComposition*, GuiEventArgs&)> func(this, &GuiListControl::OnItemNotifyEvent);\
 						helper->EVENTNAME##Handler=style->GetBoundsComposition()->GetEventReceiver()->EVENTNAME.AttachFunction(\
-							Curry(Curry(func)(ITEMEVENTNAME))(itemIndex)\
+							Curry(Curry(func)(ITEMEVENTNAME))(style)\
 							);\
 					}\
 
-			void GuiListControl::AttachItemEvents(int itemIndex, IItemStyleController* style)
+			void GuiListControl::AttachItemEvents(IItemStyleController* style)
 			{
 				int index=visibleStyles.Keys().IndexOf(style);
 				if(index==-1)
@@ -7760,28 +7885,40 @@ GuiTextElementOperator
 					textElement->SetCaretBegin(pos);
 				}
 				textElement->SetCaretEnd(pos);
-				textElement->SetCaretVisible(true);
+				if(textControl)
+				{
+					GuiGraphicsHost* host=textComposition->GetRelatedGraphicsHost();
+					if(host)
+					{
+						if(host->GetFocusedComposition()==textControl->GetFocusableComposition())
+						{
+							textElement->SetCaretVisible(true);
+						}
+					}
+				}
 
 				Rect bounds=textElement->GetLines().GetRectFromTextPos(pos);
 				Rect view=Rect(textElement->GetViewPosition(), textComposition->GetBounds().GetSize());
 				Point viewPoint=view.LeftTop();
-				int offsetX=textElement->GetLines().GetRowHeight()*5;
 
-				if(bounds.x1<view.x1)
+				if(view.x2>view.x1 && view.y2>view.y1)
 				{
-					viewPoint.x=bounds.x1-offsetX;
-				}
-				else if(bounds.x2>view.x2)
-				{
-					viewPoint.x=bounds.x2-view.Width()+offsetX;
-				}
-				if(bounds.y1<view.y1)
-				{
-					viewPoint.y=bounds.y1;
-				}
-				else if(bounds.y2>view.y2)
-				{
-					viewPoint.y=bounds.y2-view.Height();
+					if(bounds.x1<view.x1)
+					{
+						viewPoint.x=bounds.x1;
+					}
+					else if(bounds.x2>view.x2)
+					{
+						viewPoint.x=bounds.x2-view.Width();
+					}
+					if(bounds.y1<view.y1)
+					{
+						viewPoint.y=bounds.y1;
+					}
+					else if(bounds.y2>view.y2)
+					{
+						viewPoint.y=bounds.y2-view.Height();
+					}
 				}
 
 				callback->ScrollToView(viewPoint);
@@ -7874,9 +8011,12 @@ GuiTextElementOperator
 						{
 							if(end.column==0)
 							{
-								end.row--;
-								end=textElement->GetLines().Normalize(end);
-								end.column=textElement->GetLines().GetLine(end.row).dataLength;
+								if(end.row>0)
+								{
+									end.row--;
+									end=textElement->GetLines().Normalize(end);
+									end.column=textElement->GetLines().GetLine(end.row).dataLength;
+								}
 							}
 							else
 							{
@@ -7896,8 +8036,11 @@ GuiTextElementOperator
 						{
 							if(end.column==textElement->GetLines().GetLine(end.row).dataLength)
 							{
-								end.row++;
-								end.column=0;
+								if(end.row<textElement->GetLines().GetCount()-1)
+								{
+									end.row++;
+									end.column=0;
+								}
 							}
 							else
 							{
@@ -9885,19 +10028,13 @@ CommonScrollStyle
 					handleButton->GetBoundsComposition()->GetEventReceiver()->leftButtonUp.AttachMethod(this, &CommonScrollStyle::OnHandleMouseUp);
 				}
 				{
-					FontProperties font;
-					font.fontFamily=L"Wingdings 3";
-					font.size=arrowSize;
-
 					decreaseButton=new GuiButton(CreateDecreaseButtonStyle(direction));
 					decreaseButton->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
 					decreaseButton->Clicked.AttachMethod(this, &CommonScrollStyle::OnDecreaseButtonClicked);
-					decreaseButton->SetFont(font);
 					
 					increaseButton=new GuiButton(CreateIncreaseButtonStyle(direction));
 					increaseButton->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
 					increaseButton->Clicked.AttachMethod(this, &CommonScrollStyle::OnIncreaseButtonClicked);
-					increaseButton->SetFont(font);
 				}
 				{
 					GuiSideAlignedComposition* decreaseComposition=new GuiSideAlignedComposition;
@@ -9912,22 +10049,23 @@ CommonScrollStyle
 					increaseComposition->AddChild(increaseButton->GetBoundsComposition());
 					boundsComposition->AddChild(increaseComposition);
 
+					GuiPolygonElement* elementOut=0;
 					switch(direction)
 					{
 					case Horizontal:
 						{
 							decreaseComposition->SetDirection(GuiSideAlignedComposition::Left);
-							decreaseButton->SetText((wchar_t)0x7C);
+							decreaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildLeftArrow(elementOut));
 							increaseComposition->SetDirection(GuiSideAlignedComposition::Right);
-							increaseButton->SetText((wchar_t)0x7D);
+							increaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildRightArrow(elementOut));
 						}
 						break;
 					case Vertical:
 						{
 							decreaseComposition->SetDirection(GuiSideAlignedComposition::Top);
-							decreaseButton->SetText((wchar_t)0x7E);
+							decreaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildUpArrow(elementOut));
 							increaseComposition->SetDirection(GuiSideAlignedComposition::Bottom);
-							increaseButton->SetText((wchar_t)0xF080);
+							increaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildDownArrow(elementOut));
 						}
 						break;
 					}
@@ -10260,6 +10398,107 @@ CommonTrackStyle
 					position=value;
 					UpdateHandle();
 				}
+			}
+
+/***********************************************************************
+CommonFragmentBuilder
+***********************************************************************/
+
+			void CommonFragmentBuilder::FillUpArrow(elements::GuiPolygonElement* element)
+			{
+				Point points[]={Point(0, 3), Point(3, 0), Point(6, 3)};
+				element->SetSize(Size(7, 4));
+				element->SetPoints(points, sizeof(points)/sizeof(*points));
+			}
+
+			void CommonFragmentBuilder::FillDownArrow(elements::GuiPolygonElement* element)
+			{
+				Point points[]={Point(0, 0), Point(3, 3), Point(6, 0)};
+				element->SetSize(Size(7, 4));
+				element->SetPoints(points, sizeof(points)/sizeof(*points));
+			}
+
+			void CommonFragmentBuilder::FillLeftArrow(elements::GuiPolygonElement* element)
+			{
+				Point points[]={Point(3, 0), Point(0, 3), Point(3, 6)};
+				element->SetSize(Size(4, 7));
+				element->SetPoints(points, sizeof(points)/sizeof(*points));
+			}
+
+			void CommonFragmentBuilder::FillRightArrow(elements::GuiPolygonElement* element)
+			{
+				Point points[]={Point(0, 0), Point(3, 3), Point(0, 6)};
+				element->SetSize(Size(4, 7));
+				element->SetPoints(points, sizeof(points)/sizeof(*points));
+			}
+
+			elements::GuiPolygonElement* CommonFragmentBuilder::BuildUpArrow()
+			{
+				GuiPolygonElement* element=GuiPolygonElement::Create();
+				FillUpArrow(element);
+				element->SetBorderColor(Color(0, 0, 0));
+				element->SetBackgroundColor(Color(0, 0, 0));
+				return element;
+			}
+
+			elements::GuiPolygonElement* CommonFragmentBuilder::BuildDownArrow()
+			{
+				GuiPolygonElement* element=GuiPolygonElement::Create();
+				FillDownArrow(element);
+				element->SetBorderColor(Color(0, 0, 0));
+				element->SetBackgroundColor(Color(0, 0, 0));
+				return element;
+			}
+
+			elements::GuiPolygonElement* CommonFragmentBuilder::BuildLeftArrow()
+			{
+				GuiPolygonElement* element=GuiPolygonElement::Create();
+				FillLeftArrow(element);
+				element->SetBorderColor(Color(0, 0, 0));
+				element->SetBackgroundColor(Color(0, 0, 0));
+				return element;
+			}
+
+			elements::GuiPolygonElement* CommonFragmentBuilder::BuildRightArrow()
+			{
+				GuiPolygonElement* element=GuiPolygonElement::Create();
+				FillRightArrow(element);
+				element->SetBorderColor(Color(0, 0, 0));
+				element->SetBackgroundColor(Color(0, 0, 0));
+				return element;
+			}
+
+			compositions::GuiBoundsComposition* CommonFragmentBuilder::BuildDockedElementContainer(elements::IGuiGraphicsElement* element)
+			{
+				GuiBoundsComposition* composition=new GuiBoundsComposition;
+				composition->SetOwnedElement(element);
+				composition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				return composition;
+			}
+
+			compositions::GuiBoundsComposition* CommonFragmentBuilder::BuildUpArrow(elements::GuiPolygonElement*& elementOut)
+			{
+				elementOut=BuildUpArrow();
+				return BuildDockedElementContainer(elementOut);
+			}
+
+			compositions::GuiBoundsComposition* CommonFragmentBuilder::BuildDownArrow(elements::GuiPolygonElement*& elementOut)
+			{
+				elementOut=BuildDownArrow();
+				return BuildDockedElementContainer(elementOut);
+			}
+
+			compositions::GuiBoundsComposition* CommonFragmentBuilder::BuildLeftArrow(elements::GuiPolygonElement*& elementOut)
+			{
+				elementOut=BuildLeftArrow();
+				return BuildDockedElementContainer(elementOut);
+			}
+
+			compositions::GuiBoundsComposition* CommonFragmentBuilder::BuildRightArrow(elements::GuiPolygonElement*& elementOut)
+			{
+				elementOut=BuildRightArrow();
+				return BuildDockedElementContainer(elementOut);
 			}
 		}
 	}
@@ -11318,23 +11557,14 @@ Win7MenuItemButtonElements
 						cell->AddChild(button.textComposition);
 					}
 					{
-						GuiSolidLabelElement* element=GuiSolidLabelElement::Create();
-						button.subMenuTextElement=element;
-						element->SetAlignments(Alignment::Center, Alignment::Center);
-						{
-							FontProperties font;
-							font.fontFamily=L"Wingdings 3";
-							font.size=10;
-							element->SetFont(font);
-						}
-						element->SetText((wchar_t)0x7D);
+						button.subMenuArrowElement=common_styles::CommonFragmentBuilder::BuildRightArrow();
 
 						GuiCellComposition* cell=new GuiCellComposition;
-						button.subMenuTextComposition=cell;
+						button.subMenuArrowComposition=cell;
 						cell->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
 						table->AddChild(cell);
 						cell->SetSite(0, 3, 1, 1);
-						cell->SetOwnedElement(element);
+						cell->SetOwnedElement(button.subMenuArrowElement);
 						cell->SetVisible(false);
 					}
 				}
@@ -11348,7 +11578,8 @@ Win7MenuItemButtonElements
 				gradientElement->SetColors(colors.g1, colors.g2);
 				splitterElement->SetColors(colors.g3, colors.g4);
 				textElement->SetColor(colors.textColor);
-				subMenuTextElement->SetColor(colors.textColor);
+				subMenuArrowElement->SetBackgroundColor(colors.textColor);
+				subMenuArrowElement->SetBorderColor(colors.textColor);
 			}
 
 			void Win7MenuItemButtonElements::SetActive(bool value)
@@ -11365,7 +11596,7 @@ Win7MenuItemButtonElements
 
 			void Win7MenuItemButtonElements::SetSubMenuExisting(bool value)
 			{
-				subMenuTextComposition->SetVisible(value);
+				subMenuArrowComposition->SetVisible(value);
 			}
 
 /***********************************************************************
@@ -12035,14 +12266,8 @@ Win7TabStyle
 					cell->AddChild(tabHeaderComposition);
 
 					headerOverflowButton=new GuiButton(new Win7ButtonStyle);
-					{
-						FontProperties font;
-						font.fontFamily=L"Wingdings 3";
-						font.size=10;
-						headerOverflowButton->SetFont(font);
-					}
+					headerOverflowButton->GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildDownArrow(headerOverflowArrowElement));
 					headerOverflowButton->SetVisible(false);
-					headerOverflowButton->SetText((wchar_t)0xF080);
 					headerOverflowButton->GetBoundsComposition()->SetAlignmentToParent(Margin(-1, 0, 0, 0));
 					headerOverflowButton->Clicked.AttachMethod(this, &Win7TabStyle::OnHeaderOverflowButtonClicked);
 					cell->AddChild(headerOverflowButton->GetBoundsComposition());
@@ -12659,20 +12884,14 @@ Win7ListViewColumnDropDownStyle
 				gradientComposition->SetPreferredMinSize(Size(0, 4));
 				mainComposition->AddChild(gradientComposition);
 
-				textElement=GuiSolidLabelElement::Create();
-				textElement->SetColor(Color(76, 96, 122));
-				textElement->SetText((wchar_t)0xF080);
-				textElement->SetAlignments(Alignment::Center, Alignment::Center);
-				textComposition=new GuiBoundsComposition;
-				textComposition->SetOwnedElement(textElement);
-				textComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-				textComposition->SetAlignmentToParent(Margin(3, 3, 3, 3));
-				mainComposition->AddChild(textComposition);
-				
-				FontProperties font;
-				font.fontFamily=L"Wingdings 3";
-				font.size=Win7ScrollStyle::ArrowSize;
-				textElement->SetFont(font);
+				arrowElement=common_styles::CommonFragmentBuilder::BuildDownArrow();
+				arrowElement->SetBackgroundColor(Color(76, 96, 122));
+				arrowElement->SetBorderColor(Color(76, 96, 122));
+				arrowComposition=new GuiBoundsComposition;
+				arrowComposition->SetOwnedElement(arrowElement);
+				arrowComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				arrowComposition->SetAlignmentToParent(Margin(3, 3, 3, 3));
+				mainComposition->AddChild(arrowComposition);
 
 				TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
 			}
@@ -12734,7 +12953,7 @@ Win7ListViewColumnDropDownStyle
 Win7ListViewColumnHeaderStyle
 ***********************************************************************/
 
-			void Win7ListViewColumnHeaderStyle::TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)
+			void Win7ListViewColumnHeaderStyle::TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool subMenuExisting, bool subMenuOpening)
 			{
 				if(!enabled) value=GuiButton::Normal;
 				switch(value)
@@ -12747,6 +12966,8 @@ Win7ListViewColumnHeaderStyle
 
 						backgroundElement->SetColor(Color(252, 252, 252));
 						rightBorderElement->SetColors(Color(223, 234, 247), Color(252, 252, 252));
+
+						dropdownButton->SetVisible(subMenuOpening);
 					}
 					break;
 				case GuiButton::Active:
@@ -12759,6 +12980,8 @@ Win7ListViewColumnHeaderStyle
 						backgroundElement->SetColor(Color(252, 252, 252));
 						borderElement->SetColor(Color(223, 233, 246));
 						gradientElement->SetColors(Color(243, 248, 253), Color(239, 243, 249));
+
+						dropdownButton->SetVisible(isSubMenuExisting);
 					}
 					break;
 				case GuiButton::Pressed:
@@ -12771,6 +12994,8 @@ Win7ListViewColumnHeaderStyle
 						backgroundElement->SetColor(Color(246, 247, 248));
 						borderElement->SetColor(Color(192, 203, 217));
 						gradientElement->SetColors(Color(193, 204, 218), Color(252, 252, 252));
+
+						dropdownButton->SetVisible(isSubMenuExisting);
 					}
 					break;
 				}
@@ -12779,7 +13004,8 @@ Win7ListViewColumnHeaderStyle
 			Win7ListViewColumnHeaderStyle::Win7ListViewColumnHeaderStyle()
 				:controlStyle(GuiButton::Normal)
 				,isVisuallyEnabled(true)
-				,isSelected(false)
+				,isSubMenuExisting(false)
+				,isSubMenuOpening(false)
 			{
 				backgroundElement=GuiSolidBackgroundElement::Create();
 				mainComposition=new GuiBoundsComposition;
@@ -12816,7 +13042,21 @@ Win7ListViewColumnHeaderStyle
 				textComposition->SetAlignmentToParent(Margin(15, 7, 18, 5));
 				mainComposition->AddChild(textComposition);
 
-				TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				arrowElement=GuiPolygonElement::Create();
+				arrowElement->SetBackgroundColor(Color(76, 96, 122));
+				arrowElement->SetBorderColor(Color(76, 96, 122));
+				arrowComposition=new GuiBoundsComposition;
+				arrowComposition->SetOwnedElement(arrowElement);
+				arrowComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				arrowComposition->SetAlignmentToParent(Margin(0, 2, 0, -1));
+				mainComposition->AddChild(arrowComposition);
+
+				dropdownButton=new GuiButton(new Win7ListViewColumnDropDownStyle);
+				dropdownButton->GetBoundsComposition()->SetAlignmentToParent(Margin(-1, 0, 0, 0));
+				dropdownButton->SetVisible(false);
+				mainComposition->AddChild(dropdownButton->GetBoundsComposition());
+
+				TransferInternal(controlStyle, isVisuallyEnabled, isSubMenuExisting, isSubMenuOpening);
 			}
 
 			Win7ListViewColumnHeaderStyle::~Win7ListViewColumnHeaderStyle()
@@ -12852,16 +13092,7 @@ Win7ListViewColumnHeaderStyle
 				if(isVisuallyEnabled!=value)
 				{
 					isVisuallyEnabled=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
-				}
-			}
-
-			void Win7ListViewColumnHeaderStyle::SetSelected(bool value)
-			{
-				if(isSelected!=value)
-				{
-					isSelected=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSubMenuExisting, isSubMenuOpening);
 				}
 			}
 
@@ -12870,7 +13101,52 @@ Win7ListViewColumnHeaderStyle
 				if(controlStyle!=value)
 				{
 					controlStyle=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSubMenuExisting, isSubMenuOpening);
+				}
+			}
+
+			controls::GuiMenu::IStyleController* Win7ListViewColumnHeaderStyle::CreateSubMenuStyleController()
+			{
+				return new Win7MenuStyle;
+			}
+
+			void Win7ListViewColumnHeaderStyle::SetSubMenuExisting(bool value)
+			{
+				if(isSubMenuExisting!=value)
+				{
+					isSubMenuExisting=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSubMenuExisting, isSubMenuOpening);
+				}
+			}
+
+			void Win7ListViewColumnHeaderStyle::SetSubMenuOpening(bool value)
+			{
+				if(isSubMenuOpening!=value)
+				{
+					isSubMenuOpening=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSubMenuExisting, isSubMenuOpening);
+				}
+			}
+
+			controls::GuiButton* Win7ListViewColumnHeaderStyle::GetSubMenuHost()
+			{
+				return dropdownButton;
+			}
+
+			void Win7ListViewColumnHeaderStyle::SetColumnSortingState(controls::GuiListViewColumnHeader::ColumnSortingState value)
+			{
+				Margin margin=arrowComposition->GetAlignmentToParent();
+				switch(value)
+				{
+				case controls::GuiListViewColumnHeader::NotSorted:
+					arrowElement->SetPoints(0, 0);
+					break;
+				case controls::GuiListViewColumnHeader::Ascending:
+					common_styles::CommonFragmentBuilder::FillUpArrow(arrowElement);
+					break;
+				case controls::GuiListViewColumnHeader::Descending:
+					common_styles::CommonFragmentBuilder::FillDownArrow(arrowElement);
+					break;
 				}
 			}
 
@@ -13094,6 +13370,11 @@ Win7MenuBarButtonStyle
 				}
 			}
 
+			controls::GuiButton* Win7MenuBarButtonStyle::GetSubMenuHost()
+			{
+				return 0;
+			}
+
 			void Win7MenuBarButtonStyle::Transfer(GuiButton::ControlState value)
 			{
 				if(controlStyle!=value)
@@ -13214,6 +13495,11 @@ Win7MenuItemButtonStyle
 					isOpening=value;
 					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
 				}
+			}
+
+			controls::GuiButton* Win7MenuItemButtonStyle::GetSubMenuHost()
+			{
+				return 0;
 			}
 
 			void Win7MenuItemButtonStyle::Transfer(GuiButton::ControlState value)
@@ -13353,15 +13639,7 @@ Win7DropDownComboBoxStyle
 				elements.textElement->SetEllipse(true);
 				elements.textElement->SetAlignments(Alignment::Left, Alignment::Center);
 
-				dropDownElement=GuiSolidLabelElement::Create();
-				{
-					FontProperties font;
-					font.fontFamily=L"Wingdings 3";
-					font.size=10;
-					dropDownElement->SetFont(font);
-				}
-				dropDownElement->SetText((wchar_t)0xF080);
-				dropDownElement->SetAlignments(Alignment::Center, Alignment::Center);
+				dropDownElement=common_styles::CommonFragmentBuilder::BuildDownArrow();
 
 				dropDownComposition=new GuiCellComposition;
 				table->AddChild(dropDownComposition);
@@ -13908,7 +14186,7 @@ Win7ListViewProvider
 				return new Win7SelectableItemStyle;
 			}
 
-			controls::GuiSelectableButton::IStyleController* Win7ListViewProvider::CreateColumnStyle()
+			controls::GuiListViewColumnHeader::IStyleController* Win7ListViewProvider::CreateColumnStyle()
 			{
 				return new Win7ListViewColumnHeaderStyle;
 			}
@@ -16491,12 +16769,17 @@ GuiImageFrameElement
 			{
 				if(image!=_image || frameIndex!=_frameIndex)
 				{
-					if(0<=_frameIndex && _frameIndex<_image->GetFrameCount())
+					if(!_image)
+					{
+						image=0;
+						frameIndex=0;
+					}
+					else if(0<=_frameIndex && _frameIndex<_image->GetFrameCount())
 					{
 						image=_image;
 						frameIndex=_frameIndex;
-						renderer->OnElementStateChanged();
 					}
+					renderer->OnElementStateChanged();
 				}
 			}
 
@@ -16573,7 +16856,10 @@ GuiPolygonElement
 			void GuiPolygonElement::SetPoints(const Point* p, int count)
 			{
 				points.Resize(count);
-				memcpy(&points[0], p, sizeof(*p)*count);
+				if(count>0)
+				{
+					memcpy(&points[0], p, sizeof(*p)*count);
+				}
 				renderer->OnElementStateChanged();
 			}
 
@@ -23738,10 +24024,333 @@ int SetupWindowsGDIRenderer()
 }
 
 /***********************************************************************
-NativeWindow\Windows\WinNativeWindow.cpp
+NativeWindow\Windows\ServicesImpl\WindowsAsyncService.cpp
 ***********************************************************************/
 
-#pragma comment(lib, "Imm32.lib")
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			using namespace collections;
+
+/***********************************************************************
+WindowsAsyncService::TaskItem
+***********************************************************************/
+
+			WindowsAsyncService::TaskItem::TaskItem()
+				:semaphore(0)
+				,proc(0)
+				,argument(0)
+			{
+			}
+
+			WindowsAsyncService::TaskItem::TaskItem(Semaphore* _semaphore, INativeAsyncService::AsyncTaskProc* _proc, void* _argument)
+				:semaphore(_semaphore)
+				,proc(_proc)
+				,argument(_argument)
+			{
+			}
+
+			WindowsAsyncService::TaskItem::~TaskItem()
+			{
+			}
+
+/***********************************************************************
+WindowsAsyncService
+***********************************************************************/
+
+			WindowsAsyncService::WindowsAsyncService()
+				:mainThreadId(Thread::GetCurrentThreadId())
+			{
+			}
+
+			WindowsAsyncService::~WindowsAsyncService()
+			{
+			}
+
+			void WindowsAsyncService::ExecuteAsyncTasks()
+			{
+				Array<TaskItem> items;
+				{
+					SpinLock::Scope scope(taskListLock);
+					CopyFrom(items.Wrap(), taskItems.Wrap());
+					taskItems.RemoveRange(0, items.Count());
+				}
+				for(int i=0;i<items.Count();i++)
+				{
+					TaskItem taskItem=items[i];
+					taskItem.proc(taskItem.argument);
+					if(taskItem.semaphore)
+					{
+						taskItem.semaphore->Release();
+					}
+				}
+			}
+
+			bool WindowsAsyncService::IsInMainThread()
+			{
+				return Thread::GetCurrentThreadId()==mainThreadId;
+			}
+
+			void WindowsAsyncService::InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument)
+			{
+				ThreadPoolLite::Queue(proc, argument);
+			}
+
+			void WindowsAsyncService::InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument)
+			{
+				SpinLock::Scope scope(taskListLock);
+				TaskItem item(0, proc, argument);
+				taskItems.Add(item);
+			}
+
+			bool WindowsAsyncService::InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, int milliseconds)
+			{
+				Semaphore semaphore;
+				semaphore.Create(0, 1);
+				{
+					SpinLock::Scope scope(taskListLock);
+					TaskItem item(&semaphore, proc, argument);
+					taskItems.Add(item);
+				}
+				if(milliseconds<0)
+				{
+					return semaphore.Wait();
+				}
+				else
+				{
+					return semaphore.WaitForTime(milliseconds);
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\ServicesImpl\WindowsCallbackService.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+
+/***********************************************************************
+WindowsCallbackService
+***********************************************************************/
+
+			WindowsCallbackService::WindowsCallbackService()
+			{
+			}
+
+			bool WindowsCallbackService::InstallListener(INativeControllerListener* listener)
+			{
+				if(listeners.Contains(listener))
+				{
+					return false;
+				}
+				else
+				{
+					listeners.Add(listener);
+					return true;
+				}
+			}
+
+			bool WindowsCallbackService::UninstallListener(INativeControllerListener* listener)
+			{
+				if(listeners.Contains(listener))
+				{
+					listeners.Remove(listener);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void WindowsCallbackService::InvokeMouseHook(WPARAM message, Point location)
+			{
+				switch(message)
+				{
+				case WM_LBUTTONDOWN:
+					{
+						for(int i=0;i<listeners.Count();i++)
+						{
+							listeners[i]->LeftButtonDown(location);
+						}
+					}
+					break;
+				case WM_LBUTTONUP:
+					{
+						for(int i=0;i<listeners.Count();i++)
+						{
+							listeners[i]->LeftButtonUp(location);
+						}
+					}
+					break;
+				case WM_RBUTTONDOWN:
+					{
+						for(int i=0;i<listeners.Count();i++)
+						{
+							listeners[i]->RightButtonDown(location);
+						}
+					}
+					break;
+				case WM_RBUTTONUP:
+					{
+						for(int i=0;i<listeners.Count();i++)
+						{
+							listeners[i]->RightButtonUp(location);
+						}
+					}
+					break;
+				case WM_MOUSEMOVE:
+					{
+						for(int i=0;i<listeners.Count();i++)
+						{
+							listeners[i]->MouseMoving(location);
+						}
+					}
+					break;
+				}
+			}
+
+			void WindowsCallbackService::InvokeGlobalTimer()
+			{
+				for(int i=0;i<listeners.Count();i++)
+				{
+					listeners[i]->GlobalTimer();
+				}
+			}
+
+			void WindowsCallbackService::InvokeClipboardUpdated()
+			{
+				for(int i=0;i<listeners.Count();i++)
+				{
+					listeners[i]->ClipboardUpdated();
+				}
+			}
+
+			void WindowsCallbackService::InvokeNativeWindowCreated(INativeWindow* window)
+			{
+				for(int i=0;i<listeners.Count();i++)
+				{
+					listeners[i]->NativeWindowCreated(window);
+				}
+			}
+
+			void WindowsCallbackService::InvokeNativeWindowDestroyed(INativeWindow* window)
+			{
+				for(int i=0;i<listeners.Count();i++)
+				{
+					listeners[i]->NativeWindowDestroying(window);
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\ServicesImpl\WindowsClipboardService.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+
+/***********************************************************************
+WindowsClipboardService
+***********************************************************************/
+
+			WindowsClipboardService::WindowsClipboardService()
+				:ownerHandle(NULL)
+			{
+			}
+
+			void WindowsClipboardService::SetOwnerHandle(HWND handle)
+			{
+				HWND oldHandle=ownerHandle;
+				ownerHandle=handle;
+				if(handle==NULL)
+				{
+					RemoveClipboardFormatListener(oldHandle);
+				}
+				else
+				{
+					AddClipboardFormatListener(ownerHandle);
+				}
+			}
+
+			bool WindowsClipboardService::ContainsText()
+			{
+				if(OpenClipboard(ownerHandle))
+				{
+					UINT format=0;
+					bool contains=false;
+					while(format=EnumClipboardFormats(format))
+					{
+						if(format==CF_TEXT || format==CF_UNICODETEXT)
+						{
+							contains=true;
+							break;
+						}
+					}
+					CloseClipboard();
+					return contains;
+				}
+				return false;
+			}
+
+			WString WindowsClipboardService::GetText()
+			{
+				if(OpenClipboard(ownerHandle))
+				{
+					WString result;
+					HANDLE handle=GetClipboardData(CF_UNICODETEXT);
+					if(handle!=0)
+					{
+						wchar_t* buffer=(wchar_t*)GlobalLock(handle);
+						result=buffer;
+						GlobalUnlock(handle);
+					}
+					CloseClipboard();
+					return result;
+				}
+				return L"";
+			}
+
+			bool WindowsClipboardService::SetText(const WString& value)
+			{
+				if(OpenClipboard(ownerHandle))
+				{
+					EmptyClipboard();
+					int size=(value.Length()+1)*sizeof(wchar_t);
+					HGLOBAL data=GlobalAlloc(GMEM_MOVEABLE, size);
+					wchar_t* buffer=(wchar_t*)GlobalLock(data);
+					memcpy(buffer, value.Buffer(), size);
+					GlobalUnlock(data);
+					SetClipboardData(CF_UNICODETEXT, data);
+					CloseClipboard();
+					return true;
+				}
+				return false;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\ServicesImpl\WindowsImageService.cpp
+***********************************************************************/
+
 #pragma comment(lib, "WindowsCodecs.lib")
 
 namespace vl
@@ -23751,7 +24360,357 @@ namespace vl
 		namespace windows
 		{
 			using namespace collections;
-				
+
+/***********************************************************************
+WindowsImageFrame
+***********************************************************************/
+
+			void WindowsImageFrame::Initialize(IWICBitmapSource* bitmapSource)
+			{
+				IWICImagingFactory* factory=GetWICImagingFactory();
+				ComPtr<IWICFormatConverter> converter;
+				{
+					IWICFormatConverter* formatConverter=0;
+					HRESULT hr=factory->CreateFormatConverter(&formatConverter);
+					if(SUCCEEDED(hr))
+					{
+						converter=formatConverter;
+						converter->Initialize(
+							bitmapSource,
+							GUID_WICPixelFormat32bppPBGRA,
+							WICBitmapDitherTypeNone,
+							NULL,
+							0.0f,
+							WICBitmapPaletteTypeCustom);
+					}
+				}
+
+				IWICBitmap* bitmap=0;
+				IWICBitmapSource* convertedBitmapSource=0;
+				if(converter)
+				{
+					convertedBitmapSource=converter.Obj();
+				}
+				else
+				{
+					convertedBitmapSource=bitmapSource;
+				}
+				HRESULT hr=factory->CreateBitmapFromSource(convertedBitmapSource, WICBitmapCacheOnLoad, &bitmap);
+				if(SUCCEEDED(hr))
+				{
+					frameBitmap=bitmap;
+				}
+			}
+
+			WindowsImageFrame::WindowsImageFrame(INativeImage* _image, IWICBitmapFrameDecode* frameDecode)
+				:image(_image)
+			{
+				Initialize(frameDecode);
+			}
+
+			WindowsImageFrame::WindowsImageFrame(INativeImage* _image, IWICBitmap* sourceBitmap)
+				:image(_image)
+			{
+				Initialize(sourceBitmap);
+			}
+
+			WindowsImageFrame::~WindowsImageFrame()
+			{
+				for(int i=0;i<caches.Count();i++)
+				{
+					caches.Values()[i]->OnDetach(this);
+				}
+			}
+
+			INativeImage* WindowsImageFrame::GetImage()
+			{
+				return image;
+			}
+
+			Size WindowsImageFrame::GetSize()
+			{
+				UINT width=0;
+				UINT height=0;
+				frameBitmap->GetSize(&width, &height);
+				return Size(width, height);
+			}
+
+			bool WindowsImageFrame::SetCache(void* key, Ptr<INativeImageFrameCache> cache)
+			{
+				int index=caches.Keys().IndexOf(key);
+				if(index!=-1)
+				{
+					return false;
+				}
+				caches.Add(key, cache);
+				cache->OnAttach(this);
+				return true;
+			}
+
+			Ptr<INativeImageFrameCache> WindowsImageFrame::GetCache(void* key)
+			{
+				int index=caches.Keys().IndexOf(key);
+				return index==-1?0:caches.Values()[index];
+			}
+
+			Ptr<INativeImageFrameCache> WindowsImageFrame::RemoveCache(void* key)
+			{
+				int index=caches.Keys().IndexOf(key);
+				if(index==-1)
+				{
+					return 0;
+				}
+				Ptr<INativeImageFrameCache> cache=caches.Values()[index];
+				cache->OnDetach(this);
+				caches.Remove(key);
+				return cache;
+			}
+
+			IWICBitmap* WindowsImageFrame::GetFrameBitmap()
+			{
+				return frameBitmap.Obj();
+			}
+
+/***********************************************************************
+WindowsImage
+***********************************************************************/
+
+			WindowsImage::WindowsImage(INativeImageService* _imageService, IWICBitmapDecoder* _bitmapDecoder)
+				:imageService(_imageService)
+				,bitmapDecoder(_bitmapDecoder)
+			{
+				UINT count=0;
+				bitmapDecoder->GetFrameCount(&count);
+				frames.Resize(count);
+			}
+
+			WindowsImage::~WindowsImage()
+			{
+			}
+
+			INativeImageService* WindowsImage::GetImageService()
+			{
+				return imageService;
+			}
+
+			INativeImage::FormatType WindowsImage::GetFormat()
+			{
+				GUID formatGUID;
+				HRESULT hr=bitmapDecoder->GetContainerFormat(&formatGUID);
+				if(SUCCEEDED(hr))
+				{
+					if(formatGUID==GUID_ContainerFormatBmp)
+					{
+						return INativeImage::Bmp;
+					}
+					else if(formatGUID==GUID_ContainerFormatPng)
+					{
+						return INativeImage::Png;
+					}
+					else if(formatGUID==GUID_ContainerFormatGif)
+					{
+						return INativeImage::Gif;
+					}
+					else if(formatGUID==GUID_ContainerFormatJpeg)
+					{
+						return INativeImage::Jpeg;
+					}
+					else if(formatGUID==GUID_ContainerFormatIco)
+					{
+						return INativeImage::Icon;
+					}
+					else if(formatGUID==GUID_ContainerFormatTiff)
+					{
+						return INativeImage::Tiff;
+					}
+					else if(formatGUID==GUID_ContainerFormatWmp)
+					{
+						return INativeImage::Wmp;
+					}
+				}
+				return INativeImage::Unknown;
+			}
+
+			int WindowsImage::GetFrameCount()
+			{
+				return frames.Count();
+			}
+
+			INativeImageFrame* WindowsImage::GetFrame(int index)
+			{
+				if(0<=index && index<GetFrameCount())
+				{
+					Ptr<WindowsImageFrame>& frame=frames[index];
+					if(!frame)
+					{
+						IWICBitmapFrameDecode* frameDecode=0;
+						HRESULT hr=bitmapDecoder->GetFrame(index, &frameDecode);
+						if(SUCCEEDED(hr))
+						{
+							frame=new WindowsImageFrame(this, frameDecode);
+							frameDecode->Release();
+						}
+					}
+					return frame.Obj();
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+/***********************************************************************
+WindowsBitmapImage
+***********************************************************************/
+
+			WindowsBitmapImage::WindowsBitmapImage(INativeImageService* _imageService, IWICBitmap* sourceBitmap, FormatType _formatType)
+				:imageService(_imageService)
+				,formatType(_formatType)
+			{
+				frame=new WindowsImageFrame(this, sourceBitmap);
+			}
+
+			WindowsBitmapImage::~WindowsBitmapImage()
+			{
+			}
+
+			INativeImageService* WindowsBitmapImage::GetImageService()
+			{
+				return imageService;
+			}
+
+			INativeImage::FormatType WindowsBitmapImage::GetFormat()
+			{
+				return formatType;
+			}
+
+			int WindowsBitmapImage::GetFrameCount()
+			{
+				return 1;
+			}
+
+			INativeImageFrame* WindowsBitmapImage::GetFrame(int index)
+			{
+				return index==0?frame.Obj():0;
+			}
+
+/***********************************************************************
+WindowsImageService
+***********************************************************************/
+
+			WindowsImageService::WindowsImageService()
+			{
+				IWICImagingFactory* factory=0;
+				HRESULT hr = CoCreateInstance(
+					CLSID_WICImagingFactory,
+					NULL,
+					CLSCTX_INPROC_SERVER,
+					IID_IWICImagingFactory,
+					(LPVOID*)&factory
+					);
+				if(SUCCEEDED(hr))
+				{
+					imagingFactory=factory;
+				}
+			}
+
+			WindowsImageService::~WindowsImageService()
+			{
+			}
+
+			Ptr<INativeImage> WindowsImageService::CreateImageFromFile(const WString& path)
+			{
+				IWICBitmapDecoder* bitmapDecoder=0;
+				HRESULT hr=imagingFactory->CreateDecoderFromFilename(
+					path.Buffer(),
+					NULL,
+					GENERIC_READ,
+					WICDecodeMetadataCacheOnDemand,
+					&bitmapDecoder);
+				if(SUCCEEDED(hr))
+				{
+					return new WindowsImage(this, bitmapDecoder);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			Ptr<INativeImage> WindowsImageService::CreateImageFromHBITMAP(HBITMAP handle)
+			{
+				IWICBitmap* bitmap=0;
+				HRESULT hr=imagingFactory->CreateBitmapFromHBITMAP(handle, NULL, WICBitmapUseAlpha, &bitmap);
+				if(SUCCEEDED(hr))
+				{
+					Ptr<INativeImage> image=new WindowsBitmapImage(this, bitmap, INativeImage::Bmp);
+					bitmap->Release();
+					return image;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			Ptr<INativeImage> WindowsImageService::CreateImageFromHICON(HICON handle)
+			{
+				IWICBitmap* bitmap=0;
+				HRESULT hr=imagingFactory->CreateBitmapFromHICON(handle, &bitmap);
+				if(SUCCEEDED(hr))
+				{
+					Ptr<INativeImage> image=new WindowsBitmapImage(this, bitmap, INativeImage::Icon);
+					bitmap->Release();
+					return image;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			IWICImagingFactory* WindowsImageService::GetImagingFactory()
+			{
+				return imagingFactory.Obj();
+			}
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+
+			IWICImagingFactory* GetWICImagingFactory()
+			{
+				return dynamic_cast<WindowsImageService*>(GetCurrentController()->ImageService())->GetImagingFactory();
+			}
+
+			IWICBitmap* GetWICBitmap(INativeImageFrame* frame)
+			{
+				return dynamic_cast<WindowsImageFrame*>(frame)->GetFrameBitmap();
+			}
+
+			Ptr<INativeImage> CreateImageFromHBITMAP(HBITMAP handle)
+			{
+				return dynamic_cast<WindowsImageService*>(GetCurrentController()->ImageService())->CreateImageFromHBITMAP(handle);
+			}
+
+			Ptr<INativeImage> CreateImageFromHICON(HICON handle)
+			{
+				return dynamic_cast<WindowsImageService*>(GetCurrentController()->ImageService())->CreateImageFromHICON(handle);
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\ServicesImpl\WindowsInputService.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
 			bool WinIsKeyPressing(int code)
 			{
 				return (GetKeyState(code)&0xF0)!=0;
@@ -23760,6 +24719,375 @@ namespace vl
 			bool WinIsKeyToggled(int code)
 			{
 				return (GetKeyState(code)&0x0F)!=0;
+			}
+
+/***********************************************************************
+WindowsInputService
+***********************************************************************/
+
+			WindowsInputService::WindowsInputService(HOOKPROC _mouseProc)
+				:ownerHandle(NULL)
+				,mouseHook(NULL)
+				,isTimerEnabled(false)
+				,mouseProc(_mouseProc)
+			{
+			}
+
+			void WindowsInputService::SetOwnerHandle(HWND handle)
+			{
+				ownerHandle=handle;
+			}
+
+			void WindowsInputService::StartHookMouse()
+			{
+				if(!IsHookingMouse())
+				{
+					mouseHook=SetWindowsHookEx(WH_MOUSE_LL, mouseProc, NULL, NULL);
+				}
+			}
+
+			void WindowsInputService::StopHookMouse()
+			{
+				if(IsHookingMouse())
+				{
+					UnhookWindowsHookEx(mouseHook);
+					mouseHook=NULL;
+				}
+			}
+
+			bool WindowsInputService::IsHookingMouse()
+			{
+				return mouseHook!=NULL;
+			}
+
+			void WindowsInputService::StartTimer()
+			{
+				if(!IsTimerEnabled())
+				{
+					SetTimer(ownerHandle, 1, 16, NULL);
+					isTimerEnabled=true;
+				}
+			}
+
+			void WindowsInputService::StopTimer()
+			{
+				if(IsTimerEnabled())
+				{
+					KillTimer(ownerHandle, 1);
+					isTimerEnabled=false;
+				}
+			}
+
+			bool WindowsInputService::IsTimerEnabled()
+			{
+				return isTimerEnabled;
+			}
+				
+			bool WindowsInputService::IsKeyPressing(int code)
+			{
+				return WinIsKeyPressing(code);
+			}
+
+			bool WindowsInputService::IsKeyToggled(int code)
+			{
+				return WinIsKeyToggled(code);
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\ServicesImpl\WindowsResourceService.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+
+/***********************************************************************
+WindowsCursor
+***********************************************************************/
+
+			WindowsCursor::WindowsCursor(HCURSOR _handle)
+				:handle(_handle)
+				,isSystemCursor(false)
+				,systemCursorType(INativeCursor::Arrow)
+			{
+			}
+
+			WindowsCursor::WindowsCursor(SystemCursorType type)
+				:handle(NULL)
+				,isSystemCursor(true)
+				,systemCursorType(type)
+			{
+				LPWSTR id=NULL;
+				switch(type)
+				{
+				case SmallWaiting:
+					id=IDC_APPSTARTING;
+					break;
+				case LargeWaiting:
+					id=IDC_WAIT;
+					break;
+				case Arrow:
+					id=IDC_ARROW;
+					break;
+				case Cross:
+					id=IDC_CROSS;
+					break;
+				case Hand:
+					id=IDC_HAND;
+					break;
+				case Help:
+					id=IDC_HELP;
+					break;
+				case IBeam:
+					id=IDC_IBEAM;
+					break;
+				case SizeAll:
+					id=IDC_SIZEALL;
+					break;
+				case SizeNESW:
+					id=IDC_SIZENESW;
+					break;
+				case SizeNS:
+					id=IDC_SIZENS;
+					break;
+				case SizeNWSE:
+					id=IDC_SIZENWSE;
+					break;
+				case SizeWE:
+					id=IDC_SIZEWE;
+					break;
+				}
+				handle=(HCURSOR)LoadImage(NULL, id, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE|LR_SHARED);
+			}
+				
+			bool WindowsCursor::IsSystemCursor()
+			{
+				return isSystemCursor;
+			}
+
+			INativeCursor::SystemCursorType WindowsCursor::GetSystemCursorType()
+			{
+				return systemCursorType;
+			}
+
+			HCURSOR WindowsCursor::GetCursorHandle()
+			{
+				return handle;
+			}
+
+/***********************************************************************
+WindowsResourceService
+***********************************************************************/
+
+			WindowsResourceService::WindowsResourceService()
+			{
+				{
+					systemCursors.Resize(INativeCursor::SystemCursorCount);
+					for(int i=0;i<systemCursors.Count();i++)
+					{
+						systemCursors[i]=new WindowsCursor((INativeCursor::SystemCursorType)i);
+					}
+				}
+				{
+					NONCLIENTMETRICS metrics;
+					metrics.cbSize=sizeof(NONCLIENTMETRICS);
+					SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0);
+					if(!*metrics.lfMessageFont.lfFaceName)
+					{
+						metrics.cbSize=sizeof(NONCLIENTMETRICS)-sizeof(metrics.iPaddedBorderWidth);
+						SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0);
+					}
+					defaultFont.fontFamily=metrics.lfMessageFont.lfFaceName;
+					defaultFont.size=metrics.lfMessageFont.lfHeight;
+					if(defaultFont.size<0)
+					{
+						defaultFont.size=-defaultFont.size;
+					}
+				}
+			}
+
+			INativeCursor* WindowsResourceService::GetSystemCursor(INativeCursor::SystemCursorType type)
+			{
+				int index=(int)type;
+				if(0<=index && index<systemCursors.Count())
+				{
+					return systemCursors[index].Obj();
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			INativeCursor* WindowsResourceService::GetDefaultSystemCursor()
+			{
+				return GetSystemCursor(INativeCursor::Arrow);
+			}
+
+			FontProperties WindowsResourceService::GetDefaultFont()
+			{
+				return defaultFont;
+			}
+
+			void WindowsResourceService::SetDefaultFont(const FontProperties& value)
+			{
+				defaultFont=value;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\ServicesImpl\WindowsScreenService.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+
+/***********************************************************************
+WindowsScreen
+***********************************************************************/
+
+			WindowsScreen::WindowsScreen()
+			{
+				monitor=NULL;
+			}
+
+			Rect WindowsScreen::GetBounds()
+			{
+				MONITORINFOEX info;
+				info.cbSize=sizeof(MONITORINFOEX);
+				GetMonitorInfo(monitor, &info);
+				return Rect(info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom);
+			}
+
+			Rect WindowsScreen::GetClientBounds()
+			{
+				MONITORINFOEX info;
+				info.cbSize=sizeof(MONITORINFOEX);
+				GetMonitorInfo(monitor, &info);
+				return Rect(info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom);
+			}
+
+			WString WindowsScreen::GetName()
+			{
+				MONITORINFOEX info;
+				info.cbSize=sizeof(MONITORINFOEX);
+				GetMonitorInfo(monitor, &info);
+					
+				wchar_t buffer[sizeof(info.szDevice)/sizeof(*info.szDevice)+1];
+				memset(buffer, 0, sizeof(buffer));
+				memcpy(buffer, info.szDevice, sizeof(info.szDevice));
+				return buffer;
+			}
+
+			bool WindowsScreen::IsPrimary()
+			{
+				MONITORINFOEX info;
+				info.cbSize=sizeof(MONITORINFOEX);
+				GetMonitorInfo(monitor, &info);
+				return info.dwFlags==MONITORINFOF_PRIMARY;
+			}
+
+/***********************************************************************
+WindowsScreenService
+***********************************************************************/
+
+			WindowsScreenService::WindowsScreenService(HandleRetriver _handleRetriver)
+				:handleRetriver(_handleRetriver)
+			{
+			}
+
+			BOOL CALLBACK WindowsScreenService::MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+			{
+				MonitorEnumProcData* data=(MonitorEnumProcData*)dwData;
+				if(data->currentScreen==data->screenService->screens.Count())
+				{
+					data->screenService->screens.Add(new WindowsScreen());
+				}
+				data->screenService->screens[data->currentScreen]->monitor=hMonitor;
+				data->currentScreen++;
+				return TRUE;
+			}
+
+			void WindowsScreenService::RefreshScreenInformation()
+			{
+				for(int i=0;i<screens.Count();i++)
+				{
+					screens[i]->monitor=NULL;
+				}
+				MonitorEnumProcData data;
+				data.screenService=this;
+				data.currentScreen=0;
+				EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, (LPARAM)(&data));
+			}
+				
+			int WindowsScreenService::GetScreenCount()
+			{
+				RefreshScreenInformation();
+				return GetSystemMetrics(SM_CMONITORS);
+			}
+
+			INativeScreen* WindowsScreenService::GetScreen(int index)
+			{
+				RefreshScreenInformation();
+				return screens[index].Obj();
+			}
+
+			INativeScreen* WindowsScreenService::GetScreen(INativeWindow* window)
+			{
+				RefreshScreenInformation();
+				HWND hwnd=handleRetriver(window);
+				if(hwnd)
+				{
+					HMONITOR monitor=MonitorFromWindow(hwnd, MONITOR_DEFAULTTONULL);
+					if(monitor!=NULL)
+					{
+						for(int i=0;i<screens.Count();i++)
+						{
+							if(screens[i]->monitor==monitor)
+							{
+								return screens[i].Obj();
+							}
+						}
+					}
+				}
+				return 0;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\Windows\WinNativeWindow.cpp
+***********************************************************************/
+
+#pragma comment(lib, "Imm32.lib")
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace windows
+		{
+			using namespace collections;
+
+			HWND GetHWNDFromNativeWindowHandle(INativeWindow* window)
+			{
+				if(!window) return NULL;
+				IWindowsForm* form=GetWindowsForm(window);
+				if(!form) return NULL;
+				return form->GetWindowHandle();
 			}
 
 /***********************************************************************
@@ -23804,816 +25132,6 @@ WindowsClass
 				ATOM GetClassAtom()
 				{
 					return windowAtom;
-				}
-			};
-
-/***********************************************************************
-WindowsResourceService
-***********************************************************************/
-
-			class WindowsCursor : public Object, public INativeCursor
-			{
-			protected:
-				HCURSOR								handle;
-				bool								isSystemCursor;
-				SystemCursorType					systemCursorType;
-			public:
-				WindowsCursor(HCURSOR _handle)
-					:handle(_handle)
-					,isSystemCursor(false)
-					,systemCursorType(INativeCursor::Arrow)
-				{
-				}
-
-				WindowsCursor(SystemCursorType type)
-					:handle(NULL)
-					,isSystemCursor(true)
-					,systemCursorType(type)
-				{
-					LPWSTR id=NULL;
-					switch(type)
-					{
-					case SmallWaiting:
-						id=IDC_APPSTARTING;
-						break;
-					case LargeWaiting:
-						id=IDC_WAIT;
-						break;
-					case Arrow:
-						id=IDC_ARROW;
-						break;
-					case Cross:
-						id=IDC_CROSS;
-						break;
-					case Hand:
-						id=IDC_HAND;
-						break;
-					case Help:
-						id=IDC_HELP;
-						break;
-					case IBeam:
-						id=IDC_IBEAM;
-						break;
-					case SizeAll:
-						id=IDC_SIZEALL;
-						break;
-					case SizeNESW:
-						id=IDC_SIZENESW;
-						break;
-					case SizeNS:
-						id=IDC_SIZENS;
-						break;
-					case SizeNWSE:
-						id=IDC_SIZENWSE;
-						break;
-					case SizeWE:
-						id=IDC_SIZEWE;
-						break;
-					}
-					handle=(HCURSOR)LoadImage(NULL, id, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE|LR_SHARED);
-				}
-				
-				bool IsSystemCursor()
-				{
-					return isSystemCursor;
-				}
-
-				SystemCursorType GetSystemCursorType()
-				{
-					return systemCursorType;
-				}
-
-				HCURSOR GetCursorHandle()
-				{
-					return handle;
-				}
-			};
-
-			class WindowsResourceService : public Object, public INativeResourceService
-			{
-			protected:
-				Array<Ptr<WindowsCursor>>			systemCursors;
-				FontProperties						defaultFont;
-			public:
-				WindowsResourceService()
-				{
-					{
-						systemCursors.Resize(INativeCursor::SystemCursorCount);
-						for(int i=0;i<systemCursors.Count();i++)
-						{
-							systemCursors[i]=new WindowsCursor((INativeCursor::SystemCursorType)i);
-						}
-					}
-					{
-						NONCLIENTMETRICS metrics;
-						metrics.cbSize=sizeof(NONCLIENTMETRICS);
-						SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0);
-						if(!*metrics.lfMessageFont.lfFaceName)
-						{
-							metrics.cbSize=sizeof(NONCLIENTMETRICS)-sizeof(metrics.iPaddedBorderWidth);
-							SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0);
-						}
-						defaultFont.fontFamily=metrics.lfMessageFont.lfFaceName;
-						defaultFont.size=metrics.lfMessageFont.lfHeight;
-						if(defaultFont.size<0)
-						{
-							defaultFont.size=-defaultFont.size;
-						}
-					}
-				}
-
-				INativeCursor* GetSystemCursor(INativeCursor::SystemCursorType type)
-				{
-					int index=(int)type;
-					if(0<=index && index<systemCursors.Count())
-					{
-						return systemCursors[index].Obj();
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				INativeCursor* GetDefaultSystemCursor()
-				{
-					return GetSystemCursor(INativeCursor::Arrow);
-				}
-
-				FontProperties GetDefaultFont()
-				{
-					return defaultFont;
-				}
-
-				void SetDefaultFont(const FontProperties& value)
-				{
-					defaultFont=value;
-				}
-			};
-
-/***********************************************************************
-WindowsClipboardService
-***********************************************************************/
-
-			class WindowsClipboardService : public Object, public INativeClipboardService
-			{
-			protected:
-				HWND			ownerHandle;
-			public:
-				WindowsClipboardService()
-					:ownerHandle(NULL)
-				{
-				}
-
-				void SetOwnerHandle(HWND handle)
-				{
-					HWND oldHandle=ownerHandle;
-					ownerHandle=handle;
-					if(handle==NULL)
-					{
-						RemoveClipboardFormatListener(oldHandle);
-					}
-					else
-					{
-						AddClipboardFormatListener(ownerHandle);
-					}
-				}
-
-				bool ContainsText()
-				{
-					if(OpenClipboard(ownerHandle))
-					{
-						UINT format=0;
-						bool contains=false;
-						while(format=EnumClipboardFormats(format))
-						{
-							if(format==CF_TEXT || format==CF_UNICODETEXT)
-							{
-								contains=true;
-								break;
-							}
-						}
-						CloseClipboard();
-						return contains;
-					}
-					return false;
-				}
-
-				WString GetText()
-				{
-					if(OpenClipboard(ownerHandle))
-					{
-						WString result;
-						HANDLE handle=GetClipboardData(CF_UNICODETEXT);
-						if(handle!=0)
-						{
-							wchar_t* buffer=(wchar_t*)GlobalLock(handle);
-							result=buffer;
-							GlobalUnlock(handle);
-						}
-						CloseClipboard();
-						return result;
-					}
-					return L"";
-				}
-
-				bool SetText(const WString& value)
-				{
-					if(OpenClipboard(ownerHandle))
-					{
-						EmptyClipboard();
-						int size=(value.Length()+1)*sizeof(wchar_t);
-						HGLOBAL data=GlobalAlloc(GMEM_MOVEABLE, size);
-						wchar_t* buffer=(wchar_t*)GlobalLock(data);
-						memcpy(buffer, value.Buffer(), size);
-						GlobalUnlock(data);
-						SetClipboardData(CF_UNICODETEXT, data);
-						CloseClipboard();
-						return true;
-					}
-					return false;
-				}
-			};
-
-/***********************************************************************
-WindowsImageService
-***********************************************************************/
-
-			class WindowsImageFrame : public Object, public INativeImageFrame
-			{
-			protected:
-				INativeImage*									image;
-				ComPtr<IWICBitmap>								frameBitmap;
-				Dictionary<void*, Ptr<INativeImageFrameCache>>	caches;
-
-				void Initialize(IWICBitmapSource* bitmapSource)
-				{
-					IWICImagingFactory* factory=GetWICImagingFactory();
-					ComPtr<IWICFormatConverter> converter;
-					{
-						IWICFormatConverter* formatConverter=0;
-						HRESULT hr=factory->CreateFormatConverter(&formatConverter);
-						if(SUCCEEDED(hr))
-						{
-							converter=formatConverter;
-							converter->Initialize(
-								bitmapSource,
-								GUID_WICPixelFormat32bppPBGRA,
-								WICBitmapDitherTypeNone,
-								NULL,
-								0.0f,
-								WICBitmapPaletteTypeCustom);
-						}
-					}
-
-					IWICBitmap* bitmap=0;
-					IWICBitmapSource* convertedBitmapSource=0;
-					if(converter)
-					{
-						convertedBitmapSource=converter.Obj();
-					}
-					else
-					{
-						convertedBitmapSource=bitmapSource;
-					}
-					HRESULT hr=factory->CreateBitmapFromSource(convertedBitmapSource, WICBitmapCacheOnLoad, &bitmap);
-					if(SUCCEEDED(hr))
-					{
-						frameBitmap=bitmap;
-					}
-				}
-			public:
-				WindowsImageFrame(INativeImage* _image, IWICBitmapFrameDecode* frameDecode)
-					:image(_image)
-				{
-					Initialize(frameDecode);
-				}
-
-				WindowsImageFrame(INativeImage* _image, IWICBitmap* sourceBitmap)
-					:image(_image)
-				{
-					Initialize(sourceBitmap);
-				}
-
-				~WindowsImageFrame()
-				{
-					for(int i=0;i<caches.Count();i++)
-					{
-						caches.Values()[i]->OnDetach(this);
-					}
-				}
-
-				INativeImage* GetImage()
-				{
-					return image;
-				}
-
-				Size GetSize()
-				{
-					UINT width=0;
-					UINT height=0;
-					frameBitmap->GetSize(&width, &height);
-					return Size(width, height);
-				}
-
-				bool SetCache(void* key, Ptr<INativeImageFrameCache> cache)
-				{
-					int index=caches.Keys().IndexOf(key);
-					if(index!=-1)
-					{
-						return false;
-					}
-					caches.Add(key, cache);
-					cache->OnAttach(this);
-					return true;
-				}
-
-				Ptr<INativeImageFrameCache> GetCache(void* key)
-				{
-					int index=caches.Keys().IndexOf(key);
-					return index==-1?0:caches.Values()[index];
-				}
-
-				Ptr<INativeImageFrameCache> RemoveCache(void* key)
-				{
-					int index=caches.Keys().IndexOf(key);
-					if(index==-1)
-					{
-						return 0;
-					}
-					Ptr<INativeImageFrameCache> cache=caches.Values()[index];
-					cache->OnDetach(this);
-					caches.Remove(key);
-					return cache;
-				}
-
-				IWICBitmap* GetFrameBitmap()
-				{
-					return frameBitmap.Obj();
-				}
-			};
-
-			class WindowsImage : public Object, public INativeImage
-			{
-			protected:
-				INativeImageService*					imageService;
-				ComPtr<IWICBitmapDecoder>				bitmapDecoder;
-				Array<Ptr<WindowsImageFrame>>			frames;
-			public:
-				WindowsImage(INativeImageService* _imageService, IWICBitmapDecoder* _bitmapDecoder)
-					:imageService(_imageService)
-					,bitmapDecoder(_bitmapDecoder)
-				{
-					UINT count=0;
-					bitmapDecoder->GetFrameCount(&count);
-					frames.Resize(count);
-				}
-
-				~WindowsImage()
-				{
-				}
-
-				INativeImageService* GetImageService()
-				{
-					return imageService;
-				}
-
-				FormatType GetFormat()
-				{
-					GUID formatGUID;
-					HRESULT hr=bitmapDecoder->GetContainerFormat(&formatGUID);
-					if(SUCCEEDED(hr))
-					{
-						if(formatGUID==GUID_ContainerFormatBmp)
-						{
-							return INativeImage::Bmp;
-						}
-						else if(formatGUID==GUID_ContainerFormatPng)
-						{
-							return INativeImage::Png;
-						}
-						else if(formatGUID==GUID_ContainerFormatGif)
-						{
-							return INativeImage::Gif;
-						}
-						else if(formatGUID==GUID_ContainerFormatJpeg)
-						{
-							return INativeImage::Jpeg;
-						}
-						else if(formatGUID==GUID_ContainerFormatIco)
-						{
-							return INativeImage::Icon;
-						}
-						else if(formatGUID==GUID_ContainerFormatTiff)
-						{
-							return INativeImage::Tiff;
-						}
-						else if(formatGUID==GUID_ContainerFormatWmp)
-						{
-							return INativeImage::Wmp;
-						}
-					}
-					return INativeImage::Unknown;
-				}
-
-				int GetFrameCount()
-				{
-					return frames.Count();
-				}
-
-				INativeImageFrame* GetFrame(int index)
-				{
-					if(0<=index && index<GetFrameCount())
-					{
-						Ptr<WindowsImageFrame>& frame=frames[index];
-						if(!frame)
-						{
-							IWICBitmapFrameDecode* frameDecode=0;
-							HRESULT hr=bitmapDecoder->GetFrame(index, &frameDecode);
-							if(SUCCEEDED(hr))
-							{
-								frame=new WindowsImageFrame(this, frameDecode);
-								frameDecode->Release();
-							}
-						}
-						return frame.Obj();
-					}
-					else
-					{
-						return 0;
-					}
-				}
-			};
-
-			class WindowsBitmapImage : public Object, public INativeImage
-			{
-			protected:
-				INativeImageService*					imageService;
-				Ptr<WindowsImageFrame>					frame;
-				FormatType								formatType;
-			public:
-				WindowsBitmapImage(INativeImageService* _imageService, IWICBitmap* sourceBitmap, FormatType _formatType)
-					:imageService(_imageService)
-					,formatType(_formatType)
-				{
-					frame=new WindowsImageFrame(this, sourceBitmap);
-				}
-
-				~WindowsBitmapImage()
-				{
-				}
-
-				INativeImageService* GetImageService()
-				{
-					return imageService;
-				}
-
-				FormatType GetFormat()
-				{
-					return formatType;
-				}
-
-				int GetFrameCount()
-				{
-					return 1;
-				}
-
-				INativeImageFrame* GetFrame(int index)
-				{
-					return index==0?frame.Obj():0;
-				}
-			};
-
-			class WindowsImageService : public Object, public INativeImageService
-			{
-			protected:
-				ComPtr<IWICImagingFactory>				imagingFactory;
-			public:
-				WindowsImageService()
-				{
-					IWICImagingFactory* factory=0;
-					HRESULT hr = CoCreateInstance(
-						CLSID_WICImagingFactory,
-						NULL,
-						CLSCTX_INPROC_SERVER,
-						IID_IWICImagingFactory,
-						(LPVOID*)&factory
-						);
-					if(SUCCEEDED(hr))
-					{
-						imagingFactory=factory;
-					}
-				}
-
-				~WindowsImageService()
-				{
-				}
-
-				Ptr<INativeImage> CreateImageFromFile(const WString& path)
-				{
-					IWICBitmapDecoder* bitmapDecoder=0;
-					HRESULT hr=imagingFactory->CreateDecoderFromFilename(
-						path.Buffer(),
-						NULL,
-						GENERIC_READ,
-						WICDecodeMetadataCacheOnDemand,
-						&bitmapDecoder);
-					if(SUCCEEDED(hr))
-					{
-						return new WindowsImage(this, bitmapDecoder);
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				Ptr<INativeImage> CreateImageFromHBITMAP(HBITMAP handle)
-				{
-					IWICBitmap* bitmap=0;
-					HRESULT hr=imagingFactory->CreateBitmapFromHBITMAP(handle, NULL, WICBitmapUseAlpha, &bitmap);
-					if(SUCCEEDED(hr))
-					{
-						Ptr<INativeImage> image=new WindowsBitmapImage(this, bitmap, INativeImage::Bmp);
-						bitmap->Release();
-						return image;
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				Ptr<INativeImage> CreateImageFromHICON(HICON handle)
-				{
-					IWICBitmap* bitmap=0;
-					HRESULT hr=imagingFactory->CreateBitmapFromHICON(handle, &bitmap);
-					if(SUCCEEDED(hr))
-					{
-						Ptr<INativeImage> image=new WindowsBitmapImage(this, bitmap, INativeImage::Icon);
-						bitmap->Release();
-						return image;
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				IWICImagingFactory* GetImagingFactory()
-				{
-					return imagingFactory.Obj();
-				}
-			};
-
-			IWICImagingFactory* GetWICImagingFactory()
-			{
-				return dynamic_cast<WindowsImageService*>(GetCurrentController()->ImageService())->GetImagingFactory();
-			}
-
-			IWICBitmap* GetWICBitmap(INativeImageFrame* frame)
-			{
-				return dynamic_cast<WindowsImageFrame*>(frame)->GetFrameBitmap();
-			}
-
-			Ptr<INativeImage> CreateImageFromHBITMAP(HBITMAP handle)
-			{
-				return dynamic_cast<WindowsImageService*>(GetCurrentController()->ImageService())->CreateImageFromHBITMAP(handle);
-			}
-
-			Ptr<INativeImage> CreateImageFromHICON(HICON handle)
-			{
-				return dynamic_cast<WindowsImageService*>(GetCurrentController()->ImageService())->CreateImageFromHICON(handle);
-			}
-
-/***********************************************************************
-WindowsAsyncService
-***********************************************************************/
-
-			class WindowsAsyncService : public INativeAsyncService
-			{
-			public:
-				struct TaskItem
-				{
-					Semaphore*							semaphore;
-					INativeAsyncService::AsyncTaskProc*	proc;
-					void*								argument;
-
-					TaskItem()
-						:semaphore(0)
-						,proc(0)
-						,argument(0)
-					{
-					}
-
-					TaskItem(Semaphore* _semaphore, INativeAsyncService::AsyncTaskProc* _proc, void* _argument)
-						:semaphore(_semaphore)
-						,proc(_proc)
-						,argument(_argument)
-					{
-					}
-
-					~TaskItem()
-					{
-					}
-
-					bool operator==(const TaskItem& item)const{return false;}
-					bool operator!=(const TaskItem& item)const{return true;}
-				};
-			protected:
-				int								mainThreadId;
-				SpinLock						taskListLock;
-				List<TaskItem>					taskItems;
-			public:
-				WindowsAsyncService()
-					:mainThreadId(Thread::GetCurrentThreadId())
-				{
-				}
-
-				~WindowsAsyncService()
-				{
-				}
-
-				void ExecuteAsyncTasks()
-				{
-					Array<TaskItem> items;
-					{
-						SpinLock::Scope scope(taskListLock);
-						CopyFrom(items.Wrap(), taskItems.Wrap());
-						taskItems.RemoveRange(0, items.Count());
-					}
-					for(int i=0;i<items.Count();i++)
-					{
-						TaskItem taskItem=items[i];
-						taskItem.proc(taskItem.argument);
-						if(taskItem.semaphore)
-						{
-							taskItem.semaphore->Release();
-						}
-					}
-				}
-
-				bool IsInMainThread()
-				{
-					return Thread::GetCurrentThreadId()==mainThreadId;
-				}
-
-				void InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument)
-				{
-					ThreadPoolLite::Queue(proc, argument);
-				}
-
-				void InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument)
-				{
-					SpinLock::Scope scope(taskListLock);
-					TaskItem item(0, proc, argument);
-					taskItems.Add(item);
-				}
-
-				bool InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, int milliseconds)
-				{
-					Semaphore semaphore;
-					semaphore.Create(0, 1);
-					{
-						SpinLock::Scope scope(taskListLock);
-						TaskItem item(&semaphore, proc, argument);
-						taskItems.Add(item);
-					}
-					if(milliseconds<0)
-					{
-						return semaphore.Wait();
-					}
-					else
-					{
-						return semaphore.WaitForTime(milliseconds);
-					}
-				}
-			};
-
-/***********************************************************************
-WindowsScreenService
-***********************************************************************/
-
-			class WindowsScreen : public Object, public INativeScreen
-			{
-				friend class WindowsScreenService;
-			protected:
-				HMONITOR					monitor;
-			public:
-				WindowsScreen()
-				{
-					monitor=NULL;
-				}
-
-				Rect GetBounds()
-				{
-					MONITORINFOEX info;
-					info.cbSize=sizeof(MONITORINFOEX);
-					GetMonitorInfo(monitor, &info);
-					return Rect(info.rcMonitor.left, info.rcMonitor.top, info.rcMonitor.right, info.rcMonitor.bottom);
-				}
-
-				Rect GetClientBounds()
-				{
-					MONITORINFOEX info;
-					info.cbSize=sizeof(MONITORINFOEX);
-					GetMonitorInfo(monitor, &info);
-					return Rect(info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom);
-				}
-
-				WString GetName()
-				{
-					MONITORINFOEX info;
-					info.cbSize=sizeof(MONITORINFOEX);
-					GetMonitorInfo(monitor, &info);
-					
-					wchar_t buffer[sizeof(info.szDevice)/sizeof(*info.szDevice)+1];
-					memset(buffer, 0, sizeof(buffer));
-					memcpy(buffer, info.szDevice, sizeof(info.szDevice));
-					return buffer;
-				}
-
-				bool IsPrimary()
-				{
-					MONITORINFOEX info;
-					info.cbSize=sizeof(MONITORINFOEX);
-					GetMonitorInfo(monitor, &info);
-					return info.dwFlags==MONITORINFOF_PRIMARY;
-				}
-			};
-
-			class WindowsScreenService : public Object, public INativeScreenService
-			{
-			protected:
-				List<Ptr<WindowsScreen>>			screens;
-			public:
-
-				struct MonitorEnumProcData
-				{
-					WindowsScreenService*	screenService;
-					int						currentScreen;
-				};
-
-				static BOOL CALLBACK MonitorEnumProc(
-				  HMONITOR hMonitor,
-				  HDC hdcMonitor,
-				  LPRECT lprcMonitor,
-				  LPARAM dwData
-				)
-				{
-					MonitorEnumProcData* data=(MonitorEnumProcData*)dwData;
-					if(data->currentScreen==data->screenService->screens.Count())
-					{
-						data->screenService->screens.Add(new WindowsScreen());
-					}
-					data->screenService->screens[data->currentScreen]->monitor=hMonitor;
-					data->currentScreen++;
-					return TRUE;
-				}
-
-				void RefreshScreenInformation()
-				{
-					for(int i=0;i<screens.Count();i++)
-					{
-						screens[i]->monitor=NULL;
-					}
-					MonitorEnumProcData data;
-					data.screenService=this;
-					data.currentScreen=0;
-					EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, (LPARAM)(&data));
-				}
-				
-				int GetScreenCount()
-				{
-					RefreshScreenInformation();
-					return GetSystemMetrics(SM_CMONITORS);
-				}
-
-				INativeScreen* GetScreen(int index)
-				{
-					RefreshScreenInformation();
-					return screens[index].Obj();
-				}
-
-				INativeScreen* GetScreen(INativeWindow* window)
-				{
-					RefreshScreenInformation();
-					IWindowsForm* windowsForm=GetWindowsForm(window);
-					if(windowsForm)
-					{
-						HMONITOR monitor=MonitorFromWindow(windowsForm->GetWindowHandle(), MONITOR_DEFAULTTONULL);
-						if(monitor!=NULL)
-						{
-							for(int i=0;i<screens.Count();i++)
-							{
-								if(screens[i]->monitor==monitor)
-								{
-									return screens[i].Obj();
-								}
-							}
-						}
-					}
-					return 0;
 				}
 			};
 
@@ -25490,220 +26008,12 @@ WindowsForm
 			};
 
 /***********************************************************************
-WindowsCallbackService
-***********************************************************************/
-
-			class WindowsCallbackService : public Object, public INativeCallbackService
-			{
-			protected:
-				List<INativeControllerListener*>	listeners;
-
-			public:
-				WindowsCallbackService()
-				{
-				}
-
-				bool InstallListener(INativeControllerListener* listener)
-				{
-					if(listeners.Contains(listener))
-					{
-						return false;
-					}
-					else
-					{
-						listeners.Add(listener);
-						return true;
-					}
-				}
-
-				bool UninstallListener(INativeControllerListener* listener)
-				{
-					if(listeners.Contains(listener))
-					{
-						listeners.Remove(listener);
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				//=======================================================================
-
-				void InvokeMouseHook(WPARAM message, Point location)
-				{
-					switch(message)
-					{
-					case WM_LBUTTONDOWN:
-						{
-							for(int i=0;i<listeners.Count();i++)
-							{
-								listeners[i]->LeftButtonDown(location);
-							}
-						}
-						break;
-					case WM_LBUTTONUP:
-						{
-							for(int i=0;i<listeners.Count();i++)
-							{
-								listeners[i]->LeftButtonUp(location);
-							}
-						}
-						break;
-					case WM_RBUTTONDOWN:
-						{
-							for(int i=0;i<listeners.Count();i++)
-							{
-								listeners[i]->RightButtonDown(location);
-							}
-						}
-						break;
-					case WM_RBUTTONUP:
-						{
-							for(int i=0;i<listeners.Count();i++)
-							{
-								listeners[i]->RightButtonUp(location);
-							}
-						}
-						break;
-					case WM_MOUSEMOVE:
-						{
-							for(int i=0;i<listeners.Count();i++)
-							{
-								listeners[i]->MouseMoving(location);
-							}
-						}
-						break;
-					}
-				}
-
-				void InvokeGlobalTimer()
-				{
-					for(int i=0;i<listeners.Count();i++)
-					{
-						listeners[i]->GlobalTimer();
-					}
-				}
-
-				void InvokeClipboardUpdated()
-				{
-					for(int i=0;i<listeners.Count();i++)
-					{
-						listeners[i]->ClipboardUpdated();
-					}
-				}
-
-				void InvokeNativeWindowCreated(INativeWindow* window)
-				{
-					for(int i=0;i<listeners.Count();i++)
-					{
-						listeners[i]->NativeWindowCreated(window);
-					}
-				}
-
-				void InvokeNativeWindowDestroyed(INativeWindow* window)
-				{
-					for(int i=0;i<listeners.Count();i++)
-					{
-						listeners[i]->NativeWindowDestroying(window);
-					}
-				}
-			};
-
-/***********************************************************************
-WindowsInputService
-***********************************************************************/
-
-			LRESULT CALLBACK MouseProc(int nCode , WPARAM wParam , LPARAM lParam);
-
-			class WindowsInputService : public Object, public INativeInputService
-			{
-			protected:
-				HWND								ownerHandle;
-				HHOOK								mouseHook;
-				bool								isTimerEnabled;
-			public:
-				WindowsInputService()
-					:ownerHandle(NULL)
-					,mouseHook(NULL)
-					,isTimerEnabled(false)
-				{
-				}
-
-				void SetOwnerHandle(HWND handle)
-				{
-					ownerHandle=handle;
-				}
-
-				//=======================================================================
-
-				void StartHookMouse()
-				{
-					if(!IsHookingMouse())
-					{
-						mouseHook=SetWindowsHookEx(WH_MOUSE_LL, MouseProc, NULL, NULL);
-					}
-				}
-
-				void StopHookMouse()
-				{
-					if(IsHookingMouse())
-					{
-						UnhookWindowsHookEx(mouseHook);
-						mouseHook=NULL;
-					}
-				}
-
-				bool IsHookingMouse()
-				{
-					return mouseHook!=NULL;
-				}
-
-				//=======================================================================
-
-				void StartTimer()
-				{
-					if(!IsTimerEnabled())
-					{
-						SetTimer(ownerHandle, 1, 16, NULL);
-						isTimerEnabled=true;
-					}
-				}
-
-				void StopTimer()
-				{
-					if(IsTimerEnabled())
-					{
-						KillTimer(ownerHandle, 1);
-						isTimerEnabled=false;
-					}
-				}
-
-				bool IsTimerEnabled()
-				{
-					return isTimerEnabled;
-				}
-
-				//=======================================================================
-				
-				bool IsKeyPressing(int code)
-				{
-					return WinIsKeyPressing(code);
-				}
-
-				bool IsKeyToggled(int code)
-				{
-					return WinIsKeyToggled(code);
-				}
-			};
-
-/***********************************************************************
 WindowsController
 ***********************************************************************/
 
 			LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 			LRESULT CALLBACK GodProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+			LRESULT CALLBACK MouseProc(int nCode , WPARAM wParam , LPARAM lParam);
 
 			class WindowsController : public Object, public virtual INativeController, public virtual INativeWindowService
 			{
@@ -25729,6 +26039,8 @@ WindowsController
 					,windowClass(L"VczhWindow", false, false, WndProc, _hInstance)
 					,godClass(L"GodWindow", false, false, GodProc, _hInstance)
 					,mainWindow(0)
+					,screenService(&GetHWNDFromNativeWindowHandle)
+					,inputService(&MouseProc)
 				{
 					godWindow=CreateWindowEx(WS_EX_CONTROLPARENT, godClass.GetName().Buffer(), L"GodWindow", WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, NULL, NULL, hInstance, NULL);
 					clipboardService.SetOwnerHandle(godWindow);

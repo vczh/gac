@@ -7766,6 +7766,7 @@ Where
 				void Reset()
 				{
 					enumerator->Reset();
+					GoNearest();
 				}
 			};
 		protected:
@@ -9831,6 +9832,7 @@ Distinct
 			protected:
 				IEnumerator<T>*		enumerator;
 				SortedList<T>		distinct;
+				T					lastValue;
 
 				void GoNearest()
 				{
@@ -9839,6 +9841,7 @@ Distinct
 						const T& current=enumerator->Current();
 						if(!distinct.Contains(current))
 						{
+							lastValue=current;
 							distinct.Add(current);
 							break;
 						}
@@ -9870,7 +9873,7 @@ Distinct
 
 				const T& Current()const
 				{
-					return distinct[distinct.Count()-1];
+					return lastValue;
 				}
 
 				vint Index()const
@@ -9894,6 +9897,7 @@ Distinct
 				{
 					enumerator->Reset();
 					distinct.Clear();
+					GoNearest();
 				}
 			};
 		public:
@@ -10229,6 +10233,7 @@ Intersect/Except
 				{
 					enumerator->Reset();
 					index=0;
+					GoNearest();
 				}
 			};
 		protected:

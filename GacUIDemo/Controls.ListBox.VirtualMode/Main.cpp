@@ -94,7 +94,7 @@ public:
 
 	WString GetPrimaryTextViewText(int itemIndex)
 	{
-		return GetText(itemIndex+1);
+		return GetText(itemIndex);
 	}
 
 	bool ContainsPrimaryText(int itemIndex)
@@ -109,7 +109,6 @@ VirtualModeWindow
 
 class VirtualModeWindow : public GuiWindow
 {
-private:
 private:
 	GuiVirtualTextList*					listBox;
 	GuiButton*							buttonIncrease;
