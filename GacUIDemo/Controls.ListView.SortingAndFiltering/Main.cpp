@@ -158,7 +158,6 @@ public:
 		
 		// Create list view control to display a folder
 		listView=g::NewListViewBigIcon();
-		listView->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
 		listView->SetHorizontalAlwaysVisible(false);
 		listView->SetVerticalAlwaysVisible(false);
 		listView->SetMultiSelect(true);

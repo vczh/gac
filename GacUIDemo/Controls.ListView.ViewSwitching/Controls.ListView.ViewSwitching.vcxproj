@@ -78,9 +78,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Public\Source\GacUI.cpp" />
-    <ClCompile Include="..\..\Public\Source\Vlpp.cpp" />
-    <ClCompile Include="..\CommonLibrary\FileSystemInformation.cpp" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -88,6 +85,11 @@
     <ClInclude Include="..\..\Public\Source\GacUIIncludes.h" />
     <ClInclude Include="..\..\Public\Source\Vlpp.h" />
     <ClInclude Include="..\CommonLibrary\FileSystemInformation.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GacUIStaticLibrary\GacUIStaticLibrary.vcxproj">
+      <Project>{6698c71d-0d4e-4031-846a-8698f9c9d658}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

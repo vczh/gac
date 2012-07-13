@@ -5,12 +5,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorld", "HelloWorld\He
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Controls", "Controls", "{4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Elements", "Elements", "{E3059090-E87A-41E2-B657-C3589AE8EEBF}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Layouts", "Layouts", "{C017C3EE-52C1-42E8-99FE-8FD2A8C98C1C}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Misc", "Misc", "{DE1AA97C-71E5-46E9-943F-BD852DDF5005}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Label.Hyperlink", "Controls.Label.Hyperlink\Controls.Label.Hyperlink.vcxproj", "{E1BA59EE-79FF-4484-BDC7-DE42DDA1E975}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Button.EnableDisable", "Controls.Button.EnableDisable\Controls.Button.EnableDisable.vcxproj", "{7573940E-5A1D-48A4-AAA1-BEF264D9B0C4}"
@@ -35,9 +29,15 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListView.VirtualMo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.ListView.SortingAndFiltering", "Controls.ListView.SortingAndFiltering\Controls.ListView.SortingAndFiltering.vcxproj", "{EFB47B32-B002-4B92-A313-ACA8D96B266B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TreeView.FileExplorer", "Controls.TreeView.FileExplorer\Controls.TreeView.FileExplorer.vcxproj", "{C390D034-C335-409E-92E6-41740D71349D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Toolstrip.TextEditor", "Controls.Toolstrip.TextEditor\Controls.Toolstrip.TextEditor.vcxproj", "{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GacUIStaticLibrary", "GacUIStaticLibrary\GacUIStaticLibrary.vcxproj", "{6698C71D-0D4E-4031-846A-8698F9C9D658}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 14
+		SccNumberOfProjects = 17
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -92,6 +92,17 @@ Global
 		SccProjectTopLevelParentUniqueName13 = GacUIDemo.sln
 		SccProjectName13 = Controls.ListView.SortingAndFiltering
 		SccLocalPath13 = Controls.ListView.SortingAndFiltering
+		SccProjectUniqueName14 = Controls.TreeView.FileExplorer\\Controls.TreeView.FileExplorer.vcxproj
+		SccProjectTopLevelParentUniqueName14 = GacUIDemo.sln
+		SccProjectName14 = Controls.TreeView.FileExplorer
+		SccLocalPath14 = Controls.TreeView.FileExplorer
+		SccProjectUniqueName15 = Controls.Toolstrip.TextEditor\\Controls.Toolstrip.TextEditor.vcxproj
+		SccProjectTopLevelParentUniqueName15 = GacUIDemo.sln
+		SccProjectName15 = Controls.Toolstrip.TextEditor
+		SccLocalPath15 = Controls.Toolstrip.TextEditor
+		SccProjectUniqueName16 = GacUIStaticLibrary\\GacUIStaticLibrary.vcxproj
+		SccProjectName16 = GacUIStaticLibrary
+		SccLocalPath16 = GacUIStaticLibrary
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -150,6 +161,18 @@ Global
 		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Debug|Win32.Build.0 = Debug|Win32
 		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Release|Win32.ActiveCfg = Release|Win32
 		{EFB47B32-B002-4B92-A313-ACA8D96B266B}.Release|Win32.Build.0 = Release|Win32
+		{C390D034-C335-409E-92E6-41740D71349D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C390D034-C335-409E-92E6-41740D71349D}.Debug|Win32.Build.0 = Debug|Win32
+		{C390D034-C335-409E-92E6-41740D71349D}.Release|Win32.ActiveCfg = Release|Win32
+		{C390D034-C335-409E-92E6-41740D71349D}.Release|Win32.Build.0 = Release|Win32
+		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164}.Debug|Win32.Build.0 = Debug|Win32
+		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164}.Release|Win32.ActiveCfg = Release|Win32
+		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164}.Release|Win32.Build.0 = Release|Win32
+		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Debug|Win32.Build.0 = Debug|Win32
+		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Release|Win32.ActiveCfg = Release|Win32
+		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -167,5 +190,7 @@ Global
 		{88EA0F51-415E-4F4A-980D-5F6602903704} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{978EB4E8-7462-40C5-9049-83FF9592BA75} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{EFB47B32-B002-4B92-A313-ACA8D96B266B} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{C390D034-C335-409E-92E6-41740D71349D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 	EndGlobalSection
 EndGlobal

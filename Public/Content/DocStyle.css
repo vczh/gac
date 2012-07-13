@@ -1,0 +1,86 @@
+.contentPanel a:link
+{
+    text-decoration: underline;
+    color: #0050FF;
+}
+.contentPanel a:visited
+{
+    text-decoration: underline;
+    color: #0050FF;
+}
+.contentPanel a:active
+{
+    text-decoration: underline;
+    color: #0050FF;
+}
+.contentPanel a:hover
+{
+    text-decoration: underline;
+    color: #FF5000;
+}
+
+.frameTable
+{
+    border-width: 1px;
+    border-spacing: 0px;
+    border-style: solid;
+    border-collapse: collapse;
+    border-top-color: #808080;
+    border-bottom-color: #808080;
+}
+.frameTable
+{
+    border-width: 1px;
+    border-style: solid;
+    border-color: #808080;
+    padding: 10px;
+}
+
+.indexPanel
+{
+    font-size: smaller;
+}
+.indexPanel a:link
+{
+    text-decoration: none;
+    color: #0050FF;
+}
+.indexPanel a:visited
+{
+    text-decoration: none;
+    color: #0050FF;
+}
+.indexPanel a:active
+{
+    text-decoration: none;
+    color: #0050FF;
+}
+.indexPanel a:hover
+{
+    text-decoration: underline;
+    color: #FF5000;
+}
+
+.docTable table
+{
+    border-width: 1px;
+    border-spacing: 0px;
+    border-style: solid;
+    border-collapse: collapse;
+    border-color: #808080;
+}
+.docTable td
+{
+    border-width: 1px;
+    border-style: solid;
+    border-color: #808080;
+    padding: 3px;
+}
+.docTable thead
+{
+    background-color: #FFFF99;
+}
+.docTable tbody
+{
+    background-color: #FFFFFF;
+}
