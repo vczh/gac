@@ -1,4 +1,4 @@
-# Gaclib 0.2.5.0
+# Gaclib 0.3.0.0
 
 
 GPU Accelerated C++ User Interface/Script Engine
@@ -14,12 +14,13 @@ Here is a simple description to the code
     * **Document** HTML document. Please start at reference_gacui.html
     * **Content** Necessary CSS/JPG files for document
 
-Improvements to the previous release 
-* Added 2 new demos 
+Improvements to the previous release
+* Added 1 new demos
+    * Controls.Scroll.ColorPicker
+* Modified 2 demos (updated to use the new toolstrip control package)
     * Controls.Toolstrip.TextEditor
-    * Controls.TreeView.FileExplorer
+    * Controls.ListView.SortingAndFiltering
 * Fixed bugs
-* Encapsulated OS's common dialog into INativeDialogService
-* Added undo/redo to text box
-* Add item/node related events to list control and treeview control
-* Refactor the whole website using ASP.NET MVC3 hosted in Windows Azure (the source code of the website is checked in codeplex, but not included in the release)
+* Added toolstrip control pagkage
+* Added shortcut key manager
+* Added progress bar style

@@ -73,6 +73,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\Resources\_Copy.png" />
+    <None Include="..\Resources\_Cut.png" />
+    <None Include="..\Resources\_Delete.png" />
+    <None Include="..\Resources\_New.png" />
+    <None Include="..\Resources\_Open.png" />
+    <None Include="..\Resources\_Paste.png" />
+    <None Include="..\Resources\_Print.png" />
+    <None Include="..\Resources\_Redo.png" />
+    <None Include="..\Resources\_Save.png" />
+    <None Include="..\Resources\_SaveAs.png" />
+    <None Include="..\Resources\_Undo.png" />
     <None Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>

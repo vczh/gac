@@ -1,231 +1,209 @@
 #include "TextEditorWindow.h"
 
+void SetImage(GuiToolstripCommand* command, const WString& imagePath)
+{
+	command->SetImage(new GuiImageData(GetCurrentController()->ImageService()->CreateImageFromFile(imagePath), 0));
+}
+
+WString GetResourceFolder()
+{
+	wchar_t exePath[1024]={0};
+	DWORD len=GetModuleFileName(NULL, exePath, 1024);
+	while(exePath[--len]!=L'\\');
+	exePath[len+1]=0;
+	wcscat_s(exePath, L"..\\Resources\\");
+	return exePath;
+}
+
+void TextEditorWindow::InitializeCommand()
+{
+	WString resourceFolder=GetResourceFolder();
+	{
+		commandFileNew=new GuiToolstripCommand;;
+		commandFileNew->SetText(L"New");
+		SetImage(commandFileNew, resourceFolder+L"_New.png");
+		commandFileNew->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'N'));
+		this->AddComponent(commandFileNew);
+	}
+	{
+		commandFileOpen=new GuiToolstripCommand;;
+		commandFileOpen->SetText(L"Open...");
+		SetImage(commandFileOpen, resourceFolder+L"_Open.png");
+		commandFileOpen->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'O'));
+		this->AddComponent(commandFileOpen);
+	}
+	{
+		commandFileSave=new GuiToolstripCommand;;
+		commandFileSave->SetText(L"Save");
+		SetImage(commandFileSave, resourceFolder+L"_Save.png");
+		commandFileSave->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'S'));
+		this->AddComponent(commandFileSave);
+	}
+	{
+		commandFileSaveAs=new GuiToolstripCommand;;
+		commandFileSaveAs->SetText(L"Save As...");
+		SetImage(commandFileSaveAs, resourceFolder+L"_SaveAs.png");
+		this->AddComponent(commandFileSaveAs);
+	}
+	{
+		commandFileExit=new GuiToolstripCommand;;
+		commandFileExit->SetText(L"Exit");
+		this->AddComponent(commandFileExit);
+	}
+	{
+		commandEditUndo=new GuiToolstripCommand;;
+		commandEditUndo->SetText(L"Undo");
+		SetImage(commandEditUndo, resourceFolder+L"_Undo.png");
+		commandEditUndo->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'Z'));
+		this->AddComponent(commandEditUndo);
+	}
+	{
+		commandEditRedo=new GuiToolstripCommand;;
+		commandEditRedo->SetText(L"Redo");
+		SetImage(commandEditRedo, resourceFolder+L"_Redo.png");
+		commandEditRedo->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'Y'));
+		this->AddComponent(commandEditRedo);
+	}
+	{
+		commandEditCut=new GuiToolstripCommand;;
+		commandEditCut->SetText(L"Cut");
+		SetImage(commandEditCut, resourceFolder+L"_Cut.png");
+		commandEditCut->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'X'));
+		this->AddComponent(commandEditCut);
+	}
+	{
+		commandEditCopy=new GuiToolstripCommand;;
+		commandEditCopy->SetText(L"Copy");
+		SetImage(commandEditCopy, resourceFolder+L"_Copy.png");
+		commandEditCopy->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'C'));
+		this->AddComponent(commandEditCopy);
+	}
+	{
+		commandEditPaste=new GuiToolstripCommand;;
+		commandEditPaste->SetText(L"Paste");
+		SetImage(commandEditPaste, resourceFolder+L"_Paste.png");
+		commandEditPaste->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'V'));
+		this->AddComponent(commandEditPaste);
+	}
+	{
+		commandEditDelete=new GuiToolstripCommand;;
+		commandEditDelete->SetText(L"Delete");
+		SetImage(commandEditDelete, resourceFolder+L"_Delete.png");
+		this->AddComponent(commandEditDelete);
+	}
+	{
+		commandEditSelect=new GuiToolstripCommand;;
+		commandEditSelect->SetText(L"Select All");
+		this->AddComponent(commandEditSelect);
+		commandEditDelete->SetShortcut(shortcutKeyManager->CreateShortcut(true, false, false, L'A'));
+	}
+	{
+		commandFormatFont=new GuiToolstripCommand;;
+		commandFormatFont->SetText(L"Font...");
+		this->AddComponent(commandFormatFont);
+	}
+}
+
 void TextEditorWindow::InitializeMenuBar()
 {
 	menuBar=g::NewMenuBar();
 	menuBar->GetBoundsComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
 	menuBar->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
 
-	// create a stack to place menu bar buttons from left to right
-	GuiStackComposition* menuStack=new GuiStackComposition;
-	menuStack->SetDirection(GuiStackComposition::Horizontal);
-	menuStack->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-	menuBar->GetContainerComposition()->AddChild(menuStack);
+	menuBar->GetBuilder()
+		->Button(0, L"File")
+			->BeginSubMenu()
+			->Button(commandFileNew)
+			->Button(commandFileOpen)
+			->Button(commandFileSave)
+			->Button(commandFileSaveAs)
+			->Splitter()
+			->Button(commandFileExit)
+			->EndSubMenu()
+		->Button(0, L"Edit")
+			->BeginSubMenu()
+			->Button(commandEditUndo)
+			->Button(commandEditRedo)
+			->Splitter()
+			->Button(commandEditCut)
+			->Button(commandEditCopy)
+			->Button(commandEditPaste)
+			->Splitter()
+			->Button(commandEditDelete)
+			->Button(commandEditSelect)
+			->EndSubMenu()
+		->Button(0, L"Format")
+			->BeginSubMenu()
+			->Button(commandFormatFont)
+			->EndSubMenu()
+		;
+}
 
-	// create sub menus
-	{
-		GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-		menuStack->AddChild(stackItem);
+void TextEditorWindow::InitializeToolBar()
+{
+	toolbar=g::NewToolbar();
+	toolbar->GetBoundsComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+	toolbar->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
 
-		menuFile=g::NewMenuBarButton();
-		menuFile->SetText(L"File");
-		menuFile->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-		menuFile->CreateSubMenu();
-		stackItem->AddChild(menuFile->GetBoundsComposition());
-
-		GuiStackComposition* menuStack=new GuiStackComposition;
-		menuStack->SetDirection(GuiStackComposition::Vertical);
-		menuStack->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-		menuFile->GetSubMenu()->GetContainerComposition()->AddChild(menuStack);
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuFileNew=g::NewMenuItemButton();
-			menuFileNew->SetText(L"New");
-			menuFileNew->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuFileNew->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuFileOpen=g::NewMenuItemButton();
-			menuFileOpen->SetText(L"Open...");
-			menuFileOpen->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuFileOpen->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuFileSave=g::NewMenuItemButton();
-			menuFileSave->SetText(L"Save");
-			menuFileSave->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuFileSave->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuFileSaveAs=g::NewMenuItemButton();
-			menuFileSaveAs->SetText(L"Save As...");
-			menuFileSaveAs->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuFileSaveAs->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			GuiControl* separator=g::NewMenuSplitter();
-			stackItem->AddChild(separator->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuFileExit=g::NewMenuItemButton();
-			menuFileExit->SetText(L"Exit");
-			menuFileExit->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuFileExit->GetBoundsComposition());
-		}
-	}
-	{
-		GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-		menuStack->AddChild(stackItem);
-
-		menuEdit=g::NewMenuBarButton();
-		menuEdit->SetText(L"Edit");
-		menuEdit->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-		menuEdit->CreateSubMenu();
-		stackItem->AddChild(menuEdit->GetBoundsComposition());
-
-		GuiStackComposition* menuStack=new GuiStackComposition;
-		menuStack->SetDirection(GuiStackComposition::Vertical);
-		menuStack->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-		menuEdit->GetSubMenu()->GetContainerComposition()->AddChild(menuStack);
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditUndo=g::NewMenuItemButton();
-			menuEditUndo->SetText(L"Undo");
-			menuEditUndo->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditUndo->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditRedo=g::NewMenuItemButton();
-			menuEditRedo->SetText(L"Redo");
-			menuEditRedo->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditRedo->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			GuiControl* separator=g::NewMenuSplitter();
-			stackItem->AddChild(separator->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditCut=g::NewMenuItemButton();
-			menuEditCut->SetText(L"Cut");
-			menuEditCut->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditCut->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditCopy=g::NewMenuItemButton();
-			menuEditCopy->SetText(L"Copy");
-			menuEditCopy->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditCopy->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditPaste=g::NewMenuItemButton();
-			menuEditPaste->SetText(L"Paste");
-			menuEditPaste->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditPaste->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditDelete=g::NewMenuItemButton();
-			menuEditDelete->SetText(L"Delete");
-			menuEditDelete->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditDelete->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			GuiControl* separator=g::NewMenuSplitter();
-			stackItem->AddChild(separator->GetBoundsComposition());
-		}
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuEditSelect=g::NewMenuItemButton();
-			menuEditSelect->SetText(L"Select All");
-			menuEditSelect->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuEditSelect->GetBoundsComposition());
-		}
-	}
-	{
-		GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-		menuStack->AddChild(stackItem);
-
-		menuFormat=g::NewMenuBarButton();
-		menuFormat->SetText(L"Format");
-		menuFormat->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-		menuFormat->CreateSubMenu();
-		stackItem->AddChild(menuFormat->GetBoundsComposition());
-
-		GuiStackComposition* menuStack=new GuiStackComposition;
-		menuStack->SetDirection(GuiStackComposition::Vertical);
-		menuStack->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-		menuFormat->GetSubMenu()->GetContainerComposition()->AddChild(menuStack);
-		{
-			GuiStackItemComposition* stackItem=new GuiStackItemComposition;
-			menuStack->AddChild(stackItem);
-
-			menuFormatFont=g::NewMenuItemButton();
-			menuFormatFont->SetText(L"Font...");
-			menuFormatFont->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			stackItem->AddChild(menuFormatFont->GetBoundsComposition());
-		}
-	}
+	toolbar->GetBuilder()
+		->Button(commandFileNew)
+		->Button(commandFileOpen)
+		->Button(commandFileSave)
+		->Button(commandFileSaveAs)
+		->Splitter()
+		->Button(commandEditUndo)
+		->Button(commandEditRedo)
+		->Splitter()
+		->Button(commandEditCut)
+		->Button(commandEditCopy)
+		->Button(commandEditPaste)
+		->Button(commandEditDelete)
+		;
 }
 
 void TextEditorWindow::InitializeComponents()
 {
+	shortcutKeyManager=new GuiShortcutKeyManager();
+	this->SetShortcutKeyManager(shortcutKeyManager);
 
+	InitializeCommand();
 	// create a table to place a menu bar and a text box
 	GuiTableComposition* table=new GuiTableComposition;
 	table->SetCellPadding(0);
 	table->SetAlignmentToParent(Margin(0, 0, 0, 0));
-	table->SetRowsAndColumns(2, 1);
+	table->SetRowsAndColumns(3, 1);
 	table->SetRowOption(0, GuiCellOption::MinSizeOption());
-	table->SetRowOption(1, GuiCellOption::PercentageOption(1.0));
+	table->SetRowOption(1, GuiCellOption::MinSizeOption());
+	table->SetRowOption(2, GuiCellOption::PercentageOption(1.0));
 	table->SetColumnOption(0, GuiCellOption::PercentageOption(1.0));
 	this->GetContainerComposition()->AddChild(table);
 
+	// create the menu bar
 	{
 		GuiCellComposition* cell=new GuiCellComposition;
 		table->AddChild(cell);
 		cell->SetSite(0, 0, 1, 1);
-
-		// create the menu bar
+		
 		InitializeMenuBar();
 		cell->AddChild(menuBar->GetBoundsComposition());
+	}
+
+	// create the tool bar
+	{
+		GuiCellComposition* cell=new GuiCellComposition;
+		table->AddChild(cell);
+		cell->SetSite(1, 0, 1, 1);
+		cell->SetInternalMargin(Margin(2, 2, 2, 0));
+		
+		InitializeToolBar();
+		cell->AddChild(toolbar->GetBoundsComposition());
 	}
 
 	// create the text box
 	{
 		GuiCellComposition* cell=new GuiCellComposition;
 		table->AddChild(cell);
-		cell->SetSite(1, 0, 1, 1);
+		cell->SetSite(2, 0, 1, 1);
 		cell->SetInternalMargin(Margin(2, 2, 2, 2));
 
 		// create the menu bar

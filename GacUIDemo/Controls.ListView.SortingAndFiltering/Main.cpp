@@ -15,7 +15,7 @@ class SortingAndFilteringWindow : public GuiWindow
 {
 private:
 	GuiListView*					listView;
-	GuiMenu*						fileTypeMenu;
+	GuiToolstripMenu*				fileTypeMenu;
 	List<Ptr<FileProperties>>		fileProperties;
 
 	int								sortingColumn;
@@ -187,32 +187,13 @@ public:
 		{
 			// Create a popup menu
 			fileTypeMenu=g::NewMenu(0);
-			GuiStackComposition* menuStack=new GuiStackComposition;
-			menuStack->SetDirection(GuiStackComposition::Vertical);
-			menuStack->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-			menuStack->SetAlignmentToParent(Margin(0, 0, 0, 0));
-			fileTypeMenu->GetContainerComposition()->AddChild(menuStack);
+			GuiToolstripButton* button=0;
 
-			{
-				// Create "Show all file types" menu
-				GuiStackItemComposition* item=new GuiStackItemComposition;
-				menuStack->AddChild(item);
-
-				GuiMenuButton* button=g::NewMenuItemButton();
-				button->SetText(L"Show all file types");
-				button->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-				button->Clicked.AttachMethod(this, &SortingAndFilteringWindow::ShowAllFileType_Clicked);
-				item->AddChild(button->GetBoundsComposition());
-			}
-			{
-				// Create menu separator
-				GuiStackItemComposition* item=new GuiStackItemComposition;
-				menuStack->AddChild(item);
-
-				GuiControl* separator=g::NewMenuSplitter();
-				separator->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-				item->AddChild(separator->GetBoundsComposition());
-			}
+			// Create "Show all file types" menu
+			fileTypeMenu->GetBuilder()->Button(0, L"Show all file types", &button);
+			button->Clicked.AttachMethod(this, &SortingAndFilteringWindow::ShowAllFileType_Clicked);
+			// Create menu separator
+			fileTypeMenu->GetBuilder()->Splitter();
 
 			// Added all existing file type in the folder as menu items
 			Array<WString> fileTypes;
@@ -227,14 +208,8 @@ public:
 			FOREACH(WString, typeName, fileTypes.Wrap())
 			{
 				// Create menu button for each file type
-				GuiStackItemComposition* item=new GuiStackItemComposition;
-				menuStack->AddChild(item);
-
-				GuiMenuButton* button=g::NewMenuItemButton();
-				button->SetText(typeName);
-				button->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				fileTypeMenu->GetBuilder()->Button(0, typeName, &button);
 				button->Clicked.AttachMethod(this, &SortingAndFilteringWindow::ShowSingleFileType_Clicked);
-				item->AddChild(button->GetBoundsComposition());
 			}
 
 			// Attach the menu to the "Type" column

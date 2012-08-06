@@ -16,6 +16,39 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
+    <None Include="..\Resources\_Copy.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Cut.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Delete.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_New.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Open.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Paste.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Print.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Redo.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Save.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_SaveAs.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\_Undo.png">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Public\Source\GacUI.cpp">

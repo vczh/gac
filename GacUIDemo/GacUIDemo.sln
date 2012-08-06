@@ -35,9 +35,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Toolstrip.TextEdit
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GacUIStaticLibrary", "GacUIStaticLibrary\GacUIStaticLibrary.vcxproj", "{6698C71D-0D4E-4031-846A-8698F9C9D658}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Scroll.ColorPicker", "Controls.Scroll.ColorPicker\Controls.Scroll.ColorPicker.vcxproj", "{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 17
+		SccNumberOfProjects = 18
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -103,6 +105,10 @@ Global
 		SccProjectUniqueName16 = GacUIStaticLibrary\\GacUIStaticLibrary.vcxproj
 		SccProjectName16 = GacUIStaticLibrary
 		SccLocalPath16 = GacUIStaticLibrary
+		SccProjectUniqueName17 = Controls.Scroll.ColorPicker\\Controls.Scroll.ColorPicker.vcxproj
+		SccProjectTopLevelParentUniqueName17 = GacUIDemo.sln
+		SccProjectName17 = Controls.Scroll.ColorPicker
+		SccLocalPath17 = Controls.Scroll.ColorPicker
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -173,6 +179,10 @@ Global
 		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Debug|Win32.Build.0 = Debug|Win32
 		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Release|Win32.ActiveCfg = Release|Win32
 		{6698C71D-0D4E-4031-846A-8698F9C9D658}.Release|Win32.Build.0 = Release|Win32
+		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3}.Debug|Win32.Build.0 = Debug|Win32
+		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3}.Release|Win32.ActiveCfg = Release|Win32
+		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -192,5 +202,6 @@ Global
 		{EFB47B32-B002-4B92-A313-ACA8D96B266B} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{C390D034-C335-409E-92E6-41740D71349D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 	EndGlobalSection
 EndGlobal

@@ -6,26 +6,28 @@
 class TextEditorWindow : public GuiWindow
 {
 private:
-	GuiMenuBar*						menuBar;
+	GuiToolstripMenuBar*			menuBar;
+	GuiToolstripToolbar*			toolbar;
 	GuiMultilineTextBox*			textBox;
-	GuiMenuButton*					menuFile;
-	GuiMenuButton*					menuFileNew;
-	GuiMenuButton*					menuFileOpen;
-	GuiMenuButton*					menuFileSave;
-	GuiMenuButton*					menuFileSaveAs;
-	GuiMenuButton*					menuFileExit;
-	GuiMenuButton*					menuEdit;
-	GuiMenuButton*					menuEditUndo;
-	GuiMenuButton*					menuEditRedo;
-	GuiMenuButton*					menuEditCut;
-	GuiMenuButton*					menuEditCopy;
-	GuiMenuButton*					menuEditPaste;
-	GuiMenuButton*					menuEditDelete;
-	GuiMenuButton*					menuEditSelect;
-	GuiMenuButton*					menuFormat;
-	GuiMenuButton*					menuFormatFont;
+	GuiShortcutKeyManager*			shortcutKeyManager;
 
+	GuiToolstripCommand*			commandFileNew;
+	GuiToolstripCommand*			commandFileOpen;
+	GuiToolstripCommand*			commandFileSave;
+	GuiToolstripCommand*			commandFileSaveAs;
+	GuiToolstripCommand*			commandFileExit;
+	GuiToolstripCommand*			commandEditUndo;
+	GuiToolstripCommand*			commandEditRedo;
+	GuiToolstripCommand*			commandEditCut;
+	GuiToolstripCommand*			commandEditCopy;
+	GuiToolstripCommand*			commandEditPaste;
+	GuiToolstripCommand*			commandEditDelete;
+	GuiToolstripCommand*			commandEditSelect;
+	GuiToolstripCommand*			commandFormatFont;
+
+	void							InitializeCommand();
 	void							InitializeMenuBar();
+	void							InitializeToolBar();
 	void							InitializeComponents();
 private:
 
@@ -60,20 +62,20 @@ Command Updating
 Menu Handlers
 ******************************************************************************/
 
-	void							menuFileNew_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuFileOpen_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuFileSave_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuFileSaveAs_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuFileExit_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditUndo_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditRedo_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditCut_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditCopy_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditPaste_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditDelete_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditSelect_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuEditGoto_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
-	void							menuFormatFont_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandFileNew_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandFileOpen_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandFileSave_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandFileSaveAs_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandFileExit_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditUndo_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditRedo_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditCut_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditCopy_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditPaste_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditDelete_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditSelect_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandEditGoto_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
+	void							commandFormatFont_Executed(GuiGraphicsComposition* sender, GuiEventArgs& arguments);
 public:
 	TextEditorWindow();
 	~TextEditorWindow();
