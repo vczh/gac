@@ -20,7 +20,7 @@ private:
 public:
 	IniColorizer()
 	{
-		text::ColorEntry entry=win7::Win7GetTextBoxTextColor();
+		text::ColorEntry entry=GetCurrentTheme()->GetDefaultTextBoxColorEntry();
 		colors.Resize(5);
 		
 		// text color
@@ -101,7 +101,7 @@ class XmlColorizer : public GuiTextBoxRegexColorizer
 public:
 	XmlColorizer()
 	{
-		text::ColorEntry entry=win7::Win7GetTextBoxTextColor();
+		text::ColorEntry entry=GetCurrentTheme()->GetDefaultTextBoxColorEntry();
 		SetDefaultColor(entry);
 
 		entry.normal.text=Color(0, 128, 0);
@@ -303,7 +303,7 @@ class CppColorizer : public GuiTextBoxRegexColorizer
 public:
 	CppColorizer()
 	{
-		text::ColorEntry entry=win7::Win7GetTextBoxTextColor();
+		text::ColorEntry entry=GetCurrentTheme()->GetDefaultTextBoxColorEntry();
 		SetDefaultColor(entry);
 
 		entry.normal.text=Color(128, 0, 255);
@@ -343,7 +343,7 @@ private:
 		comboSelector->SetEnabled(false);
 		this->GetBoundsComposition()->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::LargeWaiting));
 
-		GetApplication()->InvokeAsync(Curry<void(TextBoxColorizerWindow*)>([](TextBoxColorizerWindow* window)
+		GetApplication()->InvokeAsync(Curry(Func<void(TextBoxColorizerWindow*)>([](TextBoxColorizerWindow* window)
 		{
 			Ptr<GuiTextBoxColorizerBase> colorizer;
 			WString text;
@@ -415,7 +415,7 @@ private:
 				window->GetBoundsComposition()->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetDefaultSystemCursor());
 				window->comboSelector->SetEnabled(true);
 			});
-		})(this));
+		}))(this));
 	}
 public:
 	TextBoxColorizerWindow()

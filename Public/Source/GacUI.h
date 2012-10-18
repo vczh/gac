@@ -632,6 +632,18 @@ Native Window
 			virtual bool				GetAlwaysPassFocusToParent()=0;
 			virtual void				SetAlwaysPassFocusToParent(bool value)=0;
 
+			virtual void				EnableCustomFrameMode()=0;
+			virtual void				DisableCustomFrameMode()=0;
+			virtual bool				IsCustomFrameModeEnabled()=0;
+
+			enum WindowSizeState
+			{
+				Minimized,
+				Restored,
+				Maximized,
+			};
+
+			virtual WindowSizeState		GetSizeState()=0;
 			virtual void				Show()=0;
 			virtual void				ShowDeactivated()=0;
 			virtual void				ShowRestored()=0;
@@ -714,6 +726,27 @@ Native Window
 		class INativeWindowListener : public Interface
 		{
 		public:
+			enum HitTestResult
+			{
+				BorderNoSizing,
+				BorderLeft,
+				BorderRight,
+				BorderTop,
+				BorderBottom,
+				BorderLeftTop,
+				BorderRightTop,
+				BorderLeftBottom,
+				BorderRightBottom,
+				Title,
+				ButtonMinimum,
+				ButtonMaximum,
+				ButtonClose,
+				Client,
+				Icon,
+				NoDecision,
+			};
+
+			virtual HitTestResult		HitTest(Point location);
 			virtual void				Moving(Rect& bounds, bool fixSizeOnly);
 			virtual void				Moved();
 			virtual void				Enabled();
@@ -930,6 +963,7 @@ Native Window Controller
 			virtual INativeWindowService*			WindowService()=0;
 			virtual INativeInputService*			InputService()=0;
 			virtual INativeDialogService*			DialogService()=0;
+			virtual WString							GetOSVersion()=0;
 		};
 		
 		class INativeControllerListener : public Interface
@@ -1209,209 +1243,6 @@ Native Window Provider
 #endif
 
 /***********************************************************************
-REFLECTION\GUITYPEDESCRIPTOR.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI::Reflection
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_REFLECTION_GUITYPEDESCRIPTOR
-#define VCZH_PRESENTATION_REFLECTION_GUITYPEDESCRIPTOR
-
-
-namespace vl
-{
-	namespace presentation
-	{
-
-/***********************************************************************
-Attribute
-***********************************************************************/
-		namespace description
-		{
-			class ITypeDescriptor;
-		}
-
-		class DescriptableObject
-		{
-			template<typename T>
-			friend class Description;
-
-			friend class DescriptableValue;
-		protected:
-			size_t									objectSize;
-			description::ITypeDescriptor**			typeDescriptor;
-		public:
-			DescriptableObject();
-			virtual ~DescriptableObject();
-		};
-
-		class IDescriptable : public virtual Interface, public virtual DescriptableObject
-		{
-		public:
-			~IDescriptable(){}
-		};
-		
-		template<typename T>
-		class Description : public virtual DescriptableObject
-		{
-		protected:
-			static description::ITypeDescriptor*		associatedTypeDescriptor;
-		public:
-			Description()
-			{
-				if(objectSize<sizeof(T))
-				{
-					objectSize=sizeof(T);
-					typeDescriptor=&associatedTypeDescriptor;
-				}
-			}
-
-			static void SetTypeDescroptor(description::ITypeDescriptor* typeDescroptor)
-			{
-				if(!associatedTypeDescriptor)
-				{
-					associatedTypeDescriptor=typeDescroptor;
-				}
-			}
-		};
-
-		template<typename T>
-		description::ITypeDescriptor* Description<T>::associatedTypeDescriptor=0;
-
-/***********************************************************************
-Value
-***********************************************************************/
-
-		namespace description
-		{
-			class Value : public Object
-			{
-			public:
-				enum ValueType
-				{
-					Null,
-					DescriptableObjectRef,
-					DescriptableObjectPtr,
-					Text,
-				};
-			protected:
-				ValueType						valueType;
-				DescriptableObject*				descriptableObjectRef;
-				Ptr<DescriptableObject>			descriptableObjectPtr;
-				WString							text;
-			public:
-				Value();
-				Value(DescriptableObject* value);
-				Value(Ptr<DescriptableObject> value);
-				Value(const WString& value);
-				Value(const Value& value);
-
-				Value&							operator=(const Value& value);
-
-				ValueType						GetValueType()const;
-				DescriptableObject*				GetDescriptableObjectRef()const;
-				Ptr<DescriptableObject>			GetDescriptableObjectPtr()const;
-				const WString&					GetText()const;
-			};
-
-			class IValueSerializer : public Interface
-			{
-			public:
-				virtual WString					GetName()=0;
-				virtual bool					Validate(const Value& value)=0;
-			};
-
-			template<typename T>
-			class ITypedValueSerializer : public IValueSerializer
-			{
-				virtual bool					Serialize(const T& input, Value& value)=0;
-				virtual bool					Deserialize(T& output, const Value& value)=0;
-			};
-
-/***********************************************************************
-ITypeDescriptor
-***********************************************************************/
-
-			class IMethodInfo;
-			class IMethodGroupInfo;
-
-			class IMemberInfo : public Interface
-			{
-			public:
-				virtual ITypeDescriptor*		GetOwnerTypeDescriptor()=0;
-				virtual const WString&			GetName()=0;
-			};
-
-			class IValueInfo : public Interface
-			{
-			public:
-				virtual Value::ValueType		GetExpectedValueType()=0;
-				virtual IValueSerializer*		GetExpectedValueSerializer()=0;
-				virtual ITypeDescriptor*		GetExpectedTypeDescriptor()=0;
-				virtual bool					CanBeNull()=0;
-			};
-
-			class IPropertyInfo : public IMemberInfo, public IValueInfo
-			{
-			public:
-				virtual Value					GetValue(Value thisObject)=0;
-				virtual void					SetValue(Value thisObject, Value newValue)=0;
-			};
-
-			class IParameterInfo : public IMemberInfo, public IValueInfo
-			{
-			public:
-				virtual IMethodInfo*			GetOwnerMethod()=0;
-				virtual bool					CanOutput()=0;
-			};
-
-			class IMethodInfo : public IMemberInfo
-			{
-			public:
-				virtual IMethodGroupInfo*		GetOwnerMethodGroup()=0;
-				virtual int						GetParameterCount()=0;
-				virtual IParameterInfo*			GetParameter(int index)=0;
-				virtual IValueInfo*				GetReturn()=0;
-				virtual Value					Invoke(Value thisObject, const collections::IReadonlyList<Value>& arguments)=0;
-			};
-
-			class IMethodGroupInfo : public IMemberInfo
-			{
-			public:
-				virtual const WString&			GetName()=0;
-				virtual int						GetMethodCount()=0;
-				virtual IMethodInfo*			GetMethod(int index)=0;
-			};
-
-			class ITypeDescriptor : public Interface
-			{
-			public:
-				virtual int						GetBaseTypeDescriptorCount()=0;
-				virtual ITypeDescriptor*		GetBaseTypeDescriptor(int index)=0;
-
-				virtual int						GetPropertyCount()=0;
-				virtual IPropertyInfo*			GetProperty(int index)=0;
-				virtual bool					IsPropertyExists(const WString& name, bool inheritance)=0;
-				virtual IPropertyInfo*			GetPropertyByName(const WString& name, bool inheritance)=0;
-
-				virtual int						GetMethodGroupCount()=0;
-				virtual IMethodGroupInfo*		GetMethodGroup(int index)=0;
-				virtual bool					IsMethodGroupExists(const WString& name, bool inheritance)=0;
-				virtual IMethodGroupInfo*		GetMethodGroupByName(const WString& name, bool inheritance)=0;
-				virtual IMethodGroupInfo*		GetConstructorGroup()=0;
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
 GRAPHICSELEMENT\GUIGRAPHICSELEMENT.H
 ***********************************************************************/
 /***********************************************************************
@@ -1430,6 +1261,8 @@ namespace vl
 {
 	namespace presentation
 	{
+		using namespace reflection;
+
 		namespace elements
 		{
 			class IGuiGraphicsElement;
@@ -2159,6 +1992,8 @@ namespace vl
 {
 	namespace presentation
 	{
+		using namespace reflection;
+
 		namespace compositions
 		{
 			class GuiGraphicsComposition;
@@ -2198,12 +2033,13 @@ Event
 			protected:
 				struct HandlerNode
 				{
-					Ptr<IHandler>					handler;
-					Ptr<HandlerNode>				next;
+					Ptr<IHandler>										handler;
+					Ptr<HandlerNode>									next;
 				};
 
-				GuiGraphicsComposition*				sender;
-				Ptr<HandlerNode>					handlers;
+				GuiGraphicsComposition*									sender;
+				Ptr<HandlerNode>										handlers;
+				collections::List<Ptr<description::IEventHandler>>		reflectionEventHandlers;
 			public:
 				GuiGraphicsEvent(GuiGraphicsComposition* _sender=0)
 					:sender(_sender)
@@ -2212,6 +2048,21 @@ Event
 
 				~GuiGraphicsEvent()
 				{
+					for(vint i=reflectionEventHandlers.Count()-1;i>=0;i--)
+					{
+						Ptr<description::IEventHandler> eventHandler=reflectionEventHandlers[i];
+						eventHandler->Detach();
+					}
+				}
+
+				void ReflectionAddEventHandler(Ptr<description::IEventHandler> eventHandler)
+				{
+					reflectionEventHandlers.Add(eventHandler);
+				}
+
+				void ReflectionRemoveEventHandler(description::IEventHandler* eventHandler)
+				{
+					reflectionEventHandlers.Remove(eventHandler);
 				}
 
 				GuiGraphicsComposition* GetAssociatedComposition()
@@ -2581,6 +2432,7 @@ Basic Construction
 				controls::GuiControl*						associatedControl;
 				GuiGraphicsHost*							associatedHost;
 				INativeCursor*								associatedCursor;
+				INativeWindowListener::HitTestResult		associatedHitTestResult;
 
 				Margin										margin;
 				Margin										internalMargin;
@@ -2624,6 +2476,8 @@ Basic Construction
 				GuiGraphicsHost*							GetAssociatedHost();
 				INativeCursor*								GetAssociatedCursor();
 				void										SetAssociatedCursor(INativeCursor* cursor);
+				INativeWindowListener::HitTestResult		GetAssociatedHitTestResult();
+				void										SetAssociatedHitTestResult(INativeWindowListener::HitTestResult value);
 				
 				controls::GuiControl*						GetRelatedControl();
 				GuiGraphicsHost*							GetRelatedGraphicsHost();
@@ -3281,73 +3135,73 @@ Host
 			public:
 				static const unsigned __int64	CaretInterval=500;
 			protected:
-				INativeWindow*					nativeWindow;
-				IGuiShortcutKeyManager*			shortcutKeyManager;
-				GuiWindowComposition*			windowComposition;
-				GuiGraphicsComposition*			focusedComposition;
-				Size							previousClientSize;
-				Size							minSize;
-				Point							caretPoint;
-				unsigned __int64				lastCaretTime;
+				INativeWindow*							nativeWindow;
+				IGuiShortcutKeyManager*					shortcutKeyManager;
+				GuiWindowComposition*					windowComposition;
+				GuiGraphicsComposition*					focusedComposition;
+				Size									previousClientSize;
+				Size									minSize;
+				Point									caretPoint;
+				unsigned __int64						lastCaretTime;
 
-				GuiGraphicsAnimationManager		animationManager;
-				GuiGraphicsComposition*			mouseCaptureComposition;
-				CompositionList					mouseEnterCompositions;
+				GuiGraphicsAnimationManager				animationManager;
+				GuiGraphicsComposition*					mouseCaptureComposition;
+				CompositionList							mouseEnterCompositions;
 
-				void							DisconnectCompositionInternal(GuiGraphicsComposition* composition);
-
-				void							MouseCapture(const NativeWindowMouseInfo& info);
-				void							MouseUncapture(const NativeWindowMouseInfo& info);
-				void							OnCharInput(const NativeWindowCharInfo& info, GuiGraphicsComposition* composition, GuiCharEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
-				void							OnKeyInput(const NativeWindowKeyInfo& info, GuiGraphicsComposition* composition, GuiKeyEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
-				void							RaiseMouseEvent(GuiMouseEventArgs& arguments, GuiGraphicsComposition* composition, GuiMouseEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
-				void							OnMouseInput(const NativeWindowMouseInfo& info, GuiMouseEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
+				void									DisconnectCompositionInternal(GuiGraphicsComposition* composition);
+				void									MouseCapture(const NativeWindowMouseInfo& info);
+				void									MouseUncapture(const NativeWindowMouseInfo& info);
+				void									OnCharInput(const NativeWindowCharInfo& info, GuiGraphicsComposition* composition, GuiCharEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
+				void									OnKeyInput(const NativeWindowKeyInfo& info, GuiGraphicsComposition* composition, GuiKeyEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
+				void									RaiseMouseEvent(GuiMouseEventArgs& arguments, GuiGraphicsComposition* composition, GuiMouseEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
+				void									OnMouseInput(const NativeWindowMouseInfo& info, GuiMouseEvent GuiGraphicsEventReceiver::* eventReceiverEvent);
 				
 			private:
-				void							Moving(Rect& bounds, bool fixSizeOnly)override;
-				void							Moved()override;
+				INativeWindowListener::HitTestResult	HitTest(Point location)override;
+				void									Moving(Rect& bounds, bool fixSizeOnly)override;
+				void									Moved()override;
 
-				void							LeftButtonDown(const NativeWindowMouseInfo& info)override;
-				void							LeftButtonUp(const NativeWindowMouseInfo& info)override;
-				void							LeftButtonDoubleClick(const NativeWindowMouseInfo& info)override;
-				void							RightButtonDown(const NativeWindowMouseInfo& info)override;
-				void							RightButtonUp(const NativeWindowMouseInfo& info)override;
-				void							RightButtonDoubleClick(const NativeWindowMouseInfo& info)override;
-				void							MiddleButtonDown(const NativeWindowMouseInfo& info)override;
-				void							MiddleButtonUp(const NativeWindowMouseInfo& info)override;
-				void							MiddleButtonDoubleClick(const NativeWindowMouseInfo& info)override;
-				void							HorizontalWheel(const NativeWindowMouseInfo& info)override;
-				void							VerticalWheel(const NativeWindowMouseInfo& info)override;
-				void							MouseMoving(const NativeWindowMouseInfo& info)override;
-				void							MouseEntered()override;
-				void							MouseLeaved()override;
+				void									LeftButtonDown(const NativeWindowMouseInfo& info)override;
+				void									LeftButtonUp(const NativeWindowMouseInfo& info)override;
+				void									LeftButtonDoubleClick(const NativeWindowMouseInfo& info)override;
+				void									RightButtonDown(const NativeWindowMouseInfo& info)override;
+				void									RightButtonUp(const NativeWindowMouseInfo& info)override;
+				void									RightButtonDoubleClick(const NativeWindowMouseInfo& info)override;
+				void									MiddleButtonDown(const NativeWindowMouseInfo& info)override;
+				void									MiddleButtonUp(const NativeWindowMouseInfo& info)override;
+				void									MiddleButtonDoubleClick(const NativeWindowMouseInfo& info)override;
+				void									HorizontalWheel(const NativeWindowMouseInfo& info)override;
+				void									VerticalWheel(const NativeWindowMouseInfo& info)override;
+				void									MouseMoving(const NativeWindowMouseInfo& info)override;
+				void									MouseEntered()override;
+				void									MouseLeaved()override;
 
-				void							KeyDown(const NativeWindowKeyInfo& info)override;
-				void							KeyUp(const NativeWindowKeyInfo& info)override;
-				void							SysKeyDown(const NativeWindowKeyInfo& info)override;
-				void							SysKeyUp(const NativeWindowKeyInfo& info)override;
-				void							Char(const NativeWindowCharInfo& info)override;
+				void									KeyDown(const NativeWindowKeyInfo& info)override;
+				void									KeyUp(const NativeWindowKeyInfo& info)override;
+				void									SysKeyDown(const NativeWindowKeyInfo& info)override;
+				void									SysKeyUp(const NativeWindowKeyInfo& info)override;
+				void									Char(const NativeWindowCharInfo& info)override;
 
-				void							GlobalTimer()override;
+				void									GlobalTimer()override;
 			public:
 				GuiGraphicsHost();
 				~GuiGraphicsHost();
 
-				INativeWindow*					GetNativeWindow();
-				void							SetNativeWindow(INativeWindow* _nativeWindow);
-				GuiGraphicsComposition*			GetMainComposition();
-				void							Render();
+				INativeWindow*							GetNativeWindow();
+				void									SetNativeWindow(INativeWindow* _nativeWindow);
+				GuiGraphicsComposition*					GetMainComposition();
+				void									Render();
 
-				IGuiShortcutKeyManager*			GetShortcutKeyManager();
-				void							SetShortcutKeyManager(IGuiShortcutKeyManager* value);
+				IGuiShortcutKeyManager*					GetShortcutKeyManager();
+				void									SetShortcutKeyManager(IGuiShortcutKeyManager* value);
 
-				bool							SetFocus(GuiGraphicsComposition* composition);
-				GuiGraphicsComposition*			GetFocusedComposition();
-				Point							GetCaretPoint();
-				void							SetCaretPoint(Point value, GuiGraphicsComposition* referenceComposition=0);
+				bool									SetFocus(GuiGraphicsComposition* composition);
+				GuiGraphicsComposition*					GetFocusedComposition();
+				Point									GetCaretPoint();
+				void									SetCaretPoint(Point value, GuiGraphicsComposition* referenceComposition=0);
 
-				GuiGraphicsAnimationManager*	GetAnimationManager();
-				void							DisconnectComposition(GuiGraphicsComposition* composition);
+				GuiGraphicsAnimationManager*			GetAnimationManager();
+				void									DisconnectComposition(GuiGraphicsComposition* composition);
 			};
 
 /***********************************************************************
@@ -4071,7 +3925,11 @@ Control Host
 				compositions::GuiGraphicsHost*			host;
 				collections::List<GuiComponent*>		components;
 
+				virtual void							OnNativeWindowChanged();
+				virtual void							OnVisualStatusChanged();
 			private:
+				
+				void									Moved()override;
 				void									Enabled()override;
 				void									Disabled()override;
 				void									GotFocus()override;
@@ -4112,19 +3970,6 @@ Control Host
 				void									SetShowInTaskBar(bool value);
 				bool									GetEnabledActivate();
 				void									SetEnabledActivate(bool value);
-				
-				bool									GetMaximizedBox();
-				void									SetMaximizedBox(bool visible);
-				bool									GetMinimizedBox();
-				void									SetMinimizedBox(bool visible);
-				bool									GetBorder();
-				void									SetBorder(bool visible);
-				bool									GetSizeBox();
-				void									SetSizeBox(bool visible);
-				bool									GetIconVisible();
-				void									SetIconVisible(bool visible);
-				bool									GetTitleBar();
-				void									SetTitleBar(bool visible);
 				bool									GetTopMost();
 				void									SetTopMost(bool topmost);
 
@@ -4160,15 +4005,75 @@ Window
 			class GuiWindow : public GuiControlHost, public Description<GuiWindow>
 			{
 				friend class GuiApplication;
+			public:
+				class IStyleController : virtual public GuiControl::IStyleController, public Description<IStyleController>
+				{
+				public:
+					virtual void						AttachWindow(GuiWindow* _window)=0;
+					virtual void						InitializeNativeWindowProperties()=0;
+					virtual bool						GetMaximizedBox()=0;
+					virtual void						SetMaximizedBox(bool visible)=0;
+					virtual bool						GetMinimizedBox()=0;
+					virtual void						SetMinimizedBox(bool visible)=0;
+					virtual bool						GetBorder()=0;
+					virtual void						SetBorder(bool visible)=0;
+					virtual bool						GetSizeBox()=0;
+					virtual void						SetSizeBox(bool visible)=0;
+					virtual bool						GetIconVisible()=0;
+					virtual void						SetIconVisible(bool visible)=0;
+					virtual bool						GetTitleBar()=0;
+					virtual void						SetTitleBar(bool visible)=0;
+				};
+				
+				class DefaultBehaviorStyleController : virtual public IStyleController
+				{
+				protected:
+					GuiWindow*							window;
+				public:
+					DefaultBehaviorStyleController();
+					~DefaultBehaviorStyleController();
+
+					void								AttachWindow(GuiWindow* _window)override;
+					void								InitializeNativeWindowProperties()override;
+					bool								GetMaximizedBox()override;
+					void								SetMaximizedBox(bool visible)override;
+					bool								GetMinimizedBox()override;
+					void								SetMinimizedBox(bool visible)override;
+					bool								GetBorder()override;
+					void								SetBorder(bool visible)override;
+					bool								GetSizeBox()override;
+					void								SetSizeBox(bool visible)override;
+					bool								GetIconVisible()override;
+					void								SetIconVisible(bool visible)override;
+					bool								GetTitleBar()override;
+					void								SetTitleBar(bool visible)override;
+				};
 			protected:
+				IStyleController*						styleController;
+
+				void									OnNativeWindowChanged()override;
+				void									OnVisualStatusChanged()override;
 				virtual void							MouseClickedOnOtherWindow(GuiWindow* window);
 			public:
-				GuiWindow(GuiControl::IStyleController* _styleController);
+				GuiWindow(IStyleController* _styleController);
 				~GuiWindow();
 
 				compositions::GuiNotifyEvent			ClipboardUpdated;
 
 				void									MoveToScreenCenter();
+				
+				bool									GetMaximizedBox();
+				void									SetMaximizedBox(bool visible);
+				bool									GetMinimizedBox();
+				void									SetMinimizedBox(bool visible);
+				bool									GetBorder();
+				void									SetBorder(bool visible);
+				bool									GetSizeBox();
+				void									SetSizeBox(bool visible);
+				bool									GetIconVisible();
+				void									SetIconVisible(bool visible);
+				bool									GetTitleBar();
+				void									SetTitleBar(bool visible);
 			};
 			
 			class GuiPopup : public GuiWindow, public Description<GuiPopup>
@@ -4179,7 +4084,7 @@ Window
 				void									PopupOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void									PopupClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 			public:
-				GuiPopup(GuiControl::IStyleController* _styleController);
+				GuiPopup(IStyleController* _styleController);
 				~GuiPopup();
 
 				bool									IsClippedByScreen(Point location);
@@ -6204,7 +6109,7 @@ ComboBox Base
 					virtual void							OnPopupOpened()=0;
 					virtual void							OnPopupClosed()=0;
 					virtual void							OnItemSelected()=0;
-					virtual GuiControl::IStyleController*	CreatePopupStyle()=0;
+					virtual GuiWindow::IStyleController*	CreatePopupStyle()=0;
 				};
 			protected:
 
@@ -7222,13 +7127,15 @@ namespace vl
 			class ITheme : public IDescriptable, public Description<ITheme>
 			{
 			public:
-				virtual controls::GuiControl::IStyleController*								CreateWindowStyle()=0;
+				virtual controls::GuiWindow::IStyleController*								CreateWindowStyle()=0;
 				virtual controls::GuiLabel::IStyleController*								CreateLabelStyle()=0;
+				virtual controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()=0;
 				virtual controls::GuiControl::IStyleController*								CreateGroupBoxStyle()=0;
 				virtual controls::GuiTab::IStyleController*									CreateTabStyle()=0;
 				virtual controls::GuiComboBoxBase::IStyleController*						CreateComboBoxStyle()=0;
 				virtual controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()=0;
 				virtual controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()=0;
+				virtual elements::text::ColorEntry											GetDefaultTextBoxColorEntry()=0;
 				virtual controls::GuiListView::IStyleProvider*								CreateListViewStyle()=0;
 				virtual controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()=0;
 				
@@ -7252,6 +7159,8 @@ namespace vl
 				virtual controls::GuiScroll::IStyleController*								CreateHTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateVTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateProgressBarStyle()=0;
+				virtual int																	GetScrollDefaultSize()=0;
+				virtual int																	GetTrackerDefaultSize()=0;
 				
 				virtual controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()=0;
 				virtual controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()=0;
@@ -7266,6 +7175,7 @@ namespace vl
 			{
 				extern controls::GuiWindow*						NewWindow();
 				extern controls::GuiLabel*						NewLabel();
+				extern controls::GuiScrollContainer*			NewScrollContainer();
 				extern controls::GuiControl*					NewGroupBox();
 				extern controls::GuiTab*						NewTab();
 				extern controls::GuiComboBoxListControl*		NewComboBox(controls::GuiSelectableListControl* containedListControl);
@@ -7304,6 +7214,162 @@ namespace vl
 				extern controls::GuiTextList*					NewCheckTextList();
 				extern controls::GuiTextList*					NewRadioTextList();
 			}
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\GUIWIN7STYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows7 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIWIN7STYLES
+#define VCZH_PRESENTATION_CONTROLS_GUIWIN7STYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win7
+		{
+
+/***********************************************************************
+Theme
+***********************************************************************/
+
+			class Win7Theme : public theme::ITheme
+			{
+			public:
+				Win7Theme();
+				~Win7Theme();
+
+				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
+				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
+				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
+				controls::GuiTab::IStyleController*									CreateTabStyle()override;
+				controls::GuiComboBoxBase::IStyleController*						CreateComboBoxStyle()override;
+				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
+				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
+				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
+				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
+				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				
+				controls::GuiToolstripMenu::IStyleController*						CreateMenuStyle()override;
+				controls::GuiToolstripMenuBar::IStyleController*					CreateMenuBarStyle()override;
+				controls::GuiControl::IStyleController*								CreateMenuSplitterStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateMenuBarButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateMenuItemButtonStyle()override;
+				controls::GuiToolstripToolbar::IStyleController*					CreateToolbarStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolbarButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolbarDropdownButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolbarSplitButtonStyle()override;
+				controls::GuiControl::IStyleController*								CreateToolbarSplitterStyle()override;
+
+				controls::GuiButton::IStyleController*								CreateButtonStyle()override;
+				controls::GuiSelectableButton::IStyleController*					CreateCheckBoxStyle()override;
+				controls::GuiSelectableButton::IStyleController*					CreateRadioButtonStyle()override;
+				
+				controls::GuiScroll::IStyleController*								CreateHScrollStyle()override;
+				controls::GuiScroll::IStyleController*								CreateVScrollStyle()override;
+				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
+				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
+				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
+				int																	GetScrollDefaultSize()override;
+				int																	GetTrackerDefaultSize()override;
+
+				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
+				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
+				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateCheckTextListItemStyle()override;
+				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateRadioTextListItemStyle()override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\GUIWIN8STYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIWIN8STYLES
+#define VCZH_PRESENTATION_CONTROLS_GUIWIN8STYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+Theme
+***********************************************************************/
+
+			class Win8Theme : public /*theme::ITheme*/ win7::Win7Theme
+			{
+			public:
+				Win8Theme();
+				~Win8Theme();
+
+				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
+				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
+				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
+				//controls::GuiTab::IStyleController*									CreateTabStyle()override;
+				controls::GuiComboBoxBase::IStyleController*						CreateComboBoxStyle()override;
+				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
+				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
+				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
+				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
+				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+
+				controls::GuiToolstripMenu::IStyleController*						CreateMenuStyle()override;
+				controls::GuiToolstripMenuBar::IStyleController*					CreateMenuBarStyle()override;
+				controls::GuiControl::IStyleController*								CreateMenuSplitterStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateMenuBarButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateMenuItemButtonStyle()override;
+				controls::GuiToolstripToolbar::IStyleController*					CreateToolbarStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolbarButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolbarDropdownButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolbarSplitButtonStyle()override;
+				controls::GuiControl::IStyleController*								CreateToolbarSplitterStyle()override;
+
+				controls::GuiButton::IStyleController*								CreateButtonStyle()override;
+				controls::GuiSelectableButton::IStyleController*					CreateCheckBoxStyle()override;
+				controls::GuiSelectableButton::IStyleController*					CreateRadioButtonStyle()override;
+
+				controls::GuiScroll::IStyleController*								CreateHScrollStyle()override;
+				controls::GuiScroll::IStyleController*								CreateVScrollStyle()override;
+				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
+				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
+				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
+				int																	GetScrollDefaultSize()override;
+				int																	GetTrackerDefaultSize()override;
+
+				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
+				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
+				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateCheckTextListItemStyle()override;
+				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateRadioTextListItemStyle()override;
+			};
 		}
 	}
 }
@@ -7352,6 +7418,7 @@ Scrolls
 				controls::GuiButton*								handleButton;
 				compositions::GuiPartialViewComposition*			handleComposition;
 				compositions::GuiBoundsComposition*					boundsComposition;
+				compositions::GuiBoundsComposition*					containerComposition;
 
 				int													totalSize;
 				int													pageSize;
@@ -7370,7 +7437,7 @@ Scrolls
 				virtual controls::GuiButton::IStyleController*		CreateDecreaseButtonStyle(Direction direction)=0;
 				virtual controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction)=0;
 				virtual controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)=0;
-				virtual void										InstallBackground(compositions::GuiGraphicsComposition* boundsComposition, Direction direction)=0;
+				virtual compositions::GuiBoundsComposition*			InstallBackground(compositions::GuiBoundsComposition* boundsComposition, Direction direction)=0;
 				void												BuildStyle(int defaultSize, int arrowSize);
 			public:
 				CommonScrollStyle(Direction _direction);
@@ -7455,6 +7522,115 @@ Scrolls
 				static compositions::GuiBoundsComposition*			BuildRightArrow(elements::GuiPolygonElement*& elementOut);
 			};
 		}
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+			
+		extern unsigned char							IntToColor(int color);
+		extern Color									BlendColor(Color c1, Color c2, int currentPosition, int totalLength);
+
+/***********************************************************************
+Animation
+***********************************************************************/
+
+#define DEFINE_TRANSFERRING_ANIMATION(TSTATE, TSTYLECONTROLLER)\
+				class TransferringAnimation : public compositions::GuiTimeBasedAnimation\
+				{\
+				protected:\
+					TSTATE									colorBegin;\
+					TSTATE									colorEnd;\
+					TSTATE									colorCurrent;\
+					TSTYLECONTROLLER*						style;\
+					bool									stopped;\
+					bool									disabled;\
+					bool									enableAnimation;\
+					void									PlayInternal(int currentPosition, int totalLength);\
+				public:\
+					TransferringAnimation(TSTYLECONTROLLER* _style, const TSTATE& begin);\
+					void									Disable();\
+					void									Play(int currentPosition, int totalLength)override;\
+					void									Stop()override;\
+					bool									GetEnableAnimation();\
+					void									SetEnableAnimation(bool value);\
+					void									Transfer(const TSTATE& end);\
+				};\
+
+/***********************************************************************
+Animation Implementation
+***********************************************************************/
+
+#define DEFAULT_TRANSFERRING_ANIMATION_HOST_GETTER(STYLE) (STYLE->GetBoundsComposition()->GetRelatedGraphicsHost())
+
+#define IMPLEMENT_TRANSFERRING_ANIMATION_BASE(TSTATE, TSTYLECONTROLLER, HOST_GETTER)\
+			TSTYLECONTROLLER::TransferringAnimation::TransferringAnimation(TSTYLECONTROLLER* _style, const TSTATE& begin)\
+				:GuiTimeBasedAnimation(0)\
+				,colorBegin(begin)\
+				,colorEnd(begin)\
+				,colorCurrent(begin)\
+				,style(_style)\
+				,stopped(true)\
+				,disabled(false)\
+				,enableAnimation(true)\
+			{\
+			}\
+			void TSTYLECONTROLLER::TransferringAnimation::Disable()\
+			{\
+				disabled=true;\
+			}\
+			void TSTYLECONTROLLER::TransferringAnimation::Play(int currentPosition, int totalLength)\
+			{\
+				if(!disabled)\
+				{\
+					PlayInternal(currentPosition, totalLength);\
+				}\
+			}\
+			void TSTYLECONTROLLER::TransferringAnimation::Stop()\
+			{\
+				stopped=true;\
+			}\
+			bool TSTYLECONTROLLER::TransferringAnimation::GetEnableAnimation()\
+			{\
+				return enableAnimation;\
+			}\
+			void TSTYLECONTROLLER::TransferringAnimation::SetEnableAnimation(bool value)\
+			{\
+				enableAnimation=value;\
+			}\
+			void TSTYLECONTROLLER::TransferringAnimation::Transfer(const TSTATE& end)\
+			{\
+				if(colorEnd!=end)\
+				{\
+					GuiGraphicsHost* host=HOST_GETTER(style);\
+					if(enableAnimation && host)\
+					{\
+						Restart(120);\
+						if(stopped)\
+						{\
+							colorBegin=colorEnd;\
+							colorEnd=end;\
+							host->GetAnimationManager()->AddAnimation(style->transferringAnimation);\
+							stopped=false;\
+						}\
+						else\
+						{\
+							colorBegin=colorCurrent;\
+							colorEnd=end;\
+						}\
+					}\
+					else\
+					{\
+						colorBegin=end;\
+						colorEnd=end;\
+						colorCurrent=end;\
+						Play(1, 1);\
+					}\
+				}\
+			}\
+			void TSTYLECONTROLLER::TransferringAnimation::PlayInternal(int currentPosition, int totalLength)\
+
+#define IMPLEMENT_TRANSFERRING_ANIMATION(TSTATE, TSTYLECONTROLLER)\
+	IMPLEMENT_TRANSFERRING_ANIMATION_BASE(TSTATE, TSTYLECONTROLLER, DEFAULT_TRANSFERRING_ANIMATION_HOST_GETTER)
 	}
 }
 
@@ -7580,8 +7756,8 @@ Button Configuration
 				elements::GuiGradientBackgroundElement*		outerGradientElement;
 				elements::GuiGradientBackgroundElement*		innerGradientElement;
 				elements::GuiSolidLabelElement*				textElement;
-				elements::GuiSolidLabelElement*				bulletTextElement;
-				elements::GuiSolidBackgroundElement*		bulletBackgroundElement;
+				elements::GuiSolidLabelElement*				bulletCheckElement;
+				elements::GuiSolidBackgroundElement*		bulletRadioElement;
 				compositions::GuiBoundsComposition*			textComposition;
 				compositions::GuiBoundsComposition*			mainComposition;
 
@@ -7640,8 +7816,6 @@ Button Configuration
 Helper Functions
 ***********************************************************************/
 			
-			extern Color									BlendColor(Color c1, Color c2, int currentPosition, int totalLength);
-			extern int										Win7GetColorAnimationLength();
 			extern Color									Win7GetSystemWindowColor();
 			extern Color									Win7GetSystemTabContentColor();
 			extern Color									Win7GetSystemBorderColor();
@@ -7651,109 +7825,6 @@ Helper Functions
 			extern void										Win7SetFont(elements::GuiSolidLabelElement* element, compositions::GuiBoundsComposition* composition, const FontProperties& fontProperties);
 			extern void										Win7CreateSolidLabelElement(elements::GuiSolidLabelElement*& element, compositions::GuiBoundsComposition*& composition, Alignment::Type horizontal, Alignment::Type vertical);
 			extern elements::text::ColorEntry				Win7GetTextBoxTextColor();
-
-/***********************************************************************
-Animation
-***********************************************************************/
-
-#define DEFINE_TRANSFERRING_ANIMATION(TSTATE, TSTYLECONTROLLER)\
-				class TransferringAnimation : public compositions::GuiTimeBasedAnimation\
-				{\
-				protected:\
-					TSTATE									colorBegin;\
-					TSTATE									colorEnd;\
-					TSTATE									colorCurrent;\
-					TSTYLECONTROLLER*						style;\
-					bool									stopped;\
-					bool									disabled;\
-					bool									enableAnimation;\
-					void									PlayInternal(int currentPosition, int totalLength);\
-				public:\
-					TransferringAnimation(TSTYLECONTROLLER* _style, const TSTATE& begin);\
-					void									Disable();\
-					void									Play(int currentPosition, int totalLength)override;\
-					void									Stop()override;\
-					bool									GetEnableAnimation();\
-					void									SetEnableAnimation(bool value);\
-					void									Transfer(const TSTATE& end);\
-				};\
-
-/***********************************************************************
-Animation Implementation
-***********************************************************************/
-
-#define DEFAULT_TRANSFERRING_ANIMATION_HOST_GETTER(STYLE) (STYLE->GetBoundsComposition()->GetRelatedGraphicsHost())
-
-#define IMPLEMENT_TRANSFERRING_ANIMATION_BASE(TSTATE, TSTYLECONTROLLER, HOST_GETTER)\
-			TSTYLECONTROLLER::TransferringAnimation::TransferringAnimation(TSTYLECONTROLLER* _style, const TSTATE& begin)\
-				:GuiTimeBasedAnimation(0)\
-				,colorBegin(begin)\
-				,colorEnd(begin)\
-				,colorCurrent(begin)\
-				,style(_style)\
-				,stopped(true)\
-				,disabled(false)\
-				,enableAnimation(true)\
-			{\
-			}\
-			void TSTYLECONTROLLER::TransferringAnimation::Disable()\
-			{\
-				disabled=true;\
-			}\
-			void TSTYLECONTROLLER::TransferringAnimation::Play(int currentPosition, int totalLength)\
-			{\
-				if(!disabled)\
-				{\
-					PlayInternal(currentPosition, totalLength);\
-				}\
-			}\
-			void TSTYLECONTROLLER::TransferringAnimation::Stop()\
-			{\
-				stopped=true;\
-			}\
-			bool TSTYLECONTROLLER::TransferringAnimation::GetEnableAnimation()\
-			{\
-				return enableAnimation;\
-			}\
-			void TSTYLECONTROLLER::TransferringAnimation::SetEnableAnimation(bool value)\
-			{\
-				enableAnimation=value;\
-			}\
-			void TSTYLECONTROLLER::TransferringAnimation::Transfer(const TSTATE& end)\
-			{\
-				if(colorEnd!=end)\
-				{\
-					GuiGraphicsHost* host=HOST_GETTER(style);\
-					if(enableAnimation && host)\
-					{\
-						Restart(Win7GetColorAnimationLength());\
-						if(stopped)\
-						{\
-							colorBegin=colorEnd;\
-							colorEnd=end;\
-							host->GetAnimationManager()->AddAnimation(style->transferringAnimation);\
-							stopped=false;\
-						}\
-						else\
-						{\
-							colorBegin=colorCurrent;\
-							colorEnd=end;\
-						}\
-					}\
-					else\
-					{\
-						colorBegin=end;\
-						colorEnd=end;\
-						colorCurrent=end;\
-						Play(1, 1);\
-					}\
-				}\
-			}\
-			void TSTYLECONTROLLER::TransferringAnimation::PlayInternal(int currentPosition, int totalLength)\
-
-#define IMPLEMENT_TRANSFERRING_ANIMATION(TSTATE, TSTYLECONTROLLER)\
-	IMPLEMENT_TRANSFERRING_ANIMATION_BASE(TSTATE, TSTYLECONTROLLER, DEFAULT_TRANSFERRING_ANIMATION_HOST_GETTER)
-
 		}
 	}
 }
@@ -7802,11 +7873,20 @@ Container
 				void										SetVisuallyEnabled(bool value)override;
 			};
 
-			class Win7WindowStyle : public Win7EmptyStyle, public Description<Win7WindowStyle>
+			class Win7WindowStyle : public virtual controls::GuiWindow::DefaultBehaviorStyleController, public Description<Win7WindowStyle>
 			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
 			public:
 				Win7WindowStyle();
 				~Win7WindowStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
 			};
 
 			class Win7LabelStyle : public Object, public virtual controls::GuiLabel::IStyleController, public Description<Win7LabelStyle>
@@ -7900,6 +7980,7 @@ Button
 				bool										transparentWhenDisabled;
 
 				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)=0;
+				virtual void								AfterApplyColors(const Win7ButtonColors& colors);
 			public:
 				Win7ButtonStyleBase(bool verticalGradient, bool roundBorder, const Win7ButtonColors& initialColor, Alignment::Type horizontal, Alignment::Type vertical);
 				~Win7ButtonStyleBase();
@@ -7993,7 +8074,7 @@ namespace vl
 Menu Container
 ***********************************************************************/
 			
-			class Win7MenuStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win7MenuStyle>
+			class Win7MenuStyle : public Object, public virtual controls::GuiWindow::DefaultBehaviorStyleController, public Description<Win7MenuStyle>
 			{
 			protected:
 				compositions::GuiBoundsComposition*			boundsComposition;
@@ -8353,16 +8434,28 @@ namespace vl
 Scroll
 ***********************************************************************/
 			
+			class Win7ScrollArrowButtonStyle : public Win7ButtonStyleBase, public Description<Win7ButtonStyle>
+			{
+			protected:
+				elements::GuiPolygonElement*				arrowElement;
+
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+				void										AfterApplyColors(const Win7ButtonColors& colors)override;
+			public:
+				Win7ScrollArrowButtonStyle(common_styles::CommonScrollStyle::Direction direction, bool increaseButton);
+				~Win7ScrollArrowButtonStyle();
+			};
+			
 			class Win7ScrollStyle : public common_styles::CommonScrollStyle, public Description<Win7ScrollStyle>
 			{
 			public:
 				static const int							DefaultSize=18;
 				static const int							ArrowSize=10;
 			protected:
-				controls::GuiButton::IStyleController*		CreateDecreaseButtonStyle(Direction direction);
-				controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction);
-				controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction);
-				void										InstallBackground(compositions::GuiGraphicsComposition* boundsComposition, Direction direction)override;
+				controls::GuiButton::IStyleController*		CreateDecreaseButtonStyle(Direction direction)override;
+				controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction)override;
+				controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)override;
+				compositions::GuiBoundsComposition*			InstallBackground(compositions::GuiBoundsComposition* boundsComposition, Direction direction)override;
 			public:
 				Win7ScrollStyle(Direction _direction);
 				~Win7ScrollStyle();
@@ -8664,6 +8757,7 @@ ComboBox
 				elements::GuiPolygonElement*					dropDownElement;
 
 				void											TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+				void											AfterApplyColors(const Win7ButtonColors& colors)override;
 			public:
 				Win7DropDownComboBoxStyle();
 				~Win7DropDownComboBoxStyle();
@@ -8675,7 +8769,7 @@ ComboBox
 				void											OnPopupOpened()override;
 				void											OnPopupClosed()override;
 				void											OnItemSelected()override;
-				controls::GuiControl::IStyleController*			CreatePopupStyle()override;
+				controls::GuiWindow::IStyleController*			CreatePopupStyle()override;
 			};
 #pragma warning(pop)
 
@@ -8744,73 +8838,1044 @@ List
 #endif
 
 /***********************************************************************
-CONTROLS\STYLES\GUIWIN7STYLES.H
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8STYLESCOMMON.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
 Developer: 陈梓瀚(vczh)
-GacUI::Control Styles::Windows7 Styles
+GacUI::Control Styles::Windows8 Styles
 
 Clases:
 ***********************************************************************/
 
-#ifndef VCZH_PRESENTATION_CONTROLS_GUIWIN7STYLES
-#define VCZH_PRESENTATION_CONTROLS_GUIWIN7STYLES
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8STYLESCOMMON
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8STYLESCOMMON
 
 
 namespace vl
 {
 	namespace presentation
 	{
-		namespace win7
+		namespace win8
 		{
 
 /***********************************************************************
-Theme
+Button Configuration
+***********************************************************************/
+			
+			struct Win8ButtonColors
+			{
+				Color										borderColor;
+				Color										g1;
+				Color										g2;
+				Color										textColor;
+				Color										bullet;
+
+				bool operator==(const Win8ButtonColors& colors)
+				{
+					return
+						borderColor == colors.borderColor &&
+						g1 == colors.g1 &&
+						g2 == colors.g2 &&
+						textColor == colors.textColor &&
+						bullet == colors.bullet;
+				}
+
+				bool operator!=(const Win8ButtonColors& colors)
+				{
+					return !(*this==colors);
+				}
+
+				void										SetAlphaWithoutText(unsigned char a);
+
+				static Win8ButtonColors						Blend(const Win8ButtonColors& c1, const Win8ButtonColors& c2, int ratio, int total);
+
+				static Win8ButtonColors						ButtonNormal();
+				static Win8ButtonColors						ButtonActive();
+				static Win8ButtonColors						ButtonPressed();
+				static Win8ButtonColors						ButtonDisabled();
+				
+				static Win8ButtonColors						ItemNormal();
+				static Win8ButtonColors						ItemActive();
+				static Win8ButtonColors						ItemSelected();
+				static Win8ButtonColors						ItemDisabled();
+				
+				static Win8ButtonColors						CheckedNormal(bool selected);
+				static Win8ButtonColors						CheckedActive(bool selected);
+				static Win8ButtonColors						CheckedPressed(bool selected);
+				static Win8ButtonColors						CheckedDisabled(bool selected);
+
+				static Win8ButtonColors						ToolstripButtonNormal();
+				static Win8ButtonColors						ToolstripButtonActive();
+				static Win8ButtonColors						ToolstripButtonPressed();
+				static Win8ButtonColors						ToolstripButtonDisabled();
+
+				static Win8ButtonColors						ScrollHandleNormal();
+				static Win8ButtonColors						ScrollHandleActive();
+				static Win8ButtonColors						ScrollHandlePressed();
+				static Win8ButtonColors						ScrollHandleDisabled();
+				static Win8ButtonColors						ScrollArrowNormal();
+				static Win8ButtonColors						ScrollArrowActive();
+				static Win8ButtonColors						ScrollArrowPressed();
+				static Win8ButtonColors						ScrollArrowDisabled();
+
+				static Win8ButtonColors						MenuBarButtonNormal();
+				static Win8ButtonColors						MenuBarButtonActive();
+				static Win8ButtonColors						MenuBarButtonPressed();
+				static Win8ButtonColors						MenuBarButtonDisabled();
+
+				static Win8ButtonColors						MenuItemButtonNormal();
+				static Win8ButtonColors						MenuItemButtonNormalActive();
+				static Win8ButtonColors						MenuItemButtonDisabled();
+				static Win8ButtonColors						MenuItemButtonDisabledActive();
+			};
+
+			struct Win8ButtonElements
+			{
+				elements::GuiSolidBorderElement*			rectBorderElement;
+				elements::GuiGradientBackgroundElement*		backgroundElement;
+				elements::GuiSolidLabelElement*				textElement;
+				compositions::GuiBoundsComposition*			textComposition;
+				compositions::GuiBoundsComposition*			mainComposition;
+				compositions::GuiBoundsComposition*			backgroundComposition;
+
+				static Win8ButtonElements					Create(Alignment::Type horizontal=Alignment::Center, Alignment::Type vertical=Alignment::Center);
+				void										Apply(const Win8ButtonColors& colors);
+			};
+
+			struct Win8CheckedButtonElements
+			{
+				elements::GuiSolidBorderElement*			bulletBorderElement;
+				elements::GuiGradientBackgroundElement*		bulletBackgroundElement;
+				elements::GuiSolidLabelElement*				bulletCheckElement;
+				elements::GuiSolidBackgroundElement*		bulletRadioElement;
+				elements::GuiSolidLabelElement*				textElement;
+				compositions::GuiBoundsComposition*			textComposition;
+				compositions::GuiBoundsComposition*			mainComposition;
+
+				static Win8CheckedButtonElements			Create(elements::ElementShape::Type shape, bool backgroundVisible);
+				void										Apply(const Win8ButtonColors& colors);
+			};
+
+			struct Win8MenuItemButtonElements
+			{
+				elements::GuiSolidBorderElement*			borderElement;
+				elements::GuiGradientBackgroundElement*		backgroundElement;
+				elements::GuiSolidBorderElement*			splitterElement;
+				compositions::GuiCellComposition*			splitterComposition;
+				elements::GuiImageFrameElement*				imageElement;
+				elements::GuiSolidLabelElement*				textElement;
+				compositions::GuiBoundsComposition*			textComposition;
+				elements::GuiSolidLabelElement*				shortcutElement;
+				compositions::GuiBoundsComposition*			shortcutComposition;
+				elements::GuiPolygonElement*				subMenuArrowElement;
+				compositions::GuiGraphicsComposition*		subMenuArrowComposition;
+				compositions::GuiBoundsComposition*			mainComposition;
+
+				static Win8MenuItemButtonElements			Create();
+				void										Apply(const Win8ButtonColors& colors);
+				void										SetActive(bool value);
+				void										SetSubMenuExisting(bool value);
+			};
+
+			struct Win8TextBoxColors
+			{
+				Color										borderColor;
+				Color										backgroundColor;
+
+				bool operator==(const Win8TextBoxColors& colors)
+				{
+					return
+						borderColor == colors.borderColor &&
+						backgroundColor == colors.backgroundColor;
+				}
+
+				bool operator!=(const Win8TextBoxColors& colors)
+				{
+					return !(*this==colors);
+				}
+
+				static Win8TextBoxColors					Blend(const Win8TextBoxColors& c1, const Win8TextBoxColors& c2, int ratio, int total);
+
+				static Win8TextBoxColors					Normal();
+				static Win8TextBoxColors					Active();
+				static Win8TextBoxColors					Focused();
+				static Win8TextBoxColors					Disabled();
+			};
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+			
+			extern Color									Win8GetSystemWindowColor();
+			extern Color									Win8GetSystemBorderColor();
+			extern Color									Win8GetSystemTextColor(bool enabled);
+			extern Color									Win8GetMenuBorderColor();
+			extern Color									Win8GetMenuSplitterColor();
+			extern void										Win8SetFont(elements::GuiSolidLabelElement* element, compositions::GuiBoundsComposition* composition, const FontProperties& fontProperties);
+			extern void										Win8CreateSolidLabelElement(elements::GuiSolidLabelElement*& element, compositions::GuiBoundsComposition*& composition, Alignment::Type horizontal, Alignment::Type vertical);
+			extern elements::text::ColorEntry				Win8GetTextBoxTextColor();
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8CONTROLSTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
 ***********************************************************************/
 
-			class Win7Theme : public theme::ITheme
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWin8CONTROLSTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWin8CONTROLSTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+Container
+***********************************************************************/
+
+			class Win8EmptyStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8EmptyStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+			public:
+				Win8EmptyStyle(Color color);
+				~Win8EmptyStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+
+			class Win8WindowStyle : public virtual controls::GuiWindow::DefaultBehaviorStyleController, public Description<Win8WindowStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+			public:
+				Win8WindowStyle();
+				~Win8WindowStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+
+			class Win8LabelStyle : public Object, public virtual controls::GuiLabel::IStyleController, public Description<Win8LabelStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				elements::GuiSolidLabelElement*				textElement;
+			public:
+				Win8LabelStyle();
+				~Win8LabelStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				Color										GetDefaultTextColor()override;
+				void										SetTextColor(Color value)override;
+			};
+			
+			class Win8GroupBoxStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8GroupBoxStyle>
+			{
+			protected:
+				DEFINE_TRANSFERRING_ANIMATION(Color, Win8GroupBoxStyle)
+
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			borderComposition;
+				compositions::GuiBoundsComposition*			textComposition;
+				compositions::GuiBoundsComposition*			textBackgroundComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+				elements::GuiSolidLabelElement*				textElement;
+				Ptr<TransferringAnimation>					transferringAnimation;
+
+				void										SetMargins(int fontSize);
+			public:
+				Win8GroupBoxStyle();
+				~Win8GroupBoxStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8BUTTONSTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN7STYLES_GUIWIN8BUTTONSTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN7STYLES_GUIWIN8BUTTONSTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+Button
+***********************************************************************/
+			
+			class Win8ButtonStyleBase : public Object, public virtual controls::GuiSelectableButton::IStyleController, public Description<Win8ButtonStyleBase>
+			{
+			protected:
+				DEFINE_TRANSFERRING_ANIMATION(Win8ButtonColors, Win8ButtonStyleBase)
+
+				Win8ButtonElements							elements;
+				Ptr<TransferringAnimation>					transferringAnimation;
+				controls::GuiButton::ControlState			controlStyle;
+				bool										isVisuallyEnabled;
+				bool										isSelected;
+				bool										transparentWhenInactive;
+				bool										transparentWhenDisabled;
+
+				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)=0;
+				virtual void								AfterApplyColors(const Win8ButtonColors& colors);
+			public:
+				Win8ButtonStyleBase(const Win8ButtonColors& initialColor, Alignment::Type horizontal, Alignment::Type vertical);
+				~Win8ButtonStyleBase();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				void										SetSelected(bool value)override;
+				void										Transfer(controls::GuiButton::ControlState value)override;
+
+				bool										GetTransparentWhenInactive();
+				void										SetTransparentWhenInactive(bool value);
+				bool										GetTransparentWhenDisabled();
+				void										SetTransparentWhenDisabled(bool value);
+				bool										GetAutoSizeForText();
+				void										SetAutoSizeForText(bool value);
+			};
+			
+			class Win8ButtonStyle : public Win8ButtonStyleBase, public Description<Win8ButtonStyle>
+			{
+			protected:
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+			public:
+				Win8ButtonStyle();
+				~Win8ButtonStyle();
+			};
+			
+			class Win8CheckBoxStyle : public Object, public virtual controls::GuiSelectableButton::IStyleController, public Description<Win8CheckBoxStyle>
 			{
 			public:
-				Win7Theme();
-				~Win7Theme();
+				enum BulletStyle
+				{
+					CheckBox,
+					RadioButton,
+				};
+			protected:
+				DEFINE_TRANSFERRING_ANIMATION(Win8ButtonColors, Win8CheckBoxStyle)
 
-				controls::GuiControl::IStyleController*								CreateWindowStyle()override;
-				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
-				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
-				controls::GuiTab::IStyleController*									CreateTabStyle()override;
-				controls::GuiComboBoxBase::IStyleController*						CreateComboBoxStyle()override;
-				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
-				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
-				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
-				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
-				
-				controls::GuiToolstripMenu::IStyleController*						CreateMenuStyle()override;
-				controls::GuiToolstripMenuBar::IStyleController*					CreateMenuBarStyle()override;
-				controls::GuiControl::IStyleController*								CreateMenuSplitterStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateMenuBarButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateMenuItemButtonStyle()override;
-				controls::GuiToolstripToolbar::IStyleController*					CreateToolbarStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarDropdownButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarSplitButtonStyle()override;
-				controls::GuiControl::IStyleController*								CreateToolbarSplitterStyle()override;
+				Win8CheckedButtonElements					elements;
+				Ptr<TransferringAnimation>					transferringAnimation;
+				controls::GuiButton::ControlState			controlStyle;
+				bool										isVisuallyEnabled;
+				bool										isSelected;
 
-				controls::GuiButton::IStyleController*								CreateButtonStyle()override;
-				controls::GuiSelectableButton::IStyleController*					CreateCheckBoxStyle()override;
-				controls::GuiSelectableButton::IStyleController*					CreateRadioButtonStyle()override;
-				
-				controls::GuiScroll::IStyleController*								CreateHScrollStyle()override;
-				controls::GuiScroll::IStyleController*								CreateVScrollStyle()override;
-				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
-				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
-				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected);
+			public:
+				Win8CheckBoxStyle(BulletStyle bulletStyle, bool backgroundVisible=false);
+				~Win8CheckBoxStyle();
 
-				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
-				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
-				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateCheckTextListItemStyle()override;
-				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateRadioTextListItemStyle()override;
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				void										SetSelected(bool value)override;
+				void										Transfer(controls::GuiButton::ControlState value)override;
 			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8MENUSTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8MENUSTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8MENUSTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+Menu Container
+***********************************************************************/
+			
+			class Win8MenuStyle : public Object, public virtual controls::GuiWindow::DefaultBehaviorStyleController, public Description<Win8MenuStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+			public:
+				Win8MenuStyle();
+				~Win8MenuStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+			
+			class Win8MenuBarStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8MenuBarStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+			public:
+				Win8MenuBarStyle();
+				~Win8MenuBarStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+
+/***********************************************************************
+Menu Button
+***********************************************************************/
+			
+			class Win8MenuBarButtonStyle : public Object, public virtual controls::GuiMenuButton::IStyleController, public Description<Win8MenuBarButtonStyle>
+			{
+			protected:
+				Win8ButtonElements							elements;
+				controls::GuiButton::ControlState			controlStyle;
+				bool										isVisuallyEnabled;
+				bool										isOpening;
+
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool opening);
+			public:
+				Win8MenuBarButtonStyle();
+				~Win8MenuBarButtonStyle();
+
+				compositions::GuiBoundsComposition*							GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*						GetContainerComposition()override;
+				void														SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void														SetText(const WString& value)override;
+				void														SetFont(const FontProperties& value)override;
+				void														SetVisuallyEnabled(bool value)override;
+				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
+				void														SetSubMenuExisting(bool value)override;
+				void														SetSubMenuOpening(bool value)override;
+				controls::GuiButton*										GetSubMenuHost()override;
+				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetShortcutText(const WString& value)override;
+				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
+				void														Transfer(controls::GuiButton::ControlState value)override;
+			};
+			
+			class Win8MenuItemButtonStyle : public Object, public virtual controls::GuiMenuButton::IStyleController, public Description<Win8MenuItemButtonStyle>
+			{
+			protected:
+				class MeasuringSource : public compositions::GuiSubComponentMeasurer::MeasuringSource
+				{
+				protected:
+					Win8MenuItemButtonStyle*				style;
+				public:
+					MeasuringSource(Win8MenuItemButtonStyle* _style);
+					~MeasuringSource();
+
+					void									SubComponentPreferredMinSizeUpdated()override;
+				};
+
+				Win8MenuItemButtonElements					elements;
+				Ptr<MeasuringSource>						measuringSource;
+				controls::GuiButton::ControlState			controlStyle;
+				bool										isVisuallyEnabled;
+				bool										isOpening;
+
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool opening);
+			public:
+				Win8MenuItemButtonStyle();
+				~Win8MenuItemButtonStyle();
+
+				compositions::GuiBoundsComposition*							GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*						GetContainerComposition()override;
+				void														SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void														SetText(const WString& value)override;
+				void														SetFont(const FontProperties& value)override;
+				void														SetVisuallyEnabled(bool value)override;
+				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
+				void														SetSubMenuExisting(bool value)override;
+				void														SetSubMenuOpening(bool value)override;
+				controls::GuiButton*										GetSubMenuHost()override;
+				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetShortcutText(const WString& value)override;
+				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
+				void														Transfer(controls::GuiButton::ControlState value)override;
+			};
+			
+			class Win8MenuSplitterStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8MenuSplitterStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+			public:
+				Win8MenuSplitterStyle();
+				~Win8MenuSplitterStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8TABSTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8TABSTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8TABSTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8TOOLSTRIPSTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8TOOLSTRIPSTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWIN8TOOLSTRIPSTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+Toolstrip Button
+***********************************************************************/
+
+			class Win8ToolstripToolbarStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8ToolstripToolbarStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+			public:
+				Win8ToolstripToolbarStyle();
+				~Win8ToolstripToolbarStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+
+			class Win8ToolstripButtonDropdownStyle : public Object, public virtual controls::GuiButton::IStyleController, public Description<Win8ToolstripButtonDropdownStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			splitterComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+				bool										isVisuallyEnabled;
+				controls::GuiButton::ControlState			controlState;
+
+				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled);
+			public:
+				Win8ToolstripButtonDropdownStyle();
+				~Win8ToolstripButtonDropdownStyle();
+				
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				void										Transfer(controls::GuiButton::ControlState value)override;
+			};
+
+			class Win8ToolstripButtonStyle : public Object, public virtual controls::GuiMenuButton::IStyleController, public Description<Win8ToolstripButtonStyle>
+			{
+			public:
+				enum ButtonStyle
+				{
+					CommandButton,
+					DropdownButton,
+					SplitButton,
+				};
+			protected:
+				DEFINE_TRANSFERRING_ANIMATION(Win8ButtonColors, Win8ToolstripButtonStyle)
+
+				Win8ButtonElements							elements;
+				Ptr<TransferringAnimation>					transferringAnimation;
+				controls::GuiButton::ControlState			controlStyle;
+				bool										isVisuallyEnabled;
+				bool										isOpening;
+				elements::GuiImageFrameElement*				imageElement;
+				compositions::GuiBoundsComposition*			imageComposition;
+				ButtonStyle									buttonStyle;
+				controls::GuiButton*						subMenuHost;
+
+				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool menuOpening);
+			public:
+				Win8ToolstripButtonStyle(ButtonStyle _buttonStyle);
+				~Win8ToolstripButtonStyle();
+				
+				compositions::GuiBoundsComposition*							GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*						GetContainerComposition()override;
+				void														SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void														SetText(const WString& value)override;
+				void														SetFont(const FontProperties& value)override;
+				void														SetVisuallyEnabled(bool value)override;
+				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
+				void														SetSubMenuExisting(bool value)override;
+				void														SetSubMenuOpening(bool value)override;
+				controls::GuiButton*										GetSubMenuHost()override;
+				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetShortcutText(const WString& value)override;
+				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
+				void														Transfer(controls::GuiButton::ControlState value)override;
+			};
+
+			class Win8ToolstripSplitterStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8ToolstripSplitterStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+			public:
+				Win8ToolstripSplitterStyle();
+				~Win8ToolstripSplitterStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8SCROLLABLESTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWin8SCROLLABLESTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWin8SCROLLABLESTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+Scroll
+***********************************************************************/
+			
+			class Win8ScrollHandleButtonStyle : public Win8ButtonStyleBase, public Description<Win8ScrollHandleButtonStyle>
+			{
+			protected:
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+			public:
+				Win8ScrollHandleButtonStyle();
+				~Win8ScrollHandleButtonStyle();
+			};
+			
+			class Win8ScrollArrowButtonStyle : public Win8ButtonStyleBase, public Description<Win8ScrollArrowButtonStyle>
+			{
+			protected:
+				elements::GuiPolygonElement*				arrowElement;
+
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+				void										AfterApplyColors(const Win8ButtonColors& colors)override;
+			public:
+				Win8ScrollArrowButtonStyle(common_styles::CommonScrollStyle::Direction direction, bool increaseButton);
+				~Win8ScrollArrowButtonStyle();
+			};
+			
+			class Win8ScrollStyle : public common_styles::CommonScrollStyle, public Description<Win8ScrollStyle>
+			{
+			public:
+				static const int							DefaultSize=16;
+				static const int							ArrowSize=8;
+			protected:
+				controls::GuiButton::IStyleController*		CreateDecreaseButtonStyle(Direction direction)override;
+				controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction)override;
+				controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)override;
+				compositions::GuiBoundsComposition*			InstallBackground(compositions::GuiBoundsComposition* boundsComposition, Direction direction)override;
+			public:
+				Win8ScrollStyle(Direction _direction);
+				~Win8ScrollStyle();
+			};
+			
+			class Win8TrackStyle : public common_styles::CommonTrackStyle, public Description<Win8TrackStyle>
+			{
+			public:
+				static const int							TrackThickness=4;
+				static const int							TrackPadding=6;
+				static const int							HandleLong=16;
+				static const int							HandleShort=10;
+
+			protected:
+				controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)override;
+				void										InstallBackground(compositions::GuiGraphicsComposition* boundsComposition, Direction direction)override;
+				void										InstallTrack(compositions::GuiGraphicsComposition* trackComposition, Direction direction)override;
+			public:
+				Win8TrackStyle(Direction _direction);
+				~Win8TrackStyle();
+			};
+
+			class Win8ProgressBarStyle : public Object, public virtual controls::GuiScroll::IStyleController, public Description<Win8ProgressBarStyle>
+			{
+			protected:
+				int											totalSize;
+				int											pageSize;
+				int											position;
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+				compositions::GuiPartialViewComposition*	progressComposition;
+
+				void										UpdateProgressBar();
+			public:
+				Win8ProgressBarStyle();
+				~Win8ProgressBarStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				void										SetCommandExecutor(controls::GuiScroll::ICommandExecutor* value)override;
+				void										SetTotalSize(int value)override;
+				void										SetPageSize(int value)override;
+				void										SetPosition(int value)override;
+			};
+
+/***********************************************************************
+ScrollView
+***********************************************************************/
+			
+			class Win8ScrollViewProvider : public Object, public virtual controls::GuiScrollView::IStyleProvider, public Description<Win8ScrollViewProvider>
+			{
+			public:
+				Win8ScrollViewProvider();
+				~Win8ScrollViewProvider();
+
+				void										AssociateStyleController(controls::GuiControl::IStyleController* controller)override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+
+				controls::GuiScroll::IStyleController*		CreateHorizontalScrollStyle()override;
+				controls::GuiScroll::IStyleController*		CreateVerticalScrollStyle()override;
+				int											GetDefaultScrollSize()override;
+				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
+			};
+
+/***********************************************************************
+TextBox
+***********************************************************************/
+			
+			class Win8TextBoxBackground : public Object, public Description<Win8TextBoxBackground>
+			{
+			protected:
+				DEFINE_TRANSFERRING_ANIMATION(Win8TextBoxColors, Win8TextBoxBackground)
+					
+				elements::GuiSolidBorderElement*			borderElement;
+				elements::GuiSolidBackgroundElement*		backgroundElement;
+				compositions::GuiGraphicsComposition*		focusableComposition;
+				bool										isMouseEnter;
+				bool										isFocused;
+				bool										isVisuallyEnabled;
+				Ptr<TransferringAnimation>					transferringAnimation;
+				controls::GuiControl::IStyleController*		styleController;
+				elements::GuiColorizedTextElement*			textElement;
+
+				void										UpdateStyle();
+				void										Apply(const Win8TextBoxColors& colors);
+
+				void										OnBoundsMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void										OnBoundsMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void										OnBoundsGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void										OnBoundsLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				Win8TextBoxBackground();
+				~Win8TextBoxBackground();
+				
+				void										AssociateStyleController(controls::GuiControl::IStyleController* controller);
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value);
+				void										SetVisuallyEnabled(bool value);
+				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition);
+				void										InitializeTextElement(elements::GuiColorizedTextElement* _textElement);
+			};
+			
+			class Win8MultilineTextBoxProvider : public Win8ScrollViewProvider, public Description<Win8MultilineTextBoxProvider>
+			{
+			protected:
+				Win8TextBoxBackground						background;
+				controls::GuiControl::IStyleController*		styleController;
+			public:
+				Win8MultilineTextBoxProvider();
+				~Win8MultilineTextBoxProvider();
+				
+				void										AssociateStyleController(controls::GuiControl::IStyleController* controller)override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
+			};
+			
+			class Win8SinglelineTextBoxProvider : public Object, public virtual controls::GuiSinglelineTextBox::IStyleProvider, public Description<Win8SinglelineTextBoxProvider>
+			{
+			protected:
+				Win8TextBoxBackground						background;
+				controls::GuiControl::IStyleController*		styleController;
+			public:
+				Win8SinglelineTextBoxProvider();
+				~Win8SinglelineTextBoxProvider();
+
+				void										AssociateStyleController(controls::GuiControl::IStyleController* controller)override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\STYLES\WIN8STYLES\GUIWIN8LISTSTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control Styles::Windows8 Styles
+
+Clases:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWin8LISTSTYLES
+#define VCZH_PRESENTATION_CONTROLS_WIN8STYLES_GUIWin8LISTSTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+
+/***********************************************************************
+List Control Buttons
+***********************************************************************/
+			
+			class Win8SelectableItemStyle : public Win8ButtonStyleBase, public Description<Win8SelectableItemStyle>
+			{
+			protected:
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+			public:
+				Win8SelectableItemStyle();
+				~Win8SelectableItemStyle();
+			};
+
+/***********************************************************************
+ComboBox
+***********************************************************************/
+			
+#pragma warning(push)
+#pragma warning(disable:4250)
+			class Win8DropDownComboBoxStyle : public Win8ButtonStyle, public virtual controls::GuiComboBoxBase::IStyleController, public Description<Win8DropDownComboBoxStyle>
+			{
+			protected:
+				controls::GuiComboBoxBase::ICommandExecutor*	commandExecutor;
+				compositions::GuiTableComposition*				table;
+				compositions::GuiCellComposition*				textComposition;
+				compositions::GuiCellComposition*				dropDownComposition;
+				elements::GuiPolygonElement*					dropDownElement;
+
+				void											TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)override;
+				void											AfterApplyColors(const Win8ButtonColors& colors)override;
+			public:
+				Win8DropDownComboBoxStyle();
+				~Win8DropDownComboBoxStyle();
+				
+				compositions::GuiGraphicsComposition*			GetContainerComposition()override;
+
+				void											SetCommandExecutor(controls::GuiComboBoxBase::ICommandExecutor* value)override;
+				void											OnClicked()override;
+				void											OnPopupOpened()override;
+				void											OnPopupClosed()override;
+				void											OnItemSelected()override;
+				controls::GuiWindow::IStyleController*			CreatePopupStyle()override;
+			};
+#pragma warning(pop)
+
+/***********************************************************************
+List
+***********************************************************************/
+			
+			class Win8TextListProvider : public Object, public virtual controls::list::TextItemStyleProvider::ITextItemStyleProvider, public Description<Win8TextListProvider>
+			{
+			public:
+				Win8TextListProvider();
+				~Win8TextListProvider();
+
+				controls::GuiSelectableButton::IStyleController*		CreateBackgroundStyleController()override;
+				controls::GuiSelectableButton::IStyleController*		CreateBulletStyleController()override;
+			};
+			
+			class Win8CheckTextListProvider : public Win8TextListProvider, public Description<Win8CheckTextListProvider>
+			{
+			public:
+				Win8CheckTextListProvider();
+				~Win8CheckTextListProvider();
+
+				controls::GuiSelectableButton::IStyleController*		CreateBulletStyleController()override;
+			};
+			
+			class Win8RadioTextListProvider : public Win8TextListProvider, public Description<Win8RadioTextListProvider>
+			{
+			public:
+				Win8RadioTextListProvider();
+				~Win8RadioTextListProvider();
+
+				controls::GuiSelectableButton::IStyleController*		CreateBulletStyleController()override;
+			};
+
+#pragma warning(push)
+#pragma warning(disable:4250)
+			class Win8ListViewProvider : public Win8MultilineTextBoxProvider, public virtual controls::GuiListView::IStyleProvider, public Description<Win8ListViewProvider>
+			{
+			public:
+				Win8ListViewProvider();
+				~Win8ListViewProvider();
+
+				controls::GuiSelectableButton::IStyleController*		CreateItemBackground()override;
+				controls::GuiListViewColumnHeader::IStyleController*	CreateColumnStyle()override;
+				Color													GetPrimaryTextColor()override;
+				Color													GetSecondaryTextColor()override;
+				Color													GetItemSeparatorColor()override;
+			};
+			
+			class Win8TreeViewProvider : public Win8MultilineTextBoxProvider, public virtual controls::GuiTreeView::IStyleProvider, public Description<Win8TreeViewProvider>
+			{
+			public:
+				Win8TreeViewProvider();
+				~Win8TreeViewProvider();
+
+				controls::GuiSelectableButton::IStyleController*		CreateItemBackground()override;
+				controls::GuiSelectableButton::IStyleController*		CreateItemExpandingDecorator()override;
+				Color													GetTextColor()override;
+			};
+#pragma warning(pop)
 		}
 	}
 }

@@ -134,9 +134,9 @@ private:
 			list->GetItems(),
 			FromArray(DataSource)
 				>>OrderBy(_wcsicmp)
-				>>Select<const wchar_t*, list::TextItem>(
+				>>Select(Func<list::TextItem(const wchar_t*)>(
 					[](const wchar_t* name){return list::TextItem(name);}
-				)
+				))
 			);
 	}
 

@@ -200,10 +200,13 @@ public:
 			CopyFrom(
 				fileTypes.Wrap(),
 				fileProperties.Wrap()
-				>>Select<Ptr<FileProperties>, WString>
-					([](Ptr<FileProperties> file){return file->GetTypeName();})
+				>>Select(Func<WString(Ptr<FileProperties>)>(
+					[](Ptr<FileProperties> file){return file->GetTypeName();}
+				))
 				>>Distinct()
-				>>OrderBy<WString>([](WString a, WString b){return _wcsicmp(a.Buffer(), b.Buffer());})
+				>>OrderBy(Func<vint(WString, WString)>(
+					[](WString a, WString b){return _wcsicmp(a.Buffer(), b.Buffer());}
+				))
 				);
 			FOREACH(WString, typeName, fileTypes.Wrap())
 			{

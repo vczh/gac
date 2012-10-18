@@ -2186,7 +2186,7 @@ GuiMenu
 				}
 			}
 
-			GuiMenu::GuiMenu(GuiControl::IStyleController* _styleController, GuiControl* _owner)
+			GuiMenu::GuiMenu(IStyleController* _styleController, GuiControl* _owner)
 				:GuiPopup(_styleController)
 				,owner(_owner)
 				,parentMenuService(0)
@@ -4447,8 +4447,21 @@ Helpers
 
 			void GuiApplicationInitialize()
 			{
-				win7::Win7Theme theme;
-				theme::SetCurrentTheme(&theme);
+				Ptr<theme::ITheme> theme;
+				{
+					WString osVersion=GetCurrentController()->GetOSVersion();
+					int index=osVersion.IndexOf(L';');
+					WString osMainVersion=osVersion.Sub(0, index);
+					if(osMainVersion==L"Windows 8" || osMainVersion==L"Windows Server 2012")
+					{
+						theme=new win8::Win8Theme;
+					}
+					else
+					{
+						theme=new win7::Win7Theme;
+					}
+				}
+				theme::SetCurrentTheme(theme.Obj());
 
 				GetCurrentController()->InputService()->StartTimer();
 				GuiApplication app;
@@ -4456,6 +4469,7 @@ Helpers
 
 				GuiMain();
 				theme::SetCurrentTheme(0);
+				description::DestroyGlobalTypeManager();
 			}
 		}
 	}
@@ -5313,7 +5327,9 @@ GuiScrollView::StyleController
 				tableComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
 				tableComposition->SetRowsAndColumns(2, 2);
 				tableComposition->SetRowOption(0, GuiCellOption::PercentageOption(1.0));
+				tableComposition->SetRowOption(1, GuiCellOption::MinSizeOption());
 				tableComposition->SetColumnOption(0, GuiCellOption::PercentageOption(1.0));
+				tableComposition->SetColumnOption(1, GuiCellOption::MinSizeOption());
 				UpdateTable();
 				{
 					GuiCellComposition* cell=new GuiCellComposition;
@@ -9534,34 +9550,53 @@ namespace vl
 GuiControlHost
 ***********************************************************************/
 
+			void GuiControlHost::OnNativeWindowChanged()
+			{
+			}
+
+			void GuiControlHost::OnVisualStatusChanged()
+			{
+			}
+
+			void GuiControlHost::Moved()
+			{
+				OnVisualStatusChanged();
+			}
+
 			void GuiControlHost::Enabled()
 			{
 				GuiControl::SetEnabled(true);
+				OnVisualStatusChanged();
 			}
 
 			void GuiControlHost::Disabled()
 			{
 				GuiControl::SetEnabled(false);
+				OnVisualStatusChanged();
 			}
 
 			void GuiControlHost::GotFocus()
 			{
 				WindowGotFocus.Execute(GetNotifyEventArguments());
+				OnVisualStatusChanged();
 			}
 
 			void GuiControlHost::LostFocus()
 			{
 				WindowLostFocus.Execute(GetNotifyEventArguments());
+				OnVisualStatusChanged();
 			}
 
 			void GuiControlHost::Activated()
 			{
 				WindowActivated.Execute(GetNotifyEventArguments());
+				OnVisualStatusChanged();
 			}
 
 			void GuiControlHost::Deactivated()
 			{
 				WindowDeactivated.Execute(GetNotifyEventArguments());
+				OnVisualStatusChanged();
 			}
 
 			void GuiControlHost::Opened()
@@ -9646,6 +9681,7 @@ GuiControlHost
 				{
 					host->GetNativeWindow()->InstallListener(this);
 				}
+				OnNativeWindowChanged();
 			}
 
 			void GuiControlHost::ForceCalculateSizeImmediately()
@@ -9777,126 +9813,6 @@ GuiControlHost
 					{
 						host->GetNativeWindow()->DisableActivate();
 					}
-				}
-			}
-
-			bool GuiControlHost::GetMaximizedBox()
-			{
-				if(host->GetNativeWindow())
-				{
-					return host->GetNativeWindow()->GetMaximizedBox();
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void GuiControlHost::SetMaximizedBox(bool visible)
-			{
-				if(host->GetNativeWindow())
-				{
-					host->GetNativeWindow()->SetMaximizedBox(visible);
-				}
-			}
-
-			bool GuiControlHost::GetMinimizedBox()
-			{
-				if(host->GetNativeWindow())
-				{
-					return host->GetNativeWindow()->GetMinimizedBox();
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void GuiControlHost::SetMinimizedBox(bool visible)
-			{
-				if(host->GetNativeWindow())
-				{
-					host->GetNativeWindow()->SetMinimizedBox(visible);
-				}
-			}
-
-			bool GuiControlHost::GetBorder()
-			{
-				if(host->GetNativeWindow())
-				{
-					return host->GetNativeWindow()->GetBorder();
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void GuiControlHost::SetBorder(bool visible)
-			{
-				if(host->GetNativeWindow())
-				{
-					host->GetNativeWindow()->SetBorder(visible);
-				}
-			}
-
-			bool GuiControlHost::GetSizeBox()
-			{
-				if(host->GetNativeWindow())
-				{
-					return host->GetNativeWindow()->GetSizeBox();
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void GuiControlHost::SetSizeBox(bool visible)
-			{
-				if(host->GetNativeWindow())
-				{
-					host->GetNativeWindow()->SetSizeBox(visible);
-				}
-			}
-
-			bool GuiControlHost::GetIconVisible()
-			{
-				if(host->GetNativeWindow())
-				{
-					return host->GetNativeWindow()->GetIconVisible();
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void GuiControlHost::SetIconVisible(bool visible)
-			{
-				if(host->GetNativeWindow())
-				{
-					host->GetNativeWindow()->SetIconVisible(visible);
-				}
-			}
-
-			bool GuiControlHost::GetTitleBar()
-			{
-				if(host->GetNativeWindow())
-				{
-					return host->GetNativeWindow()->GetTitleBar();
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void GuiControlHost::SetTitleBar(bool visible)
-			{
-				if(host->GetNativeWindow())
-				{
-					host->GetNativeWindow()->SetTitleBar(visible);
 				}
 			}
 
@@ -10109,18 +10025,173 @@ GuiControlHost
 			}
 
 /***********************************************************************
+GuiWindow::DefaultBehaviorStyleController
+***********************************************************************/
+
+			GuiWindow::DefaultBehaviorStyleController::DefaultBehaviorStyleController()
+				:window(0)
+			{
+			}
+
+			GuiWindow::DefaultBehaviorStyleController::~DefaultBehaviorStyleController()
+			{
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::AttachWindow(GuiWindow* _window)
+			{
+				window=_window;
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::InitializeNativeWindowProperties()
+			{
+			}
+
+			bool GuiWindow::DefaultBehaviorStyleController::GetMaximizedBox()
+			{
+				if(window->GetNativeWindow())
+				{
+					return window->GetNativeWindow()->GetMaximizedBox();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::SetMaximizedBox(bool visible)
+			{
+				if(window->GetNativeWindow())
+				{
+					window->GetNativeWindow()->SetMaximizedBox(visible);
+				}
+			}
+
+			bool GuiWindow::DefaultBehaviorStyleController::GetMinimizedBox()
+			{
+				if(window->GetNativeWindow())
+				{
+					return window->GetNativeWindow()->GetMinimizedBox();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::SetMinimizedBox(bool visible)
+			{
+				if(window->GetNativeWindow())
+				{
+					window->GetNativeWindow()->SetMinimizedBox(visible);
+				}
+			}
+
+			bool GuiWindow::DefaultBehaviorStyleController::GetBorder()
+			{
+				if(window->GetNativeWindow())
+				{
+					return window->GetNativeWindow()->GetBorder();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::SetBorder(bool visible)
+			{
+				if(window->GetNativeWindow())
+				{
+					window->GetNativeWindow()->SetBorder(visible);
+				}
+			}
+
+			bool GuiWindow::DefaultBehaviorStyleController::GetSizeBox()
+			{
+				if(window->GetNativeWindow())
+				{
+					return window->GetNativeWindow()->GetSizeBox();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::SetSizeBox(bool visible)
+			{
+				if(window->GetNativeWindow())
+				{
+					window->GetNativeWindow()->SetSizeBox(visible);
+				}
+			}
+
+			bool GuiWindow::DefaultBehaviorStyleController::GetIconVisible()
+			{
+				if(window->GetNativeWindow())
+				{
+					return window->GetNativeWindow()->GetIconVisible();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::SetIconVisible(bool visible)
+			{
+				if(window->GetNativeWindow())
+				{
+					window->GetNativeWindow()->SetIconVisible(visible);
+				}
+			}
+
+			bool GuiWindow::DefaultBehaviorStyleController::GetTitleBar()
+			{
+				if(window->GetNativeWindow())
+				{
+					return window->GetNativeWindow()->GetTitleBar();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiWindow::DefaultBehaviorStyleController::SetTitleBar(bool visible)
+			{
+				if(window->GetNativeWindow())
+				{
+					window->GetNativeWindow()->SetTitleBar(visible);
+				}
+			}
+
+/***********************************************************************
 GuiWindow
 ***********************************************************************/
+
+			void GuiWindow::OnNativeWindowChanged()
+			{
+				styleController->InitializeNativeWindowProperties();
+				GuiControlHost::OnNativeWindowChanged();
+			}
+
+			void GuiWindow::OnVisualStatusChanged()
+			{
+				GuiControlHost::OnVisualStatusChanged();
+			}
 
 			void GuiWindow::MouseClickedOnOtherWindow(GuiWindow* window)
 			{
 			}
 
-			GuiWindow::GuiWindow(GuiControl::IStyleController* _styleController)
+			GuiWindow::GuiWindow(IStyleController* _styleController)
 				:GuiControlHost(_styleController)
+				,styleController(_styleController)
 			{
 				ClipboardUpdated.SetAssociatedComposition(GetStyleController()->GetBoundsComposition());
 				INativeWindow* window=GetCurrentController()->WindowService()->CreateNativeWindow();
+				styleController->AttachWindow(this);
 				SetNativeWindow(window);
 				GetApplication()->RegisterWindow(this);
 			}
@@ -10155,6 +10226,66 @@ GuiWindow
 				}
 			}
 
+			bool GuiWindow::GetMaximizedBox()
+			{
+				return styleController->GetMaximizedBox();
+			}
+
+			void GuiWindow::SetMaximizedBox(bool visible)
+			{
+				styleController->SetMaximizedBox(visible);
+			}
+
+			bool GuiWindow::GetMinimizedBox()
+			{
+				return styleController->GetMinimizedBox();
+			}
+
+			void GuiWindow::SetMinimizedBox(bool visible)
+			{
+				styleController->SetMinimizedBox(visible);
+			}
+
+			bool GuiWindow::GetBorder()
+			{
+				return styleController->GetBorder();
+			}
+
+			void GuiWindow::SetBorder(bool visible)
+			{
+				styleController->SetBorder(visible);
+			}
+
+			bool GuiWindow::GetSizeBox()
+			{
+				return styleController->GetSizeBox();
+			}
+
+			void GuiWindow::SetSizeBox(bool visible)
+			{
+				styleController->SetSizeBox(visible);
+			}
+
+			bool GuiWindow::GetIconVisible()
+			{
+				return styleController->GetIconVisible();
+			}
+
+			void GuiWindow::SetIconVisible(bool visible)
+			{
+				styleController->SetIconVisible(visible);
+			}
+
+			bool GuiWindow::GetTitleBar()
+			{
+				return styleController->GetTitleBar();
+			}
+
+			void GuiWindow::SetTitleBar(bool visible)
+			{
+				styleController->SetTitleBar(visible);
+			}
+
 /***********************************************************************
 GuiPopup
 ***********************************************************************/
@@ -10174,7 +10305,7 @@ GuiPopup
 				GetApplication()->RegisterPopupClosed(this);
 			}
 
-			GuiPopup::GuiPopup(GuiControl::IStyleController* _styleController)
+			GuiPopup::GuiPopup(IStyleController* _styleController)
 				:GuiWindow(_styleController)
 			{
 				SetMinimizedBox(false);
@@ -10440,10 +10571,10 @@ CommonScrollStyle
 			void CommonScrollStyle::BuildStyle(int defaultSize, int arrowSize)
 			{
 				boundsComposition=new GuiBoundsComposition;
-				InstallBackground(boundsComposition, direction);
+				containerComposition=InstallBackground(boundsComposition, direction);
 				{
 					GuiBoundsComposition* handleBoundsComposition=new GuiBoundsComposition;
-					boundsComposition->AddChild(handleBoundsComposition);
+					containerComposition->AddChild(handleBoundsComposition);
 
 					handleComposition=new GuiPartialViewComposition;
 					handleBoundsComposition->AddChild(handleComposition);
@@ -10485,31 +10616,26 @@ CommonScrollStyle
 					decreaseComposition->SetMaxLength(defaultSize);
 					decreaseComposition->SetMaxRatio(0.5);
 					decreaseComposition->AddChild(decreaseButton->GetBoundsComposition());
-					boundsComposition->AddChild(decreaseComposition);
+					containerComposition->AddChild(decreaseComposition);
 
 					GuiSideAlignedComposition* increaseComposition=new GuiSideAlignedComposition;
 					increaseComposition->SetMaxLength(defaultSize);
 					increaseComposition->SetMaxRatio(0.5);
 					increaseComposition->AddChild(increaseButton->GetBoundsComposition());
-					boundsComposition->AddChild(increaseComposition);
+					containerComposition->AddChild(increaseComposition);
 
-					GuiPolygonElement* elementOut=0;
 					switch(direction)
 					{
 					case Horizontal:
 						{
 							decreaseComposition->SetDirection(GuiSideAlignedComposition::Left);
-							decreaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildLeftArrow(elementOut));
 							increaseComposition->SetDirection(GuiSideAlignedComposition::Right);
-							increaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildRightArrow(elementOut));
 						}
 						break;
 					case Vertical:
 						{
 							decreaseComposition->SetDirection(GuiSideAlignedComposition::Top);
-							decreaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildUpArrow(elementOut));
 							increaseComposition->SetDirection(GuiSideAlignedComposition::Bottom);
-							increaseButton->GetContainerComposition()->AddChild(CommonFragmentBuilder::BuildDownArrow(elementOut));
 						}
 						break;
 					}
@@ -10522,6 +10648,7 @@ CommonScrollStyle
 				,decreaseButton(0)
 				,increaseButton(0)
 				,boundsComposition(0)
+				,containerComposition(0)
 				,totalSize(1)
 				,pageSize(1)
 				,position(0)
@@ -10540,7 +10667,7 @@ CommonScrollStyle
 
 			compositions::GuiGraphicsComposition* CommonScrollStyle::GetContainerComposition()
 			{
-				return boundsComposition;
+				return containerComposition;
 			}
 
 			void CommonScrollStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
@@ -10946,6 +11073,25 @@ CommonFragmentBuilder
 				return BuildDockedElementContainer(elementOut);
 			}
 		}
+
+/***********************************************************************
+Helpers
+***********************************************************************/
+
+		unsigned char IntToColor(int color)
+		{
+			return color<0?0:color>255?255:(unsigned char)color;
+		}
+
+		Color BlendColor(Color c1, Color c2, int currentPosition, int totalLength)
+		{
+			return Color(
+				(unsigned char)IntToColor((c2.r*currentPosition+c1.r*(totalLength-currentPosition))/totalLength),
+				(unsigned char)IntToColor((c2.g*currentPosition+c1.g*(totalLength-currentPosition))/totalLength),
+				(unsigned char)IntToColor((c2.b*currentPosition+c1.b*(totalLength-currentPosition))/totalLength),
+				(unsigned char)IntToColor((c2.a*currentPosition+c1.a*(totalLength-currentPosition))/totalLength)
+				);
+		}
 	}
 }
 
@@ -10981,6 +11127,11 @@ namespace vl
 				controls::GuiLabel* NewLabel()
 				{
 					return new controls::GuiLabel(GetCurrentTheme()->CreateLabelStyle());
+				}
+
+				controls::GuiScrollContainer* NewScrollContainer()
+				{
+					return new controls::GuiScrollContainer(GetCurrentTheme()->CreateScrollContainerStyle());
 				}
 
 				controls::GuiControl* NewGroupBox()
@@ -11174,6 +11325,7 @@ namespace vl
 Controls\Styles\GuiWin7Styles.cpp
 ***********************************************************************/
 
+
 namespace vl
 {
 	namespace presentation
@@ -11197,7 +11349,7 @@ Win7Theme
 			{
 			}
 
-			controls::GuiControl::IStyleController* Win7Theme::CreateWindowStyle()
+			controls::GuiWindow::IStyleController* Win7Theme::CreateWindowStyle()
 			{
 				return new Win7WindowStyle;
 			}
@@ -11205,6 +11357,11 @@ Win7Theme
 			controls::GuiLabel::IStyleController* Win7Theme::CreateLabelStyle()
 			{
 				return new Win7LabelStyle;
+			}
+
+			controls::GuiScrollContainer::IStyleProvider* Win7Theme::CreateScrollContainerStyle()
+			{
+				return new Win7ScrollViewProvider;
 			}
 
 			controls::GuiControl::IStyleController* Win7Theme::CreateGroupBoxStyle()
@@ -11240,6 +11397,11 @@ Win7Theme
 			controls::GuiTreeView::IStyleProvider* Win7Theme::CreateTreeViewStyle()
 			{
 				return new Win7TreeViewProvider;
+			}
+
+			elements::text::ColorEntry Win7Theme::GetDefaultTextBoxColorEntry()
+			{
+				return Win7GetTextBoxTextColor();
 			}
 
 			controls::GuiToolstripMenu::IStyleController* Win7Theme::CreateMenuStyle()
@@ -11332,6 +11494,16 @@ Win7Theme
 				return new Win7ProgressBarStyle;
 			}
 
+			int Win7Theme::GetScrollDefaultSize()
+			{
+				return Win7ScrollStyle::DefaultSize;
+			}
+
+			int Win7Theme::GetTrackerDefaultSize()
+			{
+				return Win7TrackStyle::HandleLong;
+			}
+
 			controls::GuiScrollView::IStyleProvider* Win7Theme::CreateTextListStyle()
 			{
 				return new Win7MultilineTextBoxProvider;
@@ -11350,6 +11522,211 @@ Win7Theme
 			controls::list::TextItemStyleProvider::ITextItemStyleProvider* Win7Theme::CreateRadioTextListItemStyle()
 			{
 				return new Win7RadioTextListProvider;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\GuiWin8Styles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8Theme
+***********************************************************************/
+
+			Win8Theme::Win8Theme()
+			{
+			}
+
+			Win8Theme::~Win8Theme()
+			{
+			}
+
+			controls::GuiWindow::IStyleController* Win8Theme::CreateWindowStyle()
+			{
+				return new Win8WindowStyle;
+			}
+
+			controls::GuiLabel::IStyleController* Win8Theme::CreateLabelStyle()
+			{
+				return new Win8LabelStyle;
+			}
+
+			controls::GuiScrollContainer::IStyleProvider* Win8Theme::CreateScrollContainerStyle()
+			{
+				return new Win8ScrollViewProvider;
+			}
+
+			controls::GuiControl::IStyleController* Win8Theme::CreateGroupBoxStyle()
+			{
+				return new Win8GroupBoxStyle;
+			}
+
+			//controls::GuiTab::IStyleController* Win8Theme::CreateTabStyle()
+			//{
+			//	throw 0;
+			//}
+
+			controls::GuiComboBoxBase::IStyleController* Win8Theme::CreateComboBoxStyle()
+			{
+				return new Win8DropDownComboBoxStyle;
+			}
+
+			controls::GuiScrollView::IStyleProvider* Win8Theme::CreateMultilineTextBoxStyle()
+			{
+				return new Win8MultilineTextBoxProvider;
+			}
+
+			controls::GuiSinglelineTextBox::IStyleProvider* Win8Theme::CreateTextBoxStyle()
+			{
+				return new Win8SinglelineTextBoxProvider;
+			}
+
+			controls::GuiListView::IStyleProvider* Win8Theme::CreateListViewStyle()
+			{
+				return new Win8ListViewProvider;
+			}
+
+			controls::GuiTreeView::IStyleProvider* Win8Theme::CreateTreeViewStyle()
+			{
+				return new Win8TreeViewProvider;
+			}
+
+			elements::text::ColorEntry Win8Theme::GetDefaultTextBoxColorEntry()
+			{
+				return Win8GetTextBoxTextColor();
+			}
+
+			controls::GuiToolstripMenu::IStyleController* Win8Theme::CreateMenuStyle()
+			{
+				return new Win8MenuStyle;
+			}
+
+			controls::GuiToolstripMenuBar::IStyleController* Win8Theme::CreateMenuBarStyle()
+			{
+				return new Win8MenuBarStyle;
+			}
+
+			controls::GuiControl::IStyleController* Win8Theme::CreateMenuSplitterStyle()
+			{
+				return new Win8MenuSplitterStyle;
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateMenuBarButtonStyle()
+			{
+				return new Win8MenuBarButtonStyle;
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateMenuItemButtonStyle()
+			{
+				return new Win8MenuItemButtonStyle;
+			}
+
+			controls::GuiControl::IStyleController* Win8Theme::CreateToolbarStyle()
+			{
+				return new Win8ToolstripToolbarStyle;
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolbarButtonStyle()
+			{
+				return new Win8ToolstripButtonStyle(Win8ToolstripButtonStyle::CommandButton);
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolbarDropdownButtonStyle()
+			{
+				return new Win8ToolstripButtonStyle(Win8ToolstripButtonStyle::DropdownButton);
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolbarSplitButtonStyle()
+			{
+				return new Win8ToolstripButtonStyle(Win8ToolstripButtonStyle::SplitButton);
+			}
+
+			controls::GuiControl::IStyleController* Win8Theme::CreateToolbarSplitterStyle()
+			{
+				return new Win8ToolstripSplitterStyle;
+			}
+
+			controls::GuiButton::IStyleController* Win8Theme::CreateButtonStyle()
+			{
+				return new Win8ButtonStyle;
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8Theme::CreateCheckBoxStyle()
+			{
+				return new Win8CheckBoxStyle(Win8CheckBoxStyle::CheckBox);
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8Theme::CreateRadioButtonStyle()
+			{
+				return new Win8CheckBoxStyle(Win8CheckBoxStyle::RadioButton);
+			}
+
+			controls::GuiScroll::IStyleController* Win8Theme::CreateHScrollStyle()
+			{
+				return new Win8ScrollStyle(common_styles::CommonScrollStyle::Horizontal);
+			}
+
+			controls::GuiScroll::IStyleController* Win8Theme::CreateVScrollStyle()
+			{
+				return new Win8ScrollStyle(common_styles::CommonScrollStyle::Vertical);
+			}
+
+			controls::GuiScroll::IStyleController* Win8Theme::CreateHTrackerStyle()
+			{
+				return new Win8TrackStyle(common_styles::CommonTrackStyle::Horizontal);
+			}
+
+			controls::GuiScroll::IStyleController* Win8Theme::CreateVTrackerStyle()
+			{
+				return new Win8TrackStyle(common_styles::CommonTrackStyle::Vertical);
+			}
+
+			controls::GuiScroll::IStyleController* Win8Theme::CreateProgressBarStyle()
+			{
+				return new Win8ProgressBarStyle;
+			}
+
+			int Win8Theme::GetScrollDefaultSize()
+			{
+				return Win8ScrollStyle::DefaultSize;
+			}
+
+			int Win8Theme::GetTrackerDefaultSize()
+			{
+				return Win8TrackStyle::HandleLong;
+			}
+
+			controls::GuiScrollView::IStyleProvider* Win8Theme::CreateTextListStyle()
+			{
+				return new Win8MultilineTextBoxProvider;
+			}
+
+			controls::list::TextItemStyleProvider::ITextItemStyleProvider* Win8Theme::CreateTextListItemStyle()
+			{
+				return new Win8TextListProvider;
+			}
+
+			controls::list::TextItemStyleProvider::ITextItemStyleProvider* Win8Theme::CreateCheckTextListItemStyle()
+			{
+				return new Win8CheckTextListProvider;
+			}
+
+			controls::list::TextItemStyleProvider::ITextItemStyleProvider* Win8Theme::CreateRadioTextListItemStyle()
+			{
+				return new Win8RadioTextListProvider;
 			}
 		}
 	}
@@ -11378,6 +11755,11 @@ Win7ButtonStyleBase
 			{
 				colorCurrent=Win7ButtonColors::Blend(colorBegin, colorEnd, currentPosition, totalLength);
 				style->elements.Apply(colorCurrent);
+				style->AfterApplyColors(colorCurrent);
+			}
+
+			void Win7ButtonStyleBase::AfterApplyColors(const Win7ButtonColors& colors)
+			{
 			}
 
 			Win7ButtonStyleBase::Win7ButtonStyleBase(bool verticalGradient, bool roundBorder, const Win7ButtonColors& initialColor, Alignment::Type horizontal, Alignment::Type vertical)
@@ -11699,11 +12081,41 @@ Win7WindowStyle
 ***********************************************************************/
 
 			Win7WindowStyle::Win7WindowStyle()
-				:Win7EmptyStyle(Win7GetSystemWindowColor())
 			{
+				GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+				element->SetColor(Win7GetSystemWindowColor());
+				
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetOwnedElement(element);
 			}
 
 			Win7WindowStyle::~Win7WindowStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win7WindowStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win7WindowStyle::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void Win7WindowStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win7WindowStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win7WindowStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win7WindowStyle::SetVisuallyEnabled(bool value)
 			{
 			}
 
@@ -12431,6 +12843,13 @@ Win7DropDownComboBoxStyle
 				transferringAnimation->Transfer(targetColor);
 			}
 
+			void Win7DropDownComboBoxStyle::AfterApplyColors(const Win7ButtonColors& colors)
+			{
+				Win7ButtonStyle::AfterApplyColors(colors);
+				dropDownElement->SetBorderColor(colors.textColor);
+				dropDownElement->SetBackgroundColor(colors.textColor);
+			}
+
 			Win7DropDownComboBoxStyle::Win7DropDownComboBoxStyle()
 				:Win7ButtonStyle(true)
 				,commandExecutor(0)
@@ -12500,7 +12919,7 @@ Win7DropDownComboBoxStyle
 			{
 			}
 
-			controls::GuiControl::IStyleController* Win7DropDownComboBoxStyle::CreatePopupStyle()
+			controls::GuiWindow::IStyleController* Win7DropDownComboBoxStyle::CreatePopupStyle()
 			{
 				return new Win7WindowStyle;
 			}
@@ -13174,12 +13593,80 @@ namespace vl
 			using namespace controls;
 
 /***********************************************************************
+Win7ButtonStyle
+***********************************************************************/
+
+			void Win7ScrollArrowButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				Win7ButtonColors targetColor;
+				if(enabled)
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win7ButtonColors::ButtonNormal();
+						break;
+					case GuiButton::Active:
+						targetColor=Win7ButtonColors::ButtonActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win7ButtonColors::ButtonPressed();
+						break;
+					}
+				}
+				else
+				{
+					targetColor=Win7ButtonColors::ButtonDisabled();
+				}
+				transferringAnimation->Transfer(targetColor);
+			}
+
+			void Win7ScrollArrowButtonStyle::AfterApplyColors(const Win7ButtonColors& colors)
+			{
+				Win7ButtonStyleBase::AfterApplyColors(colors);
+				arrowElement->SetBorderColor(colors.textColor);
+				arrowElement->SetBackgroundColor(colors.textColor);
+			}
+
+			Win7ScrollArrowButtonStyle::Win7ScrollArrowButtonStyle(common_styles::CommonScrollStyle::Direction direction, bool increaseButton)
+				:Win7ButtonStyleBase(direction==common_styles::CommonScrollStyle::Horizontal, true, Win7ButtonColors::ButtonNormal(), Alignment::Center, Alignment::Center)
+			{
+				switch(direction)
+				{
+				case common_styles::CommonScrollStyle::Horizontal:
+					if(increaseButton)
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildRightArrow(arrowElement));
+					}
+					else
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildLeftArrow(arrowElement));
+					}
+					break;
+				case common_styles::CommonScrollStyle::Vertical:
+					if(increaseButton)
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildDownArrow(arrowElement));
+					}
+					else
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildUpArrow(arrowElement));
+					}
+					break;
+				}
+			}
+
+			Win7ScrollArrowButtonStyle::~Win7ScrollArrowButtonStyle()
+			{
+			}
+
+/***********************************************************************
 Win7ScrollStyle
 ***********************************************************************/
 
 			controls::GuiButton::IStyleController* Win7ScrollStyle::CreateDecreaseButtonStyle(Direction direction)
 			{
-				Win7ButtonStyle* decreaseButtonStyle=new Win7ButtonStyle(direction==Horizontal);
+				Win7ScrollArrowButtonStyle* decreaseButtonStyle=new Win7ScrollArrowButtonStyle(direction, false);
 				decreaseButtonStyle->SetTransparentWhenInactive(true);
 				decreaseButtonStyle->SetTransparentWhenDisabled(true);
 				return decreaseButtonStyle;
@@ -13187,7 +13674,7 @@ Win7ScrollStyle
 
 			controls::GuiButton::IStyleController* Win7ScrollStyle::CreateIncreaseButtonStyle(Direction direction)
 			{
-				Win7ButtonStyle* increaseButtonStyle=new Win7ButtonStyle(direction==Horizontal);
+				Win7ScrollArrowButtonStyle* increaseButtonStyle=new Win7ScrollArrowButtonStyle(direction, true);
 				increaseButtonStyle->SetTransparentWhenInactive(true);
 				increaseButtonStyle->SetTransparentWhenDisabled(true);
 				return increaseButtonStyle;
@@ -13200,7 +13687,7 @@ Win7ScrollStyle
 				return handleButtonStyle;
 			}
 
-			void Win7ScrollStyle::InstallBackground(compositions::GuiGraphicsComposition* boundsComposition, Direction direction)
+			compositions::GuiBoundsComposition* Win7ScrollStyle::InstallBackground(compositions::GuiBoundsComposition* boundsComposition, Direction direction)
 			{
 				Color sinkColor=Win7GetSystemBorderSinkColor();
 				GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
@@ -13260,6 +13747,8 @@ Win7ScrollStyle
 					composition->SetOwnedElement(element);
 					boundsComposition->AddChild(composition);
 				}
+
+				return boundsComposition;
 			}
 
 			Win7ScrollStyle::Win7ScrollStyle(Direction _direction)
@@ -13760,21 +14249,6 @@ namespace vl
 			using namespace elements;
 			using namespace compositions;
 			using namespace controls;
-
-			unsigned char IntToColor(int color)
-			{
-				return color<0?0:color>255?255:(unsigned char)color;
-			}
-
-			Color BlendColor(Color c1, Color c2, int currentPosition, int totalLength)
-			{
-				return Color(
-					(unsigned char)IntToColor((c2.r*currentPosition+c1.r*(totalLength-currentPosition))/totalLength),
-					(unsigned char)IntToColor((c2.g*currentPosition+c1.g*(totalLength-currentPosition))/totalLength),
-					(unsigned char)IntToColor((c2.b*currentPosition+c1.b*(totalLength-currentPosition))/totalLength),
-					(unsigned char)IntToColor((c2.a*currentPosition+c1.a*(totalLength-currentPosition))/totalLength)
-					);
-			}
 
 /***********************************************************************
 Win7ButtonColors
@@ -14474,33 +14948,33 @@ Win7CheckedButtonElements
 								}
 							}
 
-							button.bulletTextElement=0;
-							button.bulletBackgroundElement=0;
+							button.bulletCheckElement=0;
+							button.bulletRadioElement=0;
 							if(shape==ElementShape::Rectangle)
 							{
-								button.bulletTextElement=GuiSolidLabelElement::Create();
+								button.bulletCheckElement=GuiSolidLabelElement::Create();
 								{
 									FontProperties font;
 									font.fontFamily=L"Wingdings 2";
 									font.size=16;
 									font.bold=true;
-									button.bulletTextElement->SetFont(font);
+									button.bulletCheckElement->SetFont(font);
 								}
-								button.bulletTextElement->SetText(L"P");
-								button.bulletTextElement->SetAlignments(Alignment::Center, Alignment::Center);
+								button.bulletCheckElement->SetText(L"P");
+								button.bulletCheckElement->SetAlignments(Alignment::Center, Alignment::Center);
 
 								GuiBoundsComposition* composition=new GuiBoundsComposition;
-								composition->SetOwnedElement(button.bulletTextElement);
+								composition->SetOwnedElement(button.bulletCheckElement);
 								composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
 								checkCell->AddChild(composition);
 							}
 							else
 							{
-								button.bulletBackgroundElement=GuiSolidBackgroundElement::Create();
-								button.bulletBackgroundElement->SetShape(ElementShape::Ellipse);
+								button.bulletRadioElement=GuiSolidBackgroundElement::Create();
+								button.bulletRadioElement->SetShape(ElementShape::Ellipse);
 
 								GuiBoundsComposition* composition=new GuiBoundsComposition;
-								composition->SetOwnedElement(button.bulletBackgroundElement);
+								composition->SetOwnedElement(button.bulletRadioElement);
 								composition->SetAlignmentToParent(Margin(checkPadding+3, 3, checkPadding+3, 3));
 								checkCell->AddChild(composition);
 							}
@@ -14527,13 +15001,13 @@ Win7CheckedButtonElements
 				outerGradientElement->SetColors(colors.g1, colors.g2);
 				innerGradientElement->SetColors(colors.g3, colors.g4);
 				textElement->SetColor(colors.textColor);
-				if(bulletTextElement)
+				if(bulletCheckElement)
 				{
-					bulletTextElement->SetColor(colors.bulletDark);
+					bulletCheckElement->SetColor(colors.bulletDark);
 				}
-				if(bulletBackgroundElement)
+				if(bulletRadioElement)
 				{
-					bulletBackgroundElement->SetColor(colors.bulletDark);
+					bulletRadioElement->SetColor(colors.bulletDark);
 				}
 			}
 
@@ -14732,11 +15206,6 @@ Win7TextBoxColors
 Helpers
 ***********************************************************************/
 
-			int Win7GetColorAnimationLength()
-			{
-				return 120;
-			}
-
 			Color Win7GetSystemWindowColor()
 			{
 				return Color(240, 240, 240);
@@ -14797,7 +15266,6 @@ Helpers
 				entry.selectedUnfocused.background=Color(51, 153, 255);
 				return entry;
 			}
-
 		}
 	}
 }
@@ -15491,6 +15959,3298 @@ Win7ToolstripSplitterStyle
 			}
 
 			void Win7ToolstripSplitterStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8ButtonStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8ButtonStyleBase
+***********************************************************************/
+
+			IMPLEMENT_TRANSFERRING_ANIMATION(Win8ButtonColors, Win8ButtonStyleBase)
+			{
+				colorCurrent=Win8ButtonColors::Blend(colorBegin, colorEnd, currentPosition, totalLength);
+				style->elements.Apply(colorCurrent);
+				style->AfterApplyColors(colorCurrent);
+			}
+
+			void Win8ButtonStyleBase::AfterApplyColors(const Win8ButtonColors& colors)
+			{
+			}
+
+			Win8ButtonStyleBase::Win8ButtonStyleBase(const Win8ButtonColors& initialColor, Alignment::Type horizontal, Alignment::Type vertical)
+				:controlStyle(GuiButton::Normal)
+				,isVisuallyEnabled(true)
+				,isSelected(false)
+				,transparentWhenInactive(false)
+				,transparentWhenDisabled(false)
+			{
+				elements=Win8ButtonElements::Create(horizontal, vertical);
+				elements.Apply(initialColor);
+				transferringAnimation=new TransferringAnimation(this, initialColor);
+			}
+
+			Win8ButtonStyleBase::~Win8ButtonStyleBase()
+			{
+				transferringAnimation->Disable();
+			}
+
+			compositions::GuiBoundsComposition* Win8ButtonStyleBase::GetBoundsComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ButtonStyleBase::GetContainerComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			void Win8ButtonStyleBase::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ButtonStyleBase::SetText(const WString& value)
+			{
+				elements.textElement->SetText(value);
+			}
+
+			void Win8ButtonStyleBase::SetFont(const FontProperties& value)
+			{
+				Win8SetFont(elements.textElement, elements.textComposition, value);
+			}
+
+			void Win8ButtonStyleBase::SetVisuallyEnabled(bool value)
+			{
+				if(isVisuallyEnabled!=value)
+				{
+					isVisuallyEnabled=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				}
+			}
+
+			void Win8ButtonStyleBase::SetSelected(bool value)
+			{
+				if(isSelected!=value)
+				{
+					isSelected=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				}
+			}
+
+			void Win8ButtonStyleBase::Transfer(GuiButton::ControlState value)
+			{
+				if(controlStyle!=value)
+				{
+					controlStyle=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				}
+			}
+
+			bool Win8ButtonStyleBase::GetTransparentWhenInactive()
+			{
+				return transparentWhenInactive;
+			}
+
+			void Win8ButtonStyleBase::SetTransparentWhenInactive(bool value)
+			{
+				transparentWhenInactive=value;
+				TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+			}
+
+			bool Win8ButtonStyleBase::GetTransparentWhenDisabled()
+			{
+				return transparentWhenDisabled;
+			}
+
+			void Win8ButtonStyleBase::SetTransparentWhenDisabled(bool value)
+			{
+				transparentWhenDisabled=value;
+				TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+			}
+
+			bool Win8ButtonStyleBase::GetAutoSizeForText()
+			{
+				return elements.textComposition->GetMinSizeLimitation()!=GuiGraphicsComposition::NoLimit;
+			}
+
+			void Win8ButtonStyleBase::SetAutoSizeForText(bool value)
+			{
+				if(value)
+				{
+					elements.textComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				}
+				else
+				{
+					elements.textComposition->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+				}
+			}
+
+/***********************************************************************
+Win8ButtonStyle
+***********************************************************************/
+
+			void Win8ButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				Win8ButtonColors targetColor;
+				if(enabled)
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::ButtonNormal();
+						if(transparentWhenInactive)
+						{
+							targetColor.SetAlphaWithoutText(0);
+						}
+						break;
+					case GuiButton::Active:
+						targetColor=Win8ButtonColors::ButtonActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::ButtonPressed();
+						break;
+					}
+				}
+				else
+				{
+					targetColor=Win8ButtonColors::ButtonDisabled();
+					if(transparentWhenDisabled)
+					{
+						targetColor.SetAlphaWithoutText(0);
+					}
+				}
+				transferringAnimation->Transfer(targetColor);
+			}
+
+			Win8ButtonStyle::Win8ButtonStyle()
+				:Win8ButtonStyleBase(Win8ButtonColors::ButtonNormal(), Alignment::Center, Alignment::Center)
+			{
+			}
+
+			Win8ButtonStyle::~Win8ButtonStyle()
+			{
+			}
+
+/***********************************************************************
+Win7CheckBoxStyle
+***********************************************************************/
+
+			IMPLEMENT_TRANSFERRING_ANIMATION(Win8ButtonColors, Win8CheckBoxStyle)
+			{
+				colorCurrent=Win8ButtonColors::Blend(colorBegin, colorEnd, currentPosition, totalLength);
+				style->elements.Apply(colorCurrent);
+			}
+
+			void Win8CheckBoxStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				if(enabled)
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						transferringAnimation->Transfer(Win8ButtonColors::CheckedNormal(selected));
+						break;
+					case GuiButton::Active:
+						transferringAnimation->Transfer(Win8ButtonColors::CheckedActive(selected));
+						break;
+					case GuiButton::Pressed:
+						transferringAnimation->Transfer(Win8ButtonColors::CheckedPressed(selected));
+						break;
+					}
+				}
+				else
+				{
+					transferringAnimation->Transfer(Win8ButtonColors::CheckedDisabled(selected));
+				}
+			}
+
+			Win8CheckBoxStyle::Win8CheckBoxStyle(BulletStyle bulletStyle, bool backgroundVisible)
+				:controlStyle(GuiButton::Normal)
+				,isVisuallyEnabled(true)
+				,isSelected(false)
+			{
+				Win8ButtonColors initialColor=Win8ButtonColors::CheckedNormal(isSelected);
+				elements=Win8CheckedButtonElements::Create(bulletStyle==CheckBox?ElementShape::Rectangle:ElementShape::Ellipse, backgroundVisible);
+				elements.Apply(initialColor);
+				transferringAnimation=new TransferringAnimation(this, initialColor);
+			}
+
+			Win8CheckBoxStyle::~Win8CheckBoxStyle()
+			{
+				transferringAnimation->Disable();
+			}
+
+			compositions::GuiBoundsComposition* Win8CheckBoxStyle::GetBoundsComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8CheckBoxStyle::GetContainerComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			void Win8CheckBoxStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8CheckBoxStyle::SetText(const WString& value)
+			{
+				elements.textElement->SetText(value);
+			}
+
+			void Win8CheckBoxStyle::SetFont(const FontProperties& value)
+			{
+				Win8SetFont(elements.textElement, elements.textComposition, value);
+			}
+
+			void Win8CheckBoxStyle::SetVisuallyEnabled(bool value)
+			{
+				if(isVisuallyEnabled!=value)
+				{
+					isVisuallyEnabled=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				}
+			}
+
+			void Win8CheckBoxStyle::SetSelected(bool value)
+			{
+				if(isSelected!=value)
+				{
+					isSelected=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				}
+			}
+
+			void Win8CheckBoxStyle::Transfer(GuiButton::ControlState value)
+			{
+				if(controlStyle!=value)
+				{
+					controlStyle=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected);
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8ControlStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8EmptyStyle
+***********************************************************************/
+
+			Win8EmptyStyle::Win8EmptyStyle(Color color)
+			{
+				GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+				element->SetColor(color);
+				
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetOwnedElement(element);
+			}
+
+			Win8EmptyStyle::~Win8EmptyStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8EmptyStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8EmptyStyle::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void Win8EmptyStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8EmptyStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8EmptyStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8EmptyStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win8WindowStyle
+***********************************************************************/
+
+			Win8WindowStyle::Win8WindowStyle()
+			{
+				GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+				element->SetColor(Win8GetSystemWindowColor());
+				
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetOwnedElement(element);
+			}
+
+			Win8WindowStyle::~Win8WindowStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8WindowStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8WindowStyle::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void Win8WindowStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8WindowStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8WindowStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8WindowStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win8LabelStyle
+***********************************************************************/
+
+			Win8LabelStyle::Win8LabelStyle()
+			{
+				textElement=GuiSolidLabelElement::Create();
+				textElement->SetColor(GetDefaultTextColor());
+				
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetOwnedElement(textElement);
+				boundsComposition->SetMinSizeLimitation(GuiBoundsComposition::LimitToElement);
+			}
+
+			Win8LabelStyle::~Win8LabelStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8LabelStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8LabelStyle::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void Win8LabelStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8LabelStyle::SetText(const WString& value)
+			{
+				textElement->SetText(value);
+			}
+
+			void Win8LabelStyle::SetFont(const FontProperties& value)
+			{
+				textElement->SetFont(value);
+			}
+
+			void Win8LabelStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+			Color Win8LabelStyle::GetDefaultTextColor()
+			{
+				return Win8GetSystemTextColor(true);
+			}
+
+			void Win8LabelStyle::SetTextColor(Color value)
+			{
+				textElement->SetColor(value);
+			}
+
+/***********************************************************************
+Win8GroupBoxStyle
+***********************************************************************/
+			
+			IMPLEMENT_TRANSFERRING_ANIMATION(Color, Win8GroupBoxStyle)
+			{
+				colorCurrent=BlendColor(colorBegin, colorEnd, currentPosition, totalLength);
+				style->textElement->SetColor(colorCurrent);
+			}
+
+			void Win8GroupBoxStyle::SetMargins(int fontSize)
+			{
+				fontSize+=4;
+				int half=fontSize/2;
+				borderComposition->SetAlignmentToParent(Margin(0, half, 0, 0));
+				containerComposition->SetAlignmentToParent(Margin(1, fontSize, 1, 1));
+				textBackgroundComposition->SetAlignmentToParent(Margin(half, 2, -1, -1));
+			}
+
+			Win8GroupBoxStyle::Win8GroupBoxStyle()
+			{
+				boundsComposition=new GuiBoundsComposition;
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Win8GetSystemWindowColor());
+
+					boundsComposition->SetOwnedElement(element);
+					boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				}
+
+				borderComposition=new GuiBoundsComposition;
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Color(221, 221, 221));
+
+					borderComposition->SetOwnedElement(element);
+					boundsComposition->AddChild(borderComposition);
+				}
+
+				textBackgroundComposition=new GuiBoundsComposition;
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Win8GetSystemWindowColor());
+
+					textBackgroundComposition->SetOwnedElement(element);
+					textBackgroundComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					boundsComposition->AddChild(textBackgroundComposition);
+				}
+
+				textComposition=new GuiBoundsComposition;
+				{
+					GuiSolidLabelElement* element=GuiSolidLabelElement::Create();
+					element->SetColor(Win8GetSystemTextColor(true));
+					textElement=element;
+
+					textComposition->SetOwnedElement(element);
+					textComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					textComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+					textBackgroundComposition->AddChild(textComposition);
+				}
+
+				containerComposition=new GuiBoundsComposition;
+				{
+					boundsComposition->AddChild(containerComposition);
+				}
+
+				SetMargins(0);
+				transferringAnimation=new TransferringAnimation(this, Win8GetSystemTextColor(true));
+			}
+
+			Win8GroupBoxStyle::~Win8GroupBoxStyle()
+			{
+				transferringAnimation->Disable();
+			}
+
+			compositions::GuiBoundsComposition* Win8GroupBoxStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8GroupBoxStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8GroupBoxStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8GroupBoxStyle::SetText(const WString& value)
+			{
+				textElement->SetText(value);
+			}
+
+			void Win8GroupBoxStyle::SetFont(const FontProperties& value)
+			{
+				textElement->SetFont(value);
+				SetMargins(value.size);
+			}
+
+			void Win8GroupBoxStyle::SetVisuallyEnabled(bool value)
+			{
+				if(value)
+				{
+					transferringAnimation->Transfer(Win8GetSystemTextColor(true));
+				}
+				else
+				{
+					transferringAnimation->Transfer(Win8GetSystemTextColor(false));
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8ListStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8SelectableItemStyle
+***********************************************************************/
+
+			void Win8SelectableItemStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				if(!enabled)
+				{
+					transferringAnimation->Transfer(Win8ButtonColors::ItemDisabled());
+				}
+				else if(selected)
+				{
+					transferringAnimation->Transfer(Win8ButtonColors::ItemSelected());
+				}
+				else
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						transferringAnimation->Transfer(Win8ButtonColors::ItemNormal());
+						break;
+					case GuiButton::Active:
+						transferringAnimation->Transfer(Win8ButtonColors::ItemActive());
+						break;
+					case GuiButton::Pressed:
+						transferringAnimation->Transfer(Win8ButtonColors::ItemSelected());
+						break;
+					}
+				}
+			}
+
+			Win8SelectableItemStyle::Win8SelectableItemStyle()
+				:Win8ButtonStyleBase(Win8ButtonColors::ItemNormal(), Alignment::Left, Alignment::Center)
+			{
+				transferringAnimation->SetEnableAnimation(false);
+			}
+
+			Win8SelectableItemStyle::~Win8SelectableItemStyle()
+			{
+			}
+
+/***********************************************************************
+Win8DropDownComboBoxStyle
+***********************************************************************/
+
+			void Win8DropDownComboBoxStyle::TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				Win8ButtonColors targetColor;
+				if(enabled)
+				{
+					if(selected) value=GuiButton::Pressed;
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::ButtonNormal();
+						break;
+					case GuiButton::Active:
+						targetColor=Win8ButtonColors::ButtonActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::ButtonPressed();
+						break;
+					}
+				}
+				else
+				{
+					targetColor=Win8ButtonColors::ButtonDisabled();
+				}
+				transferringAnimation->Transfer(targetColor);
+			}
+
+			void Win8DropDownComboBoxStyle::AfterApplyColors(const Win8ButtonColors& colors)
+			{
+				Win8ButtonStyle::AfterApplyColors(colors);
+				dropDownElement->SetBorderColor(colors.textColor);
+				dropDownElement->SetBackgroundColor(colors.textColor);
+			}
+
+			Win8DropDownComboBoxStyle::Win8DropDownComboBoxStyle()
+				:commandExecutor(0)
+			{
+				table=new GuiTableComposition;
+				table->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				table->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				table->SetRowsAndColumns(3, 2);
+				table->SetRowOption(0, GuiCellOption::PercentageOption(1.0));
+				table->SetRowOption(1, GuiCellOption::MinSizeOption());
+				table->SetRowOption(2, GuiCellOption::PercentageOption(1.0));
+				table->SetColumnOption(0, GuiCellOption::PercentageOption(1.0));
+				table->SetColumnOption(1, GuiCellOption::MinSizeOption());
+				elements.textComposition->AddChild(table);
+				elements.textComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+
+				textComposition=new GuiCellComposition;
+				table->AddChild(textComposition);
+				textComposition->SetSite(1, 0, 1, 1);
+
+				Ptr<IGuiGraphicsElement> element=elements.textComposition->GetOwnedElement();
+				elements.textComposition->SetOwnedElement(0);
+				textComposition->SetOwnedElement(element);
+				elements.textElement->SetEllipse(true);
+				elements.textElement->SetAlignments(Alignment::Left, Alignment::Center);
+
+				dropDownElement=common_styles::CommonFragmentBuilder::BuildDownArrow();
+
+				dropDownComposition=new GuiCellComposition;
+				table->AddChild(dropDownComposition);
+				dropDownComposition->SetSite(1, 1, 1, 1);
+				dropDownComposition->SetOwnedElement(dropDownElement);
+				dropDownComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				dropDownComposition->SetMargin(Margin(3, 0, 3, 0));
+			}
+
+			Win8DropDownComboBoxStyle::~Win8DropDownComboBoxStyle()
+			{
+			}
+
+			compositions::GuiGraphicsComposition* Win8DropDownComboBoxStyle::GetContainerComposition()
+			{
+				return textComposition;
+			}
+
+			void Win8DropDownComboBoxStyle::SetCommandExecutor(controls::GuiComboBoxBase::ICommandExecutor* value)
+			{
+				commandExecutor=value;
+			}
+
+			void Win8DropDownComboBoxStyle::OnClicked()
+			{
+				commandExecutor->ShowPopup();
+			}
+
+			void Win8DropDownComboBoxStyle::OnPopupOpened()
+			{
+				SetSelected(true);
+			}
+
+			void Win8DropDownComboBoxStyle::OnPopupClosed()
+			{
+				SetSelected(false);
+			}
+
+			void Win8DropDownComboBoxStyle::OnItemSelected()
+			{
+			}
+
+			controls::GuiWindow::IStyleController* Win8DropDownComboBoxStyle::CreatePopupStyle()
+			{
+				return new Win8WindowStyle;
+			}
+
+/***********************************************************************
+Win8TextListProvider
+***********************************************************************/
+			
+			Win8TextListProvider::Win8TextListProvider()
+			{
+			}
+
+			Win8TextListProvider::~Win8TextListProvider()
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8TextListProvider::CreateBackgroundStyleController()
+			{
+				return new Win8SelectableItemStyle;
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8TextListProvider::CreateBulletStyleController()
+			{
+				return 0;
+			}
+
+/***********************************************************************
+Win8CheckTextListProvider
+***********************************************************************/
+
+			Win8CheckTextListProvider::Win8CheckTextListProvider()
+			{
+			}
+
+			Win8CheckTextListProvider::~Win8CheckTextListProvider()
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8CheckTextListProvider::CreateBulletStyleController()
+			{
+				return new Win8CheckBoxStyle(Win8CheckBoxStyle::CheckBox, false);
+			}
+
+/***********************************************************************
+Win8RadioTextListProvider
+***********************************************************************/
+
+			Win8RadioTextListProvider::Win8RadioTextListProvider()
+			{
+			}
+
+			Win8RadioTextListProvider::~Win8RadioTextListProvider()
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8RadioTextListProvider::CreateBulletStyleController()
+			{
+				return new Win8CheckBoxStyle(Win8CheckBoxStyle::RadioButton, false);
+			}
+
+/***********************************************************************
+Win8ListViewProvider
+***********************************************************************/
+
+			Win8ListViewProvider::Win8ListViewProvider()
+			{
+			}
+
+			Win8ListViewProvider::~Win8ListViewProvider()
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8ListViewProvider::CreateItemBackground()
+			{
+				return new Win8SelectableItemStyle;
+			}
+
+			controls::GuiListViewColumnHeader::IStyleController* Win8ListViewProvider::CreateColumnStyle()
+			{
+				return new win7::Win7ListViewColumnHeaderStyle;
+			}
+
+			Color Win8ListViewProvider::GetPrimaryTextColor()
+			{
+				return Win8GetSystemTextColor(true);
+			}
+
+			Color Win8ListViewProvider::GetSecondaryTextColor()
+			{
+				return Win8GetSystemTextColor(false);
+			}
+
+			Color Win8ListViewProvider::GetItemSeparatorColor()
+			{
+				return Color(220, 220, 220);
+			}
+
+/***********************************************************************
+Win8TreeViewProvider
+***********************************************************************/
+
+			Win8TreeViewProvider::Win8TreeViewProvider()
+			{
+			}
+
+			Win8TreeViewProvider::~Win8TreeViewProvider()
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8TreeViewProvider::CreateItemBackground()
+			{
+				return new Win8SelectableItemStyle;
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8TreeViewProvider::CreateItemExpandingDecorator()
+			{
+				return new win7::Win7TreeViewExpandingButtonStyle;
+			}
+
+			Color Win8TreeViewProvider::GetTextColor()
+			{
+				return Win8GetSystemTextColor(true);
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8MenuStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8MenuStyle
+***********************************************************************/
+
+			Win8MenuStyle::Win8MenuStyle()
+			{
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Win8GetMenuBorderColor());
+					boundsComposition=new GuiBoundsComposition;
+					boundsComposition->SetOwnedElement(element);
+				}
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Win8GetSystemWindowColor());
+					GuiBoundsComposition* subBorder=new GuiBoundsComposition;
+					subBorder->SetOwnedElement(element);
+					subBorder->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					boundsComposition->AddChild(subBorder);
+				}
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Win8GetSystemWindowColor());
+					containerComposition=new GuiBoundsComposition;
+					containerComposition->SetOwnedElement(element);
+					containerComposition->SetAlignmentToParent(Margin(3, 3, 3, 3));
+					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					boundsComposition->AddChild(containerComposition);
+				}
+			}
+
+			Win8MenuStyle::~Win8MenuStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8MenuStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8MenuStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8MenuStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8MenuStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8MenuStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8MenuStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win8MenuBarStyle
+***********************************************************************/
+
+			Win8MenuBarStyle::Win8MenuBarStyle()
+			{
+				boundsComposition=new GuiBoundsComposition;
+				{
+					GuiSolidBackgroundElement* solid=GuiSolidBackgroundElement::Create();
+					solid->SetColor(Color(245, 246, 247));
+					boundsComposition->SetOwnedElement(solid);
+					boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				}
+				{
+					Gui3DSplitterElement* element=Gui3DSplitterElement::Create();
+					element->SetColors(Color(232, 233, 234), Color(240, 240, 240));
+					element->SetDirection(Gui3DSplitterElement::Horizontal);
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetOwnedElement(element);
+					composition->SetPreferredMinSize(Size(0, 2));
+					composition->SetAlignmentToParent(Margin(0, -1, 0, 0));
+					boundsComposition->AddChild(composition);
+				}
+				containerComposition=new GuiBoundsComposition;
+				{
+					containerComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					boundsComposition->AddChild(containerComposition);
+				}
+			}
+
+			Win8MenuBarStyle::~Win8MenuBarStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8MenuBarStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8MenuBarStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8MenuBarStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8MenuBarStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8MenuBarStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8MenuBarStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win8MenuBarButtonStyle
+***********************************************************************/
+
+			void Win8MenuBarButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool opening)
+			{
+				Win8ButtonColors targetColor;
+				if(!enabled)
+				{
+					targetColor=Win8ButtonColors::MenuBarButtonDisabled();
+					targetColor.SetAlphaWithoutText(0);
+				}
+				else if(opening)
+				{
+					targetColor=Win8ButtonColors::MenuBarButtonPressed();
+				}
+				else
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::MenuBarButtonNormal();
+						targetColor.SetAlphaWithoutText(0);
+						break;
+					case GuiButton::Active:
+						targetColor=Win8ButtonColors::MenuBarButtonActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::MenuBarButtonPressed();
+						break;
+					}
+				}
+				elements.Apply(targetColor);
+			}
+
+			Win8MenuBarButtonStyle::Win8MenuBarButtonStyle()
+				:controlStyle(GuiButton::Normal)
+				,isVisuallyEnabled(true)
+				,isOpening(false)
+			{
+				Win8ButtonColors initialColor=Win8ButtonColors::MenuBarButtonNormal();
+				initialColor.SetAlphaWithoutText(0);
+
+				elements=Win8ButtonElements::Create(Alignment::Center, Alignment::Center);
+				elements.Apply(initialColor);
+			}
+
+			Win8MenuBarButtonStyle::~Win8MenuBarButtonStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8MenuBarButtonStyle::GetBoundsComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8MenuBarButtonStyle::GetContainerComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			void Win8MenuBarButtonStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8MenuBarButtonStyle::SetText(const WString& value)
+			{
+				elements.textElement->SetText(value);
+			}
+
+			void Win8MenuBarButtonStyle::SetFont(const FontProperties& value)
+			{
+				Win8SetFont(elements.textElement, elements.textComposition, value);
+				Margin margin=elements.textComposition->GetMargin();
+				margin.left*=3;
+				margin.right*=3;
+				elements.textComposition->SetMargin(margin);
+			}
+
+			void Win8MenuBarButtonStyle::SetVisuallyEnabled(bool value)
+			{
+				if(isVisuallyEnabled!=value)
+				{
+					isVisuallyEnabled=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+			controls::GuiMenu::IStyleController* Win8MenuBarButtonStyle::CreateSubMenuStyleController()
+			{
+				return new Win8MenuStyle;
+			}
+
+			void Win8MenuBarButtonStyle::SetSubMenuExisting(bool value)
+			{
+			}
+
+			void Win8MenuBarButtonStyle::SetSubMenuOpening(bool value)
+			{
+				if(isOpening!=value)
+				{
+					isOpening=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+			controls::GuiButton* Win8MenuBarButtonStyle::GetSubMenuHost()
+			{
+				return 0;
+			}
+
+			void Win8MenuBarButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			{
+			}
+
+			void Win8MenuBarButtonStyle::SetShortcutText(const WString& value)
+			{
+			}
+
+			compositions::GuiSubComponentMeasurer::IMeasuringSource* Win8MenuBarButtonStyle::GetMeasuringSource()
+			{
+				return 0;
+			}
+
+			void Win8MenuBarButtonStyle::Transfer(GuiButton::ControlState value)
+			{
+				if(controlStyle!=value)
+				{
+					controlStyle=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+/***********************************************************************
+Win8MenuItemButtonStyle::MeasuringSource
+***********************************************************************/
+
+			Win8MenuItemButtonStyle::MeasuringSource::MeasuringSource(Win8MenuItemButtonStyle* _style)
+				:GuiSubComponentMeasurer::MeasuringSource(GuiMenuButton::MenuItemSubComponentMeasuringCategoryName, _style->elements.mainComposition)
+				,style(_style)
+			{
+				AddSubComponent(L"text", style->elements.textComposition);
+				AddSubComponent(L"shortcut", style->elements.shortcutComposition);
+			}
+
+			Win8MenuItemButtonStyle::MeasuringSource::~MeasuringSource()
+			{
+			}
+
+			void Win8MenuItemButtonStyle::MeasuringSource::SubComponentPreferredMinSizeUpdated()
+			{
+				GetMainComposition()->ForceCalculateSizeImmediately();
+			}
+
+/***********************************************************************
+Win8MenuItemButtonStyle
+***********************************************************************/
+
+			void Win8MenuItemButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool opening)
+			{
+				Win8ButtonColors targetColor;
+				bool active=false;
+				if(enabled)
+				{
+					if(opening)
+					{
+						targetColor=Win8ButtonColors::MenuItemButtonNormalActive();
+						active=true;
+					}
+					else
+					{
+						switch(value)
+						{
+						case GuiButton::Normal:
+							targetColor=Win8ButtonColors::MenuItemButtonNormal();
+							break;
+						case GuiButton::Active:
+						case GuiButton::Pressed:
+							targetColor=Win8ButtonColors::MenuItemButtonNormalActive();
+							active=true;
+							break;
+						}
+					}
+				}
+				else
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::MenuItemButtonDisabled();
+						break;
+					case GuiButton::Active:
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::MenuItemButtonDisabledActive();
+						active=true;
+						break;
+					}
+				}
+				elements.Apply(targetColor);
+				elements.SetActive(active);
+			}
+
+			Win8MenuItemButtonStyle::Win8MenuItemButtonStyle()
+				:controlStyle(GuiButton::Normal)
+				,isVisuallyEnabled(true)
+				,isOpening(false)
+			{
+				elements=Win8MenuItemButtonElements::Create();
+				elements.Apply(Win8ButtonColors::MenuItemButtonNormal());
+				measuringSource=new MeasuringSource(this);
+			}
+
+			Win8MenuItemButtonStyle::~Win8MenuItemButtonStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8MenuItemButtonStyle::GetBoundsComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8MenuItemButtonStyle::GetContainerComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			void Win8MenuItemButtonStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8MenuItemButtonStyle::SetText(const WString& value)
+			{
+				elements.textElement->SetText(value);
+			}
+
+			void Win8MenuItemButtonStyle::SetFont(const FontProperties& value)
+			{
+				Win8SetFont(elements.textElement, elements.textComposition, value);
+				Win8SetFont(elements.shortcutElement, elements.shortcutComposition, value);
+			}
+
+			void Win8MenuItemButtonStyle::SetVisuallyEnabled(bool value)
+			{
+				if(isVisuallyEnabled!=value)
+				{
+					isVisuallyEnabled=value;
+					elements.imageElement->SetEnabled(value);
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+			controls::GuiMenu::IStyleController* Win8MenuItemButtonStyle::CreateSubMenuStyleController()
+			{
+				return new Win8MenuStyle;
+			}
+
+			void Win8MenuItemButtonStyle::SetSubMenuExisting(bool value)
+			{
+				elements.SetSubMenuExisting(value);
+			}
+
+			void Win8MenuItemButtonStyle::SetSubMenuOpening(bool value)
+			{
+				if(isOpening!=value)
+				{
+					isOpening=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+			controls::GuiButton* Win8MenuItemButtonStyle::GetSubMenuHost()
+			{
+				return 0;
+			}
+
+			void Win8MenuItemButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			{
+				if(value)
+				{
+					elements.imageElement->SetImage(value->GetImage(), value->GetFrameIndex());
+				}
+				else
+				{
+					elements.imageElement->SetImage(0, 0);
+				}
+			}
+
+			void Win8MenuItemButtonStyle::SetShortcutText(const WString& value)
+			{
+				elements.shortcutElement->SetText(value);
+			}
+
+			compositions::GuiSubComponentMeasurer::IMeasuringSource* Win8MenuItemButtonStyle::GetMeasuringSource()
+			{
+				return measuringSource.Obj();
+			}
+
+			void Win8MenuItemButtonStyle::Transfer(GuiButton::ControlState value)
+			{
+				if(controlStyle!=value)
+				{
+					controlStyle=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+/***********************************************************************
+Win8MenuSplitterStyle
+***********************************************************************/
+
+			Win8MenuSplitterStyle::Win8MenuSplitterStyle()
+			{
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetPreferredMinSize(Size(26, 5));
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Win8GetMenuSplitterColor());
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetPreferredMinSize(Size(1, 0));
+					composition->SetOwnedElement(element);
+					composition->SetAlignmentToParent(Margin(26, 0, -1, 0));
+					boundsComposition->AddChild(composition);
+				}
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Win8GetMenuSplitterColor());
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetPreferredMinSize(Size(0, 1));
+					composition->SetOwnedElement(element);
+					composition->SetAlignmentToParent(Margin(27, 2, 0, 2));
+					boundsComposition->AddChild(composition);
+				}
+			}
+
+			Win8MenuSplitterStyle::~Win8MenuSplitterStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8MenuSplitterStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8MenuSplitterStyle::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void Win8MenuSplitterStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8MenuSplitterStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8MenuSplitterStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8MenuSplitterStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8ScrollableStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8ScrollHandleButtonStyle
+***********************************************************************/
+
+			void Win8ScrollHandleButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				Win8ButtonColors targetColor;
+				if(enabled)
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::ScrollHandleNormal();
+						break;
+					case GuiButton::Active:
+						targetColor=Win8ButtonColors::ScrollHandleActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::ScrollHandlePressed();
+						break;
+					}
+				}
+				else
+				{
+					targetColor=Win8ButtonColors::ScrollHandleDisabled();
+				}
+				transferringAnimation->Transfer(targetColor);
+			}
+
+			Win8ScrollHandleButtonStyle::Win8ScrollHandleButtonStyle()
+				:Win8ButtonStyleBase(Win8ButtonColors::ScrollHandleNormal(), Alignment::Center, Alignment::Center)
+			{
+			}
+
+			Win8ScrollHandleButtonStyle::~Win8ScrollHandleButtonStyle()
+			{
+			}
+
+/***********************************************************************
+Win8ScrollArrowButtonStyle
+***********************************************************************/
+
+			void Win8ScrollArrowButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				Win8ButtonColors targetColor;
+				if(enabled)
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::ScrollArrowNormal();
+						break;
+					case GuiButton::Active:
+						targetColor=Win8ButtonColors::ScrollArrowActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::ScrollArrowPressed();
+						break;
+					}
+				}
+				else
+				{
+					targetColor=Win8ButtonColors::ScrollArrowDisabled();
+				}
+				transferringAnimation->Transfer(targetColor);
+			}
+
+			void Win8ScrollArrowButtonStyle::AfterApplyColors(const Win8ButtonColors& colors)
+			{
+				Win8ButtonStyleBase::AfterApplyColors(colors);
+				arrowElement->SetBorderColor(colors.textColor);
+				arrowElement->SetBackgroundColor(colors.textColor);
+			}
+
+			Win8ScrollArrowButtonStyle::Win8ScrollArrowButtonStyle(common_styles::CommonScrollStyle::Direction direction, bool increaseButton)
+				:Win8ButtonStyleBase(Win8ButtonColors::ScrollArrowNormal(), Alignment::Center, Alignment::Center)
+			{
+				switch(direction)
+				{
+				case common_styles::CommonScrollStyle::Horizontal:
+					if(increaseButton)
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildRightArrow(arrowElement));
+					}
+					else
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildLeftArrow(arrowElement));
+					}
+					break;
+				case common_styles::CommonScrollStyle::Vertical:
+					if(increaseButton)
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildDownArrow(arrowElement));
+					}
+					else
+					{
+						GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildUpArrow(arrowElement));
+					}
+					break;
+				}
+			}
+
+			Win8ScrollArrowButtonStyle::~Win8ScrollArrowButtonStyle()
+			{
+			}
+
+/***********************************************************************
+Win8ScrollStyle
+***********************************************************************/
+
+			controls::GuiButton::IStyleController* Win8ScrollStyle::CreateDecreaseButtonStyle(Direction direction)
+			{
+				Win8ScrollArrowButtonStyle* decreaseButtonStyle=new Win8ScrollArrowButtonStyle(direction, false);
+				return decreaseButtonStyle;
+			}
+
+			controls::GuiButton::IStyleController* Win8ScrollStyle::CreateIncreaseButtonStyle(Direction direction)
+			{
+				Win8ScrollArrowButtonStyle* increaseButtonStyle=new Win8ScrollArrowButtonStyle(direction, true);
+				return increaseButtonStyle;
+			}
+
+			controls::GuiButton::IStyleController* Win8ScrollStyle::CreateHandleButtonStyle(Direction direction)
+			{
+				Win8ScrollHandleButtonStyle* handleButtonStyle=new Win8ScrollHandleButtonStyle;
+				return handleButtonStyle;
+			}
+
+			compositions::GuiBoundsComposition* Win8ScrollStyle::InstallBackground(compositions::GuiBoundsComposition* boundsComposition, Direction direction)
+			{
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Win8GetSystemWindowColor());
+					
+					boundsComposition->SetOwnedElement(element);
+				}
+
+				return boundsComposition;
+			}
+
+			Win8ScrollStyle::Win8ScrollStyle(Direction _direction)
+				:CommonScrollStyle(_direction)
+			{
+				BuildStyle(DefaultSize, ArrowSize);
+			}
+
+			Win8ScrollStyle::~Win8ScrollStyle()
+			{
+			}
+
+/***********************************************************************
+Win8TrackStyle
+***********************************************************************/
+
+			controls::GuiButton::IStyleController* Win8TrackStyle::CreateHandleButtonStyle(Direction direction)
+			{
+				Win8ButtonStyle* handleButtonStyle=new Win8ButtonStyle;
+				return handleButtonStyle;
+			}
+
+			void Win8TrackStyle::InstallBackground(compositions::GuiGraphicsComposition* boundsComposition, Direction direction)
+			{
+				GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+				element->SetColor(Win8GetSystemWindowColor());
+				boundsComposition->SetOwnedElement(element);
+			}
+
+			void Win8TrackStyle::InstallTrack(compositions::GuiGraphicsComposition* trackComposition, Direction direction)
+			{
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Color(231, 234, 234));
+					trackComposition->SetOwnedElement(element);
+				}
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Color(214, 214, 214));
+					
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetOwnedElement(element);
+					composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					trackComposition->AddChild(composition);
+				}
+			}
+
+			Win8TrackStyle::Win8TrackStyle(Direction _direction)
+				:CommonTrackStyle(_direction)
+			{
+				BuildStyle(TrackThickness, TrackPadding, HandleLong, HandleShort);
+			}
+
+			Win8TrackStyle::~Win8TrackStyle()
+			{
+			}
+
+/***********************************************************************
+Win8ProgressBarStyle
+***********************************************************************/
+
+			void Win8ProgressBarStyle::UpdateProgressBar()
+			{
+				int max=totalSize-pageSize;
+				if(position<0)
+				{
+					progressComposition->SetWidthPageSize(0);
+				}
+				else if(position>=max)
+				{
+					progressComposition->SetWidthPageSize(1);
+				}
+				else
+				{
+					progressComposition->SetWidthPageSize((double)position/max);
+				}
+			}
+
+			Win8ProgressBarStyle::Win8ProgressBarStyle()
+				:totalSize(1)
+				,pageSize(0)
+				,position(0)
+			{
+				{
+					boundsComposition=new GuiBoundsComposition;
+				}
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Color(230, 230, 230));
+
+					containerComposition=new GuiBoundsComposition;
+					containerComposition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					containerComposition->SetOwnedElement(element);
+					boundsComposition->AddChild(containerComposition);
+				}
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Color(188, 188, 188));
+
+					GuiBoundsComposition* borderComposition=new GuiBoundsComposition;
+					borderComposition->SetOwnedElement(element);
+					borderComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					boundsComposition->AddChild(borderComposition);
+				}
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Color(6, 176, 37));
+
+					progressComposition=new GuiPartialViewComposition;
+					progressComposition->SetWidthRatio(0);
+					progressComposition->SetWidthPageSize(0);
+					progressComposition->SetHeightRatio(0);
+					progressComposition->SetHeightPageSize(1);
+					progressComposition->SetOwnedElement(element);
+					containerComposition->AddChild(progressComposition);
+				}
+			}
+
+			Win8ProgressBarStyle::~Win8ProgressBarStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8ProgressBarStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ProgressBarStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8ProgressBarStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ProgressBarStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8ProgressBarStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8ProgressBarStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+			void Win8ProgressBarStyle::SetCommandExecutor(controls::GuiScroll::ICommandExecutor* value)
+			{
+			}
+
+			void Win8ProgressBarStyle::SetTotalSize(int value)
+			{
+				totalSize=value;
+				UpdateProgressBar();
+			}
+
+			void Win8ProgressBarStyle::SetPageSize(int value)
+			{
+				pageSize=value;
+				UpdateProgressBar();
+			}
+
+			void Win8ProgressBarStyle::SetPosition(int value)
+			{
+				position=value;
+				UpdateProgressBar();
+			}
+
+/***********************************************************************
+Win8ScrollViewProvider
+***********************************************************************/
+
+			Win8ScrollViewProvider::Win8ScrollViewProvider()
+			{
+			}
+
+			Win8ScrollViewProvider::~Win8ScrollViewProvider()
+			{
+			}
+
+			void Win8ScrollViewProvider::AssociateStyleController(controls::GuiControl::IStyleController* controller)
+			{
+			}
+			
+			void Win8ScrollViewProvider::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ScrollViewProvider::SetText(const WString& value)
+			{
+			}
+
+			void Win8ScrollViewProvider::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8ScrollViewProvider::SetVisuallyEnabled(bool value)
+			{
+			}
+
+			controls::GuiScroll::IStyleController* Win8ScrollViewProvider::CreateHorizontalScrollStyle()
+			{
+				return new Win8ScrollStyle(Win8ScrollStyle::Horizontal);
+			}
+
+			controls::GuiScroll::IStyleController* Win8ScrollViewProvider::CreateVerticalScrollStyle()
+			{
+				return new Win8ScrollStyle(Win8ScrollStyle::Vertical);
+			}
+
+			int Win8ScrollViewProvider::GetDefaultScrollSize()
+			{
+				return Win8ScrollStyle::DefaultSize;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ScrollViewProvider::InstallBackground(compositions::GuiBoundsComposition* boundsComposition)
+			{
+				GuiSolidBorderElement* border=GuiSolidBorderElement::Create();
+				border->SetColor(Win8GetSystemBorderColor());
+				boundsComposition->SetOwnedElement(border);
+				boundsComposition->SetInternalMargin(Margin(1, 1, 1, 1));
+				
+				GuiSolidBackgroundElement* background=GuiSolidBackgroundElement::Create();
+				background->SetColor(Win8GetSystemWindowColor());
+
+				GuiBoundsComposition* backgroundComposition=new GuiBoundsComposition;
+				boundsComposition->AddChild(backgroundComposition);
+				backgroundComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				backgroundComposition->SetOwnedElement(background);
+
+				return boundsComposition;
+			}
+
+/***********************************************************************
+Win8TextBoxBackground
+***********************************************************************/
+
+#define HOST_GETTER_BY_FOCUSABLE_COMPOSITION(STYLE) (style->focusableComposition->GetRelatedGraphicsHost())
+
+			IMPLEMENT_TRANSFERRING_ANIMATION_BASE(Win8TextBoxColors, Win8TextBoxBackground, HOST_GETTER_BY_FOCUSABLE_COMPOSITION)
+			{
+				colorCurrent=Win8TextBoxColors::Blend(colorBegin, colorEnd, currentPosition, totalLength);
+				style->Apply(colorCurrent);
+			}
+
+			void Win8TextBoxBackground::UpdateStyle()
+			{
+				if(!isVisuallyEnabled)
+				{
+					transferringAnimation->Transfer(Win8TextBoxColors::Disabled());
+				}
+				else if(isFocused)
+				{
+					transferringAnimation->Transfer(Win8TextBoxColors::Focused());
+				}
+				else if(isMouseEnter)
+				{
+					transferringAnimation->Transfer(Win8TextBoxColors::Active());
+				}
+				else
+				{
+					transferringAnimation->Transfer(Win8TextBoxColors::Normal());
+				}
+			}
+
+			void Win8TextBoxBackground::Apply(const Win8TextBoxColors& colors)
+			{
+				borderElement->SetColor(colors.borderColor);
+				backgroundElement->SetColor(colors.backgroundColor);
+			}
+
+			void Win8TextBoxBackground::OnBoundsMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				isMouseEnter=true;
+				UpdateStyle();
+			}
+
+			void Win8TextBoxBackground::OnBoundsMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				isMouseEnter=false;
+				UpdateStyle();
+			}
+
+			void Win8TextBoxBackground::OnBoundsGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				isFocused=true;
+				UpdateStyle();
+			}
+
+			void Win8TextBoxBackground::OnBoundsLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				isFocused=false;
+				UpdateStyle();
+			}
+
+			Win8TextBoxBackground::Win8TextBoxBackground()
+				:backgroundElement(0)
+				,borderElement(0)
+				,focusableComposition(0)
+				,isMouseEnter(false)
+				,isFocused(false)
+				,isVisuallyEnabled(false)
+				,styleController(0)
+				,textElement(0)
+			{
+				transferringAnimation=new TransferringAnimation(this, Win8TextBoxColors::Normal());
+			}
+
+			Win8TextBoxBackground::~Win8TextBoxBackground()
+			{
+				transferringAnimation->Disable();
+			}
+
+			void Win8TextBoxBackground::AssociateStyleController(controls::GuiControl::IStyleController* controller)
+			{
+				styleController=controller;
+			}
+			
+			void Win8TextBoxBackground::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+				focusableComposition=value;
+				focusableComposition->GetEventReceiver()->mouseEnter.AttachMethod(this, &Win8TextBoxBackground::OnBoundsMouseEnter);
+				focusableComposition->GetEventReceiver()->mouseLeave.AttachMethod(this, &Win8TextBoxBackground::OnBoundsMouseLeave);
+				focusableComposition->GetEventReceiver()->gotFocus.AttachMethod(this, &Win8TextBoxBackground::OnBoundsGotFocus);
+				focusableComposition->GetEventReceiver()->lostFocus.AttachMethod(this, &Win8TextBoxBackground::OnBoundsLostFocus);
+			}
+
+			void Win8TextBoxBackground::SetVisuallyEnabled(bool value)
+			{
+				isVisuallyEnabled=value;
+				UpdateStyle();
+			}
+
+			compositions::GuiGraphicsComposition* Win8TextBoxBackground::InstallBackground(compositions::GuiBoundsComposition* boundsComposition)
+			{
+				{
+					GuiSolidBackgroundElement* background=GuiSolidBackgroundElement::Create();
+					background->SetColor(Color(255, 255, 255));
+
+					GuiBoundsComposition* backgroundComposition=new GuiBoundsComposition;
+					boundsComposition->AddChild(backgroundComposition);
+					backgroundComposition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					backgroundComposition->SetOwnedElement(background);
+				}
+				{
+					GuiSolidBackgroundElement* background=GuiSolidBackgroundElement::Create();
+					background->SetColor(Color(255, 255, 255));
+
+					GuiBoundsComposition* backgroundComposition=new GuiBoundsComposition;
+					boundsComposition->AddChild(backgroundComposition);
+					backgroundComposition->SetAlignmentToParent(Margin(2, 2, 2, 2));
+					backgroundComposition->SetOwnedElement(background);
+					backgroundElement=background;
+				}
+				{
+					GuiSolidBorderElement* border=GuiSolidBorderElement::Create();
+					border->SetColor(Win8GetSystemBorderColor());
+					borderElement=border;
+
+					GuiBoundsComposition* borderComposition=new GuiBoundsComposition;
+					boundsComposition->AddChild(borderComposition);
+					borderComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					borderComposition->SetOwnedElement(border);
+				}
+				Apply(Win8TextBoxColors::Normal());
+				{
+					GuiBoundsComposition* containerComposition=new GuiBoundsComposition;
+					boundsComposition->AddChild(containerComposition);
+					containerComposition->SetAlignmentToParent(Margin(2, 2, 2, 2));
+					return containerComposition;
+				}
+			}
+
+			void Win8TextBoxBackground::InitializeTextElement(elements::GuiColorizedTextElement* _textElement)
+			{
+				textElement=_textElement;
+
+				Array<text::ColorEntry> colors;
+				colors.Resize(1);
+				{
+					colors[0]=Win8GetTextBoxTextColor();
+				}
+				textElement->SetColors(colors);
+				textElement->SetCaretColor(Color(0, 0, 0));
+			}
+
+/***********************************************************************
+Win8MultilineTextBoxProvider
+***********************************************************************/
+
+			Win8MultilineTextBoxProvider::Win8MultilineTextBoxProvider()
+				:styleController(0)
+			{
+			}
+
+			Win8MultilineTextBoxProvider::~Win8MultilineTextBoxProvider()
+			{
+			}
+
+			void Win8MultilineTextBoxProvider::AssociateStyleController(controls::GuiControl::IStyleController* controller)
+			{
+				styleController=controller;
+				background.AssociateStyleController(controller);
+			}
+			
+			void Win8MultilineTextBoxProvider::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+				background.SetFocusableComposition(value);
+				GuiMultilineTextBox::StyleController* textBoxController=dynamic_cast<GuiMultilineTextBox::StyleController*>(styleController);
+				if(textBoxController)
+				{
+					background.InitializeTextElement(textBoxController->GetTextElement());
+				}
+			}
+
+			void Win8MultilineTextBoxProvider::SetVisuallyEnabled(bool value)
+			{
+				background.SetVisuallyEnabled(value);
+			}
+
+			compositions::GuiGraphicsComposition* Win8MultilineTextBoxProvider::InstallBackground(compositions::GuiBoundsComposition* boundsComposition)
+			{
+				return background.InstallBackground(boundsComposition);
+			}
+
+/***********************************************************************
+Win8SinglelineTextBoxProvider
+***********************************************************************/
+
+			Win8SinglelineTextBoxProvider::Win8SinglelineTextBoxProvider()
+				:styleController(0)
+			{
+			}
+
+			Win8SinglelineTextBoxProvider::~Win8SinglelineTextBoxProvider()
+			{
+			}
+
+			void Win8SinglelineTextBoxProvider::AssociateStyleController(controls::GuiControl::IStyleController* controller)
+			{
+				styleController=controller;
+				background.AssociateStyleController(controller);
+			}
+			
+			void Win8SinglelineTextBoxProvider::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+				background.SetFocusableComposition(value);
+				GuiSinglelineTextBox::StyleController* textBoxController=dynamic_cast<GuiSinglelineTextBox::StyleController*>(styleController);
+				background.InitializeTextElement(textBoxController->GetTextElement());
+			}
+
+			void Win8SinglelineTextBoxProvider::SetText(const WString& value)
+			{
+			}
+
+			void Win8SinglelineTextBoxProvider::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8SinglelineTextBoxProvider::SetVisuallyEnabled(bool value)
+			{
+				background.SetVisuallyEnabled(value);
+			}
+
+			compositions::GuiGraphicsComposition* Win8SinglelineTextBoxProvider::InstallBackground(compositions::GuiBoundsComposition* boundsComposition)
+			{
+				return background.InstallBackground(boundsComposition);
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8StylesCommon.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8ButtonColors
+***********************************************************************/
+
+			void Win8ButtonColors::SetAlphaWithoutText(unsigned char a)
+			{
+				borderColor.a=a;
+				g1.a=a;
+				g2.a=a;
+			}
+
+			Win8ButtonColors Win8ButtonColors::Blend(const Win8ButtonColors& c1, const Win8ButtonColors& c2, int ratio, int total)
+			{
+				if(ratio<0) ratio=0;
+				else if(ratio>total) ratio=total;
+
+				Win8ButtonColors result;
+				result.borderColor=BlendColor(c1.borderColor, c2.borderColor, ratio, total);
+				result.g1=BlendColor(c1.g1, c2.g1, ratio, total);
+				result.g2=BlendColor(c1.g2, c2.g2, ratio, total);
+				result.textColor=BlendColor(c1.textColor, c2.textColor, ratio, total);
+				result.bullet=BlendColor(c1.bullet, c2.bullet, ratio, total);
+				return result;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::ButtonNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(172, 172, 172),
+					Color(239, 239, 239),
+					Color(229, 229, 229),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ButtonActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(126, 180, 234),
+					Color(235, 244, 252),
+					Color(220, 236, 252),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ButtonPressed()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(86, 157, 229),
+					Color(218, 236, 252),
+					Color(196, 224, 252),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ButtonDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(173, 178, 181),
+					Color(252, 252, 252),
+					Color(252, 252, 252),
+					Win8GetSystemTextColor(false),
+				};
+				return colors;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::ItemNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(112, 192, 231, 0),
+					Color(229, 243, 251, 0),
+					Color(229, 243, 251, 0),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ItemActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(112, 192, 231),
+					Color(229, 243, 251),
+					Color(229, 243, 251),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ItemSelected()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(102, 167, 232),
+					Color(209, 232, 255),
+					Color(209, 232, 255),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ItemDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(112, 192, 231, 0),
+					Color(229, 243, 251, 0),
+					Color(229, 243, 251, 0),
+					Win8GetSystemTextColor(false),
+				};
+				return colors;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::CheckedNormal(bool selected)
+			{
+				Win8ButtonColors colors=
+				{
+					Color(112, 112, 112),
+					Color(255, 255, 255),
+					Color(255, 255, 255),
+					Win8GetSystemTextColor(true),
+					Color(0, 0, 0),
+				};
+				if(!selected)
+				{
+					colors.bullet.a=0;
+				}
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::CheckedActive(bool selected)
+			{
+				Win8ButtonColors colors=
+				{
+					Color(51, 153, 255),
+					Color(243, 249, 255),
+					Color(243, 249, 255),
+					Win8GetSystemTextColor(true),
+					Color(33, 33, 33),
+				};
+				if(!selected)
+				{
+					colors.bullet.a=0;
+				}
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::CheckedPressed(bool selected)
+			{
+				Win8ButtonColors colors=
+				{
+					Color(0, 124, 222),
+					Color(217, 236, 255),
+					Color(217, 236, 255),
+					Win8GetSystemTextColor(true),
+					Color(0, 0, 0),
+				};
+				if(!selected)
+				{
+					colors.bullet.a=0;
+				}
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::CheckedDisabled(bool selected)
+			{
+				Win8ButtonColors colors=
+				{
+					Color(188, 188, 188),
+					Color(230, 230, 230),
+					Color(230, 230, 230),
+					Win8GetSystemTextColor(false),
+					Color(112, 112, 112),
+				};
+				if(!selected)
+				{
+					colors.bullet.a=0;
+				}
+				return colors;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::ToolstripButtonNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ToolstripButtonActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(120, 174, 229),
+					Color(209, 226, 242),
+					Color(209, 226, 242),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ToolstripButtonPressed()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(96, 161, 226),
+					Color(180, 212, 244),
+					Color(180, 212, 244),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ToolstripButtonDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemTextColor(false),
+				};
+				return colors;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::ScrollHandleNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(205, 205, 205),
+					Color(205, 205, 205),
+					Color(205, 205, 205),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollHandleActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(166, 166, 166),
+					Color(166, 166, 166),
+					Color(166, 166, 166),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollHandlePressed()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(166, 166, 166),
+					Color(166, 166, 166),
+					Color(166, 166, 166),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollHandleDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollArrowNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Color(96, 96, 96),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollArrowActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(218, 218, 218),
+					Color(218, 218, 218),
+					Color(218, 218, 218),
+					Color(0, 0, 0),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollArrowPressed()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(96, 96, 96),
+					Color(96, 96, 96),
+					Color(96, 96, 96),
+					Color(255, 255, 255),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::ScrollArrowDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Win8GetSystemWindowColor(),
+					Color(191, 191, 191),
+				};
+				return colors;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::MenuBarButtonNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(245, 246, 247),
+					Color(245, 246, 247),
+					Color(245, 246, 247),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuBarButtonActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(122, 177, 232),
+					Color(213, 231, 248),
+					Color(213, 231, 248),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuBarButtonPressed()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(98, 163, 229),
+					Color(184, 216, 249),
+					Color(184, 216, 249),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuBarButtonDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(245, 246, 247),
+					Color(245, 246, 247),
+					Color(245, 246, 247),
+					Win8GetSystemTextColor(false),
+				};
+				return colors;
+			}
+
+			//---------------------------------------------------------
+
+			Win8ButtonColors Win8ButtonColors::MenuItemButtonNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(240, 240, 240),
+					Color(240, 240, 240),
+					Color(240, 240, 240),
+					Win8GetSystemTextColor(true),
+					Win8GetMenuSplitterColor(),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuItemButtonNormalActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(120, 174, 229),
+					Color(209, 226, 242),
+					Color(209, 226, 242),
+					Win8GetSystemTextColor(true),
+					Color(187, 204, 220),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuItemButtonDisabled()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(240, 240, 240),
+					Color(240, 240, 240),
+					Color(240, 240, 240),
+					Win8GetSystemTextColor(false),
+					Win8GetMenuSplitterColor(),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuItemButtonDisabledActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(120, 174, 229),
+					Color(209, 226, 242),
+					Color(209, 226, 242),
+					Win8GetSystemTextColor(false),
+					Win8GetMenuSplitterColor(),
+				};
+				return colors;
+			}
+
+/***********************************************************************
+Win8ButtonElements
+***********************************************************************/
+
+			Win8ButtonElements Win8ButtonElements::Create(Alignment::Type horizontal, Alignment::Type vertical)
+			{
+				Win8ButtonElements button;
+				{
+					button.mainComposition=new GuiBoundsComposition;
+					button.mainComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				}
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					button.rectBorderElement=element;
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					button.mainComposition->AddChild(composition);
+					composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					composition->SetOwnedElement(element);
+				}
+				{
+					GuiGradientBackgroundElement* element=GuiGradientBackgroundElement::Create();
+					button.backgroundElement=element;
+					element->SetDirection(GuiGradientBackgroundElement::Vertical);
+					element->SetShape(ElementShape::Rectangle);
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					button.backgroundComposition=composition;
+					button.mainComposition->AddChild(composition);
+					composition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					composition->SetOwnedElement(element);
+				}
+				{
+					Win8CreateSolidLabelElement(button.textElement, button.textComposition, horizontal, vertical);
+					button.mainComposition->AddChild(button.textComposition);
+				}
+				return button;
+			}
+
+			void Win8ButtonElements::Apply(const Win8ButtonColors& colors)
+			{
+				if(rectBorderElement)
+				{
+					rectBorderElement->SetColor(colors.borderColor);
+				}
+				backgroundElement->SetColors(colors.g1, colors.g2);
+				textElement->SetColor(colors.textColor);
+			}
+
+/***********************************************************************
+Win8CheckedButtonElements
+***********************************************************************/
+
+			Win8CheckedButtonElements Win8CheckedButtonElements::Create(elements::ElementShape::Type shape, bool backgroundVisible)
+			{
+				const int checkSize=13;
+				const int checkPadding=2;
+
+				Win8CheckedButtonElements button;
+				{
+					button.mainComposition=new GuiBoundsComposition;
+					button.mainComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				}
+				{
+					GuiTableComposition* mainTable=new GuiTableComposition;
+					button.mainComposition->AddChild(mainTable);
+					if(backgroundVisible)
+					{
+						GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+						element->SetColor(Win8GetSystemWindowColor());
+						mainTable->SetOwnedElement(element);
+					}
+					mainTable->SetRowsAndColumns(1, 2);
+					mainTable->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					mainTable->SetRowOption(0, GuiCellOption::PercentageOption(1.0));
+					mainTable->SetColumnOption(0, GuiCellOption::AbsoluteOption(checkSize+2*checkPadding));
+					mainTable->SetColumnOption(1, GuiCellOption::PercentageOption(1.0));
+					
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						mainTable->AddChild(cell);
+						cell->SetSite(0, 0, 1, 1);
+
+						GuiTableComposition* table=new GuiTableComposition;
+						cell->AddChild(table);
+						table->SetRowsAndColumns(3, 1);
+						table->SetAlignmentToParent(Margin(0, 0, 0, 0));
+						table->SetRowOption(0, GuiCellOption::PercentageOption(0.5));
+						table->SetRowOption(1, GuiCellOption::MinSizeOption());
+						table->SetRowOption(2, GuiCellOption::PercentageOption(0.5));
+
+						{
+							GuiCellComposition* checkCell=new GuiCellComposition;
+							table->AddChild(checkCell);
+							checkCell->SetSite(1, 0, 1, 1);
+							{
+								GuiBoundsComposition* borderBounds=new GuiBoundsComposition;
+								checkCell->AddChild(borderBounds);
+								borderBounds->SetAlignmentToParent(Margin(checkPadding, -1, checkPadding, -1));
+								borderBounds->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+								{
+									GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+									button.bulletBorderElement=element;
+									element->SetShape(shape);
+
+									GuiBoundsComposition* bounds=new GuiBoundsComposition;
+									borderBounds->AddChild(bounds);
+									bounds->SetOwnedElement(element);
+									bounds->SetAlignmentToParent(Margin(0, 0, 0, 0));
+									bounds->SetBounds(Rect(Point(0, 0), Size(checkSize, checkSize)));
+								}
+								{
+									GuiGradientBackgroundElement* element=GuiGradientBackgroundElement::Create();
+									button.bulletBackgroundElement=element;
+									element->SetShape(shape);
+									element->SetDirection(GuiGradientBackgroundElement::Vertical);
+
+									GuiBoundsComposition* bounds=new GuiBoundsComposition;
+									borderBounds->AddChild(bounds);
+									bounds->SetOwnedElement(element);
+									bounds->SetAlignmentToParent(Margin(1, 1, 1, 1));
+								}
+							}
+
+							button.bulletCheckElement=0;
+							button.bulletRadioElement=0;
+							if(shape==ElementShape::Rectangle)
+							{
+								button.bulletCheckElement=GuiSolidLabelElement::Create();
+								{
+									FontProperties font;
+									font.fontFamily=L"Wingdings 2";
+									font.size=16;
+									font.bold=true;
+									button.bulletCheckElement->SetFont(font);
+								}
+								button.bulletCheckElement->SetText(L"P");
+								button.bulletCheckElement->SetAlignments(Alignment::Center, Alignment::Center);
+
+								GuiBoundsComposition* composition=new GuiBoundsComposition;
+								composition->SetOwnedElement(button.bulletCheckElement);
+								composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+								checkCell->AddChild(composition);
+							}
+							else
+							{
+								button.bulletRadioElement=GuiSolidBackgroundElement::Create();
+								button.bulletRadioElement->SetShape(ElementShape::Ellipse);
+
+								GuiBoundsComposition* composition=new GuiBoundsComposition;
+								composition->SetOwnedElement(button.bulletRadioElement);
+								composition->SetAlignmentToParent(Margin(checkPadding+3, 3, checkPadding+3, 3));
+								checkCell->AddChild(composition);
+							}
+						}
+					}
+
+					{
+						GuiCellComposition* textCell=new GuiCellComposition;
+						mainTable->AddChild(textCell);
+						textCell->SetSite(0, 1, 1, 1);
+						{
+							Win8CreateSolidLabelElement(button.textElement, button.textComposition, Alignment::Left, Alignment::Center);
+							textCell->AddChild(button.textComposition);
+						}
+					}
+				}
+				return button;
+			}
+
+			void Win8CheckedButtonElements::Apply(const Win8ButtonColors& colors)
+			{
+				bulletBorderElement->SetColor(colors.borderColor);
+				bulletBackgroundElement->SetColors(colors.g1, colors.g2);
+				textElement->SetColor(colors.textColor);
+				if(bulletCheckElement)
+				{
+					bulletCheckElement->SetColor(colors.bullet);
+				}
+				if(bulletRadioElement)
+				{
+					bulletRadioElement->SetColor(colors.bullet);
+				}
+			}
+
+/***********************************************************************
+Win8MenuItemButtonElements
+***********************************************************************/
+
+			Win8MenuItemButtonElements Win8MenuItemButtonElements::Create()
+			{
+				Win8MenuItemButtonElements button;
+				{
+					button.mainComposition=new GuiBoundsComposition;
+					button.mainComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				}
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					button.borderElement=element;
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					button.mainComposition->AddChild(composition);
+					composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					composition->SetOwnedElement(element);
+				}
+				{
+					GuiGradientBackgroundElement* element=GuiGradientBackgroundElement::Create();
+					button.backgroundElement=element;
+					element->SetDirection(GuiGradientBackgroundElement::Vertical);
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					button.mainComposition->AddChild(composition);
+					composition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					composition->SetOwnedElement(element);
+				}
+				{
+					GuiTableComposition* table=new GuiTableComposition;
+					button.mainComposition->AddChild(table);
+					table->SetAlignmentToParent(Margin(2, 0, 2, 0));
+					table->SetRowsAndColumns(1, 5);
+
+					table->SetRowOption(0, GuiCellOption::PercentageOption(1.0));
+					table->SetColumnOption(0, GuiCellOption::AbsoluteOption(24));
+					table->SetColumnOption(1, GuiCellOption::AbsoluteOption(1));
+					table->SetColumnOption(2, GuiCellOption::PercentageOption(1.0));
+					table->SetColumnOption(3, GuiCellOption::MinSizeOption());
+					table->SetColumnOption(4, GuiCellOption::AbsoluteOption(10));
+					
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 0, 1, 1);
+						button.splitterComposition=cell;
+
+						GuiImageFrameElement* element=GuiImageFrameElement::Create();
+						button.imageElement=element;
+						element->SetStretch(false);
+						element->SetAlignments(Alignment::Center, Alignment::Center);
+						cell->SetOwnedElement(element);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 1, 1, 1);
+						button.splitterComposition=cell;
+
+						GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+						button.splitterElement=element;
+						cell->SetOwnedElement(element);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 2, 1, 1);
+
+						Win8CreateSolidLabelElement(button.textElement, button.textComposition, Alignment::Left, Alignment::Center);
+						cell->AddChild(button.textComposition);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 3, 1, 1);
+
+						Win8CreateSolidLabelElement(button.shortcutElement, button.shortcutComposition, Alignment::Right, Alignment::Center);
+						cell->AddChild(button.shortcutComposition);
+					}
+					{
+						button.subMenuArrowElement=common_styles::CommonFragmentBuilder::BuildRightArrow();
+
+						GuiCellComposition* cell=new GuiCellComposition;
+						button.subMenuArrowComposition=cell;
+						cell->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+						table->AddChild(cell);
+						cell->SetSite(0, 4, 1, 1);
+						cell->SetOwnedElement(button.subMenuArrowElement);
+						cell->SetVisible(false);
+					}
+				}
+				return button;
+			}
+
+			void Win8MenuItemButtonElements::Apply(const Win8ButtonColors& colors)
+			{
+				borderElement->SetColor(colors.borderColor);
+				backgroundElement->SetColors(colors.g1, colors.g2);
+				splitterElement->SetColor(colors.bullet);
+				textElement->SetColor(colors.textColor);
+				shortcutElement->SetColor(colors.textColor);
+				subMenuArrowElement->SetBackgroundColor(colors.textColor);
+				subMenuArrowElement->SetBorderColor(colors.textColor);
+			}
+
+			void Win8MenuItemButtonElements::SetActive(bool value)
+			{
+				if(value)
+				{
+					splitterComposition->SetMargin(Margin(0, 1, 0, 2));
+				}
+				else
+				{
+					splitterComposition->SetMargin(Margin(0, 0, 0, 0));
+				}
+			}
+
+			void Win8MenuItemButtonElements::SetSubMenuExisting(bool value)
+			{
+				subMenuArrowComposition->SetVisible(value);
+			}
+
+/***********************************************************************
+Win8TextBoxColors
+***********************************************************************/
+
+			Win8TextBoxColors Win8TextBoxColors::Blend(const Win8TextBoxColors& c1, const Win8TextBoxColors& c2, int ratio, int total)
+			{
+				if(ratio<0) ratio=0;
+				else if(ratio>total) ratio=total;
+
+				Win8TextBoxColors result;
+				result.borderColor=BlendColor(c1.borderColor, c2.borderColor, ratio, total);
+				result.backgroundColor=BlendColor(c1.backgroundColor, c2.backgroundColor, ratio, total);
+				return result;
+			}
+			
+			Win8TextBoxColors Win8TextBoxColors::Normal()
+			{
+				Win8TextBoxColors result=
+				{
+					Color(171, 173, 179),
+					Color(255, 255, 255),
+				};
+				return result;
+			}
+
+			Win8TextBoxColors Win8TextBoxColors::Active()
+			{
+				Win8TextBoxColors result=
+				{
+					Color(126, 180, 234),
+					Color(255, 255, 255),
+				};
+				return result;
+			}
+
+			Win8TextBoxColors Win8TextBoxColors::Focused()
+			{
+				Win8TextBoxColors result=
+				{
+					Color(86, 157, 229),
+					Color(255, 255, 255),
+				};
+				return result;
+			}
+
+			Win8TextBoxColors Win8TextBoxColors::Disabled()
+			{
+				Win8TextBoxColors result=
+				{
+					Color(217, 217, 217),
+					Win8GetSystemWindowColor(),
+				};
+				return result;
+			}
+
+/***********************************************************************
+Helpers
+***********************************************************************/
+
+			Color Win8GetSystemWindowColor()
+			{
+				return Color(240, 240, 240);
+			}
+
+			Color Win8GetSystemBorderColor()
+			{
+				return Color(171, 173, 179);
+			}
+
+			Color Win8GetSystemTextColor(bool enabled)
+			{
+				return enabled?Color(0, 0, 0):Color(131, 131, 131);
+			}
+
+			Color Win8GetMenuBorderColor()
+			{
+				return Color(151, 151, 151);
+			}
+
+			Color Win8GetMenuSplitterColor()
+			{
+				return Color(215, 215, 215);
+			}
+
+			void Win8SetFont(GuiSolidLabelElement* element, GuiBoundsComposition* composition, const FontProperties& fontProperties)
+			{
+				int margin=3;
+				element->SetFont(fontProperties);
+				composition->SetMargin(Margin(margin, margin, margin, margin));
+			}
+
+			void Win8CreateSolidLabelElement(GuiSolidLabelElement*& element, GuiBoundsComposition*& composition, Alignment::Type horizontal, Alignment::Type vertical)
+			{
+				element=GuiSolidLabelElement::Create();
+				element->SetAlignments(horizontal, vertical);
+
+				composition=new GuiBoundsComposition;
+				composition->SetOwnedElement(element);
+				composition->SetMargin(Margin(0, 0, 0, 0));
+				composition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+			}
+
+			elements::text::ColorEntry Win8GetTextBoxTextColor()
+			{
+				elements::text::ColorEntry entry;
+				entry.normal.text=Color(0, 0, 0);
+				entry.normal.background=Color(0, 0, 0, 0);
+				entry.selectedFocused.text=Color(255, 255, 255);
+				entry.selectedFocused.background=Color(51, 153, 255);
+				entry.selectedUnfocused.text=Color(255, 255, 255);
+				entry.selectedUnfocused.background=Color(51, 153, 255);
+				return entry;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8TabStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+		}
+	}
+}
+
+/***********************************************************************
+Controls\Styles\Win8Styles\GuiWin8ToolstripStyles.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace win8
+		{
+			using namespace collections;
+			using namespace elements;
+			using namespace compositions;
+			using namespace controls;
+
+/***********************************************************************
+Win8WindowStyle
+***********************************************************************/
+
+			Win8ToolstripToolbarStyle::Win8ToolstripToolbarStyle()
+			{
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Win8GetSystemWindowColor());
+				
+					boundsComposition=new GuiBoundsComposition;
+					boundsComposition->SetOwnedElement(element);
+					boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				}
+				{
+					Gui3DSplitterElement* element=Gui3DSplitterElement::Create();
+					element->SetColors(Color(160, 160, 160), Color(255, 255, 255));
+					element->SetDirection(Gui3DSplitterElement::Horizontal);
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetPreferredMinSize(Size(0, 2));
+					composition->SetAlignmentToParent(Margin(0, 0, 0, -1));
+					composition->SetOwnedElement(element);
+					boundsComposition->AddChild(composition);
+				}
+				{
+					containerComposition=new GuiBoundsComposition;
+					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					containerComposition->SetAlignmentToParent(Margin(0, 2, 0, 0));
+					boundsComposition->AddChild(containerComposition);
+				}
+			}
+
+			Win8ToolstripToolbarStyle::~Win8ToolstripToolbarStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8ToolstripToolbarStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ToolstripToolbarStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8ToolstripToolbarStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ToolstripToolbarStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8ToolstripToolbarStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8ToolstripToolbarStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win8ToolstripButtonDropdownStyle
+***********************************************************************/
+
+			void Win8ToolstripButtonDropdownStyle::TransferInternal(controls::GuiButton::ControlState value, bool enabled)
+			{
+				splitterComposition->SetVisible(value!=GuiButton::Normal && enabled);
+			}
+
+			Win8ToolstripButtonDropdownStyle::Win8ToolstripButtonDropdownStyle()
+				:isVisuallyEnabled(false)
+				,controlState(GuiButton::Normal)
+			{
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				{
+					GuiSolidBorderElement* splitterElement=GuiSolidBorderElement::Create();
+					splitterElement->SetColor(Color(132, 132, 132));
+
+					splitterComposition=new GuiBoundsComposition;
+					splitterComposition->SetAlignmentToParent(Margin(0, 3, -1, 3));
+					splitterComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+					splitterComposition->SetOwnedElement(splitterElement);
+					splitterComposition->SetPreferredMinSize(Size(1, 0));
+					splitterComposition->SetVisible(false);
+					boundsComposition->AddChild(splitterComposition);
+				}
+				{
+					containerComposition=new GuiBoundsComposition;
+					containerComposition->SetAlignmentToParent(Margin(4, 0, 4, 0));
+					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					boundsComposition->AddChild(containerComposition);
+				}
+			}
+
+			Win8ToolstripButtonDropdownStyle::~Win8ToolstripButtonDropdownStyle()
+			{
+			}
+				
+			compositions::GuiBoundsComposition* Win8ToolstripButtonDropdownStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ToolstripButtonDropdownStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8ToolstripButtonDropdownStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ToolstripButtonDropdownStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8ToolstripButtonDropdownStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8ToolstripButtonDropdownStyle::SetVisuallyEnabled(bool value)
+			{
+				if(isVisuallyEnabled!=value)
+				{
+					isVisuallyEnabled=value;
+					TransferInternal(controlState, isVisuallyEnabled);
+				}
+			}
+
+			void Win8ToolstripButtonDropdownStyle::Transfer(controls::GuiButton::ControlState value)
+			{
+				if(controlState!=value)
+				{
+					controlState=value;
+					TransferInternal(controlState, isVisuallyEnabled);
+				}
+			}
+
+/***********************************************************************
+Win8ToolstripButtonStyle
+***********************************************************************/
+
+			IMPLEMENT_TRANSFERRING_ANIMATION(Win8ButtonColors, Win8ToolstripButtonStyle)
+			{
+				colorCurrent=Win8ButtonColors::Blend(colorBegin, colorEnd, currentPosition, totalLength);
+				style->elements.Apply(colorCurrent);
+			}
+
+			void Win8ToolstripButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool menuOpening)
+			{
+				Win8ButtonColors targetColor;
+				if(enabled)
+				{
+					if(menuOpening)
+					{
+						value=GuiButton::Pressed;
+					}
+					switch(value)
+					{
+					case GuiButton::Normal:
+						targetColor=Win8ButtonColors::ToolstripButtonNormal();
+						break;
+					case GuiButton::Active:
+						targetColor=Win8ButtonColors::ToolstripButtonActive();
+						break;
+					case GuiButton::Pressed:
+						targetColor=Win8ButtonColors::ToolstripButtonPressed();
+						break;
+					}
+				}
+				else
+				{
+					targetColor=Win8ButtonColors::ToolstripButtonDisabled();
+				}
+				transferringAnimation->Transfer(targetColor);
+			}
+
+			Win8ToolstripButtonStyle::Win8ToolstripButtonStyle(ButtonStyle _buttonStyle)
+				:controlStyle(GuiButton::Normal)
+				,isVisuallyEnabled(true)
+				,isOpening(false)
+				,buttonStyle(_buttonStyle)
+				,subMenuHost(0)
+			{
+				elements=Win8ButtonElements::Create(Alignment::Center, Alignment::Center);
+				elements.Apply(Win8ButtonColors::ToolstripButtonNormal());
+				transferringAnimation=new TransferringAnimation(this, Win8ButtonColors::ToolstripButtonNormal());
+
+				elements.textComposition->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+				imageElement=GuiImageFrameElement::Create();
+				imageComposition=new GuiBoundsComposition;
+				imageComposition->SetOwnedElement(imageElement);
+				imageComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				imageComposition->SetAlignmentToParent(Margin(4, 4, 4, 4));
+
+				if(_buttonStyle==CommandButton)
+				{
+					GetContainerComposition()->AddChild(imageComposition);
+				}
+				else
+				{
+					GuiTableComposition* table=new GuiTableComposition;
+					table->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					table->SetRowsAndColumns(1, 2);
+					table->SetRowOption(0, GuiCellOption::PercentageOption(1.0));
+					table->SetColumnOption(0, GuiCellOption::PercentageOption(1.0));
+					table->SetColumnOption(1, GuiCellOption::MinSizeOption());
+
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 0, 1, 1);
+
+						cell->AddChild(imageComposition);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 1, 1, 1);
+						GuiPolygonElement* arrow=0;
+						GuiBoundsComposition* arrowComposition=common_styles::CommonFragmentBuilder::BuildDownArrow(arrow);
+
+						switch(_buttonStyle)
+						{
+						case DropdownButton:
+							{
+								arrowComposition->SetAlignmentToParent(Margin(0, 0, 4, 0));
+								cell->AddChild(arrowComposition);
+							}
+							break;
+						case SplitButton:
+							{
+
+								subMenuHost=new GuiButton(new Win8ToolstripButtonDropdownStyle);
+								subMenuHost->GetContainerComposition()->AddChild(arrowComposition);
+								subMenuHost->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+								cell->AddChild(subMenuHost->GetBoundsComposition());
+							}
+							break;
+						}
+					}
+					GetContainerComposition()->AddChild(table);
+				}
+			}
+
+			Win8ToolstripButtonStyle::~Win8ToolstripButtonStyle()
+			{
+				transferringAnimation->Disable();
+			}
+
+			compositions::GuiBoundsComposition* Win8ToolstripButtonStyle::GetBoundsComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ToolstripButtonStyle::GetContainerComposition()
+			{
+				return elements.mainComposition;
+			}
+
+			void Win8ToolstripButtonStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ToolstripButtonStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8ToolstripButtonStyle::SetFont(const FontProperties& value)
+			{
+				Win8SetFont(elements.textElement, elements.textComposition, value);
+			}
+
+			void Win8ToolstripButtonStyle::SetVisuallyEnabled(bool value)
+			{
+				if(isVisuallyEnabled!=value)
+				{
+					isVisuallyEnabled=value;
+					imageElement->SetEnabled(value);
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+			controls::GuiMenu::IStyleController* Win8ToolstripButtonStyle::CreateSubMenuStyleController()
+			{
+				return new Win8MenuStyle;
+			}
+
+			void Win8ToolstripButtonStyle::SetSubMenuExisting(bool value)
+			{
+			}
+
+			void Win8ToolstripButtonStyle::SetSubMenuOpening(bool value)
+			{
+				if(isOpening!=value)
+				{
+					isOpening=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+			controls::GuiButton* Win8ToolstripButtonStyle::GetSubMenuHost()
+			{
+				return subMenuHost;
+			}
+
+			void Win8ToolstripButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			{
+				if(value)
+				{
+					imageElement->SetImage(value->GetImage(), value->GetFrameIndex());
+				}
+				else
+				{
+					imageElement->SetImage(0, 0);
+				}
+			}
+
+			void Win8ToolstripButtonStyle::SetShortcutText(const WString& value)
+			{
+			}
+
+			compositions::GuiSubComponentMeasurer::IMeasuringSource* Win8ToolstripButtonStyle::GetMeasuringSource()
+			{
+				return 0;
+			}
+
+			void Win8ToolstripButtonStyle::Transfer(controls::GuiButton::ControlState value)
+			{
+				if(controlStyle!=value)
+				{
+					controlStyle=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+				}
+			}
+
+/***********************************************************************
+Win8ToolstripSplitterStyle
+***********************************************************************/
+
+			Win8ToolstripSplitterStyle::Win8ToolstripSplitterStyle()
+			{
+				GuiBoundsComposition* bounds=new GuiBoundsComposition;
+				bounds->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				boundsComposition=bounds;
+
+				GuiSolidBackgroundElement* backgroundElement=GuiSolidBackgroundElement::Create();
+				bounds->SetOwnedElement(backgroundElement);
+				backgroundElement->SetColor(Win8GetSystemWindowColor());
+
+				GuiBoundsComposition* splitterComposition=new GuiBoundsComposition;
+				bounds->AddChild(splitterComposition);
+				splitterComposition->SetPreferredMinSize(Size(1, 0));
+				splitterComposition->SetAlignmentToParent(Margin(3, 3, 3, 3));
+
+				GuiSolidBorderElement* splitterElement=GuiSolidBorderElement::Create();
+				splitterComposition->SetOwnedElement(splitterElement);
+				splitterElement->SetColor(Color(132, 132, 132));
+			}
+
+			Win8ToolstripSplitterStyle::~Win8ToolstripSplitterStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8ToolstripSplitterStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8ToolstripSplitterStyle::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void Win8ToolstripSplitterStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8ToolstripSplitterStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8ToolstripSplitterStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8ToolstripSplitterStyle::SetVisuallyEnabled(bool value)
 			{
 			}
 		}
@@ -16639,6 +20399,7 @@ GuiGraphicsComposition
 				,associatedControl(0)
 				,associatedHost(0)
 				,associatedCursor(0)
+				,associatedHitTestResult(INativeWindowListener::NoDecision)
 			{
 			}
 
@@ -16909,6 +20670,16 @@ GuiGraphicsComposition
 			void GuiGraphicsComposition::SetAssociatedCursor(INativeCursor* cursor)
 			{
 				associatedCursor=cursor;
+			}
+
+			INativeWindowListener::HitTestResult GuiGraphicsComposition::GetAssociatedHitTestResult()
+			{
+				return associatedHitTestResult;
+			}
+
+			void GuiGraphicsComposition::SetAssociatedHitTestResult(INativeWindowListener::HitTestResult value)
+			{
+				associatedHitTestResult=value;
 			}
 
 			controls::GuiControl* GuiGraphicsComposition::GetRelatedControl()
@@ -19259,6 +23030,27 @@ GuiGraphicsHost
 					arguments.y-=bounds.y1;
 					RaiseMouseEvent(arguments, composition, eventReceiverEvent);
 				}
+			}
+
+			INativeWindowListener::HitTestResult GuiGraphicsHost::HitTest(Point location)
+			{
+				Rect bounds=nativeWindow->GetBounds();
+				Rect clientBounds=nativeWindow->GetClientBoundsInScreen();
+				Point clientLocation(location.x+bounds.x1-clientBounds.x1, location.y+bounds.y1-clientBounds.y1);
+				GuiGraphicsComposition* hitComposition=windowComposition->FindComposition(clientLocation);
+				while(hitComposition)
+				{
+					INativeWindowListener::HitTestResult result=hitComposition->GetAssociatedHitTestResult();
+					if(result==INativeWindowListener::NoDecision)
+					{
+						hitComposition=hitComposition->GetParent();
+					}
+					else
+					{
+						return result;
+					}
+				}
+				return INativeWindowListener::NoDecision;
 			}
 
 			void GuiGraphicsHost::Moving(Rect& bounds, bool fixSizeOnly)
@@ -23847,6 +27639,11 @@ namespace vl
 INativeWindowListener
 ***********************************************************************/
 
+		INativeWindowListener::HitTestResult INativeWindowListener::HitTest(Point location)
+		{
+			return INativeWindowListener::NoDecision;
+		}
+
 		void INativeWindowListener::Moving(Rect& bounds, bool fixSizeOnly)
 		{
 		}
@@ -27192,7 +30989,11 @@ WindowsImageService
 			{
 				IWICImagingFactory* factory=0;
 				HRESULT hr = CoCreateInstance(
+#if defined(WINCODEC_SDK_VERSION2)
+					CLSID_WICImagingFactory1,
+#else
 					CLSID_WICImagingFactory,
+#endif
 					NULL,
 					CLSCTX_INPROC_SERVER,
 					IID_IWICImagingFactory,
@@ -28113,10 +31914,6 @@ WindowsForm
 									listeners[i]->MouseMoving(info);
 								}
 							}
-							if(GetCursor()!=cursor->GetCursorHandle())
-							{
-								SetCursor(cursor->GetCursorHandle());
-							}
 						}
 						break;
 					case WM_MOUSELEAVE:
@@ -28193,6 +31990,98 @@ WindowsForm
 					case WM_IME_STARTCOMPOSITION:
 						UpdateCompositionForContent();
 						break;
+					case WM_NCHITTEST:
+						{
+							POINTS location=MAKEPOINTS(lParam);
+							Point windowLocation=GetBounds().LeftTop();
+							location.x-=windowLocation.x;
+							location.y-=windowLocation.y;
+							for(int i=0;i<listeners.Count();i++)
+							{
+								switch(listeners[i]->HitTest(Point(location.x, location.y)))
+								{
+								case INativeWindowListener::BorderNoSizing:
+									result=HTBORDER;
+									return true;
+								case INativeWindowListener::BorderLeft:
+									result=HTLEFT;
+									return true;
+								case INativeWindowListener::BorderRight:
+									result=HTRIGHT;
+									return true;
+								case INativeWindowListener::BorderTop:
+									result=HTTOP;
+									return true;
+								case INativeWindowListener::BorderBottom:
+									result=HTBOTTOM;
+									return true;
+								case INativeWindowListener::BorderLeftTop:
+									result=HTTOPLEFT;
+									return true;
+								case INativeWindowListener::BorderRightTop:
+									result=HTTOPRIGHT;
+									return true;
+								case INativeWindowListener::BorderLeftBottom:
+									result=HTBOTTOMLEFT;
+									return true;
+								case INativeWindowListener::BorderRightBottom:
+									result=HTBOTTOMRIGHT;
+									return true;
+								case INativeWindowListener::Title:
+									result=HTCAPTION;
+									return true;
+								case INativeWindowListener::ButtonMinimum:
+									result=HTMINBUTTON;
+									return true;
+								case INativeWindowListener::ButtonMaximum:
+									result=HTMAXBUTTON;
+									return true;
+								case INativeWindowListener::ButtonClose:
+									result=HTCLOSE;
+									return true;
+								case INativeWindowListener::Client:
+									result=HTCLIENT;
+									return true;
+								case INativeWindowListener::Icon:
+									result=HTSYSMENU;
+									return true;
+								}
+							}
+						}
+						break;
+					case WM_SETCURSOR:
+						{
+							DWORD hitTestResult=LOWORD(lParam);
+							if(hitTestResult==HTCLIENT)
+							{
+								HCURSOR cursorHandle=cursor->GetCursorHandle();
+								if(GetCursor()!=cursorHandle)
+								{
+									SetCursor(cursorHandle);
+								}
+								result=TRUE;
+								return true;
+							}
+						}
+						break;
+					case WM_NCCALCSIZE:
+						if((BOOL)wParam && customFrameMode)
+						{
+							NCCALCSIZE_PARAMS* params=(NCCALCSIZE_PARAMS*)lParam;
+							params->rgrc[2]=params->rgrc[1];
+							params->rgrc[1]=params->rgrc[0];
+							result=WVR_REDRAW;
+							return true;
+						}
+						break;
+					case WM_NCPAINT:
+					case WM_SYNCPAINT:
+						if(customFrameMode)
+						{
+							result=0;
+							return true;
+						}
+						break;
 					}
 					if(IsWindow(hwnd)!=0)
 					{
@@ -28223,6 +32112,7 @@ WindowsForm
 				int									mouseLastY;
 				int									mouseHoving;
 				Interface*							graphicsHandler;
+				bool								customFrameMode;
 			public:
 				WindowsForm(HWND parent, WString className, HINSTANCE hInstance)
 					:cursor(0)
@@ -28232,6 +32122,7 @@ WindowsForm
 					,mouseLastY(-1)
 					,mouseHoving(false)
 					,graphicsHandler(0)
+					,customFrameMode(false)
 				{
 					DWORD exStyle=WS_EX_APPWINDOW | WS_EX_CONTROLPARENT;
 					DWORD style=WS_BORDER | WS_CAPTION | WS_SIZEBOX | WS_SYSMENU | WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
@@ -28314,20 +32205,27 @@ WindowsForm
 
 				Rect GetClientBoundsInScreen()
 				{
-					RECT required={0,0,0,0};
-					RECT bounds;
-					GetWindowRect(handle, &bounds);
-					AdjustWindowRect(&required, GetWindowLongPtr(handle, GWL_STYLE), FALSE);
-					return Rect(
-						Point(
-							(bounds.left-required.left),
-							(bounds.top-required.top)
-							),
-						Size(
-							(bounds.right-bounds.left)-(required.right-required.left),
-							(bounds.bottom-bounds.top)-(required.bottom-required.top)
-							)
-						);
+					if(customFrameMode)
+					{
+						return GetBounds();
+					}
+					else
+					{
+						RECT required={0,0,0,0};
+						RECT bounds;
+						GetWindowRect(handle, &bounds);
+						AdjustWindowRect(&required, GetWindowLongPtr(handle, GWL_STYLE), FALSE);
+						return Rect(
+							Point(
+								(bounds.left-required.left),
+								(bounds.top-required.top)
+								),
+							Size(
+								(bounds.right-bounds.left)-(required.right-required.left),
+								(bounds.bottom-bounds.top)-(required.bottom-required.top)
+								)
+							);
+					}
 				}
 
 				WString GetTitle()
@@ -28400,6 +32298,37 @@ WindowsForm
 				void SetAlwaysPassFocusToParent(bool value)
 				{
 					alwaysPassFocusToParent=value;
+				}
+
+				void EnableCustomFrameMode()
+				{
+					customFrameMode=true;
+				}
+
+				void DisableCustomFrameMode()
+				{
+					customFrameMode=false;
+				}
+
+				bool IsCustomFrameModeEnabled()
+				{
+					return customFrameMode;
+				}
+
+				WindowSizeState GetSizeState()
+				{
+					if(IsIconic(handle))
+					{
+						return INativeWindow::Minimized;
+					}
+					else if(IsZoomed(handle))
+					{
+						return INativeWindow::Maximized;
+					}
+					else
+					{
+						return INativeWindow::Restored;
+					}
 				}
 
 				void Show()
@@ -28823,6 +32752,67 @@ WindowsController
 					return &dialogService;
 				}
 
+				WString GetOSVersionMainPart()
+				{
+					OSVERSIONINFOEX info;
+					ZeroMemory(&info, sizeof(info));
+					info.dwOSVersionInfoSize=sizeof(info);
+					GetVersionEx((OSVERSIONINFO*)&info);
+					switch(info.dwMajorVersion)
+					{
+					case 5:
+						switch(info.dwMinorVersion)
+						{
+						case 0:
+							return L"Windows 2000";
+						case 1:
+							return L"Windows XP";
+						case 2:
+							return GetSystemMetrics(SM_SERVERR2)==0?L"Windows Server 2003":L"Windows Server 2003 R2";
+						}
+					case 6:
+						if(info.wProductType==VER_NT_WORKSTATION)
+						{
+							switch(info.dwMinorVersion)
+							{
+							case 0:
+								return L"Windows Vista";
+							case 1:
+								return L"Windows 7";
+							case 2:
+								return L"Windows 8";
+							}
+						}
+						else
+						{
+							switch(info.dwMinorVersion)
+							{
+							case 0:
+								return L"Windows Server 2008";
+							case 1:
+								return L"Windows Server 2008 R2";
+							case 2:
+								return L"Windows Server 2012";
+							}
+						}
+					}
+					return L"Windows<Unknown Version>";
+				}
+
+				WString GetOSVersionCSDPart()
+				{
+					OSVERSIONINFOEX info;
+					ZeroMemory(&info, sizeof(info));
+					info.dwOSVersionInfoSize=sizeof(info);
+					GetVersionEx((OSVERSIONINFO*)&info);
+					return info.szCSDVersion;
+				}
+
+				WString GetOSVersion()
+				{
+					return GetOSVersionMainPart()+L";"+GetOSVersionCSDPart();
+				}
+
 				//=======================================================================
 
 				void InvokeMouseHook(WPARAM message, Point location)
@@ -28906,97 +32896,6 @@ Windows Platform Native Controller
 			void DestroyWindowsNativeController(INativeController* controller)
 			{
 				delete controller;
-			}
-		}
-	}
-}
-
-/***********************************************************************
-Reflection\GuiTypeDescriptor.cpp
-***********************************************************************/
-
-namespace vl
-{
-	namespace presentation
-	{
-
-/***********************************************************************
-DescriptableObject
-***********************************************************************/
-
-		DescriptableObject::DescriptableObject()
-			:objectSize(0)
-			,typeDescriptor(0)
-		{
-		}
-
-		DescriptableObject::~DescriptableObject()
-		{
-		}
-
-		namespace description
-		{
-			Value::Value()
-				:valueType(Null)
-				,descriptableObjectRef(0)
-			{
-			}
-
-			Value::Value(DescriptableObject* value)
-				:valueType(DescriptableObjectRef)
-				,descriptableObjectRef(value)
-			{
-			}
-
-			Value::Value(Ptr<DescriptableObject> value)
-				:valueType(DescriptableObjectPtr)
-				,descriptableObjectRef(value.Obj())
-				,descriptableObjectPtr(value)
-			{
-			}
-
-			Value::Value(const WString& value)
-				:valueType(Null)
-				,descriptableObjectRef(0)
-				,text(value)
-			{
-			}
-
-			Value::Value(const Value& value)
-				:valueType(value.valueType)
-				,descriptableObjectRef(value.descriptableObjectRef)
-				,descriptableObjectPtr(value.descriptableObjectPtr)
-				,text(value.text)
-			{
-			}
-
-			Value& Value::operator=(const Value& value)
-			{
-				valueType=value.valueType;
-				descriptableObjectRef=value.descriptableObjectRef;
-				descriptableObjectPtr=value.descriptableObjectPtr;
-				text=value.text;
-				return *this;
-			}
-
-			Value::ValueType Value::GetValueType()const
-			{
-				return valueType;
-			}
-
-			DescriptableObject* Value::GetDescriptableObjectRef()const
-			{
-				return descriptableObjectRef;
-			}
-
-			Ptr<DescriptableObject> Value::GetDescriptableObjectPtr()const
-			{
-				return descriptableObjectPtr;
-			}
-
-			const WString& Value::GetText()const
-			{
-				return text;
 			}
 		}
 	}

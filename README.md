@@ -1,4 +1,4 @@
-# Gaclib 0.3.0.0
+# Gaclib 0.4.0.0
 
 
 GPU Accelerated C++ User Interface/Script Engine
@@ -15,12 +15,9 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Added 1 new demos
-    * Controls.Scroll.ColorPicker
-* Modified 2 demos (updated to use the new toolstrip control package)
-    * Controls.Toolstrip.TextEditor
-    * Controls.ListView.SortingAndFiltering
+* Added Windows 8 theme (except tab control, will be provided for the next release)
+* GacUI will choose to use Windows 7 theme or Windows 8 theme as default theme according to OS version
+* Added 1 new demos 
+    * Template.Window.CustomizedBorder
 * Fixed bugs
-* Added toolstrip control pagkage
-* Added shortcut key manager
-* Added progress bar style
+* Fixed Controls.Toolstrip.TextEditor demo
