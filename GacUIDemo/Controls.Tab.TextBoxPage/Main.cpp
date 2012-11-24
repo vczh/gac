@@ -23,7 +23,7 @@ private:
 		// so it use GetApplication()->InvokeInMainThread to send a function to the queue
 		// so that this function will be executed after this input message (an input message raises multiple events)
 		// to the user, this page is closed after cliking this button
-		GetApplication()->InvokeInMainThread([this]()
+		GetApplication()->InvokeInMainThread([=]()
 		{
 			// remove the page and delete it
 			this->GetOwnerTab()->RemovePage(this);

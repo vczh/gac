@@ -4494,6 +4494,45 @@ namespace vl
 			using namespace compositions;
 
 /***********************************************************************
+GuiControl::EmptyStyleController
+***********************************************************************/
+
+			GuiControl::EmptyStyleController::EmptyStyleController()
+			{
+				boundsComposition=new GuiBoundsComposition;
+			}
+
+			GuiControl::EmptyStyleController::~EmptyStyleController()
+			{
+			}
+
+			compositions::GuiBoundsComposition* GuiControl::EmptyStyleController::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* GuiControl::EmptyStyleController::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void GuiControl::EmptyStyleController::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void GuiControl::EmptyStyleController::SetText(const WString& value)
+			{
+			}
+
+			void GuiControl::EmptyStyleController::SetFont(const FontProperties& value)
+			{
+			}
+
+			void GuiControl::EmptyStyleController::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
 GuiControl
 ***********************************************************************/
 
@@ -5613,6 +5652,7 @@ GuiScrollContainer::StyleController
 
 			GuiScrollContainer::StyleController::StyleController(GuiScrollView::IStyleProvider* styleProvider)
 				:GuiScrollView::StyleController(styleProvider)
+				,extendToFullWidth(false)
 			{
 				controlContainerComposition=new GuiBoundsComposition;
 				controlContainerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
@@ -5631,6 +5671,27 @@ GuiScrollContainer::StyleController
 			void GuiScrollContainer::StyleController::MoveContainer(Point leftTop)
 			{
 				controlContainerComposition->SetBounds(Rect(leftTop, Size(0, 0)));
+			}
+
+			bool GuiScrollContainer::StyleController::GetExtendToFullWidth()
+			{
+				return extendToFullWidth;
+			}
+
+			void GuiScrollContainer::StyleController::SetExtendToFullWidth(bool value)
+			{
+				if(extendToFullWidth!=value)
+				{
+					extendToFullWidth=value;
+					if(value)
+					{
+						controlContainerComposition->SetAlignmentToParent(Margin(0, -1, 0, -1));
+					}
+					else
+					{
+						controlContainerComposition->SetAlignmentToParent(Margin(-1, -1, -1, -1));
+					}
+				}
 			}
 
 /***********************************************************************
@@ -5663,6 +5724,16 @@ GuiScrollContainer
 
 			GuiScrollContainer::~GuiScrollContainer()
 			{
+			}
+
+			bool GuiScrollContainer::GetExtendToFullWidth()
+			{
+				return styleController->GetExtendToFullWidth();
+			}
+
+			void GuiScrollContainer::SetExtendToFullWidth(bool value)
+			{
+				styleController->SetExtendToFullWidth(value);
 			}
 		}
 	}
@@ -8315,17 +8386,17 @@ GuiTextElementOperator
 
 			bool GuiTextElementOperator::CanCut()
 			{
-				return !readonly && textElement->GetCaretBegin()!=textElement->GetCaretEnd();
+				return !readonly && textElement->GetCaretBegin()!=textElement->GetCaretEnd() && textElement->GetPasswordChar()==L'\0';
 			}
 
 			bool GuiTextElementOperator::CanCopy()
 			{
-				return textElement->GetCaretBegin()!=textElement->GetCaretEnd();
+				return textElement->GetCaretBegin()!=textElement->GetCaretEnd() && textElement->GetPasswordChar()==L'\0';
 			}
 
 			bool GuiTextElementOperator::CanPaste()
 			{
-				return !readonly && GetCurrentController()->ClipboardService()->ContainsText();
+				return !readonly && GetCurrentController()->ClipboardService()->ContainsText() && textElement->GetPasswordChar()==L'\0';
 			}
 
 			void GuiTextElementOperator::SelectAll()
@@ -9529,6 +9600,16 @@ GuiSinglelineTextBox
 				GuiControl::SetFont(value);
 				styleController->RearrangeTextElement();
 			}
+
+			wchar_t GuiSinglelineTextBox::GetPasswordChar()
+			{
+				return styleController->GetTextElement()->GetPasswordChar();
+			}
+
+			void GuiSinglelineTextBox::SetPasswordChar(wchar_t value)
+			{
+				styleController->GetTextElement()->SetPasswordChar(value);
+			}
 		}
 	}
 }
@@ -10002,7 +10083,7 @@ GuiControlHost
 				INativeWindow* window=host->GetNativeWindow();
 				if(window)
 				{
-					if(GetCurrentController()->WindowService()->GetMainWindow()==window)
+					if(GetCurrentController()->WindowService()->GetMainWindow()!=window)
 					{
 						window->Hide();
 					}
@@ -11399,6 +11480,11 @@ Win7Theme
 				return new Win7TreeViewProvider;
 			}
 
+			controls::GuiSelectableButton::IStyleController* Win7Theme::CreateListItemBackgroundStyle()
+			{
+				return new Win7SelectableItemStyle();
+			}
+
 			elements::text::ColorEntry Win7Theme::GetDefaultTextBoxColorEntry()
 			{
 				return Win7GetTextBoxTextColor();
@@ -11602,6 +11688,11 @@ Win8Theme
 			controls::GuiTreeView::IStyleProvider* Win8Theme::CreateTreeViewStyle()
 			{
 				return new Win8TreeViewProvider;
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8Theme::CreateListItemBackgroundStyle()
+			{
+				return new Win8SelectableItemStyle();
 			}
 
 			elements::text::ColorEntry Win8Theme::GetDefaultTextBoxColorEntry()
@@ -13605,6 +13696,7 @@ Win7ButtonStyle
 					{
 					case GuiButton::Normal:
 						targetColor=Win7ButtonColors::ButtonNormal();
+						targetColor.SetAlphaWithoutText(0);
 						break;
 					case GuiButton::Active:
 						targetColor=Win7ButtonColors::ButtonActive();
@@ -13617,6 +13709,7 @@ Win7ButtonStyle
 				else
 				{
 					targetColor=Win7ButtonColors::ButtonDisabled();
+					targetColor.SetAlphaWithoutText(0);
 				}
 				transferringAnimation->Transfer(targetColor);
 			}
@@ -13667,16 +13760,12 @@ Win7ScrollStyle
 			controls::GuiButton::IStyleController* Win7ScrollStyle::CreateDecreaseButtonStyle(Direction direction)
 			{
 				Win7ScrollArrowButtonStyle* decreaseButtonStyle=new Win7ScrollArrowButtonStyle(direction, false);
-				decreaseButtonStyle->SetTransparentWhenInactive(true);
-				decreaseButtonStyle->SetTransparentWhenDisabled(true);
 				return decreaseButtonStyle;
 			}
 
 			controls::GuiButton::IStyleController* Win7ScrollStyle::CreateIncreaseButtonStyle(Direction direction)
 			{
 				Win7ScrollArrowButtonStyle* increaseButtonStyle=new Win7ScrollArrowButtonStyle(direction, true);
-				increaseButtonStyle->SetTransparentWhenInactive(true);
-				increaseButtonStyle->SetTransparentWhenDisabled(true);
 				return increaseButtonStyle;
 			}
 
@@ -20023,22 +20112,6 @@ GuiBoundsComposition
 			{
 			}
 
-			GuiGraphicsComposition::ParentSizeAffection GuiBoundsComposition::GetAffectionFromParent()
-			{
-				if(alignmentToParent==Margin(-1, -1, -1, -1))
-				{
-					return GuiGraphicsComposition::NotAffectedByParent;
-				}
-				else if(alignmentToParent.left!=-1 || alignmentToParent.top!=-1 || alignmentToParent.right!=-1 || alignmentToParent.bottom!=-1)
-				{
-					return GuiGraphicsComposition::TotallyDecidedByParent;
-				}
-				else
-				{
-					return GuiGraphicsComposition::AffectedByParent;
-				}
-			}
-
 			Rect GuiBoundsComposition::GetPreferredBounds()
 			{
 				Rect result=GetBoundsInternal(compositionBounds);
@@ -20475,12 +20548,20 @@ GuiGraphicsComposition
 			{
 				if(ownedElement)
 				{
-					ownedElement->GetRenderer()->SetRenderTarget(0);
+					IGuiGraphicsRenderer* renderer=ownedElement->GetRenderer();
+					if(renderer)
+					{
+						renderer->SetRenderTarget(0);
+					}
 				}
 				ownedElement=element;
 				if(ownedElement)
 				{
-					ownedElement->GetRenderer()->SetRenderTarget(renderTarget);
+					IGuiGraphicsRenderer* renderer=ownedElement->GetRenderer();
+					if(renderer)
+					{
+						renderer->SetRenderTarget(renderTarget);
+					}
 				}
 			}
 
@@ -20514,7 +20595,11 @@ GuiGraphicsComposition
 				renderTarget=value;
 				if(ownedElement)
 				{
-					ownedElement->GetRenderer()->SetRenderTarget(renderTarget);
+					IGuiGraphicsRenderer* renderer=ownedElement->GetRenderer();
+					if(renderer)
+					{
+						renderer->SetRenderTarget(renderTarget);
+					}
 				}
 				for(int i=0;i<children.Count();i++)
 				{
@@ -20542,7 +20627,11 @@ GuiGraphicsComposition
 
 						if(ownedElement)
 						{
-							ownedElement->GetRenderer()->Render(bounds);
+							IGuiGraphicsRenderer* renderer=ownedElement->GetRenderer();
+							if(renderer)
+							{
+								renderer->Render(bounds);
+							}
 						}
 						if(children.Count()>0)
 						{
@@ -20826,11 +20915,6 @@ GuiGraphicsSite
 			{
 			}
 
-			GuiGraphicsComposition::ParentSizeAffection GuiGraphicsSite::GetAffectionFromParent()
-			{
-				return GuiGraphicsComposition::NotAffectedByParent;
-			}
-
 			bool GuiGraphicsSite::IsSizeAffectParent()
 			{
 				return true;
@@ -20843,7 +20927,11 @@ GuiGraphicsSite
 				{
 					if(ownedElement)
 					{
-						minSize=ownedElement->GetRenderer()->GetMinSize();
+						IGuiGraphicsRenderer* renderer=ownedElement->GetRenderer();
+						if(renderer)
+						{
+							minSize=renderer->GetMinSize();
+						}
 					}
 				}
 				if(minSizeLimitation==GuiGraphicsComposition::LimitToElementAndChildren)
@@ -20987,11 +21075,6 @@ GuiSideAlignedComposition
 					value;
 			}
 
-			GuiGraphicsComposition::ParentSizeAffection GuiSideAlignedComposition::GetAffectionFromParent()
-			{
-				return GuiGraphicsComposition::TotallyDecidedByParent;
-			}
-
 			bool GuiSideAlignedComposition::IsSizeAffectParent()
 			{
 				return false;
@@ -21089,11 +21172,6 @@ GuiPartialViewComposition
 			void GuiPartialViewComposition::SetHeightPageSize(double value)
 			{
 				hPageSize=value;
-			}
-
-			GuiGraphicsComposition::ParentSizeAffection GuiPartialViewComposition::GetAffectionFromParent()
-			{
-				return GuiGraphicsComposition::TotallyDecidedByParent;
 			}
 
 			bool GuiPartialViewComposition::IsSizeAffectParent()
@@ -21374,11 +21452,6 @@ GuiStackItemComposition
 
 			GuiStackItemComposition::~GuiStackItemComposition()
 			{
-			}
-
-			GuiGraphicsComposition::ParentSizeAffection GuiStackItemComposition::GetAffectionFromParent()
-			{
-				return GuiGraphicsComposition::AffectedByParent;
 			}
 
 			bool GuiStackItemComposition::IsSizeAffectParent()
@@ -21977,7 +22050,24 @@ GuiTableComposition
 				{
 					result=GuiBoundsComposition::GetBounds();
 				}
-				if(previousBounds!=result)
+
+				bool cellMinSizeModified=false;
+				SortedList<GuiCellComposition*> cells;
+				FOREACH(GuiCellComposition*, cell, cellCompositions.Wrap())
+				{
+					if(cell && !cells.Contains(cell))
+					{
+						cells.Add(cell);
+						Size newSize=cell->GetPreferredBounds().GetSize();
+						if(cell->lastPreferredSize!=newSize)
+						{
+							cell->lastPreferredSize=newSize;
+							cellMinSizeModified=true;
+						}
+					}
+				}
+
+				if(previousBounds!=result || cellMinSizeModified)
 				{
 					previousBounds=result;
 					UpdateCellBounds();
@@ -22173,83 +22263,6 @@ namespace vl
 			using namespace collections;
 
 /***********************************************************************
-GuiGraphicsResourceManager
-***********************************************************************/
-
-			GuiGraphicsResourceManager::GuiGraphicsResourceManager()
-			{
-			}
-
-			GuiGraphicsResourceManager::~GuiGraphicsResourceManager()
-			{
-			}
-
-			bool GuiGraphicsResourceManager::RegisterElementFactory(IGuiGraphicsElementFactory* factory)
-			{
-				if(elementFactories.Keys().Contains(factory->GetElementTypeName()))
-				{
-					return false;
-				}
-				else
-				{
-					elementFactories.Add(factory->GetElementTypeName(), factory);
-					return true;
-				}
-			}
-
-			bool GuiGraphicsResourceManager::RegisterRendererFactory(const WString& elementTypeName, IGuiGraphicsRendererFactory* factory)
-			{
-				if(rendererFactories.Keys().Contains(elementTypeName))
-				{
-					return false;
-				}
-				else
-				{
-					rendererFactories.Add(elementTypeName, factory);
-					return true;
-				}
-			}
-
-			IGuiGraphicsElementFactory* GuiGraphicsResourceManager::GetElementFactory(const WString& elementTypeName)
-			{
-				int index=elementFactories.Keys().IndexOf(elementTypeName);
-				return index==-1?0:elementFactories.Values()[index].Obj();
-			}
-
-			IGuiGraphicsRendererFactory* GuiGraphicsResourceManager::GetRendererFactory(const WString& elementTypeName)
-			{
-				int index=rendererFactories.Keys().IndexOf(elementTypeName);
-				return index==-1?0:rendererFactories.Values()[index].Obj();
-			}
-
-			GuiGraphicsResourceManager* guiGraphicsResourceManager=0;
-
-			GuiGraphicsResourceManager* GetGuiGraphicsResourceManager()
-			{
-				return guiGraphicsResourceManager;
-			}
-
-			void SetGuiGraphicsResourceManager(GuiGraphicsResourceManager* resourceManager)
-			{
-				guiGraphicsResourceManager=resourceManager;
-			}
-
-			bool RegisterFactories(IGuiGraphicsElementFactory* elementFactory, IGuiGraphicsRendererFactory* rendererFactory)
-			{
-				if(guiGraphicsResourceManager && elementFactory && rendererFactory)
-				{
-					if(guiGraphicsResourceManager->RegisterElementFactory(elementFactory))
-					{
-						if(guiGraphicsResourceManager->RegisterRendererFactory(elementFactory->GetElementTypeName(), rendererFactory))
-						{
-							return true;
-						}
-					}
-				}
-				return false;
-			}
-
-/***********************************************************************
 GuiSolidBorderElement
 ***********************************************************************/
 
@@ -22274,7 +22287,10 @@ GuiSolidBorderElement
 				if(color!=value)
 				{
 					color=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 			
@@ -22313,7 +22329,10 @@ GuiRoundBorderElement
 				if(color!=value)
 				{
 					color=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22327,7 +22346,10 @@ GuiRoundBorderElement
 				if(radius!=value)
 				{
 					radius=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22360,7 +22382,10 @@ Gui3DBorderElement
 				{
 					color1=value1;
 					color2=value2;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22394,7 +22419,10 @@ Gui3DSplitterElement
 				{
 					color1=value1;
 					color2=value2;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22408,7 +22436,10 @@ Gui3DSplitterElement
 				if(direction!=value)
 				{
 					direction=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22437,7 +22468,10 @@ GuiSolidBackgroundElement
 				if(color!=value)
 				{
 					color=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 			
@@ -22482,7 +22516,10 @@ GuiGradientBackgroundElement
 				{
 					color1=value1;
 					color2=value2;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22496,7 +22533,10 @@ GuiGradientBackgroundElement
 				if(direction!=value)
 				{
 					direction=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 			
@@ -22521,6 +22561,7 @@ GuiSolidLabelElement
 				,wrapLine(false)
 				,ellipse(false)
 				,multiline(false)
+				,wrapLineHeightCalculation(false)
 			{
 				fontProperties.fontFamily=L"Lucida Console";
 				fontProperties.size=12;
@@ -22541,7 +22582,10 @@ GuiSolidLabelElement
 				if(color!=value)
 				{
 					color=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22555,7 +22599,10 @@ GuiSolidLabelElement
 				if(fontProperties!=value)
 				{
 					fontProperties=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22569,7 +22616,10 @@ GuiSolidLabelElement
 				if(text!=value)
 				{
 					text=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22589,7 +22639,10 @@ GuiSolidLabelElement
 				{
 					hAlignment=horizontal;
 					vAlignment=vertical;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22603,7 +22656,10 @@ GuiSolidLabelElement
 				if(wrapLine!=value)
 				{
 					wrapLine=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22617,7 +22673,10 @@ GuiSolidLabelElement
 				if(ellipse!=value)
 				{
 					ellipse=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22631,7 +22690,27 @@ GuiSolidLabelElement
 				if(multiline!=value)
 				{
 					multiline=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
+				}
+			}
+
+			bool GuiSolidLabelElement::GetWrapLineHeightCalculation()
+			{
+				return wrapLineHeightCalculation;
+			}
+
+			void GuiSolidLabelElement::SetWrapLineHeightCalculation(bool value)
+			{
+				if(wrapLineHeightCalculation!=value)
+				{
+					wrapLineHeightCalculation=value;
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22677,7 +22756,10 @@ GuiImageFrameElement
 						image=_image;
 						frameIndex=_frameIndex;
 					}
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22697,7 +22779,10 @@ GuiImageFrameElement
 				{
 					hAlignment=horizontal;
 					vAlignment=vertical;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22711,7 +22796,10 @@ GuiImageFrameElement
 				if(stretch!=value)
 				{
 					stretch=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22725,7 +22813,10 @@ GuiImageFrameElement
 				if(enabled!=value)
 				{
 					enabled=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22751,7 +22842,10 @@ GuiPolygonElement
 				if(size!=value)
 				{
 					size=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22772,7 +22866,10 @@ GuiPolygonElement
 				{
 					memcpy(&points[0], p, sizeof(*p)*count);
 				}
-				renderer->OnElementStateChanged();
+				if(renderer)
+				{
+					renderer->OnElementStateChanged();
+				}
 			}
 
 			Color GuiPolygonElement::GetBorderColor()
@@ -22785,7 +22882,10 @@ GuiPolygonElement
 				if(borderColor!=value)
 				{
 					borderColor=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -22799,7 +22899,10 @@ GuiPolygonElement
 				if(backgroundColor!=value)
 				{
 					backgroundColor=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 		}
@@ -23615,7 +23718,7 @@ GuiShortcutKeyManager
 }
 
 /***********************************************************************
-GraphicsElement\GuiGraphicsTextElement.cpp
+GraphicsElement\GuiGraphicsResourceManager.cpp
 ***********************************************************************/
 
 namespace vl
@@ -23625,6 +23728,99 @@ namespace vl
 		namespace elements
 		{
 			using namespace collections;
+
+/***********************************************************************
+GuiGraphicsResourceManager
+***********************************************************************/
+
+			GuiGraphicsResourceManager::GuiGraphicsResourceManager()
+			{
+			}
+
+			GuiGraphicsResourceManager::~GuiGraphicsResourceManager()
+			{
+			}
+
+			bool GuiGraphicsResourceManager::RegisterElementFactory(IGuiGraphicsElementFactory* factory)
+			{
+				if(elementFactories.Keys().Contains(factory->GetElementTypeName()))
+				{
+					return false;
+				}
+				else
+				{
+					elementFactories.Add(factory->GetElementTypeName(), factory);
+					return true;
+				}
+			}
+
+			bool GuiGraphicsResourceManager::RegisterRendererFactory(const WString& elementTypeName, IGuiGraphicsRendererFactory* factory)
+			{
+				if(rendererFactories.Keys().Contains(elementTypeName))
+				{
+					return false;
+				}
+				else
+				{
+					rendererFactories.Add(elementTypeName, factory);
+					return true;
+				}
+			}
+
+			IGuiGraphicsElementFactory* GuiGraphicsResourceManager::GetElementFactory(const WString& elementTypeName)
+			{
+				int index=elementFactories.Keys().IndexOf(elementTypeName);
+				return index==-1?0:elementFactories.Values()[index].Obj();
+			}
+
+			IGuiGraphicsRendererFactory* GuiGraphicsResourceManager::GetRendererFactory(const WString& elementTypeName)
+			{
+				int index=rendererFactories.Keys().IndexOf(elementTypeName);
+				return index==-1?0:rendererFactories.Values()[index].Obj();
+			}
+
+			GuiGraphicsResourceManager* guiGraphicsResourceManager=0;
+
+			GuiGraphicsResourceManager* GetGuiGraphicsResourceManager()
+			{
+				return guiGraphicsResourceManager;
+			}
+
+			void SetGuiGraphicsResourceManager(GuiGraphicsResourceManager* resourceManager)
+			{
+				guiGraphicsResourceManager=resourceManager;
+			}
+
+			bool RegisterFactories(IGuiGraphicsElementFactory* elementFactory, IGuiGraphicsRendererFactory* rendererFactory)
+			{
+				if(guiGraphicsResourceManager && elementFactory && rendererFactory)
+				{
+					if(guiGraphicsResourceManager->RegisterElementFactory(elementFactory))
+					{
+						if(guiGraphicsResourceManager->RegisterRendererFactory(elementFactory->GetElementTypeName(), rendererFactory))
+						{
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+GraphicsElement\GuiGraphicsTextElement.cpp
+***********************************************************************/
+
+namespace vl
+{
+	using namespace collections;
+
+	namespace presentation
+	{
+		namespace elements
+		{
 
 			namespace text
 			{
@@ -23801,6 +23997,7 @@ text::TextLines
 					,renderTarget(0)
 					,tabWidth(1)
 					,tabSpaceCount(4)
+					,passwordChar(L'\0')
 				{
 					TextLine line;
 					line.Initialize();
@@ -24106,7 +24303,11 @@ text::TextLines
 						CharAtt& att=line.att[i];
 						wchar_t c=line.text[i];
 						int width=0;
-						if(c==L'\t')
+						if(passwordChar)
+						{
+							width=charMeasurer->MeasureWidth(passwordChar);
+						}
+						else if(c==L'\t')
 						{
 							width=tabWidth-offset%tabWidth;
 						}
@@ -24247,6 +24448,17 @@ text::TextLines
 				}
 
 				//--------------------------------------------------------
+
+				wchar_t TextLines::GetPasswordChar()
+				{
+					return passwordChar;
+				}
+
+				void TextLines::SetPasswordChar(wchar_t value)
+				{
+					passwordChar=value;
+					ClearMeasurement();
+				}
 			}
 
 			using namespace text;
@@ -24296,7 +24508,10 @@ GuiColorizedTextElement
 			{
 				CopyFrom(colors.Wrap(), value.Wrap());
 				if(callback) callback->ColorChanged();
-				renderer->OnElementStateChanged();
+				if(renderer)
+				{
+					renderer->OnElementStateChanged();
+				}
 			}
 
 			const FontProperties& GuiColorizedTextElement::GetFont()
@@ -24313,7 +24528,27 @@ GuiColorizedTextElement
 					{
 						callback->FontChanged();
 					}
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
+				}
+			}
+
+			wchar_t GuiColorizedTextElement::GetPasswordChar()
+			{
+				return lines.GetPasswordChar();
+			}
+
+			void GuiColorizedTextElement::SetPasswordChar(wchar_t value)
+			{
+				if(lines.GetPasswordChar()!=value)
+				{
+					lines.SetPasswordChar(value);
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -24327,7 +24562,10 @@ GuiColorizedTextElement
 				if(viewPosition!=value)
 				{
 					viewPosition=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -24341,7 +24579,10 @@ GuiColorizedTextElement
 				if(isVisuallyEnabled!=value)
 				{
 					isVisuallyEnabled=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -24355,7 +24596,10 @@ GuiColorizedTextElement
 				if(isFocused!=value)
 				{
 					isFocused=value;
-					renderer->OnElementStateChanged();
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
 				}
 			}
 
@@ -24399,8 +24643,687 @@ GuiColorizedTextElement
 				if(caretColor!=value)
 				{
 					caretColor=value;
+					if(renderer)
+					{
+						renderer->OnElementStateChanged();
+					}
+				}
+			}
+
+/***********************************************************************
+Visitors
+***********************************************************************/
+
+			namespace visitors
+			{
+				class ExtractTextVisitor : public Object, public DocumentRun::IVisitor
+				{
+				public:
+					WString						text;
+
+					void Visit(DocumentTextRun* run)override
+					{
+						text=run->text;
+					}
+
+					void Visit(DocumentImageRun* run)override
+					{
+						text=L"[Image]";
+					}
+
+					static WString ExtractText(DocumentRun* run)
+					{
+						ExtractTextVisitor visitor;
+						run->Accept(&visitor);
+						return visitor.text;
+					}
+				};
+
+				class SetPropertiesVisitor : public Object, public DocumentRun::IVisitor
+				{
+				public:
+					int							start;
+					int							length;
+					IGuiGraphicsParagraph*		paragraph;
+
+					SetPropertiesVisitor(int _start, IGuiGraphicsParagraph* _paragraph)
+						:start(_start)
+						,length(0)
+						,paragraph(_paragraph)
+					{
+					}
+
+					void Visit(DocumentTextRun* run)override
+					{
+						length=run->text.Length();
+						if(length>0)
+						{
+							paragraph->SetFont(start, length, run->style.fontFamily);
+							paragraph->SetSize(start, length, run->style.size);
+							paragraph->SetColor(start, length, run->color);
+							paragraph->SetStyle(start, length, 
+								(IGuiGraphicsParagraph::TextStyle)
+								( (run->style.bold?IGuiGraphicsParagraph::Bold:0)
+								| (run->style.italic?IGuiGraphicsParagraph::Italic:0)
+								| (run->style.underline?IGuiGraphicsParagraph::Underline:0)
+								| (run->style.strikeline?IGuiGraphicsParagraph::Strikeline:0)
+								));
+							start+=length;
+						}
+					}
+
+					void Visit(DocumentImageRun* run)override
+					{
+						// [Image]
+						length=7;
+
+						IGuiGraphicsParagraph::InlineObjectProperties properties;
+						properties.size=run->size;
+						properties.baseline=run->baseline;
+						properties.breakCondition=IGuiGraphicsParagraph::Alone;
+
+						Ptr<GuiImageFrameElement> element=GuiImageFrameElement::Create();
+						element->SetImage(run->image, run->frameIndex);
+						element->SetStretch(true);
+
+						paragraph->SetInlineObject(start, length, properties, element);
+					}
+
+					static int SetProperty(int start, IGuiGraphicsParagraph* paragraph, DocumentRun* run)
+					{
+						SetPropertiesVisitor visitor(start, paragraph);
+						run->Accept(&visitor);
+						return visitor.length;
+					}
+				};
+			}
+			using namespace visitors;
+
+/***********************************************************************
+GuiDocumentElement::GuiDocumentElementRenderer
+***********************************************************************/
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::InitializeInternal()
+			{
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::FinalizeInternal()
+			{
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget)
+			{
+				for(int i=0;i<paragraphCaches.Count();i++)
+				{
+					text::ParagraphCache* cache=paragraphCaches[i].Obj();
+					if(cache)
+					{
+						cache->graphicsParagraph=0;
+					}
+				}
+			}
+
+			GuiDocumentElement::GuiDocumentElementRenderer::GuiDocumentElementRenderer()
+				:paragraphDistance(0)
+				,lastMaxWidth(-1)
+				,cachedTotalHeight(0)
+				,layoutProvider(GetGuiGraphicsResourceManager()->GetLayoutProvider())
+			{
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::Render(Rect bounds)
+			{
+				renderTarget->PushClipper(bounds);
+				if(!renderTarget->IsClipperCoverWholeTarget())
+				{
+					int maxWidth=bounds.Width();
+					Rect clipper=renderTarget->GetClipper();
+					int cx=bounds.Left();
+					int cy=bounds.Top();
+					int y1=clipper.Top()-bounds.Top();
+					int y2=y1+clipper.Height();
+					int y=0;
+
+					for(int i=0;i<paragraphHeights.Count();i++)
+					{
+						int paragraphHeight=paragraphHeights[i];
+						if(y+paragraphHeight<=y1)
+						{
+							y+=paragraphHeight+paragraphDistance;
+							continue;
+						}
+						else if(y>=y2)
+						{
+							break;
+						}
+						else
+						{
+							Ptr<text::DocumentParagraph> paragraph=element->document->paragraphs[i];
+							Ptr<text::ParagraphCache> cache=paragraphCaches[i];
+							if(!cache)
+							{
+								cache=new text::ParagraphCache;
+								paragraphCaches[i]=cache;
+
+								stream::MemoryStream stream;
+								{
+									stream::StreamWriter writer(stream);
+									FOREACH(Ptr<text::DocumentLine>, line, paragraph->lines.Wrap())
+									{
+										FOREACH(Ptr<text::DocumentRun>, run, line->runs.Wrap())
+										{
+											WString text=ExtractTextVisitor::ExtractText(run.Obj());
+											writer.WriteString(text);
+										}
+										writer.WriteString(L"\r\n");
+									}
+								}
+								{
+									stream.SeekFromBegin(0);
+									stream::StreamReader reader(stream);
+									cache->fullText=reader.ReadToEnd();
+								}
+							}
+
+							if(!cache->graphicsParagraph)
+							{
+								cache->graphicsParagraph=layoutProvider->CreateParagraph(cache->fullText, renderTarget);
+								int start=0;
+								FOREACH(Ptr<text::DocumentLine>, line, paragraph->lines.Wrap())
+								{
+									FOREACH(Ptr<text::DocumentRun>, run, line->runs.Wrap())
+									{
+										int length=SetPropertiesVisitor::SetProperty(start, cache->graphicsParagraph.Obj(), run.Obj());
+										start+=length;
+									}
+									start+=2;
+								}
+							}
+							if(cache->graphicsParagraph->GetMaxWidth()!=maxWidth)
+							{
+								cache->graphicsParagraph->SetMaxWidth(maxWidth);
+								int height=cache->graphicsParagraph->GetHeight();
+								if(paragraphHeight!=height)
+								{
+									cachedTotalHeight+=height-paragraphHeight;
+									paragraphHeight=height;
+									paragraphHeights[i]=paragraphHeight;
+								}
+							}
+
+							cache->graphicsParagraph->Render(Rect(Point(cx, cy+y), Size(maxWidth, paragraphHeight)));
+						}
+
+						y+=paragraphHeight+paragraphDistance;
+					}
+
+					lastMaxWidth=maxWidth;
+					minSize=Size(0, cachedTotalHeight);
+				}
+				renderTarget->PopClipper();
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::OnElementStateChanged()
+			{
+				if(element->document && element->document->paragraphs.Count()>0)
+				{
+					paragraphDistance=GetCurrentController()->ResourceService()->GetDefaultFont().size;
+					int defaultHeight=paragraphDistance;
+
+					paragraphCaches.Resize(element->document->paragraphs.Count());
+					paragraphHeights.Resize(element->document->paragraphs.Count());
+
+					for(int i=0;i<paragraphHeights.Count();i++)
+					{
+						paragraphHeights[i]=defaultHeight;
+					}
+					cachedTotalHeight=paragraphHeights.Count()*defaultHeight+(paragraphHeights.Count()-1)*paragraphDistance;
+					minSize=Size(0, cachedTotalHeight);
+				}
+				else
+				{
+					paragraphCaches.Resize(0);
+					paragraphHeights.Resize(0);
+					cachedTotalHeight=0;
+					minSize=Size(0, 0);
+				}
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(int index)
+			{
+				if(0<=index && index<paragraphCaches.Count())
+				{
+					Ptr<ParagraphCache> cache=paragraphCaches[index];
+					if(cache)
+					{
+						cache->graphicsParagraph=0;
+					}
+				}
+			}
+
+/***********************************************************************
+GuiDocumentElement
+***********************************************************************/
+
+			GuiDocumentElement::GuiDocumentElement()
+			{
+			}
+
+			GuiDocumentElement::~GuiDocumentElement()
+			{
+			}
+
+			Ptr<text::DocumentModel> GuiDocumentElement::GetDocument()
+			{
+				return document;
+			}
+
+			void GuiDocumentElement::SetDocument(Ptr<text::DocumentModel> value)
+			{
+				document=value;
+				if(renderer)
+				{
 					renderer->OnElementStateChanged();
 				}
+			}
+			
+			void GuiDocumentElement::NotifyParagraphUpdated(int index)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					elementRenderer->NotifyParagraphUpdated(index);
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+GraphicsElement\WindowsDirect2D\GuiGraphicsLayoutProviderWindowsDirect2D.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace elements;
+		using namespace collections;
+
+		namespace elements_windows_d2d
+		{
+
+/***********************************************************************
+WindowsDirect2DElementInlineObject
+***********************************************************************/
+
+			class WindowsDirect2DElementInlineObject : public IDWriteInlineObject
+			{
+			protected:
+				int													counter;
+				IGuiGraphicsParagraph::InlineObjectProperties		properties;
+				Ptr<IGuiGraphicsElement>							element;
+				int													start;
+				int													length;
+
+			public:
+				WindowsDirect2DElementInlineObject(
+					const IGuiGraphicsParagraph::InlineObjectProperties& _properties,
+					Ptr<IGuiGraphicsElement> _element,
+					int _start,
+					int _length
+					)
+					:counter(1)
+					,properties(_properties)
+					,element(_element)
+					,start(_start)
+					,length(_length)
+				{
+				}
+
+				~WindowsDirect2DElementInlineObject()
+				{
+					IGuiGraphicsRenderer* graphicsRenderer=element->GetRenderer();
+					if(graphicsRenderer)
+					{
+						graphicsRenderer->SetRenderTarget(0);
+					}
+				}
+
+				int GetStart()
+				{
+					return start;
+				}
+
+				int GetLength()
+				{
+					return length;
+				}
+
+				HRESULT STDMETHODCALLTYPE QueryInterface( 
+					REFIID riid,
+					_COM_Outptr_ void __RPC_FAR *__RPC_FAR *ppvObject
+					)
+				{
+					if(ppvObject)
+					{
+						*ppvObject=NULL;
+					}
+					return E_NOINTERFACE;
+				}
+
+				ULONG STDMETHODCALLTYPE AddRef(void)
+				{
+					++counter;
+					return S_OK;
+				}
+
+				ULONG STDMETHODCALLTYPE Release(void)
+				{
+					if(--counter==0)
+					{
+						delete this;
+					}
+					return S_OK;
+				}
+
+				STDMETHOD(Draw)(
+					_In_opt_ void* clientDrawingContext,
+					IDWriteTextRenderer* renderer,
+					FLOAT originX,
+					FLOAT originY,
+					BOOL isSideways,
+					BOOL isRightToLeft,
+					_In_opt_ IUnknown* clientDrawingEffect
+					)override
+				{
+					IGuiGraphicsRenderer* graphicsRenderer=element->GetRenderer();
+					if(graphicsRenderer)
+					{
+						Rect bounds(Point((int)originX, (int)originY), properties.size);
+						graphicsRenderer->Render(bounds);
+					}
+					return S_OK;
+				}
+
+				STDMETHOD(GetMetrics)(
+					_Out_ DWRITE_INLINE_OBJECT_METRICS* metrics
+					)override
+				{
+					metrics->width=(FLOAT)properties.size.x;
+					metrics->height=(FLOAT)properties.size.y;
+					metrics->baseline=(FLOAT)(properties.baseline==-1?properties.size.y:properties.baseline);
+					metrics->supportsSideways=TRUE;
+					return S_OK;
+				}
+
+				STDMETHOD(GetOverhangMetrics)(
+					_Out_ DWRITE_OVERHANG_METRICS* overhangs
+					)override
+				{
+					overhangs->left=0;
+					overhangs->right=0;
+					overhangs->top=0;
+					overhangs->bottom=0;
+					return S_OK;
+				}
+
+				STDMETHOD(GetBreakConditions)(
+					_Out_ DWRITE_BREAK_CONDITION* breakConditionBefore,
+					_Out_ DWRITE_BREAK_CONDITION* breakConditionAfter
+					)override
+				{
+					switch(properties.breakCondition)
+					{
+					case IGuiGraphicsParagraph::StickToPreviousRun:
+						*breakConditionBefore=DWRITE_BREAK_CONDITION_MAY_NOT_BREAK;
+						*breakConditionAfter=DWRITE_BREAK_CONDITION_CAN_BREAK;
+						break;
+					case IGuiGraphicsParagraph::StickToNextRun:
+						*breakConditionBefore=DWRITE_BREAK_CONDITION_CAN_BREAK;
+						*breakConditionAfter=DWRITE_BREAK_CONDITION_MAY_NOT_BREAK;
+						break;
+					default:
+						*breakConditionBefore=DWRITE_BREAK_CONDITION_CAN_BREAK;
+						*breakConditionAfter=DWRITE_BREAK_CONDITION_CAN_BREAK;
+					}
+					return S_OK;
+				}
+			};
+
+/***********************************************************************
+WindowsDirect2DParagraph
+***********************************************************************/
+
+			class WindowsDirect2DParagraph : public Object, public IGuiGraphicsParagraph
+			{
+				typedef Dictionary<IGuiGraphicsElement*, ComPtr<WindowsDirect2DElementInlineObject>>		InlineElementMap;
+			protected:
+				IGuiGraphicsLayoutProvider*			provider;
+				ID2D1SolidColorBrush*				defaultTextColor;
+				IDWriteFactory*						dwriteFactory;
+				IWindowsDirect2DRenderTarget*		renderTarget;
+				ComPtr<IDWriteTextLayout>			textLayout;
+				bool								wrapLine;
+				int									maxWidth;
+				List<Color>							usedColors;
+				InlineElementMap					inlineElements;
+
+			public:
+				WindowsDirect2DParagraph(IGuiGraphicsLayoutProvider* _provider, const WString& _text, IGuiGraphicsRenderTarget* _renderTarget)
+					:provider(_provider)
+					,dwriteFactory(GetWindowsDirect2DObjectProvider()->GetDirectWriteFactory())
+					,renderTarget(dynamic_cast<IWindowsDirect2DRenderTarget*>(_renderTarget))
+					,textLayout(0)
+					,wrapLine(true)
+					,maxWidth(-1)
+				{
+					FontProperties defaultFont=GetCurrentController()->ResourceService()->GetDefaultFont();
+					Direct2DTextFormatPackage* package=GetWindowsDirect2DResourceManager()->CreateDirect2DTextFormat(defaultFont);
+					defaultTextColor=renderTarget->CreateDirect2DBrush(Color(0, 0, 0));
+					usedColors.Add(Color(0, 0, 0));
+
+					IDWriteTextLayout* rawTextLayout=0;
+					HRESULT hr=dwriteFactory->CreateTextLayout(
+						_text.Buffer(),
+						_text.Length(),
+						package->textFormat.Obj(),
+						0,
+						0,
+						&rawTextLayout);
+					if(!FAILED(hr))
+					{
+						textLayout=rawTextLayout;
+						textLayout->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+					}
+
+					GetWindowsDirect2DResourceManager()->DestroyDirect2DTextFormat(defaultFont);
+				}
+
+				~WindowsDirect2DParagraph()
+				{
+					FOREACH(Color, color, usedColors.Wrap())
+					{
+						renderTarget->DestroyDirect2DBrush(color);
+					}
+				}
+
+				IGuiGraphicsLayoutProvider* GetProvider()override
+				{
+					return provider;
+				}
+
+				IGuiGraphicsRenderTarget* GetRenderTarget()override
+				{
+					return renderTarget;
+				}
+
+				bool GetWrapLine()override
+				{
+					return wrapLine;
+				}
+
+				void SetWrapLine(bool value)override
+				{
+					if(wrapLine!=value)
+					{
+						wrapLine=value;
+						textLayout->SetWordWrapping(value?DWRITE_WORD_WRAPPING_WRAP:DWRITE_WORD_WRAPPING_NO_WRAP);
+					}
+				}
+
+				int GetMaxWidth()override
+				{
+					return maxWidth;
+				}
+
+				void SetMaxWidth(int value)override
+				{
+					if(maxWidth!=value)
+					{
+						maxWidth=value;
+						textLayout->SetMaxWidth(value==-1?65536:(FLOAT)value);
+					}
+				}
+
+				bool SetFont(int start, int length, const WString& value)override
+				{
+					if(length==0) return true;
+					DWRITE_TEXT_RANGE range;
+					range.startPosition=start;
+					range.length=length;
+					HRESULT hr=textLayout->SetFontFamilyName(value.Buffer(), range);
+					return !FAILED(hr);
+				}
+
+				bool SetSize(int start, int length, int value)override
+				{
+					if(length==0) return true;
+					DWRITE_TEXT_RANGE range;
+					range.startPosition=start;
+					range.length=length;
+					HRESULT hr=textLayout->SetFontSize((FLOAT)value, range);
+					return !FAILED(hr);
+				}
+
+				bool SetStyle(int start, int length, TextStyle value)override
+				{
+					if(length==0) return true;
+					DWRITE_TEXT_RANGE range;
+					range.startPosition=start;
+					range.length=length;
+					HRESULT hr=S_OK;
+
+					hr=textLayout->SetFontStyle(value&Italic?DWRITE_FONT_STYLE_ITALIC:DWRITE_FONT_STYLE_NORMAL, range);
+					if(FAILED(hr)) return false;
+					hr=textLayout->SetFontWeight(value&Bold?DWRITE_FONT_WEIGHT_BOLD:DWRITE_FONT_WEIGHT_NORMAL, range);
+					if(FAILED(hr)) return false;
+					hr=textLayout->SetUnderline(value&Underline?TRUE:FALSE, range);
+					if(FAILED(hr)) return false;
+					hr=textLayout->SetStrikethrough(value&Strikeline?TRUE:FALSE, range);
+					if(FAILED(hr)) return false;
+
+					return true;
+				}
+
+				bool SetColor(int start, int length, Color value)override
+				{
+					if(length==0) return true;
+					ID2D1SolidColorBrush* brush=renderTarget->CreateDirect2DBrush(value);
+					usedColors.Add(value);
+
+					DWRITE_TEXT_RANGE range;
+					range.startPosition=start;
+					range.length=length;
+					HRESULT hr=textLayout->SetDrawingEffect(brush, range);
+					return !FAILED(hr);
+				}
+
+				bool SetInlineObject(int start, int length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)override
+				{
+					if(inlineElements.Keys().Contains(value.Obj()))
+					{
+						return false;
+					}
+					for(int i=0;i<inlineElements.Count();i++)
+					{
+						ComPtr<WindowsDirect2DElementInlineObject> inlineObject=inlineElements.Values()[i];
+						if(start<inlineObject->GetStart()+inlineObject->GetLength() && inlineObject->GetStart()<start+length)
+						{
+							return false;
+						}
+					}
+					ComPtr<WindowsDirect2DElementInlineObject> inlineObject=new WindowsDirect2DElementInlineObject(properties, value, start, length);
+					DWRITE_TEXT_RANGE range;
+					range.startPosition=start;
+					range.length=length;
+					HRESULT hr=textLayout->SetInlineObject(inlineObject.Obj(), range);
+					if(!FAILED(hr))
+					{
+						IGuiGraphicsRenderer* renderer=value->GetRenderer();
+						if(renderer)
+						{
+							renderer->SetRenderTarget(renderTarget);
+						}
+						inlineElements.Add(value.Obj(), inlineObject);
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool ResetInlineObject(int start, int length)override
+				{
+					for(int i=0;i<inlineElements.Count();i++)
+					{
+						IGuiGraphicsElement* element=inlineElements.Keys()[i];
+						ComPtr<WindowsDirect2DElementInlineObject> inlineObject=inlineElements.Values()[i];
+						if(inlineObject->GetStart()==start && inlineObject->GetLength()==length)
+						{
+							DWRITE_TEXT_RANGE range;
+							range.startPosition=start;
+							range.length=length;
+							HRESULT hr=textLayout->SetInlineObject(NULL, range);
+							if(!FAILED(hr))
+							{
+								inlineElements.Remove(element);
+								return true;
+							}
+							else
+							{
+								return false;
+							}
+						}
+					}
+					return false;
+				}
+
+				int GetHeight()override
+				{
+					DWRITE_TEXT_METRICS metrics;
+					textLayout->GetMetrics(&metrics);
+					return (int)metrics.height;
+				}
+
+				void Render(Rect bounds)override
+				{
+					renderTarget->GetDirect2DRenderTarget()->DrawTextLayout(
+						D2D1::Point2F((FLOAT)bounds.Left(), (FLOAT)bounds.Top()),
+						textLayout.Obj(),
+						defaultTextColor,
+						D2D1_DRAW_TEXT_OPTIONS_NO_SNAP);
+				}
+			};
+
+/***********************************************************************
+WindowsDirect2DLayoutProvider
+***********************************************************************/
+
+			Ptr<IGuiGraphicsParagraph> WindowsDirect2DLayoutProvider::CreateParagraph(const WString& text, IGuiGraphicsRenderTarget* renderTarget)
+			{
+				return new WindowsDirect2DParagraph(this, text, renderTarget);
 			}
 		}
 	}
@@ -24871,6 +25794,13 @@ GuiSolidLabelElementRenderer
 							textRange.length=oldText.Length();
 							textLayout->SetUnderline(TRUE, textRange);
 						}
+						if(oldFont.strikeline)
+						{
+							DWRITE_TEXT_RANGE textRange;
+							textRange.startPosition=0;
+							textRange.length=oldText.Length();
+							textLayout->SetStrikethrough(TRUE, textRange);
+						}
 					}
 					else
 					{
@@ -24890,22 +25820,57 @@ GuiSolidLabelElementRenderer
 
 			void GuiSolidLabelElementRenderer::UpdateMinSize()
 			{
+				float maxWidth=0;
 				DestroyTextLayout();
-				if(renderTarget && !element->GetMultiline() && !element->GetWrapLine())
+				bool calculateSizeFromTextLayout=false;
+				if(renderTarget)
 				{
-					CreateTextLayout();
-					if(textLayout)
+					if(element->GetWrapLine())
 					{
-						DWRITE_TEXT_METRICS metrics;
-						HRESULT hr=textLayout->GetMetrics(&metrics);
-						if(!FAILED(hr))
+						if(element->GetWrapLineHeightCalculation())
 						{
-							minSize=Size((element->GetEllipse()?0:(int)ceil(metrics.widthIncludingTrailingWhitespace)), (int)ceil(metrics.height));
+							CreateTextLayout();
+							if(textLayout)
+							{
+								maxWidth=textLayout->GetMaxWidth();
+								if(oldMaxWidth!=-1)
+								{
+									textLayout->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+									textLayout->SetMaxWidth((float)oldMaxWidth);
+								}
+								calculateSizeFromTextLayout=true;
+							}
 						}
-						return;
+					}
+					else
+					{
+						CreateTextLayout();
+						if(textLayout)
+						{
+							maxWidth=textLayout->GetMaxWidth();
+							calculateSizeFromTextLayout=true;
+						}
 					}
 				}
-				minSize=Size();
+				if(calculateSizeFromTextLayout)
+				{
+					DWRITE_TEXT_METRICS metrics;
+					HRESULT hr=textLayout->GetMetrics(&metrics);
+					if(!FAILED(hr))
+					{
+						int width=0;
+						if(!element->GetEllipse() && !element->GetWrapLine() && !element->GetMultiline())
+						{
+							width=(int)ceil(metrics.widthIncludingTrailingWhitespace);
+						}
+						minSize=Size(width, (int)ceil(metrics.height));
+					}
+					textLayout->SetMaxWidth(maxWidth);
+				}
+				else
+				{
+					minSize=Size();
+				}
 			}
 
 			void GuiSolidLabelElementRenderer::InitializeInternal()
@@ -24933,6 +25898,7 @@ GuiSolidLabelElementRenderer
 				,textFormat(0)
 				,textLayout(0)
 				,oldText(L"")
+				,oldMaxWidth(-1)
 			{
 			}
 
@@ -25040,13 +26006,16 @@ GuiSolidLabelElementRenderer
 						);
 
 					textLayout->SetTrimming(&trimming, inlineObject);
+					if(oldMaxWidth!=textBounds.Width())
+					{
+						oldMaxWidth=textBounds.Width();
+						UpdateMinSize();
+					}
 				}
 			}
 
 			void GuiSolidLabelElementRenderer::OnElementStateChanged()
 			{
-				bool fontChanged=false;
-				bool textChanged=false;
 				if(renderTarget)
 				{
 					Color color=element->GetColor();
@@ -25061,23 +26030,10 @@ GuiSolidLabelElementRenderer
 					{
 						DestroyTextFormat(renderTarget);
 						CreateTextFormat(renderTarget);
-						fontChanged=true;
 					}
 				}
-
-				if(oldText!=element->GetText())
-				{
-					oldText=element->GetText();
-					if(oldText==L"")
-					{
-						oldText=L"";
-					}
-					textChanged=true;
-				}
-				if(fontChanged || textChanged)
-				{
-					UpdateMinSize();
-				}
+				oldText=element->GetText();
+				UpdateMinSize();
 			}
 
 /***********************************************************************
@@ -25471,6 +26427,7 @@ GuiColorizedTextElementRenderer
 				if(renderTarget)
 				{
 					ID2D1RenderTarget* d2dRenderTarget=renderTarget->GetDirect2DRenderTarget();
+					wchar_t passwordChar=element->GetPasswordChar();
 					Point viewPosition=element->GetViewPosition();
 					Rect viewBounds(viewPosition, bounds.GetSize());
 					int startRow=element->GetLines().GetTextPosFromPoint(Point(viewBounds.x1, viewBounds.y1)).row;
@@ -25531,7 +26488,7 @@ GuiColorizedTextElementRenderer
 							if(!crlf)
 							{
 								d2dRenderTarget->DrawText(
-									&line.text[column],
+									(passwordChar?&passwordChar:&line.text[column]),
 									1,
 									textFormat->textFormat.Obj(),
 									D2D1::RectF((FLOAT)tx, (FLOAT)ty, (FLOAT)tx+1, (FLOAT)ty+1),
@@ -25576,6 +26533,63 @@ GuiColorizedTextElementRenderer
 					}
 				}
 			}
+
+/***********************************************************************
+GuiDirect2DElementRenderer
+***********************************************************************/
+
+			void GuiDirect2DElementRenderer::InitializeInternal()
+			{
+			}
+
+			void GuiDirect2DElementRenderer::FinalizeInternal()
+			{
+			}
+
+			void GuiDirect2DElementRenderer::RenderTargetChangedInternal(IWindowsDirect2DRenderTarget* oldRenderTarget, IWindowsDirect2DRenderTarget* newRenderTarget)
+			{
+				IDWriteFactory* fdw=GetWindowsDirect2DObjectProvider()->GetDirectWriteFactory();
+				ID2D1Factory* fd2d=GetWindowsDirect2DObjectProvider()->GetDirect2DFactory();
+				if(oldRenderTarget)
+				{
+					GuiDirect2DElementEventArgs arguments(element, oldRenderTarget->GetDirect2DRenderTarget(), fdw, fd2d, Rect());
+					element->BeforeRenderTargetChanged.Execute(arguments);
+				}
+				if(newRenderTarget)
+				{
+					GuiDirect2DElementEventArgs arguments(element, newRenderTarget->GetDirect2DRenderTarget(), fdw, fd2d, Rect());
+					element->AfterRenderTargetChanged.Execute(arguments);
+				}
+			}
+
+			GuiDirect2DElementRenderer::GuiDirect2DElementRenderer()
+			{
+			}
+
+			GuiDirect2DElementRenderer::~GuiDirect2DElementRenderer()
+			{
+			}
+			
+			void GuiDirect2DElementRenderer::Render(Rect bounds)
+			{
+				if(renderTarget)
+				{
+					IDWriteFactory* fdw=GetWindowsDirect2DObjectProvider()->GetDirectWriteFactory();
+					ID2D1Factory* fd2d=GetWindowsDirect2DObjectProvider()->GetDirect2DFactory();
+					renderTarget->PushClipper(bounds);
+					if(!renderTarget->IsClipperCoverWholeTarget())
+					{
+						ID2D1RenderTarget* rt=renderTarget->GetDirect2DRenderTarget();
+						GuiDirect2DElementEventArgs arguments(element, rt, fdw, fd2d, bounds);
+						element->Rendering.Execute(arguments);
+					}
+					renderTarget->PopClipper();
+				}
+			}
+
+			void GuiDirect2DElementRenderer::OnElementStateChanged()
+			{
+			}
 		}
 	}
 }
@@ -25588,6 +26602,22 @@ namespace vl
 {
 	namespace presentation
 	{
+		namespace elements
+		{
+
+/***********************************************************************
+GuiDirect2DElement
+***********************************************************************/
+
+			GuiDirect2DElement::GuiDirect2DElement()
+			{
+			}
+
+			GuiDirect2DElement::~GuiDirect2DElement()
+			{
+			}
+		}
+
 		namespace elements_windows_d2d
 		{
 			using namespace elements;
@@ -25790,7 +26820,7 @@ CachedResourceAllocator
 			};
 
 /***********************************************************************
-WindiwsGDIRenderTarget
+WindowsDirect2DRenderTarget
 ***********************************************************************/
 
 			class WindowsDirect2DImageFrameCache : public Object, public INativeImageFrameCache
@@ -26118,13 +27148,24 @@ WindowsGDIResourceManager
 			{
 			protected:
 				SortedList<Ptr<WindowsDirect2DRenderTarget>>		renderTargets;
+				Ptr<WindowsDirect2DLayoutProvider>					layoutProvider;
 
 				CachedTextFormatAllocator							textFormats;
 				CachedCharMeasurerAllocator							charMeasurers;
 			public:
-				IGuiGraphicsRenderTarget* GetRenderTarget(INativeWindow* window)
+				WindowsDirect2DResourceManager()
+				{
+					layoutProvider=new WindowsDirect2DLayoutProvider;
+				}
+
+				IGuiGraphicsRenderTarget* GetRenderTarget(INativeWindow* window)override
 				{
 					return GetWindowsDirect2DObjectProvider()->GetBindedRenderTarget(window);
+				}
+
+				IGuiGraphicsLayoutProvider* GetLayoutProvider()override
+				{
+					return layoutProvider.Obj();
 				}
 
 				void NativeWindowCreated(INativeWindow* window)override
@@ -26220,10 +27261,1376 @@ void RendererMainDirect2D()
 	elements_windows_d2d::GuiImageFrameElementRenderer::Register();
 	elements_windows_d2d::GuiPolygonElementRenderer::Register();
 	elements_windows_d2d::GuiColorizedTextElementRenderer::Register();
+	elements_windows_d2d::GuiDirect2DElementRenderer::Register();
+	elements::GuiDocumentElement::GuiDocumentElementRenderer::Register();
 
 	GuiApplicationMain();
 	elements_windows_d2d::SetWindowsDirect2DResourceManager(0);
 	SetGuiGraphicsResourceManager(0);
+}
+
+/***********************************************************************
+GraphicsElement\WindowsGDI\GuiGraphicsLayoutProviderWindowsGDI.cpp
+***********************************************************************/
+#include <usp10.h>
+
+#pragma comment(lib, "usp10.lib")
+
+bool operator==(const SCRIPT_ITEM&, const SCRIPT_ITEM&){return false;}
+bool operator!=(const SCRIPT_ITEM&, const SCRIPT_ITEM&){return false;}
+
+bool operator==(const SCRIPT_VISATTR&, const SCRIPT_VISATTR&){return false;}
+bool operator!=(const SCRIPT_VISATTR&, const SCRIPT_VISATTR&){return false;}
+
+bool operator==(const GOFFSET&, const GOFFSET&){return false;}
+bool operator!=(const GOFFSET&, const GOFFSET&){return false;}
+
+bool operator==(const SCRIPT_LOGATTR&, const SCRIPT_LOGATTR&){return false;}
+bool operator!=(const SCRIPT_LOGATTR&, const SCRIPT_LOGATTR&){return false;}
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace elements;
+		using namespace collections;
+		using namespace windows;
+		using namespace regex;
+
+		namespace elements_windows_gdi
+		{
+
+/***********************************************************************
+Uniscribe Operations (UniscribeFragment)
+***********************************************************************/
+
+			struct UniscribeFragment
+			{
+				FontProperties									fontStyle;
+				Color											fontColor;
+				WString											text;
+				Ptr<WinFont>									fontObject;
+
+				Ptr<IGuiGraphicsElement>						element;
+				IGuiGraphicsParagraph::InlineObjectProperties	inlineObjectProperties;
+				List<Ptr<UniscribeFragment>>					cachedTextFragment;
+
+				WString GetFingerprint()
+				{
+					return fontStyle.fontFamily+L"#"
+						+itow(fontStyle.size)+L"#"
+						+(fontStyle.bold?L"B":L"N")+L"#"
+						+(fontStyle.italic?L"I":L"N")+L"#"
+						+(fontStyle.underline?L"U":L"N")+L"#"
+						+(fontStyle.strikeline?L"S":L"N")+L"#"
+						;
+				}
+
+				Ptr<UniscribeFragment> Copy()
+				{
+					Ptr<UniscribeFragment> fragment=new UniscribeFragment;
+					fragment->fontStyle=fontStyle;
+					fragment->fontColor=fontColor;
+					fragment->text=text;
+					fragment->fontObject=fontObject;
+					return fragment;
+				}
+			};
+
+/***********************************************************************
+Uniscribe Operations (UniscribeGlyphData)
+***********************************************************************/
+
+			struct UniscribeGlyphData
+			{
+				Array<WORD>					glyphs;
+				Array<SCRIPT_VISATTR>		glyphVisattrs;
+				Array<int>					glyphAdvances;
+				Array<GOFFSET>				glyphOffsets;
+				Array<WORD>					charCluster;
+				ABC							runAbc;
+				SCRIPT_ANALYSIS				sa;
+
+				UniscribeGlyphData()
+				{
+					ClearUniscribeData(0, 0);
+				}
+
+				void ClearUniscribeData(int glyphCount, int length)
+				{
+					glyphs.Resize(glyphCount);
+					glyphVisattrs.Resize(glyphCount);
+					glyphAdvances.Resize(glyphCount);
+					glyphOffsets.Resize(glyphCount);
+					charCluster.Resize(length);
+					memset(&runAbc, 0, sizeof(runAbc));
+					memset(&sa, 0, sizeof(sa));
+				}
+			
+				bool BuildUniscribeData(WinDC* dc, SCRIPT_ITEM* scriptItem, SCRIPT_CACHE& scriptCache, const wchar_t* runText, int length)
+				{
+					int glyphCount=glyphs.Count();
+					bool resizeGlyphData=false;
+					if(glyphCount==0)
+					{
+						glyphCount=(int)(1.5*length+16);
+						resizeGlyphData=true;
+					}
+					sa=scriptItem->a;
+					{
+						// generate shape information
+						WinDC* dcParameter=0;
+						if(resizeGlyphData)
+						{
+							glyphs.Resize(glyphCount);
+							glyphVisattrs.Resize(glyphCount);
+							charCluster.Resize(length);
+						}
+
+						while(true)
+						{
+							int availableGlyphCount=0;
+							HRESULT hr=ScriptShape(
+								(dcParameter?dcParameter->GetHandle():NULL),
+								&scriptCache,
+								runText,
+								length,
+								glyphCount,
+								&sa,
+								&glyphs[0],
+								&charCluster[0],
+								&glyphVisattrs[0],
+								&availableGlyphCount
+								);
+							if(hr==0)
+							{
+								glyphCount=availableGlyphCount;
+								break;
+							}
+							else if(hr==E_PENDING)
+							{
+								dcParameter=dc;
+							}
+							else if(hr==E_OUTOFMEMORY)
+							{
+								if(resizeGlyphData)
+								{
+									glyphCount+=length;
+								}
+								else
+								{
+									goto BUILD_UNISCRIBE_DATA_FAILED;
+								}
+							}
+							else if(hr==USP_E_SCRIPT_NOT_IN_FONT)
+							{
+								if(sa.eScript==SCRIPT_UNDEFINED)
+								{
+									goto BUILD_UNISCRIBE_DATA_FAILED;
+								}
+								else
+								{
+									sa.eScript=SCRIPT_UNDEFINED;
+								}
+							}
+							else
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+						}
+						if(resizeGlyphData)
+						{
+							glyphs.Resize(glyphCount);
+							glyphVisattrs.Resize(glyphCount);
+						}
+					}
+					{
+						// generate place information
+						WinDC* dcParameter=0;
+						if(resizeGlyphData)
+						{
+							glyphAdvances.Resize(glyphCount);
+							glyphOffsets.Resize(glyphCount);
+						}
+						while(true)
+						{
+							HRESULT hr=ScriptPlace(
+								(dcParameter?dcParameter->GetHandle():NULL),
+								&scriptCache,
+								&glyphs[0],
+								glyphCount,
+								&glyphVisattrs[0],
+								&sa,
+								&glyphAdvances[0],
+								&glyphOffsets[0],
+								&runAbc
+								);
+							if(hr==0)
+							{
+								break;
+							}
+							else if(hr==E_PENDING)
+							{
+								dcParameter=dc;
+							}
+							else
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+						}
+					}
+
+					return true;
+		BUILD_UNISCRIBE_DATA_FAILED:
+					return false;
+				}
+			};
+
+/***********************************************************************
+Uniscribe Operations (UniscribeRun)
+***********************************************************************/
+
+			class UniscribeRun : public Object
+			{
+			public:
+				struct RunFragmentBounds
+				{
+					int							start;
+					int							length;
+					Rect						bounds;
+
+					bool operator==(const RunFragmentBounds&){return false;}
+					bool operator!=(const RunFragmentBounds&){return false;}
+				};
+
+				UniscribeFragment*				documentFragment;
+				SCRIPT_ITEM*					scriptItem;
+				int								start;
+				int								length;
+				const wchar_t*					runText;
+				List<RunFragmentBounds>			fragmentBounds;
+
+				UniscribeRun()
+					:documentFragment(0)
+					,scriptItem(0)
+					,start(0)
+					,length(0)
+				{
+				}
+
+				~UniscribeRun()
+				{
+				}
+
+				virtual bool					BuildUniscribeData(WinDC* dc)=0;
+				virtual int						SumWidth(int charStart, int charLength)=0;
+				virtual int						SumHeight()=0;
+				virtual void					SearchForLineBreak(int tempStart, int maxWidth, bool firstRun, int& charLength, int& charAdvances)=0;
+				virtual void					Render(WinDC* dc, int fragmentBoundsIndex, int offsetX, int offsetY)=0;
+			};
+
+/***********************************************************************
+Uniscribe Operations (UniscribeTextRun)
+***********************************************************************/
+
+			class UniscribeTextRun : public UniscribeRun
+			{
+			public:
+				SCRIPT_CACHE					scriptCache;
+				Array<SCRIPT_LOGATTR>			charLogattrs;
+				int								advance;
+				UniscribeGlyphData				wholeGlyph;
+
+				UniscribeTextRun()
+					:scriptCache(0)
+					,advance(0)
+				{
+				}
+
+				~UniscribeTextRun()
+				{
+					ClearUniscribeData();
+				}
+
+				void ClearUniscribeData()
+				{
+					if(scriptCache)
+					{
+						ScriptFreeCache(&scriptCache);
+						scriptCache=0;
+					}
+					charLogattrs.Resize(0);
+					advance=0;
+					wholeGlyph.ClearUniscribeData(0, 0);
+				}
+
+				void SearchGlyphCluster(int charStart, int charLength, int& cluster, int& nextCluster)
+				{
+					cluster=wholeGlyph.charCluster[charStart];
+					nextCluster
+						=charStart+charLength==length
+						?wholeGlyph.glyphs.Count()
+						:wholeGlyph.charCluster[charStart+charLength];
+				}
+
+				bool BuildUniscribeData(WinDC* dc)override
+				{
+					ClearUniscribeData();
+					{
+						// generate break information
+						charLogattrs.Resize(length);
+
+						HRESULT hr=ScriptBreak(
+							runText,
+							length,
+							&scriptItem->a,
+							&charLogattrs[0]
+							);
+						if(hr!=0)
+						{
+							goto BUILD_UNISCRIBE_DATA_FAILED;
+						}
+					}
+
+					dc->SetFont(documentFragment->fontObject);
+					if(!wholeGlyph.BuildUniscribeData(dc, scriptItem, scriptCache, runText, length))
+					{
+						goto BUILD_UNISCRIBE_DATA_FAILED;
+					}
+					advance=wholeGlyph.runAbc.abcA+wholeGlyph.runAbc.abcB+wholeGlyph.runAbc.abcC;
+
+					return true;
+		BUILD_UNISCRIBE_DATA_FAILED:
+					ClearUniscribeData();
+					return false;
+				}
+
+				int SumWidth(int charStart, int charLength)override
+				{
+					int cluster=0;
+					int nextCluster=0;
+					SearchGlyphCluster(charStart, charLength, cluster, nextCluster);
+					int width=0;
+					for(int i=cluster;i<nextCluster;i++)
+					{
+						width+=wholeGlyph.glyphAdvances[i];
+					}
+					return width;
+				}
+
+				int SumHeight()override
+				{
+					return documentFragment->fontStyle.size;
+				}
+
+				void SearchForLineBreak(int tempStart, int maxWidth, bool firstRun, int& charLength, int& charAdvances)override
+				{
+					int width=0;
+					charLength=0;
+					charAdvances=0;
+					for(int i=tempStart;i<=length;)
+					{
+						if(i==length || charLogattrs[i].fSoftBreak==TRUE)
+						{
+							if(width<=maxWidth || (firstRun && charLength==0))
+							{
+								charLength=i-tempStart;
+								charAdvances=width;
+							}
+							else
+							{
+								return;
+							}
+						}
+						if(i==length) break;
+
+						int cluster=wholeGlyph.charCluster[i];
+						int clusterLength=1;
+						while(i+clusterLength<length)
+						{
+							if(wholeGlyph.charCluster[i+clusterLength]==cluster)
+							{
+								clusterLength++;
+							}
+							else
+							{
+								break;
+							}
+						}
+
+						int nextCluster
+							=i+clusterLength==length
+							?wholeGlyph.glyphs.Count()
+							:wholeGlyph.charCluster[i+clusterLength];
+						for(int j=cluster;j<nextCluster;j++)
+						{
+							width+=wholeGlyph.glyphAdvances[j];
+						}
+						i+=clusterLength;
+					}
+				}
+
+				void Render(WinDC* dc, int fragmentBoundsIndex, int offsetX, int offsetY)override
+				{
+					Color fontColor=documentFragment->fontColor;
+					dc->SetFont(documentFragment->fontObject);
+					dc->SetTextColor(RGB(fontColor.r, fontColor.g, fontColor.b));
+
+					RunFragmentBounds fragment=fragmentBounds[fragmentBoundsIndex];
+					RECT rect;
+					rect.left=fragment.bounds.Left()+offsetX;
+					rect.top=fragment.bounds.Top()+offsetY;
+					rect.right=fragment.bounds.Right()+offsetX;
+					rect.bottom=fragment.bounds.Bottom()+offsetY;
+			
+					int cluster=0;
+					int nextCluster=0;
+					SearchGlyphCluster(fragment.start, fragment.length, cluster, nextCluster);
+
+					HRESULT hr=ScriptTextOut(
+						dc->GetHandle(),
+						&scriptCache,
+						rect.left,
+						rect.top,
+						0,
+						&rect,
+						&wholeGlyph.sa,
+						NULL,
+						0,
+						&wholeGlyph.glyphs[cluster],
+						nextCluster-cluster,
+						&wholeGlyph.glyphAdvances[cluster],
+						NULL,
+						&wholeGlyph.glyphOffsets[cluster]
+						);
+				}
+			};
+
+/***********************************************************************
+Uniscribe Operations (UniscribeElementRun)
+***********************************************************************/
+
+			class UniscribeElementRun : public UniscribeRun
+			{
+			public:
+				Ptr<IGuiGraphicsElement>						element;
+				IGuiGraphicsParagraph::InlineObjectProperties	properties;
+
+				UniscribeElementRun()
+				{
+				}
+
+				~UniscribeElementRun()
+				{
+				}
+
+				bool BuildUniscribeData(WinDC* dc)override
+				{
+					return true;
+				}
+
+				int SumWidth(int charStart, int charLength)override
+				{
+					return properties.size.x;
+				}
+
+				int SumHeight()override
+				{
+					return properties.size.y;
+				}
+
+				void SearchForLineBreak(int tempStart, int maxWidth, bool firstRun, int& charLength, int& charAdvances)override
+				{
+					charLength=length-tempStart;
+					charAdvances=properties.size.x;
+				}
+
+				void Render(WinDC* dc, int fragmentBoundsIndex, int offsetX, int offsetY)override
+				{
+					Rect bounds=fragmentBounds[fragmentBoundsIndex].bounds;
+					bounds.x1+=offsetX;
+					bounds.x2+=offsetX;
+					bounds.y1+=offsetY;
+					bounds.y2+=offsetY;
+					IGuiGraphicsRenderer* renderer=element->GetRenderer();
+					if(renderer)
+					{
+						renderer->Render(bounds);
+					}
+				}
+			};
+
+/***********************************************************************
+Uniscribe Operations (UniscribeLine)
+***********************************************************************/
+
+			class UniscribeLine : public Object
+			{
+			public:
+				List<Ptr<UniscribeFragment>>	documentFragments;
+
+				WString							lineText;
+				Array<SCRIPT_ITEM>				scriptItems;
+				List<Ptr<UniscribeRun>>			scriptRuns;
+				Array<int>						runVisualToLogical;
+				Array<int>						runLogicalToVisual;
+				Rect							bounds;
+
+				void CLearUniscribeData()
+				{
+					scriptItems.Resize(0);
+					scriptRuns.Clear();
+					runVisualToLogical.Resize(0);
+					runLogicalToVisual.Resize(0);
+				}
+
+				bool BuildUniscribeData(WinDC* dc)
+				{
+					lineText=L"";
+					CLearUniscribeData();
+					int current=0;
+					FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments.Wrap())
+					{
+						lineText+=fragment->text;
+						current+=fragment->text.Length();
+					}
+
+					if(lineText!=L"")
+					{
+						{
+							SCRIPT_DIGITSUBSTITUTE sds={0};
+							ScriptRecordDigitSubstitution(LOCALE_USER_DEFAULT, &sds);
+							SCRIPT_CONTROL sc={0};
+							SCRIPT_STATE ss={0};
+							ScriptApplyDigitSubstitution(&sds, &sc, &ss);
+
+							// itemize a line
+							scriptItems.Resize(lineText.Length()+2);
+							int scriptItemCount=0;
+							HRESULT hr=ScriptItemize(
+								lineText.Buffer(),
+								lineText.Length(),
+								scriptItems.Count()-1,
+								&sc,
+								&ss,
+								&scriptItems[0],
+								&scriptItemCount
+								);
+							if(hr!=0)
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+							scriptItems.Resize(scriptItemCount+1);
+						}
+						{
+							// use item and document fragment information to produce runs
+							// one item is constructed by one or more runs
+							// characters in each run contains the same style
+							int fragmentIndex=0;
+							int fragmentStart=0;
+							for(int i=0;i<scriptItems.Count()-1;i++)
+							{
+								SCRIPT_ITEM* scriptItem=&scriptItems[i];
+								int start=scriptItem[0].iCharPos;
+								int length=scriptItem[1].iCharPos-scriptItem[0].iCharPos;
+								int currentStart=start;
+
+								while(currentStart<start+length)
+								{
+									UniscribeFragment* fragment=0;
+									int itemRemainLength=length-(currentStart-start);
+									int fragmentRemainLength=0;
+									while(true)
+									{
+										fragment=documentFragments[fragmentIndex].Obj();
+										fragmentRemainLength=fragment->text.Length()-(currentStart-fragmentStart);
+										if(fragmentRemainLength<=0)
+										{
+											fragmentStart+=fragment->text.Length();
+											fragmentIndex++;
+										}
+										else
+										{
+											break;
+										}
+									}
+									int shortLength=itemRemainLength<fragmentRemainLength?itemRemainLength:fragmentRemainLength;
+									bool skip=false;
+									{
+										int elementCurrent=0;
+										FOREACH(Ptr<UniscribeFragment>, elementFragment, documentFragments.Wrap())
+										{
+											int elementLength=elementFragment->text.Length();
+											if(elementFragment->element)
+											{
+												if(elementCurrent<=currentStart && currentStart+shortLength<=elementCurrent+elementLength)
+												{
+													if(elementCurrent==currentStart)
+													{
+														Ptr<UniscribeElementRun> run=new UniscribeElementRun;
+														run->documentFragment=fragment;
+														run->scriptItem=scriptItem;
+														run->start=currentStart;
+														run->length=elementLength;
+														run->runText=lineText.Buffer()+currentStart;
+														run->element=elementFragment->element;
+														run->properties=elementFragment->inlineObjectProperties;
+														scriptRuns.Add(run);
+													}
+													skip=true;
+													break;
+												}
+											}
+											elementCurrent+=elementLength;
+										}
+									}
+									if(!skip)
+									{
+										Ptr<UniscribeTextRun> run=new UniscribeTextRun;
+										run->documentFragment=fragment;
+										run->scriptItem=scriptItem;
+										run->start=currentStart;
+										run->length=shortLength;
+										run->runText=lineText.Buffer()+currentStart;
+										scriptRuns.Add(run);
+									}
+									currentStart+=shortLength;
+								}
+							}
+
+							// for each run, generate shape information
+							FOREACH(Ptr<UniscribeRun>, run, scriptRuns.Wrap())
+							{
+								if(!run->BuildUniscribeData(dc))
+								{
+									goto BUILD_UNISCRIBE_DATA_FAILED;
+								}
+							}
+
+							// layout runs if there are RTL text
+							Array<BYTE> levels(scriptRuns.Count());
+							runVisualToLogical.Resize(scriptRuns.Count());
+							runLogicalToVisual.Resize(scriptRuns.Count());
+							for(int i=0;i<scriptRuns.Count();i++)
+							{
+								levels[i]=scriptRuns[i]->scriptItem->a.s.uBidiLevel;
+							}
+							ScriptLayout(levels.Count(), &levels[0], &runVisualToLogical[0], &runLogicalToVisual[0]);
+						}
+					}
+					return true;
+		BUILD_UNISCRIBE_DATA_FAILED:
+					CLearUniscribeData();
+					return false;
+				}
+
+				void Render(WinDC* dc, int offsetX, int offsetY)
+				{
+					FOREACH(Ptr<UniscribeRun>, run, scriptRuns.Wrap())
+					{
+						for(int i=0;i<run->fragmentBounds.Count();i++)
+						{
+							run->Render(dc, i, offsetX, offsetY);
+						}
+					}
+				}
+			};
+
+/***********************************************************************
+Uniscribe Operations (UniscribeParagraph)
+***********************************************************************/
+
+			class UniscribeParagraph : public Object
+			{
+			public:
+				List<Ptr<UniscribeFragment>>	documentFragments;
+				bool							built;
+
+				List<Ptr<UniscribeLine>>		lines;
+				int								lastAvailableWidth;
+				Rect							bounds;
+
+				UniscribeParagraph()
+					:lastAvailableWidth(-1)
+					,built(false)
+				{
+				}
+
+				~UniscribeParagraph()
+				{
+					ClearUniscribeData();
+				}
+
+				void ClearUniscribeData()
+				{
+					FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments.Wrap())
+					{
+						GetWindowsGDIResourceManager()->DestroyGdiFont(fragment->fontStyle);
+						fragment->fontObject=0;
+					}
+					lines.Clear();
+					lastAvailableWidth=-1;
+				}
+
+				void BuildUniscribeData(WinDC* dc)
+				{
+					if(!built)
+					{
+						built=true;
+						ClearUniscribeData();
+						Dictionary<WString, Ptr<WinFont>> fonts;
+						FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments.Wrap())
+						{
+							if(!fragment->fontObject)
+							{
+								WString fragmentFingerPrint=fragment->GetFingerprint();
+								int index=fonts.Keys().IndexOf(fragmentFingerPrint);
+								if(index==-1)
+								{
+									fragment->fontObject=GetWindowsGDIResourceManager()->CreateGdiFont(fragment->fontStyle);
+									fonts.Add(fragmentFingerPrint, fragment->fontObject);
+								}
+								else
+								{
+									fragment->fontObject=fonts.Values()[index];
+								}
+							}
+						}
+						{
+							Regex regexLine(L"\r\n");
+							Ptr<UniscribeLine> line;
+							FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments.Wrap())
+							{
+								if(fragment->element)
+								{
+									if(!line)
+									{
+										line=new UniscribeLine;
+										lines.Add(line);
+									}
+									line->documentFragments.Add(fragment);
+								}
+								else
+								{
+									RegexMatch::List textLines;
+									regexLine.Split(fragment->text, true, textLines);
+
+									for(int i=0;i<textLines.Count();i++)
+									{
+										WString text=textLines[i]->Result().Value();
+										if(i>0)
+										{
+											line=0;
+										}
+										if(!line)
+										{
+											line=new UniscribeLine;
+											lines.Add(line);
+										}
+
+										if(textLines.Count()==1)
+										{
+											line->documentFragments.Add(fragment);
+										}
+										else
+										{
+											Ptr<UniscribeFragment> runFragment=fragment->Copy();
+											runFragment->text=text;
+											line->documentFragments.Add(runFragment);
+										}
+									}
+								}
+							}
+						}
+
+						FOREACH(Ptr<UniscribeLine>, line, lines.Wrap())
+						{
+							line->BuildUniscribeData(dc);
+						}
+					}
+				}
+
+				void Layout(int availableWidth)
+				{
+					if(lastAvailableWidth==availableWidth)
+					{
+						return;
+					}
+					lastAvailableWidth=availableWidth;
+
+					int cx=0;
+					int cy=0;
+					FOREACH(Ptr<UniscribeLine>, line, lines.Wrap())
+					{
+						if(line->scriptRuns.Count()==0)
+						{
+							// if this line doesn't contains any run, skip and render a blank line
+							int height=line->documentFragments[0]->fontStyle.size;
+							line->bounds=Rect(Point(cx, cy), Size(0, height));
+							cy+=height;
+						}
+						else
+						{
+							FOREACH(Ptr<UniscribeRun>, run, line->scriptRuns.Wrap())
+							{
+								run->fragmentBounds.Clear();
+							}
+
+							// render this line into linces with auto line wrapping
+							int startRun=0;
+							int startRunOffset=0;
+							int lastRun=0;
+							int lastRunOffset=0;
+							int currentWidth=0;
+
+							while(startRun<line->scriptRuns.Count())
+							{
+								int currentWidth=0;
+								bool firstRun=true;
+								// search for a range to fit in the given width
+								for(int i=startRun;i<line->scriptRuns.Count();i++)
+								{
+									int charLength=0;
+									int charAdvances=0;
+									UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
+									run->SearchForLineBreak(lastRunOffset, availableWidth-currentWidth, firstRun, charLength, charAdvances);
+									firstRun=false;
+
+									if(charLength==run->length-lastRunOffset)
+									{
+										lastRun=i+1;
+										lastRunOffset=0;
+										currentWidth+=charAdvances;
+									}
+									else
+									{
+										lastRun=i;
+										lastRunOffset=lastRunOffset+charLength;
+										break;
+									}
+								}
+
+								// if the range is empty, than this should be the end of line, ignore it
+								if(startRun<lastRun || (startRun==lastRun && startRunOffset<lastRunOffset))
+								{
+									// calculate the max line height in this range;
+									int maxHeight=0;
+									for(int i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
+									{
+										if(i==lastRun && lastRunOffset==0)
+										{
+											break;
+										}
+										int size=line->scriptRuns[line->runVisualToLogical[i]]->SumHeight();
+										if(maxHeight<size)
+										{
+											maxHeight=size;
+										}
+									}
+
+									// render all runs inside this range
+									for(int i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
+									{
+										UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
+										int start=i==startRun?startRunOffset:0;
+										int end=i==lastRun?lastRunOffset:run->length;
+										int length=end-start;
+
+										UniscribeRun::RunFragmentBounds fragmentBounds;
+										fragmentBounds.start=start;
+										fragmentBounds.length=length;
+										fragmentBounds.bounds=Rect(
+											Point(cx, cy+maxHeight-run->SumHeight()),
+											Size(run->SumWidth(start, length), run->SumHeight())
+											);
+										run->fragmentBounds.Add(fragmentBounds);
+
+										cx+=run->SumWidth(start, length);
+									}
+
+									cx=0;
+									cy+=(int)(maxHeight*1.5);
+								}
+
+								startRun=lastRun;
+								startRunOffset=lastRunOffset;
+							}
+
+							// calculate line bounds
+							int minX=0;
+							int minY=0;
+							int maxX=0;
+							int maxY=0;
+							FOREACH(Ptr<UniscribeRun>, run, line->scriptRuns.Wrap())
+							{
+								FOREACH(UniscribeRun::RunFragmentBounds, fragmentBounds, run->fragmentBounds.Wrap())
+								{
+									Rect bounds=fragmentBounds.bounds;
+									if(minX>bounds.Left()) minX=bounds.Left();
+									if(minY>bounds.Top()) minX=bounds.Top();
+									if(maxX<bounds.Right()) maxX=bounds.Right();
+									if(maxY<bounds.Bottom()) maxY=bounds.Bottom();
+								}
+							}
+							line->bounds=Rect(minX, minY, maxX, maxY);
+						}
+					}
+
+					// calculate paragraph bounds
+					int minX=0;
+					int minY=0;
+					int maxX=0;
+					int maxY=0;
+					FOREACH(Ptr<UniscribeLine>, line, lines.Wrap())
+					{
+						Rect bounds=line->bounds;
+						if(minX>bounds.Left()) minX=bounds.Left();
+						if(minY>bounds.Top()) minX=bounds.Top();
+						if(maxX<bounds.Right()) maxX=bounds.Right();
+						if(maxY<bounds.Bottom()) maxY=bounds.Bottom();
+					}
+					bounds=Rect(minX, minY, maxX, maxY);
+				}
+
+				void Render(WinDC* dc, int offsetX, int offsetY)
+				{
+					FOREACH(Ptr<UniscribeLine>, line, lines.Wrap())
+					{
+						line->Render(dc, offsetX, offsetY);
+					}
+				}
+
+				//-------------------------------------------------------------------------
+
+				void SearchFragment(int start, int length, int& fs, int& ss, int& fe, int& se)
+				{
+					fs=-1;
+					ss=-1;
+					fe=-1;
+					se=-1;
+					int current=0;
+					for(int i=0;i<documentFragments.Count();i++)
+					{
+						int fragmentLength=documentFragments[i]->text.Length();
+						if(current<=start && start<current+fragmentLength)
+						{
+							fs=i;
+							ss=start-current;
+						}
+						if(current<=start+length && start+length<=current+fragmentLength)
+						{
+							fe=i;
+							se=start+length-current;
+						}
+						if(fs!=-1 && fe!=-1)
+						{
+							break;
+						}
+						current+=fragmentLength;
+					}
+				}
+
+				bool CutFragment(int fs, int ss, int fe, int se, int& f1, int& f2)
+				{
+					f1=-1;
+					f2=-1;
+					for(int i=fs;i<=fe;i++)
+					{
+						if(documentFragments[i]->element)
+						{
+							return false;
+						}
+					}
+					if(fs==fe)
+					{
+						Ptr<UniscribeFragment> fragment=documentFragments[fs];
+						int length=fragment->text.Length();
+						if(ss==0)
+						{
+							if(se==length)
+							{
+								f1=f2=fs;
+							}
+							else
+							{
+								f1=f2=fs;
+								Ptr<UniscribeFragment> rightFragment=fragment->Copy();
+
+								fragment->text=fragment->text.Sub(0, se);
+
+								rightFragment->text=rightFragment->text.Sub(se, length-se);
+								documentFragments.Insert(fs+1, rightFragment);
+							}
+						}
+						else
+						{
+							if(se==length)
+							{
+								f1=fs+1;
+								f2=fs+1;
+								Ptr<UniscribeFragment> leftFragment=fragment->Copy();
+
+								leftFragment->text=leftFragment->text.Sub(0, ss);
+								documentFragments.Insert(fs, leftFragment);
+								
+								fragment->text=fragment->text.Sub(ss, length-ss);
+							}
+							else
+							{
+								f1=fs+1;
+								f2=fs+1;
+								Ptr<UniscribeFragment> leftFragment=fragment->Copy();
+								Ptr<UniscribeFragment> rightFragment=fragment->Copy();
+
+								leftFragment->text=leftFragment->text.Sub(0, ss);
+								documentFragments.Insert(fs, leftFragment);
+								
+								fragment->text=fragment->text.Sub(ss, se-ss);
+
+								rightFragment->text=rightFragment->text.Sub(se, length-se);
+								documentFragments.Insert(fs+2, rightFragment);
+							}
+						}
+					}
+					else
+					{
+						Ptr<UniscribeFragment> fragmentStart=documentFragments[fs];
+						Ptr<UniscribeFragment> fragmentEnd=documentFragments[fe];
+						if(ss==0)
+						{
+							f1=fs;
+						}
+						else
+						{
+							f1=fs+1;
+							fe++;
+							int length=fragmentStart->text.Length();
+							Ptr<UniscribeFragment> leftFragment=fragmentStart->Copy();
+
+							leftFragment->text=leftFragment->text.Sub(0, ss);
+							documentFragments.Insert(fs, leftFragment);
+								
+							fragmentStart->text=fragmentStart->text.Sub(ss, length-ss);
+						}
+						if(se==fragmentEnd->text.Length())
+						{
+							f2=fe;
+						}
+						else
+						{
+							f2=fe;
+							fe++;
+							int length=fragmentEnd->text.Length();
+							Ptr<UniscribeFragment> rightFragment=fragmentEnd->Copy();
+
+							fragmentEnd->text=fragmentEnd->text.Sub(0, se);
+
+							rightFragment->text=rightFragment->text.Sub(se, length-se);
+							documentFragments.Insert(fe, rightFragment);
+						}
+					}
+					return true;
+				}
+
+				bool SetFont(int start, int length, const WString& value)
+				{
+					int fs, ss, fe, se, f1, f2;
+					SearchFragment(start, length, fs, ss, fe, se);
+					if(CutFragment(fs, ss, fe, se, f1, f2))
+					{
+						for(int i=f1;i<=f2;i++)
+						{
+							documentFragments[i]->fontStyle.fontFamily=value;
+						}
+						built=false;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetSize(int start, int length, int value)
+				{
+					int fs, ss, fe, se, f1, f2;
+					SearchFragment(start, length, fs, ss, fe, se);
+					if(CutFragment(fs, ss, fe, se, f1, f2))
+					{
+						for(int i=f1;i<=f2;i++)
+						{
+							documentFragments[i]->fontStyle.size=value;
+						}
+						built=false;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetStyle(int start, int length, bool bold, bool italic, bool underline, bool strikeline)
+				{
+					int fs, ss, fe, se, f1, f2;
+					SearchFragment(start, length, fs, ss, fe, se);
+					if(CutFragment(fs, ss, fe, se, f1, f2))
+					{
+						for(int i=f1;i<=f2;i++)
+						{
+							documentFragments[i]->fontStyle.bold=bold;
+							documentFragments[i]->fontStyle.italic=italic;
+							documentFragments[i]->fontStyle.underline=underline;
+							documentFragments[i]->fontStyle.strikeline=strikeline;
+						}
+						built=false;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetColor(int start, int length, Color value)
+				{
+					int fs, ss, fe, se, f1, f2;
+					SearchFragment(start, length, fs, ss, fe, se);
+					if(CutFragment(fs, ss, fe, se, f1, f2))
+					{
+						for(int i=f1;i<=f2;i++)
+						{
+							documentFragments[i]->fontColor=value;
+						}
+						built=false;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetInlineObject(int start, int length, const IGuiGraphicsParagraph::InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)
+				{
+					int fs, ss, fe, se, f1, f2;
+					SearchFragment(start, length, fs, ss, fe, se);
+					if(CutFragment(fs, ss, fe, se, f1, f2))
+					{
+						Ptr<UniscribeFragment> elementFragment=new UniscribeFragment;
+						for(int i=f1;i<=f2;i++)
+						{
+							elementFragment->text+=documentFragments[f1]->text;
+							elementFragment->cachedTextFragment.Add(documentFragments[f1]);
+							documentFragments.RemoveAt(f1);
+						}
+						elementFragment->inlineObjectProperties=properties;
+						elementFragment->element=value;
+						documentFragments.Insert(f1, elementFragment);
+						built=false;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				Ptr<IGuiGraphicsElement> ResetInlineObject(int start, int length)
+				{
+					int fs, ss, fe, se;
+					SearchFragment(start, length, fs, ss, fe, se);
+					Ptr<UniscribeFragment> fragment=documentFragments[fs];
+					if(fs==fe && ss==0 && se==fragment->text.Length() && fragment->element)
+					{
+						documentFragments.RemoveAt(fs);
+						for(int i=0;i<fragment->cachedTextFragment.Count();i++)
+						{
+							documentFragments.Insert(fs+i, fragment->cachedTextFragment[i]);
+						}
+						built=false;
+						return fragment->element;
+					}
+					return 0;
+				}
+			};
+
+/***********************************************************************
+WindowsGDIParagraph
+***********************************************************************/
+
+			class WindowsGDIParagraph : public Object, public IGuiGraphicsParagraph
+			{
+			protected:
+				IGuiGraphicsLayoutProvider*			provider;
+				Ptr<UniscribeParagraph>				paragraph;
+				WString								text;
+				IWindowsGDIRenderTarget*			renderTarget;
+
+			public:
+				WindowsGDIParagraph(IGuiGraphicsLayoutProvider* _provider, const WString& _text, IGuiGraphicsRenderTarget* _renderTarget)
+					:provider(_provider)
+					,text(_text)
+					,renderTarget(dynamic_cast<IWindowsGDIRenderTarget*>(_renderTarget))
+				{
+					paragraph=new UniscribeParagraph;
+					{
+						Ptr<UniscribeFragment> fragment=new UniscribeFragment;
+						fragment->text=_text;
+						fragment->fontColor=Color(0, 0, 0);
+						fragment->fontStyle=GetCurrentController()->ResourceService()->GetDefaultFont();
+						paragraph->documentFragments.Add(fragment);
+					}
+				}
+
+				~WindowsGDIParagraph()
+				{
+				}
+
+				IGuiGraphicsLayoutProvider* GetProvider()override
+				{
+					return provider;
+				}
+
+				IGuiGraphicsRenderTarget* GetRenderTarget()override
+				{
+					return renderTarget;
+				}
+
+				bool GetWrapLine()override
+				{
+					return true;
+				}
+
+				void SetWrapLine(bool value)override
+				{
+				}
+
+				int GetMaxWidth()override
+				{
+					return paragraph->lastAvailableWidth;
+				}
+
+				void SetMaxWidth(int value)override
+				{
+					paragraph->BuildUniscribeData(renderTarget->GetDC());
+					paragraph->Layout(value);
+				}
+
+				bool SetFont(int start, int length, const WString& value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						return paragraph->SetFont(start, length, value);
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetSize(int start, int length, int value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						return paragraph->SetSize(start, length, value);
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetStyle(int start, int length, TextStyle value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						return paragraph->SetStyle(start, length, (value&Bold)!=0, (value&Italic)!=0, (value&Underline)!=0, (value&Strikeline)!=0);
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetColor(int start, int length, Color value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						return paragraph->SetColor(start, length, value);
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool SetInlineObject(int start, int length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						if(paragraph->SetInlineObject(start, length, properties, value))
+						{
+							IGuiGraphicsRenderer* renderer=value->GetRenderer();
+							if(renderer)
+							{
+								renderer->SetRenderTarget(renderTarget);
+							}
+							return true;
+						}
+					}
+					return false;
+				}
+
+				bool ResetInlineObject(int start, int length)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						if(Ptr<IGuiGraphicsElement> element=paragraph->ResetInlineObject(start, length))
+						{
+							IGuiGraphicsRenderer* renderer=element->GetRenderer();
+							if(renderer)
+							{
+								renderer->SetRenderTarget(0);
+							}
+							return true;
+						}
+					}
+					return false;
+				}
+
+				int GetHeight()override
+				{
+					paragraph->BuildUniscribeData(renderTarget->GetDC());
+					if(paragraph->lastAvailableWidth==-1)
+					{
+						paragraph->Layout(65536);
+					}
+					return paragraph->bounds.Height();
+				}
+
+				void Render(Rect bounds)override
+				{
+					paragraph->Render(renderTarget->GetDC(), bounds.Left(), bounds.Top());
+				}
+			};
+
+/***********************************************************************
+WindowsGDILayoutProvider
+***********************************************************************/
+
+			Ptr<IGuiGraphicsParagraph> WindowsGDILayoutProvider::CreateParagraph(const WString& text, IGuiGraphicsRenderTarget* renderTarget)
+			{
+				return new WindowsGDIParagraph(this, text, renderTarget);
+			}
+		}
+	}
 }
 
 /***********************************************************************
@@ -26658,14 +29065,32 @@ GuiSolidLabelElementRenderer
 
 			void GuiSolidLabelElementRenderer::UpdateMinSize()
 			{
-				if(renderTarget && !element->GetMultiline() && !element->GetWrapLine())
+				if(renderTarget)
 				{
 					renderTarget->GetDC()->SetFont(font);
+					SIZE size={0};
 					const WString& text=element->GetText();
-					SIZE size=text.Length()==0
-						?renderTarget->GetDC()->MeasureBuffer(L" ")
-						:renderTarget->GetDC()->MeasureString(text)
-						;
+					if(element->GetWrapLine())
+					{
+						if(element->GetWrapLineHeightCalculation())
+						{
+							if(oldMaxWidth==-1 || text.Length()==0)
+							{
+								size=renderTarget->GetDC()->MeasureBuffer(L" ");
+							}
+							else
+							{
+								size=renderTarget->GetDC()->MeasureWrapLineString(text, oldMaxWidth);
+							}
+						}
+					}
+					else
+					{
+						size=text.Length()==0
+							?renderTarget->GetDC()->MeasureBuffer(L" ")
+							:renderTarget->GetDC()->MeasureString(text)
+							;
+					}
 					minSize=Size((element->GetEllipse()?0:size.cx), size.cy);
 				}
 				else
@@ -26690,6 +29115,11 @@ GuiSolidLabelElementRenderer
 			void GuiSolidLabelElementRenderer::RenderTargetChangedInternal(IWindowsGDIRenderTarget* oldRenderTarget, IWindowsGDIRenderTarget* newRenderTarget)
 			{
 				UpdateMinSize();
+			}
+
+			GuiSolidLabelElementRenderer::GuiSolidLabelElementRenderer()
+				:oldMaxWidth(-1)
+			{
 			}
 
 			void GuiSolidLabelElementRenderer::Render(Rect bounds)
@@ -26750,6 +29180,11 @@ GuiSolidLabelElementRenderer
 						format|=DT_END_ELLIPSIS;
 					}
 					renderTarget->GetDC()->DrawString(rect, element->GetText(), format);
+					if(oldMaxWidth!=bounds.Width())
+					{
+						oldMaxWidth=bounds.Width();
+						UpdateMinSize();
+					}
 				}
 			}
 
@@ -27055,7 +29490,8 @@ GuiColorizedTextElementRenderer
 				{
 					WinDC* dc=renderTarget->GetDC();
 					dc->SetFont(font);
-
+					
+					wchar_t passwordChar=element->GetPasswordChar();
 					Point viewPosition=element->GetViewPosition();
 					Rect viewBounds(viewPosition, bounds.GetSize());
 					int startRow=element->GetLines().GetTextPosFromPoint(Point(viewBounds.x1, viewBounds.y1)).row;
@@ -27122,7 +29558,7 @@ GuiColorizedTextElementRenderer
 								if(color.text.a)
 								{
 									dc->SetTextColor(RGB(color.text.r, color.text.g, color.text.b));
-									dc->DrawBuffer(tx, ty, &line.text[column], 1);
+									dc->DrawBuffer(tx, ty, (passwordChar?&passwordChar:&line.text[column]), 1);
 								}
 							}
 							x=x2;
@@ -27153,6 +29589,49 @@ GuiColorizedTextElementRenderer
 					caretPen=resourceManager->CreateGdiPen(oldCaretColor);
 				}
 			}
+
+/***********************************************************************
+GuiGDIElementRenderer
+***********************************************************************/
+
+			void GuiGDIElementRenderer::InitializeInternal()
+			{
+			}
+
+			void GuiGDIElementRenderer::FinalizeInternal()
+			{
+			}
+
+			void GuiGDIElementRenderer::RenderTargetChangedInternal(IWindowsGDIRenderTarget* oldRenderTarget, IWindowsGDIRenderTarget* newRenderTarget)
+			{
+			}
+
+			GuiGDIElementRenderer::GuiGDIElementRenderer()
+			{
+			}
+
+			GuiGDIElementRenderer::~GuiGDIElementRenderer()
+			{
+			}
+			
+			void GuiGDIElementRenderer::Render(Rect bounds)
+			{
+				if(renderTarget)
+				{
+					renderTarget->PushClipper(bounds);
+					if(!renderTarget->IsClipperCoverWholeTarget())
+					{
+						WinDC* dc=renderTarget->GetDC();
+						GuiGDIElementEventArgs arguments(element, dc, bounds);
+						element->Rendering.Execute(arguments);
+					}
+					renderTarget->PopClipper();
+				}
+			}
+
+			void GuiGDIElementRenderer::OnElementStateChanged()
+			{
+			}
 		}
 	}
 }
@@ -27165,6 +29644,22 @@ namespace vl
 {
 	namespace presentation
 	{
+		namespace elements
+		{
+
+/***********************************************************************
+GuiGDIElement
+***********************************************************************/
+
+			GuiGDIElement::GuiGDIElement()
+			{
+			}
+
+			GuiGDIElement::~GuiGDIElement()
+			{
+			}
+		}
+
 		namespace elements_windows_gdi
 		{
 			using namespace windows;
@@ -27172,7 +29667,7 @@ namespace vl
 			using namespace collections;
 
 /***********************************************************************
-WindiwsGDIRenderTarget
+WindowsGDIRenderTarget
 ***********************************************************************/
 
 			class WindowsGDIRenderTarget : public Object, public IWindowsGDIRenderTarget
@@ -27469,15 +29964,26 @@ WindowsGDIResourceManager
 				typedef SortedList<Ptr<WindowsGDIImageFrameCache>> ImageCacheList;
 			protected:
 				SortedList<Ptr<WindowsGDIRenderTarget>>		renderTargets;
+				Ptr<WindowsGDILayoutProvider>				layoutProvider;
 				CachedPenAllocator							pens;
 				CachedBrushAllocator						brushes;
 				CachedFontAllocator							fonts;
 				CachedCharMeasurerAllocator					charMeasurers;
 				ImageCacheList								imageCaches;
 			public:
-				IGuiGraphicsRenderTarget* GetRenderTarget(INativeWindow* window)
+				WindowsGDIResourceManager()
+				{
+					layoutProvider=new WindowsGDILayoutProvider;
+				}
+
+				IGuiGraphicsRenderTarget* GetRenderTarget(INativeWindow* window)override
 				{
 					return GetWindowsGDIObjectProvider()->GetBindedRenderTarget(window);
+				}
+
+				IGuiGraphicsLayoutProvider* GetLayoutProvider()override
+				{
+					return layoutProvider.Obj();
 				}
 
 				void NativeWindowCreated(INativeWindow* window)override
@@ -27620,6 +30126,8 @@ void RendererMainGDI()
 	elements_windows_gdi::GuiImageFrameElementRenderer::Register();
 	elements_windows_gdi::GuiPolygonElementRenderer::Register();
 	elements_windows_gdi::GuiColorizedTextElementRenderer::Register();
+	elements_windows_gdi::GuiGDIElementRenderer::Register();
+	elements::GuiDocumentElement::GuiDocumentElementRenderer::Register();
 
 	GuiApplicationMain();
 	elements_windows_gdi::SetWindowsGDIResourceManager(0);
@@ -28056,8 +30564,6 @@ int SetupWindowsDirect2DRenderer()
 /***********************************************************************
 NativeWindow\Windows\GDI\WinGDI.cpp
 ***********************************************************************/
-
-using namespace vl::stream;
 
 #pragma comment(lib, "Msimg32.lib")
 
@@ -28616,7 +31122,7 @@ WinBitmap
 					Header2.bV5CSType=LCS_sRGB;
 					Header2.bV5Intent=LCS_GM_GRAPHICS;
 				}
-				FileStream Output(FileName, FileStream::WriteOnly);
+				stream::FileStream Output(FileName, stream::FileStream::WriteOnly);
 				Output.Write(&Header1, sizeof(Header1));
 				Output.Write(&Header2, sizeof(Header2));
 				for(int i=0;i<FHeight;i++)
@@ -29199,6 +31705,35 @@ WinDC
 		SIZE WinDC::MeasureBuffer(const wchar_t* Text, int TabSize)
 		{
 			return MeasureBuffer(Text, wcslen(Text), TabSize);
+		}
+
+		SIZE WinDC::MeasureWrapLineString(WString Text, int MaxWidth)
+		{
+			return MeasureWrapLineBuffer(Text.Buffer(), Text.Length(), MaxWidth);
+		}
+
+		SIZE WinDC::MeasureWrapLineBuffer(const wchar_t* Text, int CharCount, int MaxWidth)
+		{
+			SIZE size = {0};
+			int lineCount=0;
+			const wchar_t* reading=Text;
+			INT* dx=new INT[CharCount];
+			while(*reading)
+			{
+				INT fit=0;
+				GetTextExtentExPoint(FHandle, reading, CharCount-(reading-Text), MaxWidth, &fit, dx, &size);
+				reading+=fit;
+				lineCount++;
+			}
+			delete dx;
+			size.cx=0;
+			size.cy*=lineCount;
+			return size;
+		}
+
+		SIZE WinDC::MeasureWrapLineBuffer(const wchar_t* Text, int MaxWidth)
+		{
+			return MeasureWrapLineBuffer(Text, wcslen(Text), MaxWidth);
 		}
 
 		void WinDC::FillRegion(WinRegion::Ptr Region)
@@ -30738,6 +33273,8 @@ WindowsDialogService
 NativeWindow\Windows\ServicesImpl\WindowsImageService.cpp
 ***********************************************************************/
 
+#include <Shlwapi.h>
+
 #pragma comment(lib, "WindowsCodecs.lib")
 
 namespace vl
@@ -31026,6 +33563,39 @@ WindowsImageService
 				{
 					return 0;
 				}
+			}
+
+			Ptr<INativeImage> WindowsImageService::CreateImageFromMemory(void* buffer, int length)
+			{
+				Ptr<INativeImage> result;
+				::IStream* stream=SHCreateMemStream((const BYTE*)buffer, length);
+				if(stream)
+				{
+					IWICBitmapDecoder* bitmapDecoder=0;
+					HRESULT hr=imagingFactory->CreateDecoderFromStream(stream, NULL, WICDecodeMetadataCacheOnDemand, &bitmapDecoder);
+					if(SUCCEEDED(hr))
+					{
+						result=new WindowsImage(this, bitmapDecoder);
+					}
+					stream->Release();
+				}
+				return result;
+			}
+
+			Ptr<INativeImage> WindowsImageService::CreateImageFromStream(stream::IStream& stream)
+			{
+				stream::MemoryStream memoryStream;
+				char buffer[65536];
+				while(true)
+				{
+					int length=stream.Read(buffer, sizeof(buffer));
+					memoryStream.Write(buffer, length);
+					if(length!=sizeof(buffer))
+					{
+						break;
+					}
+				}
+				return CreateImageFromMemory(memoryStream.GetInternalBuffer(), (int)memoryStream.Size());
 			}
 
 			Ptr<INativeImage> WindowsImageService::CreateImageFromHBITMAP(HBITMAP handle)
@@ -31487,6 +34057,7 @@ NativeWindow\Windows\WinNativeWindow.cpp
 ***********************************************************************/
 
 #pragma comment(lib, "Imm32.lib")
+#pragma comment(lib, "Shlwapi.lib")
 
 namespace vl
 {
@@ -32067,10 +34638,14 @@ WindowsForm
 					case WM_NCCALCSIZE:
 						if((BOOL)wParam && customFrameMode)
 						{
-							NCCALCSIZE_PARAMS* params=(NCCALCSIZE_PARAMS*)lParam;
-							params->rgrc[2]=params->rgrc[1];
-							params->rgrc[1]=params->rgrc[0];
-							result=WVR_REDRAW;
+							result=0;
+							return true;
+						}
+						break;
+					case WM_NCACTIVATE:
+						if(customFrameMode)
+						{
+							result=FALSE;
 							return true;
 						}
 						break;

@@ -11070,10 +11070,12 @@ namespace vl
 			vint										length;
 			vint										token;
 			const wchar_t*								reading;
-
-			vint										lineIndex;
-			vint										lineStart;
 			vint										codeIndex;
+
+			vint										rowStart;
+			vint										columnStart;
+			vint										rowEnd;
+			vint										columnEnd;
 
 			bool										operator==(const RegexToken& _token)const;
 			bool										operator==(const wchar_t* _token)const;
@@ -11148,6 +11150,66 @@ namespace vl
 			RegexTokens									Parse(const WString& code, vint codeIndex=-1)const;
 			RegexLexerWalker							Walk()const;
 			RegexLexerColorizer							Colorize()const;
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\STREAM\INTERFACES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Stream::Interfaces
+
+Interfaces:
+	IStream							：流
+***********************************************************************/
+
+#ifndef VCZH_STREAM_INTERFACES
+#define VCZH_STREAM_INTERFACES
+
+
+namespace vl
+{
+	namespace stream
+	{
+		class IStream : public virtual Interface
+		{
+		public:
+			virtual bool					CanRead()const=0;
+			virtual bool					CanWrite()const=0;
+			virtual bool					CanSeek()const=0;
+			virtual bool					CanPeek()const=0;
+			virtual bool					IsLimited()const=0;
+			virtual bool					IsAvailable()const=0;
+			virtual void					Close()=0;
+			virtual pos_t					Position()const=0;
+			virtual pos_t					Size()const=0;
+			virtual void					Seek(pos_t _size)=0;
+			virtual void					SeekFromBegin(pos_t _size)=0;
+			virtual void					SeekFromEnd(pos_t _size)=0;
+			virtual vint					Read(void* _buffer, vint _size)=0;
+			virtual vint					Write(void* _buffer, vint _size)=0;
+			virtual vint					Peek(void* _buffer, vint _size)=0;
+		};
+
+		class IEncoder : public Interface
+		{
+		public:
+			virtual void					Setup(IStream* _stream)=0;
+			virtual	void					Close()=0;
+			virtual vint					Write(void* _buffer, vint _size)=0;
+		};
+
+		class IDecoder : public Interface
+		{
+		public:
+			virtual void					Setup(IStream* _stream)=0;
+			virtual	void					Close()=0;
+			virtual vint					Read(void* _buffer, vint _size)=0;
 		};
 	}
 }
@@ -12020,6 +12082,178 @@ Resources
 #endif
 
 /***********************************************************************
+LIBRARIES\GACUI\SOURCE\GRAPHICSELEMENT\GUIGRAPHICSELEMENTINTERFACES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Element System and Infrastructure Interfaces
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSELEMENTINTERFACES
+#define VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSELEMENTINTERFACES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace reflection;
+
+		namespace elements
+		{
+			class IGuiGraphicsElement;
+			class IGuiGraphicsElementFactory;
+			class IGuiGraphicsRenderer;
+			class IGuiGraphicsRendererFactory;
+			class IGuiGraphicsRenderTarget;
+
+/***********************************************************************
+Basic Construction
+***********************************************************************/
+
+			class IGuiGraphicsElement : public virtual IDescriptable, public Description<IGuiGraphicsElement>
+			{
+			public:
+				virtual IGuiGraphicsElementFactory*		GetFactory()=0;
+				virtual IGuiGraphicsRenderer*			GetRenderer()=0;
+			};
+
+			class IGuiGraphicsElementFactory : public Interface
+			{
+			public:
+				virtual WString							GetElementTypeName()=0;
+				virtual IGuiGraphicsElement*			Create()=0;
+			};
+
+			class IGuiGraphicsRenderer : public Interface
+			{
+			public:
+				virtual IGuiGraphicsRendererFactory*	GetFactory()=0;
+
+				virtual void							Initialize(IGuiGraphicsElement* element)=0;
+				virtual void							Finalize()=0;
+				virtual void							SetRenderTarget(IGuiGraphicsRenderTarget* renderTarget)=0;
+				virtual void							Render(Rect bounds)=0;
+				virtual void							OnElementStateChanged()=0;
+				virtual Size							GetMinSize()=0;
+			};
+
+			class IGuiGraphicsRendererFactory : public Interface
+			{
+			public:
+				virtual IGuiGraphicsRenderer*			Create()=0;
+			};
+
+			class IGuiGraphicsRenderTarget : public Interface
+			{
+			public:
+				virtual void							StartRendering()=0;
+				virtual void							StopRendering()=0;
+				virtual void							PushClipper(Rect clipper)=0;
+				virtual void							PopClipper()=0;
+				virtual Rect							GetClipper()=0;
+				virtual bool							IsClipperCoverWholeTarget()=0;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\GRAPHICSELEMENT\GUIGRAPHICSDOCUMENTINTERFACES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Element System and Infrastructure Interfaces
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSDOCUMENTINTERFACES
+#define VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSDOCUMENTINTERFACES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace reflection;
+
+		namespace elements
+		{
+
+/***********************************************************************
+Layout Engine
+***********************************************************************/
+
+			class IGuiGraphicsParagraph;
+			class IGuiGraphicsLayoutProvider;
+
+			class IGuiGraphicsParagraph : public Interface
+			{
+			public:
+				enum TextStyle
+				{
+					Bold=1,
+					Italic=2,
+					Underline=4,
+					Strikeline=8,
+				};
+
+				enum BreakCondition
+				{
+					StickToPreviousRun,
+					StickToNextRun,
+					Alone,
+				};
+
+				struct InlineObjectProperties
+				{
+					Size					size;
+					int						baseline;
+					BreakCondition			breakCondition;
+
+					InlineObjectProperties()
+						:baseline(-1)
+					{
+					}
+				};
+
+				virtual IGuiGraphicsLayoutProvider*			GetProvider()=0;
+				virtual IGuiGraphicsRenderTarget*			GetRenderTarget()=0;
+				virtual bool								GetWrapLine()=0;
+				virtual void								SetWrapLine(bool value)=0;
+				virtual int									GetMaxWidth()=0;
+				virtual void								SetMaxWidth(int value)=0;
+
+				virtual bool								SetFont(int start, int length, const WString& value)=0;
+				virtual bool								SetSize(int start, int length, int value)=0;
+				virtual bool								SetStyle(int start, int length, TextStyle value)=0;
+				virtual bool								SetColor(int start, int length, Color value)=0;
+				virtual bool								SetInlineObject(int start, int length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
+				virtual bool								ResetInlineObject(int start, int length)=0;
+
+				virtual int									GetHeight()=0;
+				virtual void								Render(Rect bounds)=0;
+			};
+
+			class IGuiGraphicsLayoutProvider : public Interface
+			{
+			public:
+				virtual Ptr<IGuiGraphicsParagraph>			CreateParagraph(const WString& text, IGuiGraphicsRenderTarget* renderTarget)=0;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
 LIBRARIES\GACUI\SOURCE\NATIVEWINDOW\GUINATIVEWINDOW.H
 ***********************************************************************/
 /***********************************************************************
@@ -12141,6 +12375,10 @@ Image Object
 		{
 		public:
 			virtual Ptr<INativeImage>			CreateImageFromFile(const WString& path)=0;
+
+			virtual Ptr<INativeImage>			CreateImageFromMemory(void* buffer, int length)=0;
+
+			virtual Ptr<INativeImage>			CreateImageFromStream(stream::IStream& stream)=0;
 		};
 
 /***********************************************************************
@@ -12779,7 +13017,7 @@ Native Window Provider
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\GRAPHICSELEMENT\GUIGRAPHICSELEMENT.H
+LIBRARIES\GACUI\SOURCE\GRAPHICSELEMENT\GUIGRAPHICSRESOURCEMANAGER.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -12789,71 +13027,16 @@ GacUI::Element System and Infrastructure Interfaces
 Interfaces:
 ***********************************************************************/
 
-#ifndef VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSELEMENT
-#define VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSELEMENT
+#ifndef VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSRESOURCEMANAGER
+#define VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSRESOURCEMANAGER
 
 
 namespace vl
 {
 	namespace presentation
 	{
-		using namespace reflection;
-
 		namespace elements
 		{
-			class IGuiGraphicsElement;
-			class IGuiGraphicsElementFactory;
-			class IGuiGraphicsRenderer;
-			class IGuiGraphicsRendererFactory;
-			class IGuiGraphicsRenderTarget;
-
-/***********************************************************************
-Basic Construction
-***********************************************************************/
-
-			class IGuiGraphicsElement : public virtual IDescriptable, public Description<IGuiGraphicsElement>
-			{
-			public:
-				virtual IGuiGraphicsElementFactory*		GetFactory()=0;
-				virtual IGuiGraphicsRenderer*			GetRenderer()=0;
-			};
-
-			class IGuiGraphicsElementFactory : public Interface
-			{
-			public:
-				virtual WString							GetElementTypeName()=0;
-				virtual IGuiGraphicsElement*			Create()=0;
-			};
-
-			class IGuiGraphicsRenderer : public Interface
-			{
-			public:
-				virtual IGuiGraphicsRendererFactory*	GetFactory()=0;
-
-				virtual void							Initialize(IGuiGraphicsElement* element)=0;
-				virtual void							Finalize()=0;
-				virtual void							SetRenderTarget(IGuiGraphicsRenderTarget* renderTarget)=0;
-				virtual void							Render(Rect bounds)=0;
-				virtual void							OnElementStateChanged()=0;
-				virtual Size							GetMinSize()=0;
-			};
-
-			class IGuiGraphicsRendererFactory : public Interface
-			{
-			public:
-				virtual IGuiGraphicsRenderer*			Create()=0;
-			};
-
-			class IGuiGraphicsRenderTarget : public Interface
-			{
-			public:
-				virtual void							StartRendering()=0;
-				virtual void							StopRendering()=0;
-				virtual void							PushClipper(Rect clipper)=0;
-				virtual void							PopClipper()=0;
-				virtual Rect							GetClipper()=0;
-				virtual bool							IsClipperCoverWholeTarget()=0;
-			};
 
 /***********************************************************************
 Resource Manager
@@ -12875,6 +13058,7 @@ Resource Manager
 				virtual IGuiGraphicsElementFactory*		GetElementFactory(const WString& elementTypeName);
 				virtual IGuiGraphicsRendererFactory*	GetRendererFactory(const WString& elementTypeName);
 				virtual IGuiGraphicsRenderTarget*		GetRenderTarget(INativeWindow* window)=0;
+				virtual IGuiGraphicsLayoutProvider*		GetLayoutProvider()=0;
 			};
 
 			extern GuiGraphicsResourceManager*			GetGuiGraphicsResourceManager();
@@ -12898,8 +13082,12 @@ Helpers
 					{\
 						TELEMENT* element=new TELEMENT;\
 						element->factory=this;\
-						element->renderer=GetGuiGraphicsResourceManager()->GetRendererFactory(GetElementTypeName())->Create();\
-						element->renderer->Initialize(element);\
+						IGuiGraphicsRendererFactory* rendererFactory=GetGuiGraphicsResourceManager()->GetRendererFactory(GetElementTypeName());\
+						if(rendererFactory)\
+						{\
+							element->renderer=rendererFactory->Create();\
+							element->renderer->Initialize(element);\
+						}\
 						return element;\
 					}\
 				};\
@@ -13047,7 +13235,34 @@ Helpers
 							aliveResources.Set(key, package);\
 						}\
 					}\
-				}\
+				}
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\GRAPHICSELEMENT\GUIGRAPHICSELEMENT.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Element System and Infrastructure Interfaces
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSELEMENT
+#define VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSELEMENT
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace elements
+		{
 
 /***********************************************************************
 Elements
@@ -13198,6 +13413,7 @@ Elements
 				bool					wrapLine;
 				bool					ellipse;
 				bool					multiline;
+				bool					wrapLineHeightCalculation;
 
 				GuiSolidLabelElement();
 			public:
@@ -13224,6 +13440,9 @@ Elements
 				
 				bool					GetMultiline();
 				void					SetMultiline(bool value);
+
+				bool					GetWrapLineHeightCalculation();
+				void					SetWrapLineHeightCalculation(bool value);
 			};
 
 			class GuiImageFrameElement : public Object, public IGuiGraphicsElement, public Description<GuiImageFrameElement>
@@ -13310,7 +13529,7 @@ namespace vl
 		{
 
 /***********************************************************************
-ColorizedText
+Colorized Plain Text (model)
 ***********************************************************************/
 
 			namespace text
@@ -13378,6 +13597,7 @@ ColorizedText
 					int								tabWidth;
 					int								tabSpaceCount;
 					int								availableColorizedLines;
+					wchar_t							passwordChar;
 				public:
 					TextLines();
 					~TextLines();
@@ -13414,6 +13634,8 @@ ColorizedText
 					TextPos							GetTextPosFromPoint(Point point);
 					Point							GetPointFromTextPos(TextPos pos);
 					Rect							GetRectFromTextPos(TextPos pos);
+					wchar_t							GetPasswordChar();
+					void							SetPasswordChar(wchar_t value);
 				};
 				
 				struct ColorItem
@@ -13432,6 +13654,10 @@ ColorizedText
 					bool							operator!=(const ColorEntry& value){return true;}
 				};
 			}
+
+/***********************************************************************
+Colorized Plain Text (element)
+***********************************************************************/
 			
 			class GuiColorizedTextElement : public Object, public IGuiGraphicsElement, public Description<GuiColorizedTextElement>
 			{
@@ -13473,6 +13699,8 @@ ColorizedText
 				void								SetColors(const ColorArray& value);
 				const FontProperties&				GetFont();
 				void								SetFont(const FontProperties& value);
+				wchar_t								GetPasswordChar();
+				void								SetPasswordChar(wchar_t value);
 				Point								GetViewPosition();
 				void								SetViewPosition(Point value);
 				bool								GetVisuallyEnabled();
@@ -13488,6 +13716,138 @@ ColorizedText
 				void								SetCaretVisible(bool value);
 				Color								GetCaretColor();
 				void								SetCaretColor(Color value);
+			};
+
+/***********************************************************************
+Rich Content Document (model)
+***********************************************************************/
+
+			namespace text
+			{
+				class DocumentTextRun;
+				class DocumentImageRun;
+
+				class DocumentRun : public Object, public Description<DocumentRun>
+				{
+				public:
+					class IVisitor : public Interface
+					{
+					public:
+						virtual void				Visit(DocumentTextRun* run)=0;
+						virtual void				Visit(DocumentImageRun* run)=0;
+					};
+
+					DocumentRun(){}
+
+					virtual void					Accept(IVisitor* visitor)=0;
+				};
+				
+				class DocumentTextRun : public DocumentRun, public Description<DocumentTextRun>
+				{
+				public:
+					FontProperties					style;
+					Color							color;
+					WString							text;
+
+					DocumentTextRun(){}
+
+					void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+				};
+				
+				class DocumentInlineObjectRun : public DocumentRun, public Description<DocumentInlineObjectRun>
+				{
+				public:
+					Size							size;
+					int								baseline;
+
+					DocumentInlineObjectRun():baseline(-1){}
+				};
+				
+				class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
+				{
+				public:
+					Ptr<INativeImage>				image;
+					int								frameIndex;
+
+					DocumentImageRun():frameIndex(0){}
+
+					void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+				};
+
+				//--------------------------------------------------------------------------
+
+				class DocumentLine : public Object, public Description<DocumentLine>
+				{
+					typedef collections::List<Ptr<DocumentRun>>			RunList;
+				public:
+					RunList							runs;
+				};
+
+				class DocumentParagraph : public Object, public Description<DocumentParagraph>
+				{
+					typedef collections::List<Ptr<DocumentLine>>		LineList;
+				public:
+					LineList						lines;
+				};
+
+				class DocumentModel : public Object, public Description<DocumentModel>
+				{
+					typedef collections::List<Ptr<DocumentParagraph>>	ParagraphList;
+				public:
+					ParagraphList					paragraphs;
+				};
+
+				struct ParagraphCache
+				{
+					WString							fullText;
+					Ptr<IGuiGraphicsParagraph>		graphicsParagraph;
+				};
+			}
+
+/***********************************************************************
+Rich Content Document (element)
+***********************************************************************/
+
+			class GuiDocumentElement : public Object, public IGuiGraphicsElement, public Description<GuiColorizedTextElement>
+			{
+				DEFINE_GUI_GRAPHICS_ELEMENT(GuiDocumentElement, L"RichDocument");
+			public:
+				class GuiDocumentElementRenderer : public Object, public IGuiGraphicsRenderer
+				{
+					DEFINE_GUI_GRAPHICS_RENDERER(GuiDocumentElement, GuiDocumentElementRenderer, IGuiGraphicsRenderTarget)
+				protected:
+
+					typedef collections::Array<Ptr<text::ParagraphCache>>		ParagraphCacheArray;
+				protected:
+					int									paragraphDistance;
+					int									lastMaxWidth;
+					int									cachedTotalHeight;
+					IGuiGraphicsLayoutProvider*			layoutProvider;
+					ParagraphCacheArray					paragraphCaches;
+					collections::Array<int>				paragraphHeights;
+
+					void					InitializeInternal();
+					void					FinalizeInternal();
+					void					RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget);
+				public:
+					GuiDocumentElementRenderer();
+
+					void					Render(Rect bounds)override;
+					void					OnElementStateChanged()override;
+
+					void					NotifyParagraphUpdated(int index);
+				};
+
+			protected:
+				Ptr<text::DocumentModel>	document;
+
+				GuiDocumentElement();
+			public:
+				~GuiDocumentElement();
+				
+				Ptr<text::DocumentModel>	GetDocument();
+				void						SetDocument(Ptr<text::DocumentModel> value);
+				void						NotifyParagraphUpdated(int index);
 			};
 		}
 	}
@@ -13949,13 +14309,6 @@ Basic Construction
 					LimitToElement,
 					LimitToElementAndChildren,
 				};
-				
-				enum ParentSizeAffection
-				{
-					NotAffectedByParent,
-					AffectedByParent,
-					TotallyDecidedByParent,
-				};
 			protected:
 				CompositionList								children;
 				GuiGraphicsComposition*						parent;
@@ -14029,7 +14382,6 @@ Basic Construction
 				virtual Rect								GetClientArea();
 				virtual void								ForceCalculateSizeImmediately();
 				
-				virtual ParentSizeAffection					GetAffectionFromParent()=0;
 				virtual bool								IsSizeAffectParent()=0;
 				virtual Size								GetMinPreferredClientSize()=0;
 				virtual Rect								GetPreferredBounds()=0;
@@ -14045,7 +14397,6 @@ Basic Construction
 				GuiGraphicsSite();
 				~GuiGraphicsSite();
 				
-				ParentSizeAffection					GetAffectionFromParent()override;
 				bool								IsSizeAffectParent()override;
 				Size								GetMinPreferredClientSize()override;
 				Rect								GetPreferredBounds()override;
@@ -14110,7 +14461,6 @@ Basic Compositions
 
 				compositions::GuiNotifyEvent		BoundsChanged;
 				
-				ParentSizeAffection					GetAffectionFromParent()override;
 				Rect								GetPreferredBounds()override;
 				Rect								GetBounds()override;
 				void								SetBounds(Rect value);
@@ -14285,6 +14635,7 @@ Table Compositions
 				int									column;
 				int									columnSpan;
 				GuiTableComposition*				tableParent;
+				Size								lastPreferredSize;
 				
 				void								ClearSitedCells(GuiTableComposition* table);
 				void								SetSitedCells(GuiTableComposition* table);
@@ -14400,7 +14751,6 @@ Stack Compositions
 				GuiStackItemComposition();
 				~GuiStackItemComposition();
 				
-				ParentSizeAffection					GetAffectionFromParent()override;
 				bool								IsSizeAffectParent()override;
 				Rect								GetBounds()override;
 				void								SetBounds(Rect value);
@@ -14465,7 +14815,6 @@ Specialized Compositions
 				double								GetMaxRatio();
 				void								SetMaxRatio(double value);
 				
-				ParentSizeAffection					GetAffectionFromParent()override;
 				bool								IsSizeAffectParent()override;
 				Rect								GetBounds()override;
 			};
@@ -14491,7 +14840,6 @@ Specialized Compositions
 				void								SetHeightRatio(double value);
 				void								SetHeightPageSize(double value);
 				
-				ParentSizeAffection					GetAffectionFromParent()override;
 				bool								IsSizeAffectParent()override;
 				Rect								GetBounds()override;
 			};
@@ -14849,6 +15197,22 @@ Basic Construction
 					virtual void									SetText(const WString& value)=0;
 					virtual void									SetFont(const FontProperties& value)=0;
 					virtual void									SetVisuallyEnabled(bool value)=0;
+				};
+
+				class EmptyStyleController : public Object, public IStyleController, public Description<EmptyStyleController>
+				{
+				protected:
+					compositions::GuiBoundsComposition*				boundsComposition;
+				public:
+					EmptyStyleController();
+					~EmptyStyleController();
+
+					compositions::GuiBoundsComposition*				GetBoundsComposition()override;
+					compositions::GuiGraphicsComposition*			GetContainerComposition()override;
+					void											SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+					void											SetText(const WString& value)override;
+					void											SetFont(const FontProperties& value)override;
+					void											SetVisuallyEnabled(bool value)override;
 				};
 
 				class IStyleProvider : public virtual IDescriptable, public Description<IStyleProvider>
@@ -15260,12 +15624,16 @@ Scrolls
 				{
 				protected:
 					compositions::GuiBoundsComposition*		controlContainerComposition;
+					bool									extendToFullWidth;
 				public:
 					StyleController(GuiScrollView::IStyleProvider* styleProvider);
 					~StyleController();
 
 					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
 					void									MoveContainer(Point leftTop);
+
+					bool									GetExtendToFullWidth();
+					void									SetExtendToFullWidth(bool value);
 				};
 
 			protected:
@@ -15277,6 +15645,9 @@ Scrolls
 			public:
 				GuiScrollContainer(GuiScrollContainer::IStyleProvider* styleProvider);
 				~GuiScrollContainer();
+				
+				bool									GetExtendToFullWidth();
+				void									SetExtendToFullWidth(bool value);
 			};
 			
 			namespace list
@@ -16195,6 +16566,8 @@ SinglelineTextBox
 				const WString&								GetText()override;
 				void										SetText(const WString& value)override;
 				void										SetFont(const FontProperties& value)override;
+				wchar_t										GetPasswordChar();
+				void										SetPasswordChar(wchar_t value);
 			};
 		}
 	}
@@ -18674,6 +19047,7 @@ namespace vl
 				virtual elements::text::ColorEntry											GetDefaultTextBoxColorEntry()=0;
 				virtual controls::GuiListView::IStyleProvider*								CreateListViewStyle()=0;
 				virtual controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()=0;
+				virtual controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()=0;
 				
 				virtual controls::GuiToolstripMenu::IStyleController*						CreateMenuStyle()=0;
 				virtual controls::GuiToolstripMenuBar::IStyleController*					CreateMenuBarStyle()=0;
@@ -18796,9 +19170,10 @@ Theme
 				controls::GuiComboBoxBase::IStyleController*						CreateComboBoxStyle()override;
 				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
 				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
+				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
 				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
 				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
-				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()override;
 				
 				controls::GuiToolstripMenu::IStyleController*						CreateMenuStyle()override;
 				controls::GuiToolstripMenuBar::IStyleController*					CreateMenuBarStyle()override;
@@ -18874,9 +19249,10 @@ Theme
 				controls::GuiComboBoxBase::IStyleController*						CreateComboBoxStyle()override;
 				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
 				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
+				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
 				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
 				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
-				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()override;
 
 				controls::GuiToolstripMenu::IStyleController*						CreateMenuStyle()override;
 				controls::GuiToolstripMenuBar::IStyleController*					CreateMenuBarStyle()override;

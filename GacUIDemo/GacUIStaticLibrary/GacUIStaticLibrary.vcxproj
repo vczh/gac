@@ -89,7 +89,10 @@
     <None Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\Public\Source\GacUI.cpp" />
+    <ClCompile Include="..\..\Public\Source\GacUI.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">/bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="..\..\Public\Source\Vlpp.cpp" />
     <ClCompile Include="..\CommonLibrary\FileSystemInformation.cpp" />
   </ItemGroup>
@@ -98,6 +101,13 @@
     <ClInclude Include="..\..\Public\Source\GacUIIncludes.h" />
     <ClInclude Include="..\..\Public\Source\Vlpp.h" />
     <ClInclude Include="..\CommonLibrary\FileSystemInformation.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\Resources\BigDoc.png" />
+    <Image Include="..\Resources\Gif.gif" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\Resources\document2.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

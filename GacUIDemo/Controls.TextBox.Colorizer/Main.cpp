@@ -343,12 +343,12 @@ private:
 		comboSelector->SetEnabled(false);
 		this->GetBoundsComposition()->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::LargeWaiting));
 
-		GetApplication()->InvokeAsync(Curry(Func<void(TextBoxColorizerWindow*)>([](TextBoxColorizerWindow* window)
+		GetApplication()->InvokeAsync([=]()
 		{
 			Ptr<GuiTextBoxColorizerBase> colorizer;
 			WString text;
 
-			switch(window->comboSelector->GetSelectedIndex())
+			switch(comboSelector->GetSelectedIndex())
 			{
 			case 0:
 				text=
@@ -390,13 +390,13 @@ private:
 				break;
 			}
 
-			GetApplication()->InvokeInMainThreadAndWait([text, window]()
+			GetApplication()->InvokeInMainThreadAndWait([=]()
 			{
-				window->textBox->SetColorizer(0);
-				window->textBox->SetText(text);
+				textBox->SetColorizer(0);
+				textBox->SetText(text);
 			});
 
-			switch(window->comboSelector->GetSelectedIndex())
+			switch(comboSelector->GetSelectedIndex())
 			{
 			case 0:
 				colorizer=new IniColorizer;
@@ -409,13 +409,13 @@ private:
 				break;
 			}
 
-			GetApplication()->InvokeInMainThreadAndWait([colorizer, window]()
+			GetApplication()->InvokeInMainThreadAndWait([=]()
 			{
-				window->textBox->SetColorizer(colorizer);
-				window->GetBoundsComposition()->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetDefaultSystemCursor());
-				window->comboSelector->SetEnabled(true);
+				textBox->SetColorizer(colorizer);
+				GetBoundsComposition()->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetDefaultSystemCursor());
+				comboSelector->SetEnabled(true);
 			});
-		}))(this));
+		});
 	}
 public:
 	TextBoxColorizerWindow()

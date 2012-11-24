@@ -25,7 +25,7 @@ private:
 			Ptr<tree::TreeViewItem> childItem=child->GetData().Cast<tree::TreeViewItem>();
 			if(childItem->text==L"Loading..." && !childItem->tag)
 			{
-				GetApplication()->InvokeAsync([parent]()
+				GetApplication()->InvokeAsync([=]()
 				{
 					// get back the full path from the item
 					Ptr<tree::TreeViewItem> item=parent->GetData().Cast<tree::TreeViewItem>();
@@ -39,19 +39,18 @@ private:
 					List<WString> directories, files;
 					SearchDirectoriesAndFiles(path, directories, files);
 
-					tree::MemoryNodeProvider* directoryNode=parent;
-					GetApplication()->InvokeInMainThreadAndWait([directoryNode, path, &directories, &files]()
+					GetApplication()->InvokeInMainThreadAndWait([=, &directories, &files]()
 					{
 						FOREACH(WString, file, directories.Wrap())
 						{
-							FileExplorerWindow::AddFolder(directoryNode, path+file);
+							FileExplorerWindow::AddFolder(parent, path+file);
 						}
 						FOREACH(WString, file, files.Wrap())
 						{
-							FileExplorerWindow::AddFile(directoryNode, path+file);
+							FileExplorerWindow::AddFile(parent, path+file);
 						}
 						// remove the  "Loading..." node
-						directoryNode->Children().RemoveAt(0);
+						parent->Children().RemoveAt(0);
 					});
 				});
 			}
