@@ -15,9 +15,24 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Added Windows 8 theme (except tab control, will be provided for the next release)
-* GacUI will choose to use Windows 7 theme or Windows 8 theme as default theme according to OS version
-* Added 1 new demos 
-    * Template.Window.CustomizedBorder
+* Added 4 new features
+
+    * **GuiSolidLabelElement** measures height when wrap line
+
+    * **GuiGDIElement** enables programmers to directly access GDI resources in a window
+
+    * **GuiDirect2DElement** enables programmers to directly access Direct2D resource in a window
+
+    * **GuiDocumentElement** enables programmers to render rich text with embedded images
+
 * Fixed bugs
-* Fixed Controls.Toolstrip.TextEditor demo
+
+    * Fixed bug about compositions with wrap line labels
+
+    * Fixed but about multiple window disposing
+
+    * Fixed Template.Window.CustomizedBorder flicking
+
+* Added 1 new demo
+
+    * Rendering.TextLayout.RichText
