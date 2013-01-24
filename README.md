@@ -1,4 +1,4 @@
-# Gaclib 0.4.1.0
+# Gaclib 0.4.2.0
 
 
 GPU Accelerated C++ User Interface/Script Engine
@@ -15,24 +15,18 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Added 4 new features
-
-    * **GuiSolidLabelElement** measures height when wrap line
-
-    * **GuiGDIElement** enables programmers to directly access GDI resources in a window
-
-    * **GuiDirect2DElement** enables programmers to directly access Direct2D resource in a window
-
-    * **GuiDocumentElement** enables programmers to render rich text with embedded images
-
-* Fixed bugs
-
-    * Fixed bug about compositions with wrap line labels
-
-    * Fixed but about multiple window disposing
-
-    * Fixed Template.Window.CustomizedBorder flicking
-
 * Added 1 new demo
 
-    * Rendering.TextLayout.RichText
+    * **Controls.TextBox.AdvancedColorizer** that shows how to write a text code with context sensitive
+* Added new features
+
+    * x64 supports
+    * Linq to C++
+    * Linq to Xml
+    * Linq to Json
+    * Parser framework and generator (generate parser cpp code from a grammar definition)
+    * Locale awared functions, like compare string with locale, format string with locale, etc
+    * Test buffer encoding, that can test a byte buffer and try to guess the encoding of the text as accurately as possible
+* Fixed bugs
+
+    * Close main form using GuiWindow::Close() will not exit the application

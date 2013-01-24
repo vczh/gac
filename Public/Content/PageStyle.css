@@ -210,11 +210,10 @@ body
 
 .CppCode
 {
-    background-color: #EFFFE0;
+    background-color: #1b2426;
     padding: 0.7em;
-    white-space:pre-wrap;
+    white-space: pre-wrap;
     max-width: 780px;
-    font-size: 12px;
     font-family: "CS Kirisame DL Mono", "Consolas", "DejaVu Sans Mono", monospace;
 }
 

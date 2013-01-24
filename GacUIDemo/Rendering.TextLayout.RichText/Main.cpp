@@ -59,17 +59,17 @@ namespace document
 		for(int i=0;i<matches.Count();i++)
 		{
 			Ptr<RegexMatch> match=matches[i];
-			if(match->Groups()[L"tag"][0].Value()==L"p")
+			if(match->Groups()[L"tag"].Get(0).Value()==L"p")
 			{
 				paragraph=0;
 				line=0;
 			}
-			else if(match->Groups()[L"tag"][0].Value()==L"i")
+			else if(match->Groups()[L"tag"].Get(0).Value()==L"i")
 			{
-				int cx=wtoi(match->Groups()[L"cx"][0].Value());
-				int cy=wtoi(match->Groups()[L"cy"][0].Value());
-				int b=wtoi(match->Groups()[L"b"][0].Value());
-				WString file=match->Groups()[L"file"][0].Value();
+				int cx=wtoi(match->Groups()[L"cx"].Get(0).Value());
+				int cy=wtoi(match->Groups()[L"cy"].Get(0).Value());
+				int b=wtoi(match->Groups()[L"b"].Get(0).Value());
+				WString file=match->Groups()[L"file"].Get(0).Value();
 
 				if(!paragraph)
 				{
@@ -98,17 +98,17 @@ namespace document
 					animations.Add(gifRun);
 				}
 			}
-			else if(match->Groups()[L"tag"][0].Value()==L"s")
+			else if(match->Groups()[L"tag"].Get(0).Value()==L"s")
 			{
 				FontProperties fontStyle;
 				Color fontColor;
 				RegexMatch::List lines;
 				{
-					WString font=match->Groups()[L"font"][0].Value();
-					WString bold=match->Groups()[L"bold"][0].Value();
-					WString color=match->Groups()[L"color"][0].Value();
-					WString size=match->Groups()[L"size"][0].Value();
-					WString text=match->Groups()[L"text"][0].Value();
+					WString font=match->Groups()[L"font"].Get(0).Value();
+					WString bold=match->Groups()[L"bold"].Get(0).Value();
+					WString color=match->Groups()[L"color"].Get(0).Value();
+					WString size=match->Groups()[L"size"].Get(0).Value();
+					WString text=match->Groups()[L"text"].Get(0).Value();
 
 					fontStyle.fontFamily=font;
 					fontStyle.bold=bold==L"true";

@@ -41,11 +41,11 @@ private:
 
 					GetApplication()->InvokeInMainThreadAndWait([=, &directories, &files]()
 					{
-						FOREACH(WString, file, directories.Wrap())
+						FOREACH(WString, file, directories)
 						{
 							FileExplorerWindow::AddFolder(parent, path+file);
 						}
-						FOREACH(WString, file, files.Wrap())
+						FOREACH(WString, file, files)
 						{
 							FileExplorerWindow::AddFile(parent, path+file);
 						}

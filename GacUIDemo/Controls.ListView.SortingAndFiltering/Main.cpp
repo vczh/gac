@@ -89,12 +89,13 @@ private:
 
 	void FillData()
 	{
-		Func<vint(Ptr<FileProperties>, Ptr<FileProperties>)> comparer(this, &SortingAndFilteringWindow::ItemComparer);
-		Func<bool(Ptr<FileProperties>)> filter(this, &SortingAndFilteringWindow::ItemFilter);
-		Func<Ptr<list::ListViewItem>(Ptr<FileProperties>)> converter(this, &SortingAndFilteringWindow::CreateFileItem);
-
 		listView->GetItems().Clear();
-		CopyFrom(listView->GetItems(), fileProperties.Wrap()>>Where(filter)>>OrderBy(comparer)>>Select(converter));
+		CopyFrom(listView->GetItems(), 
+			From(fileProperties)
+			.Where([this](Ptr<FileProperties> a){return ItemFilter(a);})
+			.OrderBy([this](Ptr<FileProperties> a, Ptr<FileProperties> b){return ItemComparer(a, b);})
+			.Select([this](Ptr<FileProperties> a){return CreateFileItem(a);})
+			);
 	}
 
 	void ShowAllFileType_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments)
@@ -179,7 +180,7 @@ public:
 			List<WString> directories;
 			List<WString> files;
 			SearchDirectoriesAndFiles(directory, directories, files);
-			FOREACH(WString, file, directories.Wrap()>>Concat(files.Wrap()))
+			FOREACH(WString, file, From(directories).Concat(files))
 			{
 				fileProperties.Add(new FileProperties(directory+L"\\"+file));
 			}
@@ -198,17 +199,13 @@ public:
 			// Added all existing file type in the folder as menu items
 			Array<WString> fileTypes;
 			CopyFrom(
-				fileTypes.Wrap(),
-				fileProperties.Wrap()
-				>>Select(Func<WString(Ptr<FileProperties>)>(
-					[](Ptr<FileProperties> file){return file->GetTypeName();}
-				))
-				>>Distinct()
-				>>OrderBy(Func<vint(WString, WString)>(
-					[](WString a, WString b){return _wcsicmp(a.Buffer(), b.Buffer());}
-				))
+				fileTypes,
+				From(fileProperties)
+				.Select([](Ptr<FileProperties> file){return file->GetTypeName();})
+				.Distinct()
+				.OrderBy([](WString a, WString b){return _wcsicmp(a.Buffer(), b.Buffer());})
 				);
-			FOREACH(WString, typeName, fileTypes.Wrap())
+			FOREACH(WString, typeName, fileTypes)
 			{
 				// Create menu button for each file type
 				fileTypeMenu->GetBuilder()->Button(0, typeName, &button);

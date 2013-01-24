@@ -131,66 +131,6 @@ Interface
 }
 
 /***********************************************************************
-Collections\Operation.cpp
-***********************************************************************/
-
-namespace vl
-{
-	namespace collections
-	{
-		MaxProcessor Max()
-		{
-			return MaxProcessor();
-		}
-		
-		MinProcessor Min()
-		{
-			return MinProcessor();
-		}
-
-		FirstProcessor First()
-		{
-			return FirstProcessor();
-		}
-
-		CountProcessor Count()
-		{
-			return CountProcessor();
-		}
-
-		IsEmptyProcessor IsEmpty()
-		{
-			return IsEmptyProcessor();
-		}
-
-		TakeProcessor Take(vint count)
-		{
-			return TakeProcessor(count);
-		}
-		
-		SkipProcessor Skip(vint count)
-		{
-			return SkipProcessor(count);
-		}
-
-		RepeatProcessor Repeat(vint count)
-		{
-			return RepeatProcessor(count);
-		}
-
-		DistinctProcessor Distinct()
-		{
-			return DistinctProcessor();
-		}
-
-		ReverseProcessor Reverse()
-		{
-			return ReverseProcessor();
-		}
-	}
-}
-
-/***********************************************************************
 Console.cpp
 ***********************************************************************/
 
@@ -203,10 +143,34 @@ namespace vl
 Console
 ***********************************************************************/
 
+		void Console::Write(const wchar_t* string, vint length)
+		{
+			HANDLE outHandle=GetStdHandle(STD_OUTPUT_HANDLE);
+			DWORD fileMode=0;
+			DWORD written=0;
+			if((GetFileType(outHandle) & FILE_TYPE_CHAR) && GetConsoleMode(outHandle, &fileMode))
+			{
+				WriteConsole(outHandle, string, (int)length, &written,0);
+			}
+			else
+			{
+				int codePage = GetConsoleOutputCP();
+				int charCount = WideCharToMultiByte(codePage, 0, string, -1, 0, 0, 0, 0);
+				char* codePageBuffer = new char[charCount];
+				WideCharToMultiByte(codePage, 0, string, -1, codePageBuffer, charCount, 0, 0);
+				WriteFile(outHandle, codePageBuffer, charCount-1, &written, 0);
+				delete codePageBuffer;
+			}
+		}
+
+		void Console::Write(const wchar_t* string)
+		{
+			Write(string, wcslen(string));
+		}
+
 		void Console::Write(const WString& string)
 		{
-			DWORD count=0;
-			WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE),string.Buffer(),(int)string.Length(),&count,0);
+			Write(string.Buffer(), string.Length());
 		}
 
 		void Console::WriteLine(const WString& string)
@@ -407,10 +371,10 @@ HttpRequest
 
 	void HttpRequest::SetBodyUtf8(const WString& bodyString)
 	{
-		vint utf8Size=WideCharToMultiByte(CP_UTF8, 0, bodyString.Buffer(), bodyString.Length(), NULL, 0, NULL, NULL);
+		vint utf8Size=WideCharToMultiByte(CP_UTF8, 0, bodyString.Buffer(), (int)bodyString.Length(), NULL, 0, NULL, NULL);
 		char* utf8=new char[utf8Size+1];
 		ZeroMemory(utf8, utf8Size+1);
-		WideCharToMultiByte(CP_UTF8, 0, bodyString.Buffer(), bodyString.Length(), utf8, utf8Size, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, bodyString.Buffer(), (int)bodyString.Length(), utf8, (int)utf8Size, NULL, NULL);
 
 		body.Resize(utf8Size);
 		memcpy(&body[0], utf8, utf8Size);
@@ -431,10 +395,10 @@ HttpResponse
 		WString response;
 		char* utf8=&body[0];
 		vint totalSize=body.Count();
-		vint utf16Size=MultiByteToWideChar(CP_UTF8, 0, utf8, totalSize, NULL, 0);
+		vint utf16Size=MultiByteToWideChar(CP_UTF8, 0, utf8, (int)totalSize, NULL, 0);
 		wchar_t* utf16=new wchar_t[utf16Size+1];
 		ZeroMemory(utf16, (utf16Size+1)*sizeof(wchar_t));
-		MultiByteToWideChar(CP_UTF8, 0, utf8, totalSize, utf16, utf16Size);
+		MultiByteToWideChar(CP_UTF8, 0, utf8, (int)totalSize, utf16, (int)utf16Size);
 		response=utf16;
 		delete[] utf16;
 		return response;
@@ -483,7 +447,7 @@ Utilities
 		if(!internet) goto CLEANUP;
 
 		// connect
-		connectedInternet=WinHttpConnect(internet, request.server.Buffer(), request.port, 0);
+		connectedInternet=WinHttpConnect(internet, request.server.Buffer(), (int)request.port, 0);
 		error=GetLastError();
 		if(!connectedInternet) goto CLEANUP;
 
@@ -515,13 +479,13 @@ Utilities
 		for(int i=0;i<request.extraHeaders.Count();i++)
 		{
 			WString key=request.extraHeaders.Keys()[i];
-			WString value=request.extraHeaders.Values()[i];
+			WString value=request.extraHeaders.Values().Get(i);
 			WinHttpAddRequestHeaders(requestInternet, (key+L":"+value).Buffer(), -1, WINHTTP_ADDREQ_FLAG_REPLACE|WINHTTP_ADDREQ_FLAG_ADD);
 		}
 
 		if(request.body.Count()>0)
 		{
-			httpResult=WinHttpSendRequest(requestInternet, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (LPVOID)&request.body[0], request.body.Count(), request.body.Count(), NULL);
+			httpResult=WinHttpSendRequest(requestInternet, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (LPVOID)&request.body.Get(0), (int)request.body.Count(), (int)request.body.Count(), NULL);
 		}
 		else
 		{
@@ -596,8 +560,8 @@ Utilities
 		}
 
 		// concatincate response body
-		int totalSize=0;
-		FOREACH(BufferPair, p, availableBuffers.Wrap())
+		vint totalSize=0;
+		FOREACH(BufferPair, p, availableBuffers)
 		{
 			totalSize+=p.length;
 		}
@@ -607,7 +571,7 @@ Utilities
 			char* utf8=new char[totalSize];
 			{
 				char* temp=utf8;
-				FOREACH(BufferPair, p, availableBuffers.Wrap())
+				FOREACH(BufferPair, p, availableBuffers)
 				{
 					memcpy(temp, p.buffer, p.length);
 					temp+=p.length;
@@ -616,7 +580,7 @@ Utilities
 			memcpy(&response.body[0], utf8, totalSize);
 			delete[] utf8;
 		}
-		FOREACH(BufferPair, p, availableBuffers.Wrap())
+		FOREACH(BufferPair, p, availableBuffers)
 		{
 			delete[] p.buffer;
 		}
@@ -629,10 +593,10 @@ Utilities
 
 	WString UrlEncodeQuery(const WString& query)
 	{
-		vint utf8Size=WideCharToMultiByte(CP_UTF8, 0, query.Buffer(), query.Length(), NULL, 0, NULL, NULL);
+		vint utf8Size=WideCharToMultiByte(CP_UTF8, 0, query.Buffer(),(int) query.Length(), NULL, 0, NULL, NULL);
 		char* utf8=new char[utf8Size+1];
 		ZeroMemory(utf8, utf8Size+1);
-		WideCharToMultiByte(CP_UTF8, 0, query.Buffer(), query.Length(), utf8, utf8Size, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, query.Buffer(), (int)query.Length(), utf8, (int)utf8Size, NULL, NULL);
 
 		wchar_t* encoded=new wchar_t[utf8Size*3+1];
 		ZeroMemory(encoded, (utf8Size*3+1)*sizeof(wchar_t));
@@ -658,6 +622,10015 @@ Utilities
 		delete[] encoded;
 		delete[] utf8;
 		return result;
+	}
+}
+
+/***********************************************************************
+Locale.cpp
+***********************************************************************/
+
+namespace vl
+{
+	using namespace collections;
+
+	extern SYSTEMTIME DateTimeToSystemTime(const DateTime& dateTime);
+
+	BOOL CALLBACK Locale_EnumLocalesProcEx(
+		_In_  LPWSTR lpLocaleString,
+		_In_  DWORD dwFlags,
+		_In_  LPARAM lParam
+		)
+	{
+		((List<Locale>*)lParam)->Add(Locale(lpLocaleString));
+		return TRUE;
+	}
+
+	BOOL CALLBACK Locale_EnumDateFormatsProcExEx(
+		_In_  LPWSTR lpDateFormatString,
+		_In_  CALID CalendarID,
+		_In_  LPARAM lParam
+	)
+	{
+		((List<WString>*)lParam)->Add(lpDateFormatString);
+		return TRUE;
+	}
+
+	BOOL CALLBACK EnumTimeFormatsProcEx(
+		_In_  LPWSTR lpTimeFormatString,
+		_In_  LPARAM lParam
+	)
+	{
+		((List<WString>*)lParam)->Add(lpTimeFormatString);
+		return TRUE;
+	}
+
+	WString Transform(const WString& localeName, const WString& input, DWORD flag)
+	{
+		int length=LCMapStringEx(localeName.Buffer(), flag, input.Buffer(), input.Length()+1, NULL, 0, NULL, NULL, NULL);
+		Array<wchar_t> buffer(length);
+		LCMapStringEx(localeName.Buffer(), flag, input.Buffer(), input.Length()+1, &buffer[0], buffer.Count(), NULL, NULL, NULL);
+		return &buffer[0];
+	}
+
+	DWORD TranslateNormalization(Locale::Normalization normalization)
+	{
+		DWORD result=0;
+		if(normalization&Locale::IgnoreCase) result|=NORM_IGNORECASE;
+		if(normalization&Locale::IgnoreCaseLinguistic) result|=NORM_IGNORECASE | NORM_LINGUISTIC_CASING;
+		if(normalization&Locale::IgnoreKanaType) result|=NORM_IGNOREKANATYPE;
+		if(normalization&Locale::IgnoreNonSpace) result|=NORM_IGNORENONSPACE;
+		if(normalization&Locale::IgnoreSymbol) result|=NORM_IGNORESYMBOLS;
+		if(normalization&Locale::IgnoreWidth) result|=NORM_IGNOREWIDTH;
+		if(normalization&Locale::DigitsAsNumbers) result|=SORT_DIGITSASNUMBERS;
+		if(normalization&Locale::StringSoft) result|=SORT_STRINGSORT;
+		return result;
+	}
+
+/***********************************************************************
+Locale
+***********************************************************************/
+
+	Locale::Locale(const WString& _localeName)
+		:localeName(_localeName)
+	{
+	}
+
+	Locale::~Locale()
+	{
+	}
+
+	Locale Locale::Invariant()
+	{
+		return Locale(LOCALE_NAME_INVARIANT);
+	}
+
+	Locale Locale::SystemDefault()
+	{
+		wchar_t buffer[LOCALE_NAME_MAX_LENGTH+1]={0};
+		GetSystemDefaultLocaleName(buffer, LOCALE_NAME_MAX_LENGTH);
+		return Locale(buffer);
+	}
+
+	Locale Locale::UserDefault()
+	{
+		wchar_t buffer[LOCALE_NAME_MAX_LENGTH+1]={0};
+		GetUserDefaultLocaleName(buffer, LOCALE_NAME_MAX_LENGTH);
+		return Locale(buffer);
+	}
+
+	void Locale::Enumerate(collections::List<Locale>& locales)
+	{
+		EnumSystemLocalesEx(&Locale_EnumLocalesProcEx, LOCALE_ALL, (LPARAM)&locales, NULL);
+	}
+
+	const WString& Locale::GetName()const
+	{
+		return localeName;
+	}
+
+	void Locale::GetShortDateFormats(collections::List<WString>& formats)
+	{
+		EnumDateFormatsExEx(&Locale_EnumDateFormatsProcExEx, localeName.Buffer(), DATE_SHORTDATE, (LPARAM)&formats);
+	}
+
+	void Locale::GetLongDateFormats(collections::List<WString>& formats)
+	{
+		EnumDateFormatsExEx(&Locale_EnumDateFormatsProcExEx, localeName.Buffer(), DATE_LONGDATE, (LPARAM)&formats);
+	}
+
+	void Locale::GetYearMonthDateFormats(collections::List<WString>& formats)
+	{
+		EnumDateFormatsExEx(&Locale_EnumDateFormatsProcExEx, localeName.Buffer(), DATE_YEARMONTH, (LPARAM)&formats);
+	}
+
+	void Locale::GetLongTimeFormats(collections::List<WString>& formats)
+	{
+		EnumTimeFormatsEx(&EnumTimeFormatsProcEx, localeName.Buffer(), 0, (LPARAM)&formats);
+	}
+
+	void Locale::GetShortTimeFormats(collections::List<WString>& formats)
+	{
+		EnumTimeFormatsEx(&EnumTimeFormatsProcEx, localeName.Buffer(), TIME_NOSECONDS, (LPARAM)&formats);
+	}
+
+	WString Locale::FormatDate(const WString& format, DateTime date)
+	{
+		SYSTEMTIME st=DateTimeToSystemTime(date);
+		int length=GetDateFormatEx(localeName.Buffer(), 0, &st, format.Buffer(), NULL, 0, NULL);
+		Array<wchar_t> buffer(length);
+		GetDateFormatEx(localeName.Buffer(), 0, &st, format.Buffer(), &buffer[0], buffer.Count(), NULL);
+		return &buffer[0];
+	}
+
+	WString Locale::FormatTime(const WString& format, DateTime time)
+	{
+		SYSTEMTIME st=DateTimeToSystemTime(time);
+		int length=GetTimeFormatEx(localeName.Buffer(), 0, &st, format.Buffer(), NULL, 0);
+		Array<wchar_t> buffer(length);
+		GetTimeFormatEx(localeName.Buffer(), 0, &st, format.Buffer(),&buffer[0], buffer.Count());
+		return &buffer[0];
+	}
+
+	WString Locale::FormatNumber(const WString& number)
+	{
+		int length=GetNumberFormatEx(localeName.Buffer(), 0, number.Buffer(), NULL, NULL, 0);
+		Array<wchar_t> buffer(length);
+		GetNumberFormatEx(localeName.Buffer(), 0, number.Buffer(), NULL, &buffer[0], buffer.Count());
+		return &buffer[0];
+	}
+
+	WString Locale::FormatCurrency(const WString& currency)
+	{
+		int length=GetCurrencyFormatEx(localeName.Buffer(), 0, currency.Buffer(), NULL, NULL, 0);
+		Array<wchar_t> buffer(length);
+		GetCurrencyFormatEx(localeName.Buffer(), 0, currency.Buffer(), NULL, &buffer[0], buffer.Count());
+		return &buffer[0];
+	}
+
+	WString Locale::ToFullWidth(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_FULLWIDTH);
+	}
+
+	WString Locale::ToHalfWidth(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_HALFWIDTH);
+	}
+
+	WString Locale::ToHiragana(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_HIRAGANA);
+	}
+
+	WString Locale::ToKatagana(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_KATAKANA);
+	}
+
+	WString Locale::ToLower(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_LOWERCASE);
+	}
+
+	WString Locale::ToUpper(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_UPPERCASE);
+	}
+
+	WString Locale::ToLinguisticLower(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_LOWERCASE | LCMAP_LINGUISTIC_CASING);
+	}
+
+	WString Locale::ToLinguisticUpper(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_UPPERCASE | LCMAP_LINGUISTIC_CASING);
+	}
+
+	WString Locale::ToSimplifiedChinese(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_SIMPLIFIED_CHINESE);
+	}
+
+	WString Locale::ToTraditionalChinese(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_TRADITIONAL_CHINESE);
+	}
+
+	WString Locale::ToTileCase(const WString& str)
+	{
+		return Transform(localeName, str, LCMAP_TITLECASE);
+	}
+
+	vint Locale::Compare(const WString& s1, const WString& s2, Normalization normalization)
+	{
+		switch(CompareStringEx(localeName.Buffer(), TranslateNormalization(normalization), s1.Buffer(), s1.Length(), s2.Buffer(), s2.Length(), NULL, NULL, NULL))
+		{
+		case CSTR_LESS_THAN: return -1;
+		case CSTR_GREATER_THAN: return 1;
+		default: return 0;
+		}
+	}
+
+	vint Locale::CompareOrdinal(const WString& s1, const WString& s2)
+	{
+		switch(CompareStringOrdinal(s1.Buffer(), s1.Length(), s2.Buffer(), s2.Length(), FALSE))
+		{
+		case CSTR_LESS_THAN: return -1;
+		case CSTR_GREATER_THAN: return 1;
+		default: return 0;
+		}
+	}
+
+	vint Locale::CompareOrdinalIgnoreCase(const WString& s1, const WString& s2)
+	{
+		switch(CompareStringOrdinal(s1.Buffer(), s1.Length(), s2.Buffer(), s2.Length(), TRUE))
+		{
+		case CSTR_LESS_THAN: return -1;
+		case CSTR_GREATER_THAN: return 1;
+		default: return 0;
+		}
+	}
+
+	collections::Pair<vint, vint> Locale::FindFirst(const WString& text, const WString& find, Normalization normalization)
+	{
+		int length=0;
+		int result=FindNLSStringEx(localeName.Buffer(), FIND_FROMSTART | TranslateNormalization(normalization), text.Buffer(), text.Length(), find.Buffer(), find.Length(), &length, NULL, NULL, NULL);
+		return result==-1?Pair<vint, vint>(-1, 0):Pair<vint, vint>(result, length);
+	}
+
+	collections::Pair<vint, vint> Locale::FindLast(const WString& text, const WString& find, Normalization normalization)
+	{
+		int length=0;
+		int result=FindNLSStringEx(localeName.Buffer(), FIND_FROMEND | TranslateNormalization(normalization), text.Buffer(), text.Length(), find.Buffer(), find.Length(), &length, NULL, NULL, NULL);
+		return result==-1?Pair<vint, vint>(-1, 0):Pair<vint, vint>(result, length);
+	}
+
+	bool Locale::StartsWith(const WString& text, const WString& find, Normalization normalization)
+	{
+		int result=FindNLSStringEx(localeName.Buffer(), FIND_STARTSWITH | TranslateNormalization(normalization), text.Buffer(), text.Length(), find.Buffer(), find.Length(), NULL, NULL, NULL, NULL);
+		return result!=-1;
+	}
+
+	bool Locale::EndsWidth(const WString& text, const WString& find, Normalization normalization)
+	{
+		int result=FindNLSStringEx(localeName.Buffer(), FIND_ENDSWITH | TranslateNormalization(normalization), text.Buffer(), text.Length(), find.Buffer(), find.Length(), NULL, NULL, NULL, NULL);
+		return result!=-1;
+	}
+}
+
+/***********************************************************************
+Parsing\Json\ParsingJson.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace json
+		{
+			using namespace stream;
+			using namespace collections;
+
+/***********************************************************************
+Unescaping Function Foward Declarations
+***********************************************************************/
+
+			void JsonUnescapingString(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				MemoryStream stream;
+				{
+					StreamWriter writer(stream);
+					JsonUnescapeString(value.value.Sub(1, value.value.Length()-2), writer);
+				}
+				stream.SeekFromBegin(0);
+				{
+					StreamReader reader(stream);
+					value.value=reader.ReadToEnd();
+				}
+			}
+
+/***********************************************************************
+JsonPrintVisitor
+***********************************************************************/
+
+			class JsonPrintVisitor : public Object, public JsonNode::IVisitor
+			{
+			public:
+				TextWriter&					writer;
+
+				JsonPrintVisitor(TextWriter& _writer)
+					:writer(_writer)
+				{
+				}
+
+				void Visit(JsonLiteral* node)
+				{
+					switch(node->value)
+					{
+					case JsonLiteral::JsonValue::True:
+						writer.WriteString(L"true");
+						break;
+					case JsonLiteral::JsonValue::False:
+						writer.WriteString(L"false");
+						break;
+					case JsonLiteral::JsonValue::Null:
+						writer.WriteString(L"null");
+						break;
+					}
+				}
+
+				void Visit(JsonString* node)
+				{
+					writer.WriteChar(L'\"');
+					JsonEscapeString(node->content.value, writer);
+					writer.WriteChar(L'\"');
+				}
+
+				void Visit(JsonNumber* node)
+				{
+					writer.WriteString(node->content.value);
+				}
+
+				void Visit(JsonArray* node)
+				{
+					writer.WriteChar(L'[');
+					FOREACH_INDEXER(Ptr<JsonNode>, item, i, node->items)
+					{
+						if(i>0) writer.WriteChar(L',');
+						item->Accept(this);
+					}
+					writer.WriteChar(L']');
+				}
+
+				void Visit(JsonObjectField* node)
+				{
+					writer.WriteChar(L'\"');
+					JsonEscapeString(node->name.value, writer);
+					writer.WriteString(L"\":");
+					node->value->Accept(this);
+				}
+
+				void Visit(JsonObject* node)
+				{
+					writer.WriteChar(L'{');
+					FOREACH_INDEXER(Ptr<JsonObjectField>, field, i, node->fields)
+					{
+						if(i>0) writer.WriteChar(L',');
+						field->Accept(this);
+					}
+					writer.WriteChar(L'}');
+				}
+			};
+
+/***********************************************************************
+API
+***********************************************************************/
+
+			void JsonEscapeString(const WString& text, stream::TextWriter& writer)
+			{
+				const wchar_t* reading=text.Buffer();
+				while(wchar_t c=*reading++)
+				{
+					switch(c)
+					{
+					case L'\"': writer.WriteString(L"\\\""); break;
+					case L'\\': writer.WriteString(L"\\\\"); break;
+					case L'/': writer.WriteString(L"\\/"); break;
+					case L'\b': writer.WriteString(L"\\b"); break;
+					case L'\f': writer.WriteString(L"\\f"); break;
+					case L'\n': writer.WriteString(L"\\n"); break;
+					case L'\r': writer.WriteString(L"\\r"); break;
+					case L'\t': writer.WriteString(L"\\t"); break;
+					default: writer.WriteChar(c);
+					}
+				}
+			}
+
+			unsigned __int16 GetHex(wchar_t c)
+			{
+				if(L'0'<=c && c<=L'9')
+				{
+					return c-L'0';
+				}
+				else if(L'A'<=c && c<=L'F')
+				{
+					return c-L'A';
+				}
+				else if(L'a'<=c && c<=L'f')
+				{
+					return c-L'a';
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			void JsonUnescapeString(const WString& text, stream::TextWriter& writer)
+			{
+				const wchar_t* reading=text.Buffer();
+				while(wchar_t c=*reading++)
+				{
+					if(c==L'\\' && *reading)
+					{
+						switch(c=*reading++)
+						{
+						case L'b': writer.WriteChar(L'\b'); break;
+						case L'f': writer.WriteChar(L'\f'); break;
+						case L'n': writer.WriteChar(L'\n'); break;
+						case L'r': writer.WriteChar(L'\r'); break;
+						case L't': writer.WriteChar(L'\t'); break;
+						case L'u':
+							{
+								wchar_t h1, h2, h3, h4;
+								if((h1=reading[0]) && (h2=reading[1]) && (h3=reading[2]) && (h4=reading[3]))
+								{
+									reading+=4;
+									wchar_t h=(wchar_t)(unsigned __int16)(
+										(GetHex(h1)<<12) +
+										(GetHex(h2)<<8) +
+										(GetHex(h3)<<4) +
+										(GetHex(h4)<<0)
+										);
+									writer.WriteChar(h);
+								}
+							}
+							break;
+						default: writer.WriteChar(c);
+						}
+					}
+					else
+					{
+						writer.WriteChar(c);
+					}
+				}
+			}
+
+			void JsonPrint(Ptr<JsonNode> node, stream::TextWriter& writer)
+			{
+				JsonPrintVisitor visitor(writer);
+				node->Accept(&visitor);
+			}
+
+			WString JsonToString(Ptr<JsonNode> node)
+			{
+				MemoryStream stream;
+				{
+					StreamWriter writer(stream);
+					JsonPrint(node, writer);
+				}
+				stream.SeekFromBegin(0);
+				{
+					StreamReader reader(stream);
+					return reader.ReadToEnd();
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\Json\ParsingJson_Parser.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace json
+		{
+/***********************************************************************
+Unescaping Function Foward Declarations
+***********************************************************************/
+
+			extern void JsonUnescapingString(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens);
+
+/***********************************************************************
+Parsing Tree Conversion Driver Implementation
+***********************************************************************/
+
+			class JsonTreeConverter : public vl::parsing::ParsingTreeConverter
+			{
+			public:
+				using vl::parsing::ParsingTreeConverter::SetMember;
+
+				bool SetMember(JsonLiteral::JsonValue::Type& member, vl::Ptr<vl::parsing::ParsingTreeNode> node, const TokenList& tokens)
+				{
+					vl::Ptr<vl::parsing::ParsingTreeToken> token=node.Cast<vl::parsing::ParsingTreeToken>();
+					if(token)
+					{
+						if(token->GetValue()==L"True") { member=JsonLiteral::JsonValue::True; return true; }
+						else if(token->GetValue()==L"False") { member=JsonLiteral::JsonValue::False; return true; }
+						else if(token->GetValue()==L"Null") { member=JsonLiteral::JsonValue::Null; return true; }
+						else { member=JsonLiteral::JsonValue::True; return false; }
+					}
+					member=JsonLiteral::JsonValue::True;
+					return false;
+				}
+
+				void Fill(vl::Ptr<JsonNode> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+				}
+
+				void Fill(vl::Ptr<JsonLiteral> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->value, obj->GetMember(L"value"), tokens);
+				}
+
+				void Fill(vl::Ptr<JsonString> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					if(SetMember(tree->content, obj->GetMember(L"content"), tokens))
+					{
+						JsonUnescapingString(tree->content, tokens);
+					}
+				}
+
+				void Fill(vl::Ptr<JsonNumber> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->content, obj->GetMember(L"content"), tokens);
+				}
+
+				void Fill(vl::Ptr<JsonArray> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->items, obj->GetMember(L"items"), tokens);
+				}
+
+				void Fill(vl::Ptr<JsonObjectField> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					if(SetMember(tree->name, obj->GetMember(L"name"), tokens))
+					{
+						JsonUnescapingString(tree->name, tokens);
+					}
+					SetMember(tree->value, obj->GetMember(L"value"), tokens);
+				}
+
+				void Fill(vl::Ptr<JsonObject> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->fields, obj->GetMember(L"fields"), tokens);
+				}
+
+				vl::Ptr<vl::parsing::ParsingTreeCustomBase> ConvertClass(vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)override
+				{
+					if(obj->GetType()==L"Literal")
+					{
+						vl::Ptr<JsonLiteral> tree = new JsonLiteral;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<JsonNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"String")
+					{
+						vl::Ptr<JsonString> tree = new JsonString;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<JsonNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Number")
+					{
+						vl::Ptr<JsonNumber> tree = new JsonNumber;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<JsonNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Array")
+					{
+						vl::Ptr<JsonArray> tree = new JsonArray;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<JsonNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"ObjectField")
+					{
+						vl::Ptr<JsonObjectField> tree = new JsonObjectField;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<JsonNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Object")
+					{
+						vl::Ptr<JsonObject> tree = new JsonObject;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<JsonNode>(), obj, tokens);
+						return tree;
+					}
+					else 
+						return 0;
+				}
+			};
+
+			vl::Ptr<vl::parsing::ParsingTreeCustomBase> JsonConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				JsonTreeConverter converter;
+				vl::Ptr<vl::parsing::ParsingTreeCustomBase> tree;
+				converter.SetMember(tree, node, tokens);
+				return tree;
+			}
+
+/***********************************************************************
+Parsing Tree Conversion Implementation
+***********************************************************************/
+
+			vl::Ptr<JsonLiteral> JsonLiteral::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return JsonConvertParsingTreeNode(node, tokens).Cast<JsonLiteral>();
+			}
+
+			vl::Ptr<JsonString> JsonString::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return JsonConvertParsingTreeNode(node, tokens).Cast<JsonString>();
+			}
+
+			vl::Ptr<JsonNumber> JsonNumber::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return JsonConvertParsingTreeNode(node, tokens).Cast<JsonNumber>();
+			}
+
+			vl::Ptr<JsonArray> JsonArray::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return JsonConvertParsingTreeNode(node, tokens).Cast<JsonArray>();
+			}
+
+			vl::Ptr<JsonObjectField> JsonObjectField::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return JsonConvertParsingTreeNode(node, tokens).Cast<JsonObjectField>();
+			}
+
+			vl::Ptr<JsonObject> JsonObject::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return JsonConvertParsingTreeNode(node, tokens).Cast<JsonObject>();
+			}
+
+/***********************************************************************
+Visitor Pattern Implementation
+***********************************************************************/
+
+			void JsonLiteral::Accept(JsonNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void JsonString::Accept(JsonNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void JsonNumber::Accept(JsonNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void JsonArray::Accept(JsonNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void JsonObjectField::Accept(JsonNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void JsonObject::Accept(JsonNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+/***********************************************************************
+Parser Function
+***********************************************************************/
+
+			vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::parsing::tabling::ParsingState state(input, table);
+				state.Reset(L"JRoot");
+				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
+				if(node)
+				{
+					return JsonConvertParsingTreeNode(node, state.GetTokens()).Cast<JsonNode>();
+				}
+				return 0;
+			}
+
+/***********************************************************************
+Table Generation
+***********************************************************************/
+
+			vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable()
+			{
+				vl::Ptr<vl::parsing::tabling::ParsingTable> table=new vl::parsing::tabling::ParsingTable(14-vl::parsing::tabling::ParsingTable::UserTokenStart, 1, 32, 6);
+				table->SetTokenInfo(0, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
+				table->SetTokenInfo(1, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
+				table->SetTokenInfo(2, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
+				table->SetTokenInfo(3, vl::parsing::tabling::ParsingTable::TokenInfo(L"TRUE", L"true"));
+				table->SetTokenInfo(4, vl::parsing::tabling::ParsingTable::TokenInfo(L"FALSE", L"false"));
+				table->SetTokenInfo(5, vl::parsing::tabling::ParsingTable::TokenInfo(L"NULLVALUE", L"null"));
+				table->SetTokenInfo(6, vl::parsing::tabling::ParsingTable::TokenInfo(L"OBJOPEN", L"\\{"));
+				table->SetTokenInfo(7, vl::parsing::tabling::ParsingTable::TokenInfo(L"OBJCLOSE", L"\\}"));
+				table->SetTokenInfo(8, vl::parsing::tabling::ParsingTable::TokenInfo(L"ARROPEN", L"\\["));
+				table->SetTokenInfo(9, vl::parsing::tabling::ParsingTable::TokenInfo(L"ARRCLOSE", L"\\]"));
+				table->SetTokenInfo(10, vl::parsing::tabling::ParsingTable::TokenInfo(L"COMMA", L","));
+				table->SetTokenInfo(11, vl::parsing::tabling::ParsingTable::TokenInfo(L"COLON", L":"));
+				table->SetTokenInfo(12, vl::parsing::tabling::ParsingTable::TokenInfo(L"NUMBER", L"[\\-]?\\d+(.\\d+)?([eE][+\\-]?\\d+)?"));
+				table->SetTokenInfo(13, vl::parsing::tabling::ParsingTable::TokenInfo(L"STRING", L"\"([^\\\\\"]|\\\\[^u]|\\\\u\\d{4})*\""));
+				table->SetDiscardTokenInfo(0, vl::parsing::tabling::ParsingTable::TokenInfo(L"SPACE", L"\\s+"));
+				table->SetStateInfo(0, vl::parsing::tabling::ParsingTable::StateInfo(L"JLiteral", L"JLiteral.RootStart", L"● $<JLiteral>"));
+				table->SetStateInfo(1, vl::parsing::tabling::ParsingTable::StateInfo(L"JLiteral", L"JLiteral.Start", L"· <JLiteral>"));
+				table->SetStateInfo(2, vl::parsing::tabling::ParsingTable::StateInfo(L"JLiteral", L"JLiteral.1", L"<JLiteral>: STRING : content as String●\r\n<JLiteral>: NUMBER : content as Number●\r\n<JLiteral>: \"true\" as Literal with { value = \"True\" }●\r\n<JLiteral>: \"false\" as Literal with { value = \"False\" }●\r\n<JLiteral>: \"null\" as Literal with { value = \"Null\" }●"));
+				table->SetStateInfo(3, vl::parsing::tabling::ParsingTable::StateInfo(L"JLiteral", L"JLiteral.RootEnd", L"$<JLiteral> ●"));
+				table->SetStateInfo(4, vl::parsing::tabling::ParsingTable::StateInfo(L"JField", L"JField.RootEnd", L"$<JField> ●"));
+				table->SetStateInfo(5, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.3", L"<JObject>: \"{\" [ JField : fields { \",\" JField : fields } ] \"}\" as Object●"));
+				table->SetStateInfo(6, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.4", L"<JObject>: \"{\" [ JField : fields { \",\"● JField : fields } ] \"}\" as Object"));
+				table->SetStateInfo(7, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.3", L"<JArray>: \"[\" [ JValue : items { \",\" JValue : items } ] \"]\" as Array●"));
+				table->SetStateInfo(8, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.4", L"<JArray>: \"[\" [ JValue : items { \",\"● JValue : items } ] \"]\" as Array"));
+				table->SetStateInfo(9, vl::parsing::tabling::ParsingTable::StateInfo(L"JValue", L"JValue.RootEnd", L"$<JValue> ●"));
+				table->SetStateInfo(10, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.RootEnd", L"$<JObject> ●"));
+				table->SetStateInfo(11, vl::parsing::tabling::ParsingTable::StateInfo(L"JRoot", L"JRoot.RootEnd", L"$<JRoot> ●"));
+				table->SetStateInfo(12, vl::parsing::tabling::ParsingTable::StateInfo(L"JField", L"JField.1", L"<JField>: STRING : name● \":\" JValue : value as ObjectField"));
+				table->SetStateInfo(13, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.RootEnd", L"$<JArray> ●"));
+				table->SetStateInfo(14, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.1", L"<JObject>: \"{\"● [ JField : fields { \",\" JField : fields } ] \"}\" as Object"));
+				table->SetStateInfo(15, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.1", L"<JArray>: \"[\"● [ JValue : items { \",\" JValue : items } ] \"]\" as Array"));
+				table->SetStateInfo(16, vl::parsing::tabling::ParsingTable::StateInfo(L"JField", L"JField.2", L"<JField>: STRING : name \":\"● JValue : value as ObjectField"));
+				table->SetStateInfo(17, vl::parsing::tabling::ParsingTable::StateInfo(L"JField", L"JField.RootStart", L"● $<JField>"));
+				table->SetStateInfo(18, vl::parsing::tabling::ParsingTable::StateInfo(L"JField", L"JField.Start", L"· <JField>"));
+				table->SetStateInfo(19, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.RootStart", L"● $<JObject>"));
+				table->SetStateInfo(20, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.Start", L"· <JObject>"));
+				table->SetStateInfo(21, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.RootStart", L"● $<JArray>"));
+				table->SetStateInfo(22, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.Start", L"· <JArray>"));
+				table->SetStateInfo(23, vl::parsing::tabling::ParsingTable::StateInfo(L"JValue", L"JValue.RootStart", L"● $<JValue>"));
+				table->SetStateInfo(24, vl::parsing::tabling::ParsingTable::StateInfo(L"JValue", L"JValue.Start", L"· <JValue>"));
+				table->SetStateInfo(25, vl::parsing::tabling::ParsingTable::StateInfo(L"JRoot", L"JRoot.RootStart", L"● $<JRoot>"));
+				table->SetStateInfo(26, vl::parsing::tabling::ParsingTable::StateInfo(L"JRoot", L"JRoot.Start", L"· <JRoot>"));
+				table->SetStateInfo(27, vl::parsing::tabling::ParsingTable::StateInfo(L"JField", L"JField.3", L"<JField>: STRING : name \":\" JValue : value as ObjectField●"));
+				table->SetStateInfo(28, vl::parsing::tabling::ParsingTable::StateInfo(L"JObject", L"JObject.2", L"<JObject>: \"{\" [ JField : fields● { \",\" JField : fields } ] \"}\" as Object\r\n<JObject>: \"{\" [ JField : fields ●{ \",\" JField : fields } ] \"}\" as Object"));
+				table->SetStateInfo(29, vl::parsing::tabling::ParsingTable::StateInfo(L"JArray", L"JArray.2", L"<JArray>: \"[\" [ JValue : items● { \",\" JValue : items } ] \"]\" as Array\r\n<JArray>: \"[\" [ JValue : items ●{ \",\" JValue : items } ] \"]\" as Array"));
+				table->SetStateInfo(30, vl::parsing::tabling::ParsingTable::StateInfo(L"JValue", L"JValue.1", L"<JValue>: !JLiteral●\r\n<JValue>: !JObject●\r\n<JValue>: !JArray●"));
+				table->SetStateInfo(31, vl::parsing::tabling::ParsingTable::StateInfo(L"JRoot", L"JRoot.1", L"<JRoot>: !JObject●\r\n<JRoot>: !JArray●"));
+				table->SetRuleInfo(0, vl::parsing::tabling::ParsingTable::RuleInfo(L"JLiteral", L"Node", 0));
+				table->SetRuleInfo(1, vl::parsing::tabling::ParsingTable::RuleInfo(L"JField", L"ObjectField", 17));
+				table->SetRuleInfo(2, vl::parsing::tabling::ParsingTable::RuleInfo(L"JObject", L"Object", 19));
+				table->SetRuleInfo(3, vl::parsing::tabling::ParsingTable::RuleInfo(L"JArray", L"Array", 21));
+				table->SetRuleInfo(4, vl::parsing::tabling::ParsingTable::RuleInfo(L"JValue", L"Node", 23));
+				table->SetRuleInfo(5, vl::parsing::tabling::ParsingTable::RuleInfo(L"JRoot", L"Node", 25));
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 1);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(0, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"True"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(1, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"False"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(1, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"Null"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(1, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Number", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(1, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"String", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(1, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 3);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 4);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 9);
+						item->stackPattern.Add(24);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(2, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(2, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(2, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 6);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 6);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 8);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 8);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(2, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 10);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 11);
+						item->stackPattern.Add(26);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 26, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 4);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 9);
+						item->stackPattern.Add(24);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(5, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(5, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(5, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 6);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 6);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 8);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 8);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(5, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 13);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 11);
+						item->stackPattern.Add(26);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 26, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 4);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 9);
+						item->stackPattern.Add(24);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 6);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 6);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(16);
+						item->stackPattern.Add(6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"ObjectField", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 6, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"fields", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 8);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 8);
+						item->stackPattern.Add(24);
+						item->stackPattern.Add(8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"items", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"True"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"False"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"Null"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Number", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 8, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"String", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 16);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 5);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Object", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(14, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 14, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(14, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"True"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"False"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"Null"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Array", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Number", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 15, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"String", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(15, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"True"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"False"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"Null"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Number", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 16, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"String", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(16, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 18);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(17, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(18, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 20);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(19, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 14);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(20, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 22);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(21, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 15);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(22, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 24);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(23, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"True"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"False"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Literal", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Setter, 0, L"value", L"Null"));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Number", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"String", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 26);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(25, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 26, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(26, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 15);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 26, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(26, 8, bag);
+				}
+				table->Initialize();
+				return table;
+			}
+
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\Parsing.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+			using namespace definitions;
+			using namespace analyzing;
+			using namespace collections;
+			using namespace regex;
+
+/***********************************************************************
+ParsingGeneralParser
+***********************************************************************/
+
+			void ParsingGeneralParser::OnReset()
+			{
+			}
+
+			ParsingGeneralParser::ParsingGeneralParser(Ptr<ParsingTable> _table)
+				:table(_table)
+			{
+			}
+
+			ParsingGeneralParser::~ParsingGeneralParser()
+			{
+			}
+
+			Ptr<ParsingTreeNode> ParsingGeneralParser::Parse(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)
+			{
+				ParsingTreeBuilder builder;
+				builder.Reset();
+
+				for(vint i=0;i<state.GetTokens().Count();i++)
+				{
+					const RegexToken* token=&state.GetTokens().Get(i);
+					if(token->token==-1)
+					{
+						errors.Add(new ParsingError(token, L"Unrecognizable token: \""+WString(token->reading, token->length)+L"\"."));
+					}
+				}
+
+				ParsingState::TransitionResult result;
+				while(true)
+				{
+					result=state.ReadToken();
+					if(!result)
+					{
+						const RegexToken* token=state.GetToken(state.GetCurrentToken());
+						result=OnErrorRecover(state, token, errors);
+						if(!result)
+						{
+							return 0;
+						}
+					}
+					if(result)
+					{
+						if(!builder.Run(result))
+						{
+							const RegexToken* token=state.GetToken(state.GetCurrentToken());
+							errors.Add(new ParsingError(token, L"Internal error when building the parsing tree."));
+							return 0;
+						}
+						else if(result.tableTokenIndex==ParsingTable::TokenFinish)
+						{
+							break;
+						}
+					}
+				}
+
+				Ptr<ParsingTreeNode> node=builder.GetNode();
+				if(!node)
+				{
+					errors.Add(new ParsingError(L"Internal error when building the parsing tree after a succeeded parsing process."));
+					return 0;
+				}
+				return node;
+			}
+
+			Ptr<ParsingTreeNode> ParsingGeneralParser::Parse(const WString& input, const WString& rule, collections::List<Ptr<ParsingError>>& errors)
+			{
+				ParsingState state(input, table);
+				if(state.Reset(rule)==-1)
+				{
+					errors.Add(new ParsingError(L"Rule \""+rule+L"\" does not exist."));
+					return 0;
+				}
+				return Parse(state, errors);
+			}
+
+/***********************************************************************
+ParsingStrictParser
+***********************************************************************/
+
+			ParsingState::TransitionResult ParsingStrictParser::OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)
+			{
+				const RegexToken* token=state.GetToken(state.GetCurrentToken());
+				errors.Add(new ParsingError(token, (token==0?L"Error happened during parsing when reaching to the end of the input.":L"Error happened during parsing.")));
+				return ParsingState::TransitionResult();
+			}
+
+			ParsingStrictParser::ParsingStrictParser(Ptr<ParsingTable> _table)
+				:ParsingGeneralParser(_table)
+			{
+			}
+
+			ParsingStrictParser::~ParsingStrictParser()
+			{
+			}
+
+/***********************************************************************
+ParsingAutoRecoverParser
+***********************************************************************/
+
+			ParsingState::TransitionResult ParsingAutoRecoverParser::OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)
+			{
+				vint targetTableTokenIndex=(currentToken?table->GetTableTokenIndex(currentToken->token):ParsingTable::TokenFinish);
+
+				vint selectedTableTokenIndex=-1;
+				if(recoveringFutureIndex==-1)
+				{
+					vint processingFutureIndex=-1;
+					vint usedFutureCount=0;
+					while(true)
+					{
+						ParsingState::Future* previous=0;
+						if(processingFutureIndex!=-1)
+						{
+							previous=&recoverFutures[processingFutureIndex];
+						}
+						processingFutureIndex++;
+
+						vint currentTableTokenIndex=0;
+						while(currentTableTokenIndex<table->GetTokenCount() && usedFutureCount<recoverFutures.Count())
+						{
+							ParsingState::Future* now=&recoverFutures[usedFutureCount];
+							if(state.ReadTokenInFuture(currentTableTokenIndex, previous, now))
+							{
+								if(currentTableTokenIndex==targetTableTokenIndex)
+								{
+									ParsingState::Future* future=previous;
+									while(future->previous)
+									{
+										future->previous->next=future;
+										future=future->previous;
+									}
+									recoveringFutureIndex=future-&recoverFutures[0];
+									goto FOUND_ERROR_RECOVER_SOLUTION;
+								}
+								else
+								{
+									usedFutureCount++;
+								}
+							}
+							currentTableTokenIndex++;
+						}
+					}
+				}
+			FOUND_ERROR_RECOVER_SOLUTION:
+
+				if(recoveringFutureIndex!=-1)
+				{
+					ParsingState::Future* future=&recoverFutures[recoveringFutureIndex];
+					selectedTableTokenIndex=future->selectedToken;
+					if(future->next)
+					{
+						recoveringFutureIndex+=future->next-future;
+					}
+					else
+					{
+						recoveringFutureIndex=-1;
+					}
+				}
+
+				if(selectedTableTokenIndex==-1)
+				{
+					return ParsingState::TransitionResult();
+				}
+				else
+				{
+					return state.ReadToken(selectedTableTokenIndex, 0);
+				}
+			}
+
+			ParsingAutoRecoverParser::ParsingAutoRecoverParser(Ptr<ParsingTable> _table)
+				:ParsingGeneralParser(_table)
+				,recoverFutures(65536)
+				,recoveringFutureIndex(-1)
+			{
+			}
+
+			ParsingAutoRecoverParser::~ParsingAutoRecoverParser()
+			{
+			}
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+			Ptr<ParsingStrictParser> CreateBootstrapStrictParser()
+			{
+				List<Ptr<ParsingError>> errors;
+				Ptr<ParsingDefinition> definition=CreateParserDefinition();
+				Ptr<ParsingTable> table=GenerateTable(definition, errors);
+				if(table)
+				{
+					return new ParsingStrictParser(table);
+				}
+				return 0;
+			}
+
+			Ptr<ParsingAutoRecoverParser> CreateBootstrapAutoRecoverParser()
+			{
+				List<Ptr<ParsingError>> errors;
+				Ptr<ParsingDefinition> definition=CreateParserDefinition();
+				Ptr<ParsingTable> table=GenerateTable(definition, errors);
+				if(table)
+				{
+					return new ParsingAutoRecoverParser(table);
+				}
+				return 0;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAnalyzer.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+
+		namespace analyzing
+		{
+
+/***********************************************************************
+ParsingSymbol
+***********************************************************************/
+
+			bool ParsingSymbol::AddSubSymbol(ParsingSymbol* subSymbol)
+			{
+				if(subSymbol->GetParentSymbol()) return false;
+				if(subSymbolMap.Keys().IndexOf(subSymbol->GetName())!=-1) return false;
+				switch(type)
+				{
+				case Global:
+					switch(subSymbol->GetType())
+					{
+					case EnumType:		break;
+					case ClassType:		break;
+					case TokenDef:		break;
+					case RuleDef:		break;
+					default:			return false;
+					}
+					break;
+				case EnumType:
+					switch(subSymbol->GetType())
+					{
+					case EnumItem:		break;
+					default:			return false;
+					}
+					break;
+				case ClassType:
+					switch(subSymbol->GetType())
+					{
+					case EnumType:		
+					case ClassType:
+					case ClassField:	break;
+					default:			return false;
+					}
+					break;
+				default:				return false;
+				}
+
+				subSymbol->parentSymbol=this;
+				subSymbolList.Add(subSymbol);
+				subSymbolMap.Add(subSymbol->GetName(), subSymbol);
+				return true;
+			}
+
+			ParsingSymbol::ParsingSymbol(ParsingSymbolManager* _manager, SymbolType _type, const WString& _name, ParsingSymbol* _descriptorSymbol, const WString& _descriptorString)
+				:manager(_manager)
+				,type(_type)
+				,name(_name)
+				,descriptorSymbol(_descriptorSymbol)
+				,descriptorString(_descriptorString)
+				,parentSymbol(0)
+				,arrayTypeSymbol(0)
+			{
+			}
+
+			ParsingSymbol::~ParsingSymbol()
+			{
+			}
+
+			ParsingSymbolManager* ParsingSymbol::GetManager()
+			{
+				return manager;
+			}
+
+			ParsingSymbol::SymbolType ParsingSymbol::GetType()
+			{
+				return type;
+			}
+
+			const WString& ParsingSymbol::GetName()
+			{
+				return name;
+			}
+
+			vint ParsingSymbol::GetSubSymbolCount()
+			{
+				return subSymbolList.Count();
+			}
+
+			ParsingSymbol* ParsingSymbol::GetSubSymbol(vint index)
+			{
+				if(0<=index && index<subSymbolList.Count())
+				{
+					return subSymbolList[index];
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbol::GetSubSymbolByName(const WString& name)
+			{
+				vint index=subSymbolMap.Keys().IndexOf(name);
+				if(index==-1)
+				{
+					return 0;
+				}
+				else
+				{
+					return subSymbolMap.Values().Get(index);
+				}
+			}
+
+			ParsingSymbol* ParsingSymbol::GetDescriptorSymbol()
+			{
+				return descriptorSymbol;
+			}
+
+			WString ParsingSymbol::GetDescriptorString()
+			{
+				return descriptorString;
+			}
+
+			ParsingSymbol* ParsingSymbol::GetParentSymbol()
+			{
+				return parentSymbol;
+			}
+
+			bool ParsingSymbol::IsType()
+			{
+				switch(type)
+				{
+				case ParsingSymbol::ClassType:
+				case ParsingSymbol::EnumType:
+				case ParsingSymbol::ArrayType:
+				case ParsingSymbol::TokenType:
+					return true;
+				default:
+					return false;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbol::SearchClassSubSymbol(const WString& name)
+			{
+				if(type==ParsingSymbol::ClassType)
+				{
+					ParsingSymbol* scope=this;
+					while(scope)
+					{
+						ParsingSymbol* subSymbol=scope->GetSubSymbolByName(name);
+						if(subSymbol)
+						{
+							return subSymbol;
+						}
+						else
+						{
+							scope=scope->GetDescriptorSymbol();
+						}
+					}
+				}
+				return 0;
+			}
+
+			ParsingSymbol* ParsingSymbol::SearchCommonBaseClass(ParsingSymbol* classType)
+			{
+				if(type==ParsingSymbol::ClassType && classType->GetType()==ParsingSymbol::ClassType)
+				{
+					vint aCount=0;
+					vint bCount=0;
+					ParsingSymbol* a=this;
+					ParsingSymbol* b=classType;
+					while(a || b)
+					{
+						if(a)
+						{
+							aCount++;
+							a=a->GetDescriptorSymbol();
+						}
+						if(b)
+						{
+							bCount++;
+							b=b->GetDescriptorSymbol();
+						}
+					}
+
+					a=this;
+					b=classType;
+					vint min=aCount<bCount?aCount:bCount;
+					for(vint i=aCount;i>min;i--)
+					{
+						a=a->GetDescriptorSymbol();
+					}
+					for(vint i=bCount;i>min;i--)
+					{
+						b=b->GetDescriptorSymbol();
+					}
+
+					while(a!=b)
+					{
+						a=a->GetDescriptorSymbol();
+						b=b->GetDescriptorSymbol();
+					}
+					return a;
+				}
+				return 0;
+			}
+
+/***********************************************************************
+ParsingSymbolManager
+***********************************************************************/
+
+			ParsingSymbol* ParsingSymbolManager::TryAddSubSymbol(Ptr<ParsingSymbol> subSymbol, ParsingSymbol* parentSymbol)
+			{
+				if(parentSymbol->AddSubSymbol(subSymbol.Obj()))
+				{
+					createdSymbols.Add(subSymbol);
+					return subSymbol.Obj();
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbolManager::ParsingSymbolManager()
+			{
+				globalSymbol=new ParsingSymbol(this, ParsingSymbol::Global, L"", 0, L"");
+				tokenTypeSymbol=new ParsingSymbol(this, ParsingSymbol::TokenType, L"token", 0, L"");
+				createdSymbols.Add(globalSymbol);
+				createdSymbols.Add(tokenTypeSymbol);
+			}
+
+			ParsingSymbolManager::~ParsingSymbolManager()
+			{
+			}
+
+			ParsingSymbol* ParsingSymbolManager::GetGlobal()
+			{
+				return globalSymbol;
+			}
+
+			ParsingSymbol* ParsingSymbolManager::GetTokenType()
+			{
+				return tokenTypeSymbol;
+			}
+
+			ParsingSymbol* ParsingSymbolManager::GetArrayType(ParsingSymbol* elementType)
+			{
+				if(elementType->IsType())
+				{
+					if(!elementType->arrayTypeSymbol)
+					{
+						elementType->arrayTypeSymbol=new ParsingSymbol(this, ParsingSymbol::ArrayType, L"", elementType, L"");
+						createdSymbols.Add(elementType->arrayTypeSymbol);
+					}
+					return elementType->arrayTypeSymbol;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::AddClass(const WString& name, ParsingSymbol* baseType, ParsingSymbol* parentType)
+			{
+				if((!baseType || baseType->GetType()==ParsingSymbol::ClassType) && (!parentType || parentType->IsType()))
+				{
+					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::ClassType, name, baseType, L"");
+					return TryAddSubSymbol(symbol, parentType?parentType:globalSymbol);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::AddField(const WString& name, ParsingSymbol* classType, ParsingSymbol* fieldType)
+			{
+				if(classType && classType->GetType()==ParsingSymbol::ClassType && fieldType && fieldType->IsType())
+				{
+					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::ClassField, name, fieldType, L"");
+					return TryAddSubSymbol(symbol, classType);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::AddEnum(const WString& name, ParsingSymbol* parentType)
+			{
+				if(!parentType || parentType->GetType()==ParsingSymbol::ClassType)
+				{
+					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::EnumType, name, 0, L"");
+					return TryAddSubSymbol(symbol, parentType?parentType:globalSymbol);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::AddEnumItem(const WString& name, ParsingSymbol* enumType)
+			{
+				if(enumType && enumType->GetType()==ParsingSymbol::EnumType)
+				{
+					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::EnumItem, name, enumType, L"");
+					return TryAddSubSymbol(symbol, enumType);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::AddTokenDefinition(const WString& name, const WString& regex)
+			{
+				ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::TokenDef, name, tokenTypeSymbol, regex);
+				return TryAddSubSymbol(symbol, globalSymbol);
+			}
+
+			ParsingSymbol* ParsingSymbolManager::AddRuleDefinition(const WString& name, ParsingSymbol* ruleType)
+			{
+				if(ruleType && ruleType->IsType())
+				{
+					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::RuleDef, name, ruleType, L"");
+					return TryAddSubSymbol(symbol, globalSymbol);
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::CacheGetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope)
+			{
+				DefinitionTypeScopePair key(type, scope);
+				vint index=definitionTypeSymbolCache.Keys().IndexOf(key);
+				return index==-1?0:definitionTypeSymbolCache.Values().Get(index);
+			}
+
+			bool ParsingSymbolManager::CacheSetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope, ParsingSymbol* symbol)
+			{
+				DefinitionTypeScopePair key(type, scope);
+				vint index=definitionTypeSymbolCache.Keys().IndexOf(key);
+				if(index==-1)
+				{
+					definitionTypeSymbolCache.Add(key, symbol);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::CacheGetSymbol(definitions::ParsingDefinitionGrammar* grammar)
+			{
+				vint index=definitionGrammarSymbolCache.Keys().IndexOf(grammar);
+				return index==-1?0:definitionGrammarSymbolCache.Values().Get(index);
+			}
+
+			bool ParsingSymbolManager::CacheSetSymbol(definitions::ParsingDefinitionGrammar* grammar, ParsingSymbol* symbol)
+			{
+				vint index=definitionGrammarSymbolCache.Keys().IndexOf(grammar);
+				if(index==-1)
+				{
+					definitionGrammarSymbolCache.Add(grammar, symbol);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			ParsingSymbol* ParsingSymbolManager::CacheGetType(definitions::ParsingDefinitionGrammar* grammar)
+			{
+				vint index=definitionGrammarTypeCache.Keys().IndexOf(grammar);
+				return index==-1?0:definitionGrammarTypeCache.Values().Get(index);
+			}
+
+			bool ParsingSymbolManager::CacheSetType(definitions::ParsingDefinitionGrammar* grammar, ParsingSymbol* type)
+			{
+				vint index=definitionGrammarTypeCache.Keys().IndexOf(grammar);
+				if(index==-1)
+				{
+					definitionGrammarTypeCache.Add(grammar, type);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+/***********************************************************************
+FindType
+***********************************************************************/
+
+			WString GetTypeFullName(ParsingSymbol* type)
+			{
+				if(type->GetType()==ParsingSymbol::ArrayType)
+				{
+					return GetTypeFullName(type->GetDescriptorSymbol())+L"[]";
+				}
+				else
+				{
+					WString name=type->GetName();
+					type=type->GetParentSymbol();
+					while(type && type!=type->GetManager()->GetGlobal())
+					{
+						name=type->GetName()+L"."+name;
+						type=type->GetParentSymbol();
+					}
+					return name;
+				}
+			}
+
+/***********************************************************************
+FindType
+***********************************************************************/
+
+			class FindTypeVisitor : public Object, public ParsingDefinitionType::IVisitor
+			{
+			public:
+				ParsingSymbolManager*				manager;
+				ParsingSymbol*						scope;
+				List<Ptr<ParsingError>>&			errors;
+				ParsingSymbol*						result;
+
+				FindTypeVisitor(ParsingSymbolManager* _manager, ParsingSymbol* _scope, List<Ptr<ParsingError>>& _errors)
+					:manager(_manager)
+					,scope(_scope)
+					,errors(_errors)
+					,result(0)
+				{
+				}
+
+				void Visit(ParsingDefinitionPrimitiveType* node)override
+				{
+					ParsingSymbol* currentScope=scope;
+					while(currentScope)
+					{
+						ParsingSymbol* type=currentScope->GetSubSymbolByName(node->name);
+						if(type)
+						{
+							if(type->IsType())
+							{
+								result=type;
+							}
+							else
+							{
+								errors.Add(new ParsingError(node, L"\""+node->name+L"\" in current scope is not a type."));
+							}
+							return;
+						}
+						currentScope=currentScope->GetParentSymbol();
+					}
+					errors.Add(new ParsingError(node, L"Cannot not find \""+node->name+L"\" in current scope."));
+				}
+
+				void Visit(ParsingDefinitionTokenType* node)override
+				{
+					result=manager->GetTokenType();
+				}
+
+				void Visit(ParsingDefinitionSubType* node)override
+				{
+					ParsingSymbol* type=FindType(node->parentType.Obj(), manager, scope, errors);
+					if(type)
+					{
+						ParsingSymbol* subType=type->SearchClassSubSymbol(node->subTypeName);
+						if(!subType)
+						{
+							errors.Add(new ParsingError(node, L"\""+GetTypeFullName(type)+L"\" does not has a sub type called \""+node->subTypeName+L"\"."));
+						}
+						else if(subType->IsType())
+						{
+							result=subType;
+						}
+						else
+						{
+							errors.Add(new ParsingError(node, L"\""+GetTypeFullName(type)+L"\" contains a sub definition called \""+node->subTypeName+L"\" but this is not a type."));
+						}
+					}
+				}
+
+				void Visit(ParsingDefinitionArrayType* node)override
+				{
+					ParsingSymbol* type=FindType(node->elementType.Obj(), manager, scope, errors);
+					if(type)
+					{
+						result=manager->GetArrayType(type);
+					}
+				}
+			};
+
+			ParsingSymbol* FindType(definitions::ParsingDefinitionType* type, ParsingSymbolManager* manager, ParsingSymbol* scope, collections::List<Ptr<ParsingError>>& errors)
+			{
+				ParsingSymbol* result=manager->CacheGetType(type, scope);
+				if(!result)
+				{
+					FindTypeVisitor visitor(manager, (scope?scope:manager->GetGlobal()), errors);
+					type->Accept(&visitor);
+					result=visitor.result;
+					manager->CacheSetType(type, scope, result);
+				}
+				return result;
+			}
+
+/***********************************************************************
+PrepareSymbols
+***********************************************************************/
+
+			class PrepareSymbolsTypeDefinitionVisitor : public Object, public ParsingDefinitionTypeDefinition::IVisitor
+			{
+			public:
+				ParsingSymbolManager*				manager;
+				ParsingSymbol*						scope;
+				List<Ptr<ParsingError>>&			errors;
+
+				PrepareSymbolsTypeDefinitionVisitor(ParsingSymbolManager* _manager, ParsingSymbol* _scope, List<Ptr<ParsingError>>& _errors)
+					:manager(_manager)
+					,scope(_scope)
+					,errors(_errors)
+				{
+				}
+
+				bool EnsureNameNotExists(ParsingDefinitionTypeDefinition* node, const WString& subjectName)
+				{
+					if(scope->SearchClassSubSymbol(node->name))
+					{
+						errors.Add(new ParsingError(node, L"Cannot redefine \""+node->name+L"\" to be "+subjectName+L"."));
+						return false;
+					}
+					else
+					{
+						return true;
+					}
+				}
+
+				void Visit(ParsingDefinitionClassMemberDefinition* node)override
+				{
+					if(EnsureNameNotExists(node, L"a class field"))
+					{
+						ParsingSymbol* fieldType=FindType(node->type.Obj(), manager, scope, errors);
+						if(fieldType)
+						{
+							ParsingSymbol* field=manager->AddField(node->name, scope, fieldType);
+							if(!field)
+							{
+								errors.Add(new ParsingError(node, L"A class field cannot be defined here."));
+							}
+						}
+					}
+				}
+
+				void Visit(ParsingDefinitionClassDefinition* node)override
+				{
+					if(EnsureNameNotExists(node, L"a class type"))
+					{
+						ParsingSymbol* baseType=0;
+						if(node->parentType)
+						{
+							baseType=FindType(node->parentType.Obj(), manager, scope, errors);
+						}
+						ParsingSymbol* classType=manager->AddClass(node->name, baseType, (scope->GetType()==ParsingSymbol::Global?0:scope));
+						if(classType)
+						{
+							PrepareSymbolsTypeDefinitionVisitor visitor(manager, classType, errors);
+							FOREACH(Ptr<ParsingDefinitionTypeDefinition>, subType, node->subTypes)
+							{
+								subType->Accept(&visitor);
+							}
+							FOREACH(Ptr<ParsingDefinitionClassMemberDefinition>, member, node->members)
+							{
+								member->Accept(&visitor);
+							}
+						}
+						else
+						{
+							errors.Add(new ParsingError(node, L"A class type cannot be defined here."));
+						}
+					}
+				}
+
+				void Visit(ParsingDefinitionEnumMemberDefinition* node)override
+				{
+					if(EnsureNameNotExists(node, L"an enum item"))
+					{
+						ParsingSymbol* enumItem=manager->AddEnumItem(node->name, scope);
+						if(!enumItem)
+						{
+							errors.Add(new ParsingError(node, L"An enum item cannot be defined here."));
+						}
+					}
+				}
+
+				void Visit(ParsingDefinitionEnumDefinition* node)override
+				{
+					if(EnsureNameNotExists(node, L"an enum type"))
+					{
+						ParsingSymbol* enumType=manager->AddEnum(node->name, (scope->GetType()==ParsingSymbol::Global?0:scope));
+						if(enumType)
+						{
+							PrepareSymbolsTypeDefinitionVisitor visitor(manager, enumType, errors);
+							FOREACH(Ptr<ParsingDefinitionEnumMemberDefinition>, member, node->members)
+							{
+								member->Accept(&visitor);
+							}
+						}
+						else
+						{
+							errors.Add(new ParsingError(node, L"An enum type cannot be defined here."));
+						}
+					}
+				}
+			};
+
+			void PrepareSymbols(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors)
+			{
+				{
+					PrepareSymbolsTypeDefinitionVisitor visitor(manager, manager->GetGlobal(), errors);
+					FOREACH(Ptr<ParsingDefinitionTypeDefinition>, typeDefinition, definition->types)
+					{
+						typeDefinition->Accept(&visitor);
+					}
+				}
+
+				FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
+				{
+					if(manager->GetGlobal()->GetSubSymbolByName(token->name))
+					{
+						errors.Add(new ParsingError(token.Obj(), L"Cannot redefine \""+token->name+L"\" to be a token definition."));
+					}
+					else
+					{
+						manager->AddTokenDefinition(token->name, token->regex);
+						try
+						{
+							regex_internal::ParseRegexExpression(token->regex);
+						}
+						catch(const ParsingException& ex)
+						{
+							errors.Add(new ParsingError(token.Obj(), L"Wrong token definition for \""+token->name+L"\": "+ex.Message()));
+						}
+					}
+				}
+
+				FOREACH(Ptr<ParsingDefinitionRuleDefinition>, rule, definition->rules)
+				{
+					if(manager->GetGlobal()->GetSubSymbolByName(rule->name))
+					{
+						errors.Add(new ParsingError(rule.Obj(), L"Cannot redefine \""+rule->name+L"\" to be a rule definition."));
+					}
+					else
+					{
+						ParsingSymbol* type=FindType(rule->type.Obj(), manager, 0, errors);
+						if(type)
+						{
+							if(type->GetType()!=ParsingSymbol::ClassType)
+							{
+								errors.Add(new ParsingError(rule.Obj(), L"\""+GetTypeFullName(type)+L"\" cannot be a type of a rule because this is not a class type."));
+							}
+							manager->AddRuleDefinition(rule->name, type);
+						}
+					}
+				}
+			}
+
+/***********************************************************************
+ValidateRuleStructure
+***********************************************************************/
+
+			class ValidateRuleStructureVisitor : public Object, public ParsingDefinitionGrammar::IVisitor
+			{
+			public:
+				Ptr<ParsingDefinition>				definition;
+				ParsingSymbolManager*				manager;
+				ParsingDefinitionRuleDefinition*	rule;
+				List<Ptr<ParsingError>>&			errors;
+				vint								loopCount;
+
+				ValidateRuleStructureVisitor(Ptr<ParsingDefinition> _definition, ParsingSymbolManager* _manager, ParsingDefinitionRuleDefinition* _rule, List<Ptr<ParsingError>>& _errors)
+					:definition(_definition)
+					,manager(_manager)
+					,errors(_errors)
+					,rule(_rule)
+					,loopCount(0)
+				{
+				}
+
+				void CheckCreationType(ParsingDefinitionGrammar* node, ParsingSymbol* nodeType)
+				{
+					if(nodeType->GetType()==ParsingSymbol::ClassType)
+					{
+						ParsingSymbol* ruleType=manager->GetGlobal()->GetSubSymbolByName(rule->name)->GetDescriptorSymbol();
+						ParsingSymbol* currentType=nodeType;
+						while(currentType && currentType!=ruleType)
+						{
+							currentType=currentType->GetDescriptorSymbol();
+						}
+						if(!currentType)
+						{
+							errors.Add(new ParsingError(node, L"Cannot create type \""+GetTypeFullName(nodeType)+L"\" in a rule of type \""+GetTypeFullName(ruleType)+L"\" because there are no implicit conversions from the created type to the rule type."));
+						}
+					}
+					else
+					{
+						errors.Add(new ParsingError(node, L"\""+GetTypeFullName(nodeType)+L"\" cannot be created because this is not a class type."));
+					}
+				}
+
+				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
+				{
+					ParsingSymbol* symbol=manager->GetGlobal()->GetSubSymbolByName(node->name);
+					if(!symbol)
+					{
+						errors.Add(new ParsingError(node, L"Cannot find a token or a rule with name \""+node->name+L"\"."));
+					}
+					else switch(symbol->GetType())
+					{
+					case ParsingSymbol::TokenDef:
+						{
+							bool discard=false;
+							FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
+							{
+								if(token->name==symbol->GetName())
+								{
+									discard=token->discard;
+									break;
+								}
+							}
+							if(discard)
+							{
+								errors.Add(new ParsingError(node, L"Cannot use discard token \""+node->name+L"\" as input."));
+								break;
+							}
+						}
+					case ParsingSymbol::RuleDef:
+						{
+							ParsingSymbol* symbolType=symbol->GetDescriptorSymbol();
+							manager->CacheSetSymbol(node, symbol);
+							manager->CacheSetType(node, symbolType);
+						}
+						break;
+					default:
+						errors.Add(new ParsingError(node, L"\""+node->name+L"\" is not a token definition or rule definition."));
+					}
+				}
+
+				void Visit(ParsingDefinitionTextGrammar* node)override
+				{
+					WString regex=regex_internal::EscapeTextForRegex(node->text);
+					for(vint i=0;i<manager->GetGlobal()->GetSubSymbolCount();i++)
+					{
+						ParsingSymbol* symbol=manager->GetGlobal()->GetSubSymbol(i);
+						if(symbol->GetType()==ParsingSymbol::TokenDef)
+						{
+							WString normalizedRegex=regex_internal::NormalizeEscapedTextForRegex(symbol->GetDescriptorString());
+							if(normalizedRegex==regex)
+							{
+								manager->CacheSetSymbol(node, symbol);
+								manager->CacheSetType(node, manager->GetTokenType());
+								return;
+							}
+						}
+					}
+					errors.Add(new ParsingError(node, L"Cannot find a token whose definition is exactly \""+regex+L"\"."));
+				}
+
+				void Visit(ParsingDefinitionSequenceGrammar* node)override
+				{
+					node->first->Accept(this);
+					node->second->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionAlternativeGrammar* node)override
+				{
+					node->first->Accept(this);
+					node->second->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionLoopGrammar* node)override
+				{
+					loopCount++;
+					node->grammar->Accept(this);
+					loopCount--;
+				}
+
+				void Visit(ParsingDefinitionOptionalGrammar* node)override
+				{
+					node->grammar->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionCreateGrammar* node)override
+				{
+					if(loopCount>0)
+					{
+						errors.Add(new ParsingError(node, L"Parsing tree node creation (the \"as\" operator) is not allowed inside loops."));
+					}
+					if(ParsingSymbol* nodeType=FindType(node->type.Obj(), manager, 0, errors))
+					{
+						CheckCreationType(node, nodeType);
+					}
+					node->grammar->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionAssignGrammar* node)override
+				{
+					if(!node->grammar.Cast<ParsingDefinitionPrimitiveGrammar>() && !node->grammar.Cast<ParsingDefinitionTextGrammar>())
+					{
+						errors.Add(new ParsingError(node, L"Only parsing tree node returned from a rule or a token can be assigned to a class field."));
+					}
+					node->grammar->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionUseGrammar* node)override
+				{
+					if(loopCount>0)
+					{
+						errors.Add(new ParsingError(node, L"Parsing tree node reusing (the \"!\" operator) is not allowed inside loops."));
+					}
+					if(!node->grammar.Cast<ParsingDefinitionPrimitiveGrammar>())
+					{
+						errors.Add(new ParsingError(node, L"Only parsing tree node returned from a rule can be reused."));
+					}
+					else if(ParsingSymbol* symbol=manager->CacheGetSymbol(node->grammar.Obj()))
+					{
+						if(symbol->GetType()!=ParsingSymbol::RuleDef)
+						{
+							errors.Add(new ParsingError(node, L"Only parsing tree node returned from a rule can be reused."));
+						}
+					}
+					if(ParsingSymbol* nodeType=manager->CacheGetType(node->grammar.Obj()))
+					{
+						CheckCreationType(node, nodeType);
+					}
+					node->grammar->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionSetterGrammar* node)override
+				{
+					node->grammar->Accept(this);
+				}
+			};
+
+			void ValidateRuleStructure(Ptr<definitions::ParsingDefinition> definition, Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors)
+			{
+				FOREACH(Ptr<ParsingDefinitionGrammar>, grammar, rule->grammars)
+				{
+					ValidateRuleStructureVisitor visitor(definition, manager, rule.Obj(), errors);
+					grammar->Accept(&visitor);
+				}
+			}
+
+/***********************************************************************
+ResolveRuleSymbols
+***********************************************************************/
+
+			struct GrammarPathFragment
+			{
+				// primitive, text                            -> transition
+				// loop, optional, create, use assign, setter -> epsilon
+				GrammarPathFragment*						previousFragment;
+				ParsingDefinitionGrammar*					grammar;
+				bool										epsilon;
+				ParsingSymbol*								createdType;
+
+				GrammarPathFragment()
+					:previousFragment(0)
+					,grammar(0)
+					,epsilon(false)
+					,createdType(0)
+				{
+				}
+			};
+
+			struct GrammarPath
+			{
+				List<Ptr<GrammarPathFragment>>				fragments;
+				ParsingSymbol*								pathType;
+
+				GrammarPath()
+					:pathType(0)
+				{
+				}
+
+				WString ToString()
+				{
+					WString result;
+					FOREACH(Ptr<GrammarPathFragment>, fragment, fragments)
+					{
+						if(!fragment->epsilon)
+						{
+							if(result!=L"") result+=L" ";
+							result+=GrammarToString(fragment->grammar);
+						}
+					}
+					return result;
+				}
+			};
+
+			struct GrammarPathContainer
+			{
+				List<Ptr<GrammarPath>>						paths;
+			};
+
+			class EnumerateGrammarPathVisitor : public Object, public ParsingDefinitionGrammar::IVisitor
+			{
+			public:
+				ParsingSymbolManager*						manager;
+				ParsingDefinitionRuleDefinition*			rule;
+
+				List<Ptr<GrammarPathFragment>>				createdFragments;
+				List<GrammarPathFragment*>					currentFragmentEnds;
+
+				EnumerateGrammarPathVisitor(ParsingSymbolManager* _manager, ParsingDefinitionRuleDefinition* _rule)
+					:manager(_manager)
+					,rule(_rule)
+				{
+				}
+
+				EnumerateGrammarPathVisitor(const EnumerateGrammarPathVisitor& visitor)
+					:manager(visitor.manager)
+					,rule(visitor.rule)
+				{
+					CopyFrom(currentFragmentEnds, visitor.currentFragmentEnds);
+				}
+
+				void Join(const EnumerateGrammarPathVisitor& visitor)
+				{
+					CopyFrom(createdFragments, visitor.createdFragments, true);
+					CopyFrom(currentFragmentEnds, visitor.currentFragmentEnds, true);
+				}
+
+				void AddFragment(ParsingDefinitionGrammar* node, bool epsilon, ParsingSymbol* createdType)
+				{
+					if(currentFragmentEnds.Count()==0)
+					{
+						GrammarPathFragment* fragment=new GrammarPathFragment;
+						fragment->grammar=node;
+						fragment->epsilon=epsilon;
+						fragment->createdType=createdType;
+						createdFragments.Add(fragment);
+						currentFragmentEnds.Add(fragment);
+					}
+					else for(vint i=0;i<currentFragmentEnds.Count();i++)
+					{
+						GrammarPathFragment* fragment=new GrammarPathFragment;
+						fragment->grammar=node;
+						fragment->epsilon=epsilon;
+						fragment->createdType=createdType;
+						createdFragments.Add(fragment);
+						fragment->previousFragment=currentFragmentEnds[i];
+						currentFragmentEnds[i]=fragment;
+					}
+				}
+
+				void BuildPath(List<Ptr<GrammarPath>>& paths)
+				{
+					FOREACH(GrammarPathFragment*, fragment, currentFragmentEnds)
+					{
+						Ptr<GrammarPath> path=new GrammarPath;
+						paths.Add(path);
+
+						GrammarPathFragment* current=fragment;
+						while(current)
+						{
+							path->fragments.Insert(0, createdFragments[createdFragments.IndexOf(current)]);
+							current=current->previousFragment;
+						}
+					}
+				}
+
+				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
+				{
+					AddFragment(node, false, 0);
+				}
+
+				void Visit(ParsingDefinitionTextGrammar* node)override
+				{
+					AddFragment(node, false, 0);
+				}
+
+				void Visit(ParsingDefinitionSequenceGrammar* node)override
+				{
+					node->first->Accept(this);
+					node->second->Accept(this);
+				}
+
+				void Visit(ParsingDefinitionAlternativeGrammar* node)override
+				{
+					EnumerateGrammarPathVisitor visitor(*this);
+					node->second->Accept(&visitor);
+					node->first->Accept(this);
+					Join(visitor);
+				}
+
+				void Visit(ParsingDefinitionLoopGrammar* node)override
+				{
+					EnumerateGrammarPathVisitor visitor(*this);
+					node->grammar->Accept(&visitor);
+					AddFragment(node, true, 0);
+					Join(visitor);
+				}
+
+				void Visit(ParsingDefinitionOptionalGrammar* node)override
+				{
+					EnumerateGrammarPathVisitor visitor(*this);
+					node->grammar->Accept(&visitor);
+					AddFragment(node, true, 0);
+					Join(visitor);
+				}
+
+				void Visit(ParsingDefinitionCreateGrammar* node)override
+				{
+					node->grammar->Accept(this);
+					AddFragment(node, true, manager->CacheGetType(node->type.Obj(), 0));
+				}
+
+				void Visit(ParsingDefinitionAssignGrammar* node)override
+				{
+					node->grammar->Accept(this);
+					AddFragment(node, true, 0);
+				}
+
+				void Visit(ParsingDefinitionUseGrammar* node)override
+				{
+					node->grammar->Accept(this);
+					AddFragment(node, true, manager->CacheGetSymbol(node->grammar.Obj())->GetDescriptorSymbol());
+				}
+
+				void Visit(ParsingDefinitionSetterGrammar* node)override
+				{
+					node->grammar->Accept(this);
+					AddFragment(node, true, 0);
+				}
+			};
+
+			class ResolveAssignerGrammarVisitor : public Object, public ParsingDefinitionGrammar::IVisitor
+			{
+			public:
+				typedef Dictionary<ParsingDefinitionGrammar*, Ptr<GrammarPathContainer>>	GrammarPathMap;
+				ParsingSymbolManager*			manager;
+				List<Ptr<ParsingError>>&		errors;
+				GrammarPathMap&					grammarPaths;
+
+				ResolveAssignerGrammarVisitor(ParsingSymbolManager* _manager, List<Ptr<ParsingError>>& _errors, GrammarPathMap& _grammarPaths)
+					:manager(_manager)
+					,errors(_errors)
+					,grammarPaths(_grammarPaths)
+				{
+				}
+
+				ParsingSymbol* GetFieldFromCombined(ParsingDefinitionGrammar* node, const WString& fieldName)
+				{
+					Ptr<GrammarPathContainer> paths=grammarPaths[node];
+					ParsingSymbol* pathType=paths->paths[0]->pathType;
+					for(vint i=1;i<paths->paths.Count();i++)
+					{
+						pathType=pathType->SearchCommonBaseClass(paths->paths[i]->pathType);
+						if(!pathType) break;
+					}
+
+					WString pathNames;
+					WString typeNames;
+					for(int i=0;i<paths->paths.Count();i++)
+					{
+						if(i>0)
+						{
+							pathNames+=L", ";
+							typeNames+=L", ";
+						}
+						pathNames+=L"{"+paths->paths[i]->ToString()+L"}";
+						typeNames+=L"\""+GetTypeFullName(paths->paths[i]->pathType)+L"\"";
+					}
+
+					if(pathType)
+					{
+						ParsingSymbol* field=pathType->SearchClassSubSymbol(fieldName);
+						if(!field)
+						{
+							errors.Add(new ParsingError(node, L"There are multiple grammar paths with different created types get through this operation for class field \""+fieldName+L"\", but the common base type \""+GetTypeFullName(pathType)+L"\" of these types doesn't contains the required class field. Types: "+typeNames+L"; Paths: "+pathNames+L"."));
+						}
+						else if(field->GetType()!=ParsingSymbol::ClassField)
+						{
+							errors.Add(new ParsingError(node, L"There are multiple grammar paths with different created types get through this operation for class field \""+fieldName+L"\", and the common base type \""+GetTypeFullName(pathType)+L"\" of these types contains a symbol called \""+fieldName+L"\", but this is not a class field. Types: "+typeNames+L"; Paths: "+pathNames+L"."));
+						}
+						else
+						{
+							return field;
+						}
+					}
+					else
+					{
+						errors.Add(new ParsingError(node, L"There are multiple grammar paths with different created types get through this operation for class field \""+fieldName+L"\", but these types don't have a common base type. Types: "+typeNames+L"; Paths: "+pathNames+L"."));
+					}
+					return 0;
+				}
+
+				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionTextGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionSequenceGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionAlternativeGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionLoopGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionOptionalGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionCreateGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionAssignGrammar* node)override
+				{
+					if(ParsingSymbol* field=GetFieldFromCombined(node, node->memberName))
+					{
+						manager->CacheSetSymbol(node, field);
+						manager->CacheSetType(node, field->GetDescriptorSymbol());
+
+						ParsingSymbol* fieldType=field->GetDescriptorSymbol();
+						ParsingSymbol* valueType=manager->CacheGetType(node->grammar.Obj());
+						ParsingSymbol* targetFieldType=fieldType;
+						if(targetFieldType->GetType()==ParsingSymbol::ArrayType)
+						{
+							targetFieldType=targetFieldType->GetDescriptorSymbol();
+						}
+						if(targetFieldType!=valueType && valueType->SearchCommonBaseClass(targetFieldType)!=targetFieldType)
+						{
+							errors.Add(new ParsingError(node, L"Cannot assign value from grammar {"+GrammarToString(node->grammar.Obj())+L"} of type \""+GetTypeFullName(valueType)+L"\" to the field \""+node->memberName+L"\" of type \""+GetTypeFullName(fieldType)+L"\"."));
+						}
+					}
+				}
+
+				void Visit(ParsingDefinitionUseGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionSetterGrammar* node)override
+				{
+					if(ParsingSymbol* field=GetFieldFromCombined(node, node->memberName))
+					{
+						manager->CacheSetSymbol(node, field);
+						manager->CacheSetType(node, field->GetDescriptorSymbol());
+
+						if(field->GetDescriptorSymbol()->GetType()!=ParsingSymbol::EnumType)
+						{
+							errors.Add(new ParsingError(node, L"Setter operation (the \"with\" operator) can only specify the value of a class field of an enum type. But \""+GetTypeFullName(field->GetDescriptorSymbol())+L"\" is not a enum type."));
+						}
+						else
+						{
+							ParsingSymbol* enumType=field->GetDescriptorSymbol();
+							ParsingSymbol* enumItem=enumType->GetSubSymbolByName(node->value);
+							if(!enumItem)
+							{
+								errors.Add(new ParsingError(node, L"Type \""+GetTypeFullName(enumType)+L"\" from field \""+node->memberName+L"\" does not have an enum item called \""+node->value+L"\"."));
+							}
+							else if(enumItem->GetType()!=ParsingSymbol::EnumItem)
+							{
+								errors.Add(new ParsingError(node, L"Type \""+GetTypeFullName(enumType)+L"\" from field \""+node->memberName+L"\" has a symbol called \""+node->value+L"\", but this is not an enum item."));
+							}
+						}
+					}
+				}
+			};
+
+			void ResolveRuleSymbols(Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors)
+			{
+				ParsingSymbol* ruleType=manager->GetGlobal()->GetSubSymbolByName(rule->name)->GetDescriptorSymbol();
+
+				FOREACH(Ptr<ParsingDefinitionGrammar>, grammar, rule->grammars)
+				{
+					List<Ptr<GrammarPath>> paths;
+					{
+						EnumerateGrammarPathVisitor visitor(manager, rule.Obj());
+						grammar->Accept(&visitor);
+						visitor.BuildPath(paths);
+					}
+
+					FOREACH(Ptr<GrammarPath>, path, paths)
+					{
+						path->pathType=ruleType;
+						vint createdTypeCount=0;
+						vint transitionCount=0;
+						FOREACH(Ptr<GrammarPathFragment>, fragment, path->fragments)
+						{
+							if(fragment->createdType)
+							{
+								createdTypeCount++;
+								path->pathType=fragment->createdType;
+							}
+							if(!fragment->epsilon)
+							{
+								transitionCount++;
+							}
+						}
+
+						if(createdTypeCount==0)
+						{
+							errors.Add(new ParsingError(grammar.Obj(), L"No parsing tree node is created if the following path is chosen: \""+path->ToString()+L"\" in rule \""+rule->name+L"\"."));
+						}
+						else if(createdTypeCount>1)
+						{
+							errors.Add(new ParsingError(grammar.Obj(), L"Multiple parsing tree nodes are created if the following path is chosen: \""+path->ToString()+L"\" in rule \""+rule->name+L"\"."));
+						}
+						if(transitionCount==0)
+						{
+							errors.Add(new ParsingError(grammar.Obj(), L"Rule \""+rule->name+L"\" is not allowed to infer to an empty token sequence."));
+						}
+					}
+
+					ResolveAssignerGrammarVisitor::GrammarPathMap grammarPathMap;
+					FOREACH(Ptr<GrammarPath>, path, paths)
+					{
+						FOREACH(Ptr<GrammarPathFragment>, fragment, path->fragments)
+						{
+							ParsingDefinitionGrammar* grammar=fragment->grammar;
+							Ptr<GrammarPathContainer> container;
+							vint index=grammarPathMap.Keys().IndexOf(grammar);
+							if(index==-1)
+							{
+								container=new GrammarPathContainer;
+								grammarPathMap.Add(grammar, container);
+							}
+							else
+							{
+								container=grammarPathMap.Values().Get(index);
+							}
+							container->paths.Add(path);
+						}
+					}
+
+					ResolveAssignerGrammarVisitor visitor(manager, errors, grammarPathMap);
+					FOREACH(ParsingDefinitionGrammar*, grammar, grammarPathMap.Keys())
+					{
+						grammar->Accept(&visitor);
+					}
+				}
+			}
+
+/***********************************************************************
+ResolveSymbols
+***********************************************************************/
+
+			void ResolveSymbols(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors)
+			{
+				FOREACH(Ptr<ParsingDefinitionRuleDefinition>, rule, definition->rules)
+				{
+					vint errorCount=errors.Count();
+					ValidateRuleStructure(definition, rule, manager, errors);
+					if(errors.Count()==errorCount)
+					{
+						ResolveRuleSymbols(rule, manager, errors);
+					}
+				}
+			}
+
+/***********************************************************************
+ValidateDefinition
+***********************************************************************/
+
+			void ValidateDefinition(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors)
+			{
+				PrepareSymbols(definition, manager, errors);
+				if(errors.Count()>0) return;
+				ResolveSymbols(definition, manager, errors);
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAutomaton.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+
+		namespace analyzing
+		{
+
+/***********************************************************************
+Action
+***********************************************************************/
+
+			Action::Action()
+				:actionType(Create)
+				,actionSource(0)
+				,actionTarget(0)
+				,shiftReduceSource(0)
+				,shiftReduceTarget(0)
+			{
+			}
+
+			Action::~Action()
+			{
+			}
+
+/***********************************************************************
+Transition
+***********************************************************************/
+
+			Transition::Transition()
+				:source(0)
+				,target(0)
+				,transitionType(Epsilon)
+				,stackOperationType(None)
+				,transitionSymbol(0)
+			{
+			}
+
+			Transition::~Transition()
+			{
+			}
+
+			bool Transition::IsEquivalent(Transition* t1, Transition* t2, bool careSourceAndTarget)
+			{
+				if(careSourceAndTarget)
+				{
+					if(t1->source!=t2->source || t1->target!=t2->target)
+					{
+						return false;
+					}
+				}
+				if(	t1->actions.Count()!=t2->actions.Count() ||
+					t1->transitionType!=t2->transitionType ||
+					t1->transitionSymbol!=t2->transitionSymbol)
+				{
+					return false;
+				}
+				for(vint j=0;j<t1->actions.Count();j++)
+				{
+					Ptr<Action> a1=t1->actions[j];
+					Ptr<Action> a2=t2->actions[j];
+					if(	a1->actionType!=a2->actionType ||
+						a1->actionSource!=a2->actionSource ||
+						a1->actionTarget!=a2->actionTarget ||
+						a1->shiftReduceSource!=a2->shiftReduceSource )
+					{
+						return false;
+					}
+				}
+				return true;
+			}
+
+/***********************************************************************
+State
+***********************************************************************/
+
+			State::State()
+				:ownerRule(0)
+				,ownerRuleSymbol(0)
+				,grammarNode(0)
+				,stateNode(0)
+				,statePosition(BeforeNode)
+				,endState(false)
+			{
+			}
+
+			State::~State()
+			{
+			}
+
+/***********************************************************************
+RuleInfo
+***********************************************************************/
+
+			RuleInfo::RuleInfo()
+				:rootRuleStartState(0)
+				,rootRuleEndState(0)
+				,startState(0)
+				,stateNameCount(0)
+			{
+			}
+
+			RuleInfo::~RuleInfo()
+			{
+			}
+
+/***********************************************************************
+Automaton
+***********************************************************************/
+
+			Automaton::Automaton(ParsingSymbolManager* _symbolManager)
+				:symbolManager(_symbolManager)
+			{
+			}
+
+			Automaton::~Automaton()
+			{
+			}
+
+			State* Automaton::RuleStartState(definitions::ParsingDefinitionRuleDefinition* ownerRule)
+			{
+				State* state=new State;
+				states.Add(state);
+
+				state->ownerRule=ownerRule;
+				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
+				state->stateName=ownerRule->name+L".Start";
+				state->stateExpression=L"· <"+ownerRule->name+L">";
+				return state;
+			}
+
+			State* Automaton::RootRuleStartState(definitions::ParsingDefinitionRuleDefinition* ownerRule)
+			{
+				State* state=new State;
+				states.Add(state);
+
+				state->ownerRule=ownerRule;
+				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
+				state->stateName=ownerRule->name+L".RootStart";
+				state->stateExpression=L"● $<"+ownerRule->name+L">";
+				return state;
+			}
+
+			State* Automaton::RootRuleEndState(definitions::ParsingDefinitionRuleDefinition* ownerRule)
+			{
+				State* state=new State;
+				states.Add(state);
+
+				state->ownerRule=ownerRule;
+				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
+				state->stateName=ownerRule->name+L".RootEnd";
+				state->stateExpression=L"$<"+ownerRule->name+L"> ●";
+				return state;
+			}
+
+			State* Automaton::StartState(definitions::ParsingDefinitionRuleDefinition* ownerRule, definitions::ParsingDefinitionGrammar* grammarNode, definitions::ParsingDefinitionGrammar* stateNode)
+			{
+				State* state=new State;
+				states.Add(state);
+
+				state->ownerRule=ownerRule;
+				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
+				state->grammarNode=grammarNode;
+				state->stateNode=stateNode;
+				state->statePosition=State::BeforeNode;
+				state->stateName=ownerRule->name+L"."+itow(++ruleInfos[ownerRule]->stateNameCount);
+				stateNode=FindAppropriateGrammarState(grammarNode, stateNode, true);
+				state->stateExpression=L"<"+ownerRule->name+L">: "+GrammarStateToString(grammarNode, stateNode, true);
+				return state;
+			}
+
+			State* Automaton::EndState(definitions::ParsingDefinitionRuleDefinition* ownerRule, definitions::ParsingDefinitionGrammar* grammarNode, definitions::ParsingDefinitionGrammar* stateNode)
+			{
+				State* state=new State;
+				states.Add(state);
+
+				state->ownerRule=ownerRule;
+				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
+				state->grammarNode=grammarNode;
+				state->stateNode=stateNode;
+				state->statePosition=State::AfterNode;
+				state->stateName=ownerRule->name+L"."+itow(++ruleInfos[ownerRule]->stateNameCount);
+				stateNode=FindAppropriateGrammarState(grammarNode, stateNode, false);
+				state->stateExpression=L"<"+ownerRule->name+L">: "+GrammarStateToString(grammarNode, stateNode, false);
+				return state;
+			}
+
+			State* Automaton::CopyState(State* oldState)
+			{
+				State* resultState=0;
+				if(oldState->statePosition==State::BeforeNode)
+				{
+					resultState=StartState(oldState->ownerRule, oldState->grammarNode, oldState->stateNode);
+				}
+				else
+				{
+					resultState=EndState(oldState->ownerRule, oldState->grammarNode, oldState->stateNode);
+				}
+				resultState->endState=oldState->endState;
+				return resultState;
+			}
+
+			Transition* Automaton::CreateTransition(State* start, State* end)
+			{
+				Transition* transition=new Transition;
+				transitions.Add(transition);
+
+				start->transitions.Add(transition);
+				end->inputs.Add(transition);
+
+				transition->source=start;
+				transition->target=end;
+				return transition;
+			}
+
+			Transition* Automaton::TokenBegin(State* start, State* end)
+			{
+				Transition* transition=CreateTransition(start, end);
+				transition->transitionType=Transition::TokenBegin;
+				return transition;
+			}
+
+			Transition* Automaton::TokenFinish(State* start, State* end)
+			{
+				Transition* transition=CreateTransition(start, end);
+				transition->transitionType=Transition::TokenFinish;
+				return transition;
+			}
+
+			Transition* Automaton::TryReduce(State* start, State* end)
+			{
+				Transition* transition=CreateTransition(start, end);
+				transition->transitionType=Transition::TryReduce;
+				return transition;
+			}
+
+			Transition* Automaton::Epsilon(State* start, State* end)
+			{
+				Transition* transition=CreateTransition(start, end);
+				transition->transitionType=Transition::Epsilon;
+				return transition;
+			}
+
+			Transition* Automaton::Symbol(State* start, State* end, ParsingSymbol* transitionSymbol)
+			{
+				Transition* transition=CreateTransition(start, end);
+				transition->transitionType=Transition::Symbol;
+				transition->transitionSymbol=transitionSymbol;
+				return transition;
+			}
+
+			Transition* Automaton::CopyTransition(State* start, State* end, Transition* oldTransition)
+			{
+				Transition* transition=CreateTransition(start, end);
+				transition->transitionType=oldTransition->transitionType;
+				transition->stackOperationType=oldTransition->stackOperationType;
+				transition->transitionSymbol=oldTransition->transitionSymbol;
+				return transition;
+			}
+
+			void Automaton::DeleteTransition(Transition* transition)
+			{
+				transition->source->transitions.Remove(transition);
+				transition->target->inputs.Remove(transition);
+				transitions.Remove(transition);
+			}
+
+			void Automaton::DeleteState(State* state)
+			{
+				while(state->inputs.Count())
+				{
+					DeleteTransition(state->inputs[0]);
+				}
+				while(state->transitions.Count())
+				{
+					DeleteTransition(state->transitions[0]);
+				}
+				states.Remove(state);
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAutomaton_Closure.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+
+		namespace analyzing
+		{
+
+/***********************************************************************
+CreateNondeterministicPDAFromEpsilonPDA::closure_searching
+***********************************************************************/
+
+			namespace closure_searching
+			{
+				// closure function for searching <epsilon* symbol> reachable states
+				ClosureSearchResult EpsilonClosure(Transition* transition)
+				{
+					return
+						transition->transitionType!=Transition::Epsilon?Hit:
+						transition->target->endState?Blocked:
+						Continue;
+				}
+
+				// closure function for searching <epsilon*> reachable end states
+				ClosureSearchResult EndStateClosure(Transition* transition)
+				{
+					return
+						transition->transitionType!=Transition::Epsilon?Blocked:
+						transition->target->endState?Hit:
+						Continue;
+				}
+
+				// closure searching function
+				void SearchClosureInternal(ClosureSearchResult(*closurePredicate)(Transition*), List<Transition*>& transitionPath, Transition* transition, State* state, List<ClosureItem>& closure)
+				{
+					FOREACH(Transition*, singleTransitionPath, transitionPath)
+					{
+						if(singleTransitionPath->source==state && closurePredicate(singleTransitionPath)!=Blocked)
+						{
+							Ptr<List<Transition*>> path=new List<Transition*>;
+							CopyFrom(*path.Obj(), transitionPath);
+							closure.Add(ClosureItem(state, path, true));
+							return;
+						}
+					}
+
+					ClosureSearchResult result=transition?closurePredicate(transition):Continue;
+					switch(result)
+					{
+					case Continue:
+						{
+							FOREACH(Transition*, newTransition, state->transitions)
+							{
+								if(!transitionPath.Contains(newTransition))
+								{
+									transitionPath.Add(newTransition);
+									SearchClosureInternal(closurePredicate, transitionPath, newTransition, newTransition->target, closure);
+									transitionPath.RemoveAt(transitionPath.Count()-1);
+								}
+							}
+						}
+						break;
+					case Hit:
+						{
+							Ptr<List<Transition*>> path=new List<Transition*>;
+							CopyFrom(*path.Obj(), transitionPath);
+							closure.Add(ClosureItem(state, path, false));
+						}
+						break;
+					}
+				}
+
+				void SearchClosure(ClosureSearchResult(*closurePredicate)(Transition*), State* startState, List<ClosureItem>& closure)
+				{
+					List<Transition*> transitionPath;
+					SearchClosureInternal(closurePredicate, transitionPath, 0, startState, closure);
+				}
+
+				// map old state to new state and track all states that are not visited yet
+				State* GetMappedState(Ptr<Automaton> newAutomaton, State* oldState, List<State*>& scanningStates, Dictionary<State*, State*>& oldNewStateMap)
+				{
+					State* newState=0;
+					vint mapIndex=oldNewStateMap.Keys().IndexOf(oldState);
+					if(mapIndex==-1)
+					{
+						newState=newAutomaton->CopyState(oldState);
+						oldNewStateMap.Add(oldState, newState);
+					}
+					else
+					{
+						newState=oldNewStateMap.Values().Get(mapIndex);
+					}
+					if(!scanningStates.Contains(oldState))
+					{
+						scanningStates.Add(oldState);
+					}
+					return newState;
+				}
+			}
+			using namespace closure_searching;
+
+/***********************************************************************
+RemoveEpsilonTransitions
+***********************************************************************/
+
+			void RemoveEpsilonTransitions(collections::Dictionary<State*, State*>& oldNewStateMap, collections::List<State*>& scanningStates, Ptr<Automaton> automaton)
+			{
+				vint currentStateIndex=0;
+				Dictionary<State*, Ptr<List<ClosureItem>>> endStateClosures;
+
+				while(currentStateIndex<scanningStates.Count())
+				{
+					// map visiting state to new state
+					State* currentOldState=scanningStates[currentStateIndex++];
+					State* currentNewState=GetMappedState(automaton, currentOldState, scanningStates, oldNewStateMap);
+
+					// search for epsilon closure
+					List<ClosureItem> closure;
+					SearchClosure(&EpsilonClosure, currentOldState, closure);
+					FOREACH(ClosureItem, closureItem, closure)
+					{
+						Transition* oldTransition=closureItem.transitions->Get(closureItem.transitions->Count()-1);
+						if(!closureItem.cycle || oldTransition->transitionType!=Transition::Epsilon)
+						{
+							// search for end state closure of the target state of each path in the closure
+							Ptr<List<ClosureItem>> endStateClosure;
+							vint endStateIndex=endStateClosures.Keys().IndexOf(closureItem.state);
+							if(endStateIndex==-1)
+							{
+								endStateClosure=new List<ClosureItem>;
+								SearchClosure(&EndStateClosure, closureItem.state, *endStateClosure.Obj());
+								endStateClosures.Add(closureItem.state, endStateClosure);
+							}
+							else
+							{
+								endStateClosure=endStateClosures.Values().Get(endStateIndex);
+							}
+
+							// build compacted non-epsilon transition to the target state of the path
+							{
+								State* newEndState=GetMappedState(automaton, oldTransition->target, scanningStates, oldNewStateMap);
+								Transition* transition=automaton->CopyTransition(currentNewState, newEndState, oldTransition);
+								FOREACH(Transition*, pathTransition, *closureItem.transitions.Obj())
+								{
+									CopyFrom(transition->actions, pathTransition->actions, true);
+								}
+							}
+
+							// if there is any path in the end state closure of the target state
+							FOREACH(ClosureItem, endStateClosureItem, *endStateClosure.Obj())
+							{
+								// build a transition to the mapped end state
+								State* newEndState=GetMappedState(automaton, endStateClosureItem.state, scanningStates, oldNewStateMap);
+								Transition* transition=automaton->CopyTransition(currentNewState, newEndState, oldTransition);
+								// copy all actions in the compacted non-epsilon transition
+								FOREACH(Transition*, pathTransition, *closureItem.transitions.Obj())
+								{
+									CopyFrom(transition->actions, pathTransition->actions, true);
+								}
+								// copy all actions in the end state path
+								FOREACH(Transition*, pathTransition, *endStateClosureItem.transitions.Obj())
+								{
+									CopyFrom(transition->actions, pathTransition->actions, true);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAutomaton_EPDA.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+
+		namespace analyzing
+		{
+
+/***********************************************************************
+CreateEpsilonPDAVisitor
+***********************************************************************/
+
+			class CreateEpsilonPDAVisitor : public Object, public ParsingDefinitionGrammar::IVisitor
+			{
+			public:
+				Ptr<Automaton>						automaton;
+				ParsingDefinitionGrammar*			ruleGrammar;
+				State*								startState;
+				State*								endState;
+				Transition*							result;
+
+				CreateEpsilonPDAVisitor(Ptr<Automaton> _automaton, ParsingDefinitionGrammar* _ruleGrammar, State* _startState, State* _endState)
+					:automaton(_automaton)
+					,ruleGrammar(_ruleGrammar)
+					,startState(_startState)
+					,endState(_endState)
+					,result(0)
+				{
+				}
+
+				static Transition* Create(ParsingDefinitionGrammar* grammar, Ptr<Automaton> automaton, ParsingDefinitionGrammar* ruleGrammar, State* startState, State* endState)
+				{
+					CreateEpsilonPDAVisitor visitor(automaton, ruleGrammar, startState, endState);
+					grammar->Accept(&visitor);
+					return visitor.result;
+				}
+
+				Transition* Create(ParsingDefinitionGrammar* grammar, State* startState, State* endState)
+				{
+					return Create(grammar, automaton, ruleGrammar, startState, endState);
+				}
+
+				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
+				{
+					result=automaton->Symbol(startState, endState, automaton->symbolManager->CacheGetSymbol(node));
+				}
+
+				void Visit(ParsingDefinitionTextGrammar* node)override
+				{
+					result=automaton->Symbol(startState, endState, automaton->symbolManager->CacheGetSymbol(node));
+				}
+
+				void Visit(ParsingDefinitionSequenceGrammar* node)override
+				{
+					State* middleState=automaton->EndState(startState->ownerRule, ruleGrammar, node->first.Obj());
+					Create(node->first.Obj(), startState, middleState);
+					Create(node->second.Obj(), middleState, endState);
+				}
+
+				void Visit(ParsingDefinitionAlternativeGrammar* node)override
+				{
+					Create(node->first.Obj(), startState, endState);
+					Create(node->second.Obj(), startState, endState);
+				}
+
+				void Visit(ParsingDefinitionLoopGrammar* node)override
+				{
+					State* loopStart=automaton->StartState(startState->ownerRule, ruleGrammar, node->grammar.Obj());
+					automaton->Epsilon(startState, loopStart);
+					automaton->Epsilon(loopStart, endState);
+					Create(node->grammar.Obj(), loopStart, loopStart);
+				}
+
+				void Visit(ParsingDefinitionOptionalGrammar* node)override
+				{
+					Create(node->grammar.Obj(), startState, endState);
+					automaton->Epsilon(startState, endState);
+				}
+
+				void Visit(ParsingDefinitionCreateGrammar* node)override
+				{
+					State* middleState=automaton->EndState(startState->ownerRule, ruleGrammar, node->grammar.Obj());
+					Create(node->grammar.Obj(), startState, middleState);
+					Transition* transition=automaton->Epsilon(middleState, endState);
+
+					Ptr<Action> action=new Action;
+					action->actionType=Action::Create;
+					action->actionSource=automaton->symbolManager->CacheGetType(node->type.Obj(), 0);
+					transition->actions.Add(action);
+				}
+
+				void Visit(ParsingDefinitionAssignGrammar* node)override
+				{
+					Transition* transition=Create(node->grammar.Obj(), startState, endState);
+
+					Ptr<Action> action=new Action;
+					action->actionType=Action::Assign;
+					action->actionSource=automaton->symbolManager->CacheGetSymbol(node);
+					transition->actions.Add(action);
+				}
+
+				void Visit(ParsingDefinitionUseGrammar* node)override
+				{
+					Transition* transition=Create(node->grammar.Obj(), startState, endState);
+
+					Ptr<Action> action=new Action;
+					action->actionType=Action::Using;
+					transition->actions.Add(action);
+				}
+
+				void Visit(ParsingDefinitionSetterGrammar* node)override
+				{
+					State* middleState=automaton->EndState(startState->ownerRule, ruleGrammar, node->grammar.Obj());
+					Create(node->grammar.Obj(), startState, middleState);
+					Transition* transition=automaton->Epsilon(middleState, endState);
+
+					Ptr<Action> action=new Action;
+					action->actionType=Action::Setter;
+					action->actionSource=automaton->symbolManager->CacheGetSymbol(node);
+					action->actionTarget=action->actionSource->GetDescriptorSymbol()->GetSubSymbolByName(node->value);
+					transition->actions.Add(action);
+				}
+			};
+
+/***********************************************************************
+CreateRuleEpsilonPDA
+***********************************************************************/
+
+			void CreateRuleEpsilonPDA(Ptr<Automaton> automaton, Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager)
+			{
+				Ptr<RuleInfo> ruleInfo=new RuleInfo;
+				automaton->ruleInfos.Add(rule.Obj(), ruleInfo);
+
+				ruleInfo->rootRuleStartState=automaton->RootRuleStartState(rule.Obj());
+				ruleInfo->rootRuleEndState=automaton->RootRuleEndState(rule.Obj());
+				ruleInfo->startState=automaton->RuleStartState(rule.Obj());
+				automaton->TokenBegin(ruleInfo->rootRuleStartState, ruleInfo->startState);
+
+				FOREACH(Ptr<ParsingDefinitionGrammar>, grammar, rule->grammars)
+				{
+					State* grammarStartState=automaton->StartState(rule.Obj(), grammar.Obj(), grammar.Obj());
+					State* grammarEndState=automaton->EndState(rule.Obj(), grammar.Obj(), grammar.Obj());
+					grammarEndState->stateName+=L".End";
+					grammarEndState->endState=true;
+					automaton->Epsilon(ruleInfo->startState, grammarStartState);
+					automaton->TokenFinish(grammarEndState, ruleInfo->rootRuleEndState);
+					ruleInfo->endStates.Add(grammarEndState);
+					CreateEpsilonPDAVisitor::Create(grammar.Obj(), automaton, grammar.Obj(), grammarStartState, grammarEndState);
+				}
+			}
+
+/***********************************************************************
+CreateEpsilonPDA
+***********************************************************************/
+
+			Ptr<Automaton> CreateEpsilonPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager)
+			{
+				Ptr<Automaton> automaton=new Automaton(manager);
+				FOREACH(Ptr<ParsingDefinitionRuleDefinition>, rule, definition->rules)
+				{
+					CreateRuleEpsilonPDA(automaton, rule, manager);
+				}
+				return automaton;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAutomaton_GenerateTable.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+		using namespace tabling;
+
+		namespace analyzing
+		{
+			WString GetTypeNameForCreateInstruction(ParsingSymbol* type)
+			{
+				ParsingSymbol* parent=type->GetParentSymbol();
+				if(parent->GetType()==ParsingSymbol::ClassType)
+				{
+					return GetTypeNameForCreateInstruction(parent)+L"."+type->GetName();
+				}
+				else
+				{
+					return type->GetName();
+				}
+			}
+
+			Ptr<tabling::ParsingTable> GenerateTable(Ptr<definitions::ParsingDefinition> definition, Ptr<Automaton> jointPDA, collections::List<Ptr<ParsingError>>& errors)
+			{
+				Dictionary<ParsingSymbol*, vint> tokenIds;
+				List<WString> discardTokens;
+				List<State*> stateIds;
+				vint availableStateCount=0;
+				{
+					vint currentState=0;
+					List<State*> scanningStates;
+					FOREACH(Ptr<RuleInfo>, ruleInfo, jointPDA->ruleInfos.Values())
+					{
+						if(!scanningStates.Contains(ruleInfo->rootRuleStartState))
+						{
+							scanningStates.Add(ruleInfo->rootRuleStartState);
+						}
+						
+						while(currentState<scanningStates.Count())
+						{
+							State* state=scanningStates[currentState++];
+							stateIds.Add(state);
+
+							FOREACH(Transition*, transition, state->transitions)
+							{
+								if(!scanningStates.Contains(transition->target))
+								{
+									scanningStates.Add(transition->target);
+								}
+							}
+						}
+					}
+					availableStateCount=scanningStates.Count();
+				}
+
+				// there will be some states that is used in shift and reduce but it is not a reachable state
+				// so the state table will record all state
+				FOREACH(Ptr<State>, state, jointPDA->states)
+				{
+					if(!stateIds.Contains(state.Obj()))
+					{
+						stateIds.Add(state.Obj());
+					}
+				}
+
+				vint tokenCount=0;
+				vint discardTokenCount=0;
+				vint stateCount=stateIds.Count();
+
+				FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
+				{
+					if(token->discard)
+					{
+						discardTokens.Add(token->name);
+						discardTokenCount++;
+					}
+					else
+					{
+						ParsingSymbol* tokenSymbol=jointPDA->symbolManager->GetGlobal()->GetSubSymbolByName(token->name);
+						tokenIds.Add(tokenSymbol, tokenIds.Count()+ParsingTable::UserTokenStart);
+						tokenCount++;
+					}
+				}
+				Ptr<ParsingTable> table=new ParsingTable(tokenCount, discardTokenCount, stateCount, definition->rules.Count());
+
+				FOREACH(ParsingSymbol*, symbol, tokenIds.Keys())
+				{
+					ParsingTable::TokenInfo info;
+					info.name=symbol->GetName();
+					info.regex=symbol->GetDescriptorString();
+
+					vint id=tokenIds[symbol];
+					table->SetTokenInfo(id, info);
+				}
+
+				FOREACH_INDEXER(WString, name, i, discardTokens)
+				{
+					ParsingSymbol* symbol=jointPDA->symbolManager->GetGlobal()->GetSubSymbolByName(name);
+
+					ParsingTable::TokenInfo info;
+					info.name=symbol->GetName();
+					info.regex=symbol->GetDescriptorString();
+					table->SetDiscardTokenInfo(i, info);
+				}
+
+				FOREACH_INDEXER(ParsingDefinitionRuleDefinition*, rule, i, jointPDA->ruleInfos.Keys())
+				{
+					Ptr<RuleInfo> pdaRuleInfo=jointPDA->ruleInfos[rule];
+					ParsingTable::RuleInfo info;
+					info.name=rule->name;
+					info.type=TypeToString(rule->type.Obj());
+					info.rootStartState=stateIds.IndexOf(pdaRuleInfo->rootRuleStartState);
+					table->SetRuleInfo(i, info);
+				}
+
+				FOREACH_INDEXER(State*, state, i, stateIds)
+				{
+					ParsingTable::StateInfo info;
+					info.ruleName=state->ownerRule->name;
+					info.stateName=state->stateName;
+					info.stateExpression=state->stateExpression;
+					table->SetStateInfo(i, info);
+				}
+
+				FOREACH_INDEXER(State*, state, stateIndex, stateIds)
+				{
+					// if this state is not necessary, stop building the table
+					if(stateIndex>=availableStateCount) break;
+
+					FOREACH(Transition*, transition, state->transitions)
+					{
+						vint tokenIndex=-1;
+						switch(transition->transitionType)
+						{
+						case Transition::TokenBegin:
+							tokenIndex=ParsingTable::TokenBegin;
+							break;
+						case Transition::TokenFinish:
+							tokenIndex=ParsingTable::TokenFinish;
+							break;
+						case Transition::TryReduce:
+							tokenIndex=ParsingTable::TryReduce;
+							break;
+						case Transition::Symbol:
+							tokenIndex=tokenIds[transition->transitionSymbol];
+							break;
+						}
+
+						Ptr<ParsingTable::TransitionBag> bag=table->GetTransitionBag(stateIndex, tokenIndex);
+						if(!bag)
+						{
+							bag=new ParsingTable::TransitionBag;
+							table->SetTransitionBag(stateIndex, tokenIndex, bag);
+						}
+
+						Ptr<ParsingTable::TransitionItem> item=new ParsingTable::TransitionItem;
+						item->token=tokenIndex;
+						item->targetState=stateIds.IndexOf(transition->target);
+						bag->transitionItems.Add(item);
+
+						FOREACH(Ptr<Action>, action, transition->actions)
+						{
+							ParsingTable::Instruction ins;
+							switch(action->actionType)
+							{
+							case Action::Create:
+								{
+									ins.instructionType=ParsingTable::Instruction::Create;
+									ins.nameParameter=GetTypeNameForCreateInstruction(action->actionSource);
+								}
+								break;
+							case Action::Using:
+								{
+									ins.instructionType=ParsingTable::Instruction::Using;
+								}
+								break;
+							case Action::Assign:
+								{
+									if(action->actionSource->GetDescriptorSymbol()->GetType()==ParsingSymbol::ArrayType)
+									{
+										ins.instructionType=ParsingTable::Instruction::Item;
+									}
+									else
+									{
+										ins.instructionType=ParsingTable::Instruction::Assign;
+									}
+									ins.nameParameter=action->actionSource->GetName();
+								}
+								break;
+							case Action::Setter:
+								{
+									ins.instructionType=ParsingTable::Instruction::Setter;
+									ins.nameParameter=action->actionSource->GetName();
+									ins.value=action->actionTarget->GetName();
+								}
+								break;
+							case Action::Shift:
+								{
+									ins.instructionType=ParsingTable::Instruction::Shift;
+									ins.stateParameter=stateIds.IndexOf(action->shiftReduceSource);
+								}
+								break;
+							case Action::Reduce:
+								{
+									ins.instructionType=ParsingTable::Instruction::Reduce;
+									ins.stateParameter=stateIds.IndexOf(action->shiftReduceSource);
+									item->stackPattern.Add(ins.stateParameter);
+								}
+								break;
+							case Action::LeftRecursiveReduce:
+								{
+									ins.instructionType=ParsingTable::Instruction::LeftRecursiveReduce;
+									ins.stateParameter=stateIds.IndexOf(action->shiftReduceSource);
+								}
+								break;
+							}
+							item->instructions.Add(ins);
+						}
+					}
+				}
+
+				for(vint i=0;i<table->GetStateCount();i++)
+				{
+					for(vint j=0;j<table->GetTokenCount();j++)
+					{
+						Ptr<ParsingTable::TransitionBag> bag=table->GetTransitionBag(i, j);
+						if(bag)
+						{
+							CopyFrom(bag->transitionItems, From(bag->transitionItems).OrderBy(ParsingTable::TransitionItem::Compare));
+							for(vint k=0;k<bag->transitionItems.Count()-1;k++)
+							{
+								Ptr<ParsingTable::TransitionItem> t1=bag->transitionItems[k];
+								Ptr<ParsingTable::TransitionItem> t2=bag->transitionItems[k+1];
+								if(ParsingTable::TransitionItem::CheckOrder(t1, t2, false)==ParsingTable::TransitionItem::UnknownOrder)
+								{
+									WString stateName=itow(i)+L"["+table->GetStateInfo(i).stateName+L"]";
+									WString tokenName=
+										j==ParsingTable::TokenBegin?WString(L"$TokenBegin"):
+										j==ParsingTable::TokenFinish?WString(L"$TokenFinish"):
+										j==ParsingTable::TryReduce?WString(L"$TryReduce"):
+										table->GetTokenInfo(j).name;
+									errors.Add(new ParsingError(stateIds[i]->ownerRule, L"Conflict happened in transition of \""+tokenName+L"\" of state \""+stateName+L"\"."));
+								}
+							}
+						}
+					}
+				}
+
+				table->Initialize();
+				return table;
+			}
+
+			Ptr<tabling::ParsingTable> GenerateTable(Ptr<definitions::ParsingDefinition> definition, collections::List<Ptr<ParsingError>>& errors)
+			{
+				errors.Clear();
+				ParsingSymbolManager symbolManager;
+				ValidateDefinition(definition, &symbolManager, errors);
+				if(errors.Count()==0)
+				{
+					Ptr<Automaton> epsilonPDA=CreateEpsilonPDA(definition, &symbolManager);
+					Ptr<Automaton> nondeterministicPDA=CreateNondeterministicPDAFromEpsilonPDA(epsilonPDA);
+					Ptr<Automaton> jointPDA=CreateJointPDAFromNondeterministicPDA(nondeterministicPDA);
+					CompactJointPDA(jointPDA);
+					MarkLeftRecursiveInJointPDA(jointPDA, errors);
+					if(errors.Count()==0)
+					{
+						Ptr<ParsingTable> table=GenerateTable(definition, jointPDA, errors);
+						if(errors.Count()==0)
+						{
+							return table;
+						}
+					}
+				}
+				return 0;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAutomaton_JPDA.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+
+		namespace analyzing
+		{
+/***********************************************************************
+CreateJointPDAFromNondeterministicPDA
+***********************************************************************/
+
+			Ptr<Automaton> CreateJointPDAFromNondeterministicPDA(Ptr<Automaton> nondeterministicPDA)
+			{
+				Ptr<Automaton> automaton=new Automaton(nondeterministicPDA->symbolManager);
+
+				// build rule info data
+				Dictionary<WString, ParsingDefinitionRuleDefinition*> ruleMap;
+				Dictionary<State*, State*> oldNewStateMap;
+				FOREACH(ParsingDefinitionRuleDefinition*, rule, nondeterministicPDA->ruleInfos.Keys())
+				{
+					// build new rule info
+					Ptr<RuleInfo> ruleInfo=nondeterministicPDA->ruleInfos[rule];
+					Ptr<RuleInfo> newRuleInfo=new RuleInfo;
+					automaton->ruleInfos.Add(rule, newRuleInfo);
+					ruleMap.Add(rule->name, rule);
+
+					newRuleInfo->rootRuleStartState=automaton->RootRuleStartState(rule);
+					newRuleInfo->rootRuleEndState=automaton->RootRuleEndState(rule);
+					newRuleInfo->startState=automaton->RuleStartState(rule);
+
+					oldNewStateMap.Add(ruleInfo->rootRuleStartState, newRuleInfo->rootRuleStartState);
+					oldNewStateMap.Add(ruleInfo->rootRuleEndState, newRuleInfo->rootRuleEndState);
+					oldNewStateMap.Add(ruleInfo->startState, newRuleInfo->startState);
+
+					newRuleInfo->rootRuleStartState->stateExpression=ruleInfo->rootRuleStartState->stateExpression;
+					newRuleInfo->rootRuleEndState->stateExpression=ruleInfo->rootRuleEndState->stateExpression;
+					newRuleInfo->startState->stateExpression=ruleInfo->startState->stateExpression;
+				}
+
+				FOREACH(Ptr<State>, oldState, nondeterministicPDA->states)
+				{
+					if((oldState->inputs.Count()>0 || oldState->transitions.Count()>0) && !oldNewStateMap.Keys().Contains(oldState.Obj()))
+					{
+						State* newState=automaton->CopyState(oldState.Obj());
+						oldNewStateMap.Add(oldState.Obj(), newState);
+						newState->stateExpression=oldState->stateExpression;
+					}
+				}
+
+				// create transitions
+				FOREACH(ParsingDefinitionRuleDefinition*, rule, nondeterministicPDA->ruleInfos.Keys())
+				{
+					Ptr<RuleInfo> ruleInfo=nondeterministicPDA->ruleInfos[rule];
+					Ptr<RuleInfo> newRuleInfo=automaton->ruleInfos[rule];
+
+					// complete new rule info
+					FOREACH(State*, endState, ruleInfo->endStates)
+					{
+						newRuleInfo->endStates.Add(oldNewStateMap[endState]);
+					}
+
+					// create joint transitions according to old automaton
+					List<State*> scanningStates;
+					vint currentStateIndex=0;
+					scanningStates.Add(ruleInfo->rootRuleStartState);
+
+					while(currentStateIndex<scanningStates.Count())
+					{
+						State* currentOldState=scanningStates[currentStateIndex++];
+						State* currentNewState=oldNewStateMap[currentOldState];
+						FOREACH(Transition*, oldTransition, currentOldState->transitions)
+						{
+							State* oldSource=oldTransition->source;
+							State* oldTarget=oldTransition->target;
+							State* newSource=oldNewStateMap[oldSource];
+							State* newTarget=oldNewStateMap[oldTarget];
+
+							if(!scanningStates.Contains(oldSource)) scanningStates.Add(oldSource);
+							if(!scanningStates.Contains(oldTarget)) scanningStates.Add(oldTarget);
+
+							if(oldTransition->transitionType==Transition::Symbol && oldTransition->transitionSymbol->GetType()==ParsingSymbol::RuleDef)
+							{
+								// if this is a rule transition, create
+								// source -> ruleStart
+								// ruleEnd[] -> target
+								ParsingDefinitionRuleDefinition* rule=ruleMap[oldTransition->transitionSymbol->GetName()];
+								Ptr<RuleInfo> oldRuleInfo=nondeterministicPDA->ruleInfos[rule];
+
+								{
+									Transition* shiftTransition=automaton->Epsilon(newSource, oldNewStateMap[oldRuleInfo->startState]);
+									Ptr<Action> action=new Action;
+									action->actionType=Action::Shift;
+									action->shiftReduceSource=newSource;
+									action->shiftReduceTarget=newTarget;
+									shiftTransition->actions.Add(action);
+								}
+
+								FOREACH(State*, oldEndState, oldRuleInfo->endStates)
+								{
+									Transition* reduceTransition=automaton->Epsilon(oldNewStateMap[oldEndState], newTarget);
+									Ptr<Action> action=new Action;
+									action->actionType=Action::Reduce;
+									action->shiftReduceSource=newSource;
+									action->shiftReduceTarget=newTarget;
+									reduceTransition->actions.Add(action);
+									CopyFrom(reduceTransition->actions, oldTransition->actions, true);
+								}
+							}
+							else
+							{
+								// if not, just copy
+								Transition* newTransition=automaton->CopyTransition(newSource, newTarget, oldTransition);
+								CopyFrom(newTransition->actions, oldTransition->actions);
+							}
+						}
+					}
+				}
+				return automaton;
+			}
+
+/***********************************************************************
+CompactJointPDA
+***********************************************************************/
+
+			using namespace closure_searching;
+			
+			// closure function for searching shift-reduce-compact transition
+			ClosureSearchResult ShiftReduceCompactClosure(Transition* transition)
+			{
+				return
+					transition->stackOperationType!=Transition::None?Blocked:
+					transition->transitionType!=Transition::Epsilon?Hit:
+					Continue;
+			}
+
+			void CompactJointPDA(Ptr<Automaton> jointPDA)
+			{
+				FOREACH(Ptr<State>, state, jointPDA->states)
+				{
+					State* currentState=state.Obj();
+
+					// search for epsilon closure
+					List<ClosureItem> closure;
+					SearchClosure(&ShiftReduceCompactClosure, currentState, closure);
+
+					FOREACH(ClosureItem, closureItem, closure)
+					{
+						Transition* lastTransition=closureItem.transitions->Get(closureItem.transitions->Count()-1);
+						Transition::StackOperationType stackOperationType=Transition::None;
+						Transition::TransitionType transitionType=lastTransition->transitionType;
+
+						if(closureItem.cycle && lastTransition->transitionType==Transition::Epsilon)
+						{
+							bool containsShift=false;
+							bool containsReduce=false;
+							FOREACH(Transition*, pathTransition, *closureItem.transitions.Obj())
+							{
+								FOREACH(Ptr<Action>, action, pathTransition->actions)
+								{
+									if(action->actionType==Action::Shift) containsShift=true;
+									if(action->actionType==Action::Reduce) containsReduce=true;
+								}
+							}
+							if(containsShift && !containsReduce)
+							{
+								// a left recursive compacted shift transition is found
+								// if the left recursive state is not the current state
+								// that means this transition path fall into other left recursive state
+								// e.g.
+								//     Term = Factor | Term (here is a left recursion) * Factor
+								//     Exp = Term (this rule symbol transition will fall into Term's left recursive state) ...
+								// if such a case happened, this transition path will be simply discarded
+								if(closureItem.state==currentState)
+								{
+									stackOperationType=Transition::LeftRecursive;
+								}
+							}
+							else if(!containsShift && containsReduce)
+							{
+								// a right recursive compacted reduce transition is found
+								// if this state will receive $TokenFinish, then the stack pattern number can be infinite
+								// e.g. for right recursive expression "a b c" == "(a (b c))"
+								// when trying to do a transition by $TokenFinish
+								//     "a b" should reduce once
+								//     "a b c" should reduce twice
+								// if such a case happened, a $TryReduce transition should be added
+
+								stackOperationType=Transition::ShiftReduceCompacted;
+								transitionType=Transition::TryReduce;
+							}
+						}
+						else if(closureItem.transitions->Count()>1)
+						{
+							// in joint PDA, only shift and reduce transitions are epsilon transition
+							// if there are more than one transition in a path, then there should be shift or reduce transitions in the path
+							stackOperationType=Transition::ShiftReduceCompacted;
+						}
+
+						if(stackOperationType!=Transition::None)
+						{
+							// build shift-reduce-compacted transition to the target state of the path
+							Transition* transition=jointPDA->CopyTransition(currentState, lastTransition->target, lastTransition);
+							transition->transitionType=transitionType;
+							transition->stackOperationType=stackOperationType;
+
+							// there will be <shift* token>, <reduce* token> or <reduce* shift* token>
+							// but there will not be something like <reduce* shift* reduce* token>
+							// so we can append stackPattern safely
+							FOREACH(Transition*, pathTransition, *closureItem.transitions.Obj())
+							{
+								CopyFrom(transition->actions, pathTransition->actions, true);
+							}
+						}
+					}
+				}
+
+				for(vint i=jointPDA->transitions.Count()-1;i>=0;i--)
+				{
+					Transition* transition=jointPDA->transitions[i].Obj();
+					if(transition->stackOperationType==Transition::None && transition->transitionType==Transition::Epsilon)
+					{
+						jointPDA->DeleteTransition(transition);
+					}
+				}
+			}
+
+/***********************************************************************
+MarkLeftRecursiveInJointPDA
+***********************************************************************/
+
+			void MarkLeftRecursiveInJointPDA(Ptr<Automaton> jointPDA, collections::List<Ptr<ParsingError>>& errors)
+			{
+				vint errorCount=errors.Count();
+				// record all left recursive shifts and delete all left recursive epsilon transition
+				SortedList<Pair<State*, State*>> leftRecursiveShifts;
+				FOREACH(Ptr<State>, state, jointPDA->states)
+				{
+					for(vint i=state->transitions.Count()-1;i>=0;i--)
+					{
+						Transition* transition=state->transitions[i];
+						if(transition->stackOperationType==Transition::LeftRecursive)
+						{
+							Ptr<Action> shiftAction;
+							FOREACH(Ptr<Action>, action, transition->actions)
+							{
+								if(action->actionType==Action::Shift)
+								{
+									if(shiftAction)
+									{
+										errors.Add(new ParsingError(state->ownerRule, L"Indirect left recursive transition in rule \""+state->ownerRule->name+L"\" is not allowed."));
+										goto FOUND_INDIRECT_LEFT_RECURSIVE_TRANSITION;
+									}
+									else
+									{
+										shiftAction=action;
+									}
+								}
+							}
+							if(shiftAction)
+							{
+								leftRecursiveShifts.Add(Pair<State*, State*>(shiftAction->shiftReduceSource, shiftAction->shiftReduceTarget));
+							}
+						FOUND_INDIRECT_LEFT_RECURSIVE_TRANSITION:
+							jointPDA->DeleteTransition(transition);
+						}
+					}
+				}
+				if(errorCount!=errors.Count())
+				{
+					return;
+				}
+
+				// change all reduce actions whose (shiftReduceSource, shiftReduceTarget) is recorded in leftRecursiveShifts to left-recursive-reduce
+				// when a reduce is converted to a left-recursive-reduce, the corresponding state in stackPattern should be removed
+				// so this will keep count(Reduce) == count(stackPattern)
+				FOREACH(Ptr<State>, state, jointPDA->states)
+				{
+					FOREACH(Transition*, transition, state->transitions)
+					{
+						for(vint i=transition->actions.Count()-1;i>=0;i--)
+						{
+							Ptr<Action> action=transition->actions[i];
+							if(action->actionType==Action::Reduce)
+							{
+								Pair<State*, State*> shift(action->shiftReduceSource, action->shiftReduceTarget);
+								if(leftRecursiveShifts.Contains(shift))
+								{
+									// need to create a new action because in the previous phrases, these action object are shared and treated as read only
+									Ptr<Action> newAction=new Action;
+									newAction->actionType=Action::LeftRecursiveReduce;
+									newAction->actionSource=action->actionSource;
+									newAction->actionTarget=action->actionTarget;
+									newAction->shiftReduceSource=action->shiftReduceSource;
+									newAction->shiftReduceTarget=action->shiftReduceTarget;
+
+									transition->actions[i]=newAction;
+								}
+							}
+						}
+					}
+				}
+
+				// delete complicated transitions
+				FOREACH(Ptr<State>, state, jointPDA->states)
+				{
+					while(true)
+					{
+						bool deleted=false;
+						FOREACH(Transition*, t1, state->transitions)
+						FOREACH(Transition*, t2, state->transitions)
+						if(t1!=t2)
+						{
+							if(Transition::IsEquivalent(t1, t2, true))
+							{
+								jointPDA->DeleteTransition(t2);
+								deleted=true;
+								goto TRANSITION_DELETED;
+							}
+						}
+					TRANSITION_DELETED:
+						if(!deleted) break;
+					}
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingAutomaton_NPDA.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		using namespace collections;
+		using namespace definitions;
+
+		namespace analyzing
+		{
+
+/***********************************************************************
+CreateNondeterministicPDAFromEpsilonPDA::state_clearning
+***********************************************************************/
+
+			namespace state_clearning
+			{
+				void DeleteUnnecessaryStates(Ptr<Automaton> automaton, Ptr<RuleInfo> newRuleInfo, List<State*>& newStates)
+				{
+					// delete all states that are not reachable to the end state
+					while(true)
+					{
+						// find a non-end state without out transitions
+						vint deleteCount=0;
+						for(vint i=newStates.Count()-1;i>=0;i--)
+						{
+							State* newState=newStates[i];
+							if(newState->transitions.Count()==0)
+							{
+								if(newState!=newRuleInfo->rootRuleEndState && !newState->endState)
+								{
+									automaton->DeleteState(newState);
+									newStates.RemoveAt(i);
+								}
+							}
+						}
+						if(deleteCount==0)
+						{
+							break;
+						}
+					}
+				}
+
+				bool IsMergableCandidate(State* state, Ptr<RuleInfo> newRuleInfo)
+				{
+					return state!=newRuleInfo->rootRuleStartState && state!=newRuleInfo->rootRuleEndState && state!=newRuleInfo->startState;
+				}
+
+				vint CompareTransitionForRearranging(Transition* t1, Transition* t2)
+				{
+					if(t1->transitionType<t2->transitionType) return -1;
+					if(t1->transitionType>t2->transitionType) return 1;
+					if(t1->transitionSymbol<t2->transitionSymbol) return -1;
+					if(t1->transitionSymbol>t2->transitionSymbol) return 1;
+					return 0;
+				}
+
+				vint CompareActionForRearranging(Ptr<Action> a1, Ptr<Action> a2)
+				{
+					if(a1->actionType<a2->actionType) return -1;
+					if(a1->actionType>a2->actionType) return 1;
+					if(a1->actionSource<a2->actionSource) return -1;
+					if(a1->actionSource>a2->actionSource) return 1;
+					if(a1->actionTarget<a2->actionTarget) return -1;
+					if(a1->actionTarget>a2->actionTarget) return 1;
+					return 0;
+				}
+
+				void RearrangeState(State* state, SortedList<State*>& stateContentSorted)
+				{
+					if(!stateContentSorted.Contains(state))
+					{
+						FOREACH(Transition*, transition, state->transitions)
+						{
+							CopyFrom(transition->actions, From(transition->actions).OrderBy(&CompareActionForRearranging));
+						}
+						CopyFrom(state->transitions, From(state->transitions).OrderBy(&CompareTransitionForRearranging));
+						stateContentSorted.Add(state);
+					}
+				}
+
+				void MoveActionsForMergingState(Transition* transition)
+				{
+					// collect all movable actions
+					List<Ptr<Action>> movableActions;
+					for(vint i=transition->actions.Count()-1;i>=0;i--)
+					{
+						switch(transition->actions[i]->actionType)
+						{
+						// Using and Assign actions are not movable
+						case Action::Using:
+						case Action::Assign:
+							break;
+						default:
+							movableActions.Add(transition->actions[i]);
+							transition->actions.RemoveAt(i);
+						}
+					}
+
+					// copy all movable actions
+					FOREACH(Transition*, t, transition->source->inputs)
+					{
+						CopyFrom(t->actions, movableActions, true);
+					}
+				}
+
+				bool IsMergableBecauseTransitions(State* state1, State* state2)
+				{
+					if(state1->transitions.Count()!=state2->transitions.Count()) return false;
+					if(state1->transitions.Count()==1 && state2->transitions.Count()==1)
+					{
+						Transition* t1=state1->transitions[0];
+						Transition* t2=state2->transitions[0];
+						if(CompareTransitionForRearranging(t1, t2)==0 && !Transition::IsEquivalent(t1, t2, false) && t1->target==t2->target)
+						{
+							MoveActionsForMergingState(t1);
+							MoveActionsForMergingState(t2);
+						}
+					}
+					for(vint i=0;i<state1->transitions.Count();i++)
+					{
+						Transition* t1=state1->transitions[i];
+						Transition* t2=state2->transitions[i];
+						if(!Transition::IsEquivalent(t1, t2, false) || t1->target!=t2->target)
+						{
+							return false;
+						}
+					}
+					return true;
+				}
+
+				bool IsMergableBecauseInputs(State* state1, State* state2)
+				{
+					if(state1->inputs.Count()!=state2->inputs.Count()) return false;
+					for(vint i=0;i<state1->inputs.Count();i++)
+					{
+						Transition* t1=state1->inputs[i];
+						Transition* t2=state2->inputs[i];
+						if(!Transition::IsEquivalent(t1, t2, false) || t1->source!=t2->source)
+						{
+							return false;
+						}
+					}
+					return true;
+				}
+
+				void MergeState2ToState1BecauseTransitions(Ptr<Automaton> automaton, State* state1, State* state2)
+				{
+					// modify state1's expression
+					state1->stateExpression+=L"\r\n"+state2->stateExpression;
+
+					// retarget state2's input to state1
+					for(vint i=state2->inputs.Count()-1;i>=0;i--)
+					{
+						Transition* t2=state2->inputs[i];
+						bool add=true;
+						FOREACH(Transition*, t1, state1->inputs)
+						{
+							if(Transition::IsEquivalent(t1, t2, false) && t1->source==t2->source)
+							{
+								add=false;
+								break;
+							}
+						}
+						if(add)
+						{
+							state1->inputs.Add(t2);
+							t2->target=state1;
+							state2->inputs.RemoveAt(i);
+						}
+					}
+
+					automaton->DeleteState(state2);
+				}
+
+				void MergeState2ToState1BecauseInputs(Ptr<Automaton> automaton, State* state1, State* state2)
+				{
+					// modify state1's expression
+					state1->stateExpression+=L"\r\n"+state2->stateExpression;
+
+					// retarget state2's input to state1
+					for(vint i=state2->transitions.Count()-1;i>=0;i--)
+					{
+						Transition* t2=state2->transitions[i];
+						bool add=true;
+						FOREACH(Transition*, t1, state1->transitions)
+						{
+							if(Transition::IsEquivalent(t1, t2, false) && t1->target==t2->target)
+							{
+								add=false;
+								break;
+							}
+						}
+						if(add)
+						{
+							state1->transitions.Add(t2);
+							t2->source=state1;
+							state2->transitions.RemoveAt(i);
+						}
+					}
+
+					automaton->DeleteState(state2);
+				}
+
+				void MergeStates(Ptr<Automaton> automaton, Ptr<RuleInfo> newRuleInfo, List<State*>& newStates)
+				{
+					SortedList<State*> stateContentSorted;
+					while(true)
+					{
+						vint mergeCount=0;
+						for(vint i=0;i<newStates.Count();i++)
+						{
+							State* state1=newStates[i];
+							if(IsMergableCandidate(state1, newRuleInfo))
+							{
+								for(vint j=i+1;j<newStates.Count();j++)
+								{
+									State* state2=newStates[j];
+									if(state1!=state2 && IsMergableCandidate(state2, newRuleInfo))
+									{
+										RearrangeState(state1, stateContentSorted);
+										RearrangeState(state2, stateContentSorted);
+										if(IsMergableBecauseTransitions(state1, state2))
+										{
+											MergeState2ToState1BecauseTransitions(automaton, state1, state2);
+											newStates.RemoveAt(j);
+											goto MERGED_STATES_PAIR;
+										}
+										else if(IsMergableBecauseInputs(state1, state2))
+										{
+											MergeState2ToState1BecauseInputs(automaton, state1, state2);
+											newStates.RemoveAt(j);
+											goto MERGED_STATES_PAIR;
+										}
+									}
+								}
+							}
+						}
+						break;
+					MERGED_STATES_PAIR:
+						continue;
+					}
+				}
+			}
+			using namespace state_clearning;
+
+/***********************************************************************
+CreateNondeterministicPDAFromEpsilonPDA
+***********************************************************************/
+
+			Ptr<Automaton> CreateNondeterministicPDAFromEpsilonPDA(Ptr<Automaton> epsilonPDA)
+			{
+				Ptr<Automaton> automaton=new Automaton(epsilonPDA->symbolManager);
+				FOREACH(ParsingDefinitionRuleDefinition*, rule, epsilonPDA->ruleInfos.Keys())
+				{
+					// build new rule info
+					Ptr<RuleInfo> ruleInfo=epsilonPDA->ruleInfos[rule];
+					Ptr<RuleInfo> newRuleInfo=new RuleInfo;
+					automaton->ruleInfos.Add(rule, newRuleInfo);
+
+					newRuleInfo->rootRuleStartState=automaton->RootRuleStartState(rule);
+					newRuleInfo->rootRuleEndState=automaton->RootRuleEndState(rule);
+					newRuleInfo->startState=automaton->RuleStartState(rule);
+
+					// build state mapping and state visiting tracking
+					Dictionary<State*, State*> oldNewStateMap;
+					List<State*> scanningStates;
+					vint currentStateIndex=0;
+					oldNewStateMap.Add(ruleInfo->rootRuleStartState, newRuleInfo->rootRuleStartState);
+					oldNewStateMap.Add(ruleInfo->rootRuleEndState, newRuleInfo->rootRuleEndState);
+					oldNewStateMap.Add(ruleInfo->startState, newRuleInfo->startState);
+					// begin with a root rule state state
+					scanningStates.Add(ruleInfo->rootRuleStartState);
+					// remove epsilon transitions
+					RemoveEpsilonTransitions(oldNewStateMap, scanningStates, automaton);
+
+					List<State*> newStates;
+					CopyFrom(newStates, oldNewStateMap.Values());
+					DeleteUnnecessaryStates(automaton, newRuleInfo, newStates);
+					MergeStates(automaton, newRuleInfo, newStates);
+
+					// there should be at east one and only one transition that is TokenBegin from rootRuleStartState
+					// update the startState because the startState may be deleted
+					newRuleInfo->startState=newRuleInfo->rootRuleStartState->transitions[0]->target;
+
+					// record end states
+					FOREACH(State*, state, newStates)
+					{
+						if(state->endState)
+						{
+							newRuleInfo->endStates.Add(state);
+						}
+					}
+				}
+				return automaton;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingDefinitions.cpp
+***********************************************************************/
+
+namespace vl
+{
+	using namespace collections;
+
+	namespace parsing
+	{
+		namespace definitions
+		{
+
+/***********************************************************************
+ParsingDefinitionType(Visitor)
+***********************************************************************/
+
+			void ParsingDefinitionPrimitiveType::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionTokenType::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionSubType::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionArrayType::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+/***********************************************************************
+ParsingDefinitionTypeDefinition(Visitor)
+***********************************************************************/
+
+			void ParsingDefinitionClassMemberDefinition::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionClassDefinition::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionEnumMemberDefinition::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionEnumDefinition::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+/***********************************************************************
+ParsingDefinitionGrammar(Visitor)
+***********************************************************************/
+
+			void ParsingDefinitionPrimitiveGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionTextGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionSequenceGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionAlternativeGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionLoopGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionOptionalGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionCreateGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionAssignGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionUseGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void ParsingDefinitionSetterGrammar::Accept(IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+/***********************************************************************
+ParsingDefinitionTypeWriter
+***********************************************************************/
+
+			ParsingDefinitionTypeWriter::ParsingDefinitionTypeWriter(Ptr<ParsingDefinitionType> internalType)
+			{
+				type=internalType;
+			}
+
+			ParsingDefinitionTypeWriter::ParsingDefinitionTypeWriter(const ParsingDefinitionTypeWriter& typeWriter)
+			{
+				type=typeWriter.type;
+			}
+
+			ParsingDefinitionTypeWriter::ParsingDefinitionTypeWriter(const WString& name)
+			{
+				Ptr<ParsingDefinitionPrimitiveType> primitiveType=new ParsingDefinitionPrimitiveType;
+				primitiveType->name=name;
+				type=primitiveType;
+			}
+
+			ParsingDefinitionTypeWriter ParsingDefinitionTypeWriter::Sub(const WString& subTypeName)const
+			{
+				Ptr<ParsingDefinitionSubType> subType=new ParsingDefinitionSubType;
+				subType->parentType=type;
+				subType->subTypeName=subTypeName;
+				return subType;
+			}
+
+			ParsingDefinitionTypeWriter ParsingDefinitionTypeWriter::Array()const
+			{
+				Ptr<ParsingDefinitionArrayType> arrayType=new ParsingDefinitionArrayType;
+				arrayType->elementType=type;
+				return arrayType;
+			}
+
+			Ptr<ParsingDefinitionType> ParsingDefinitionTypeWriter::Type()const
+			{
+				return type;
+			}
+
+			ParsingDefinitionTypeWriter Type(const WString& name)
+			{
+				return ParsingDefinitionTypeWriter(name);
+			}
+
+			ParsingDefinitionTypeWriter TokenType()
+			{
+				Ptr<ParsingDefinitionTokenType> type=new ParsingDefinitionTokenType;
+				return type;
+			}
+
+/***********************************************************************
+ParsingDefinitionClassDefinitionWriter
+***********************************************************************/
+
+			ParsingDefinitionClassDefinitionWriter::ParsingDefinitionClassDefinitionWriter(const WString& name)
+			{
+				definition=new ParsingDefinitionClassDefinition;
+				definition->name=name;
+			}
+
+			ParsingDefinitionClassDefinitionWriter::ParsingDefinitionClassDefinitionWriter(const WString& name, const ParsingDefinitionTypeWriter& parentType)
+			{
+				definition=new ParsingDefinitionClassDefinition;
+				definition->name=name;
+				definition->parentType=parentType.Type();
+			}
+
+			ParsingDefinitionClassDefinitionWriter& ParsingDefinitionClassDefinitionWriter::Member(const WString& name, const ParsingDefinitionTypeWriter& type, const WString& unescapingFunction)
+			{
+				Ptr<ParsingDefinitionClassMemberDefinition> member=new ParsingDefinitionClassMemberDefinition;
+				member->name=name;
+				member->type=type.Type();
+				member->unescapingFunction=unescapingFunction;
+				definition->members.Add(member);
+				return *this;
+			}
+
+			ParsingDefinitionClassDefinitionWriter& ParsingDefinitionClassDefinitionWriter::SubType(const ParsingDefinitionTypeDefinitionWriter& type)
+			{
+				definition->subTypes.Add(type.Definition());
+				return *this;
+			}
+
+			Ptr<ParsingDefinitionTypeDefinition> ParsingDefinitionClassDefinitionWriter::Definition()const
+			{
+				return definition;
+			}
+
+			ParsingDefinitionClassDefinitionWriter Class(const WString& name)
+			{
+				return ParsingDefinitionClassDefinitionWriter(name);
+			}
+
+			ParsingDefinitionClassDefinitionWriter Class(const WString& name, const ParsingDefinitionTypeWriter& parentType)
+			{
+				return ParsingDefinitionClassDefinitionWriter(name, parentType);
+			}
+
+/***********************************************************************
+ParsingDefinitionEnumDefinitionWriter
+***********************************************************************/
+
+			ParsingDefinitionEnumDefinitionWriter::ParsingDefinitionEnumDefinitionWriter(const WString& name)
+			{
+				definition=new ParsingDefinitionEnumDefinition;
+				definition->name=name;
+			}
+
+			ParsingDefinitionEnumDefinitionWriter& ParsingDefinitionEnumDefinitionWriter::Member(const WString& name)
+			{
+				Ptr<ParsingDefinitionEnumMemberDefinition> member=new ParsingDefinitionEnumMemberDefinition;
+				member->name=name;
+				definition->members.Add(member);
+				return *this;
+			}
+
+			Ptr<ParsingDefinitionTypeDefinition> ParsingDefinitionEnumDefinitionWriter::Definition()const
+			{
+				return definition;
+			}
+
+			ParsingDefinitionEnumDefinitionWriter Enum(const WString& name)
+			{
+				return ParsingDefinitionEnumDefinitionWriter(name);
+			}
+
+/***********************************************************************
+ParsingDefinitionGrammarWriter
+***********************************************************************/
+
+			ParsingDefinitionGrammarWriter::ParsingDefinitionGrammarWriter(Ptr<ParsingDefinitionGrammar> internalGrammar)
+			{
+				grammar=internalGrammar;
+			}
+
+			ParsingDefinitionGrammarWriter::ParsingDefinitionGrammarWriter(const ParsingDefinitionGrammarWriter& grammarWriter)
+			{
+				grammar=grammarWriter.grammar;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::operator+(const ParsingDefinitionGrammarWriter& next)const
+			{
+				Ptr<ParsingDefinitionSequenceGrammar> sequence=new ParsingDefinitionSequenceGrammar;
+				sequence->first=grammar;
+				sequence->second=next.Grammar();
+				return sequence;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::operator|(const ParsingDefinitionGrammarWriter& next)const
+			{
+				Ptr<ParsingDefinitionAlternativeGrammar> alternative=new ParsingDefinitionAlternativeGrammar;
+				alternative->first=grammar;
+				alternative->second=next.Grammar();
+				return alternative;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::operator*()const
+			{
+				Ptr<ParsingDefinitionLoopGrammar> loop=new ParsingDefinitionLoopGrammar;
+				loop->grammar=grammar;
+				return loop;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::As(const ParsingDefinitionTypeWriter& type)const
+			{
+				Ptr<ParsingDefinitionCreateGrammar> create=new ParsingDefinitionCreateGrammar;
+				create->grammar=grammar;
+				create->type=type.Type();
+				return create;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::operator[](const WString& memberName)const
+			{
+				Ptr<ParsingDefinitionAssignGrammar> assign=new ParsingDefinitionAssignGrammar;
+				assign->grammar=grammar;
+				assign->memberName=memberName;
+				return assign;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::operator!()const
+			{
+				Ptr<ParsingDefinitionUseGrammar> use=new ParsingDefinitionUseGrammar;
+				use->grammar=grammar;
+				return use;
+			}
+
+			ParsingDefinitionGrammarWriter ParsingDefinitionGrammarWriter::Set(const WString& memberName, const WString& value)const
+			{
+				Ptr<ParsingDefinitionSetterGrammar> setter=new ParsingDefinitionSetterGrammar;
+				setter->grammar=grammar;
+				setter->memberName=memberName;
+				setter->value=value;
+				return setter;
+			}
+
+			Ptr<ParsingDefinitionGrammar> ParsingDefinitionGrammarWriter::Grammar()const
+			{
+				return grammar;
+			}
+
+			ParsingDefinitionGrammarWriter Rule(const WString& name)
+			{
+				Ptr<ParsingDefinitionPrimitiveGrammar> grammar=new ParsingDefinitionPrimitiveGrammar;
+				grammar->name=name;
+				return grammar;
+			}
+
+			ParsingDefinitionGrammarWriter Text(const WString& text)
+			{
+				Ptr<ParsingDefinitionTextGrammar> grammar=new ParsingDefinitionTextGrammar;
+				grammar->text=text;
+				return grammar;
+			}
+
+			ParsingDefinitionGrammarWriter Opt(const ParsingDefinitionGrammarWriter& writer)
+			{
+				Ptr<ParsingDefinitionOptionalGrammar> grammar=new ParsingDefinitionOptionalGrammar;
+				grammar->grammar=writer.Grammar();
+				return grammar;
+			}
+
+/***********************************************************************
+ParsingDefinitionRuleDefinitionWriter
+***********************************************************************/
+
+			ParsingDefinitionRuleDefinitionWriter::ParsingDefinitionRuleDefinitionWriter(ParsingDefinitionWriter& _owner, Ptr<ParsingDefinitionRuleDefinition> _rule)
+				:owner(_owner)
+				,rule(_rule)
+			{
+			}
+
+			ParsingDefinitionRuleDefinitionWriter& ParsingDefinitionRuleDefinitionWriter::Imply(const ParsingDefinitionGrammarWriter& grammar)
+			{
+				rule->grammars.Add(grammar.Grammar());
+				return *this;
+			}
+
+			ParsingDefinitionWriter& ParsingDefinitionRuleDefinitionWriter::EndRule()
+			{
+				return owner;
+			}
+
+/***********************************************************************
+ParsingDefinitionWriter
+***********************************************************************/
+
+			ParsingDefinitionWriter::ParsingDefinitionWriter()
+			{
+				definition=new ParsingDefinition;
+			}
+
+			ParsingDefinitionWriter& ParsingDefinitionWriter::Type(const ParsingDefinitionTypeDefinitionWriter& type)
+			{
+				definition->types.Add(type.Definition());
+				return *this;
+			}
+
+			ParsingDefinitionWriter& ParsingDefinitionWriter::Token(const WString& name, const WString& regex)
+			{
+				Ptr<ParsingDefinitionTokenDefinition> token=new ParsingDefinitionTokenDefinition;
+				token->name=name;
+				token->regex=regex;
+				token->discard=false;
+				definition->tokens.Add(token);
+				return *this;
+			}
+
+			ParsingDefinitionWriter& ParsingDefinitionWriter::Discard(const WString& name, const WString& regex)
+			{
+				Ptr<ParsingDefinitionTokenDefinition> token=new ParsingDefinitionTokenDefinition;
+				token->name=name;
+				token->regex=regex;
+				token->discard=true;
+				definition->tokens.Add(token);
+				return *this;
+			}
+
+			ParsingDefinitionRuleDefinitionWriter ParsingDefinitionWriter::Rule(const WString& name, const ParsingDefinitionTypeWriter& type)
+			{
+				Ptr<ParsingDefinitionRuleDefinition> rule=new ParsingDefinitionRuleDefinition;
+				rule->name=name;
+				rule->type=type.Type();
+				definition->rules.Add(rule);
+				return ParsingDefinitionRuleDefinitionWriter(*this, rule);
+			}
+
+			Ptr<ParsingDefinition> ParsingDefinitionWriter::Definition()const
+			{
+				return definition;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingDefinitions_CreateParserDefinition.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace definitions
+		{
+			using namespace collections;
+
+/***********************************************************************
+自举
+***********************************************************************/
+
+			Ptr<ParsingDefinition> CreateParserDefinition()
+			{
+				ParsingDefinitionWriter definitionWriter;
+
+				definitionWriter
+					.Type(
+						Class(L"TypeObj")
+						)
+
+					.Type(
+						Class(L"PrimitiveTypeObj", Type(L"TypeObj"))
+							.Member(L"name", TokenType())
+						)
+
+					.Type(
+						Class(L"TokenTypeObj", Type(L"TypeObj"))
+						)
+
+					.Type(
+						Class(L"SubTypeObj", Type(L"TypeObj"))
+							.Member(L"parentType", Type(L"TypeObj"))
+							.Member(L"name", TokenType())
+						)
+
+					.Type(
+						Class(L"ArrayTypeObj", Type(L"TypeObj"))
+							.Member(L"elementType", Type(L"TypeObj"))
+						)
+					//-------------------------------------
+					.Type(
+						Class(L"TypeDef")
+							.Member(L"name", TokenType())
+						)
+
+					.Type(
+						Class(L"ClassMemberDef")
+							.Member(L"type", Type(L"TypeObj"))
+							.Member(L"name", TokenType())
+							.Member(L"unescapingFunction", TokenType())
+						)
+
+					.Type(
+						Class(L"ClassTypeDef", Type(L"TypeDef"))
+							.Member(L"parentType", Type(L"TypeObj"))
+							.Member(L"members", Type(L"ClassMemberDef").Array())
+							.Member(L"subTypes", Type(L"TypeDef").Array())
+						)
+
+					.Type(
+						Class(L"EnumMemberDef")
+							.Member(L"name", TokenType())
+						)
+
+					.Type(
+						Class(L"EnumTypeDef", Type(L"TypeDef"))
+							.Member(L"members", Type(L"EnumMemberDef").Array())
+						)
+					//-------------------------------------
+					.Type(
+						Class(L"GrammarDef")
+						)
+
+					.Type(
+						Class(L"PrimitiveGrammarDef", Type(L"GrammarDef"))
+							.Member(L"name", TokenType())
+						)
+
+					.Type(
+						Class(L"TextGrammarDef", Type(L"GrammarDef"))
+							.Member(L"text", TokenType())
+						)
+
+					.Type(
+						Class(L"SequenceGrammarDef", Type(L"GrammarDef"))
+							.Member(L"first", Type(L"GrammarDef"))
+							.Member(L"second", Type(L"GrammarDef"))
+						)
+
+					.Type(
+						Class(L"AlternativeGrammarDef", Type(L"GrammarDef"))
+							.Member(L"first", Type(L"GrammarDef"))
+							.Member(L"second", Type(L"GrammarDef"))
+						)
+
+					.Type(
+						Class(L"LoopGrammarDef", Type(L"GrammarDef"))
+							.Member(L"grammar", Type(L"GrammarDef"))
+						)
+
+					.Type(
+						Class(L"OptionalGrammarDef", Type(L"GrammarDef"))
+							.Member(L"grammar", Type(L"GrammarDef"))
+						)
+
+					.Type(
+						Class(L"CreateGrammarDef", Type(L"GrammarDef"))
+							.Member(L"grammar", Type(L"GrammarDef"))
+							.Member(L"type", Type(L"TypeObj"))
+						)
+
+					.Type(
+						Class(L"AssignGrammarDef", Type(L"GrammarDef"))
+							.Member(L"grammar", Type(L"GrammarDef"))
+							.Member(L"memberName", TokenType())
+						)
+
+					.Type(
+						Class(L"UseGrammarDef", Type(L"GrammarDef"))
+							.Member(L"grammar", Type(L"GrammarDef"))
+						)
+
+					.Type(
+						Class(L"SetterGrammarDef", Type(L"GrammarDef"))
+							.Member(L"grammar", Type(L"GrammarDef"))
+							.Member(L"memberName", TokenType())
+							.Member(L"value", TokenType())
+						)
+					//-------------------------------------
+					.Type(
+						Class(L"TokenDef")
+							.SubType(
+								Enum(L"DiscardOption")
+									.Member(L"DiscardToken")
+									.Member(L"KeepToken")
+								)
+							.Member(L"name", TokenType())
+							.Member(L"regex", TokenType())
+							.Member(L"discard", Type(L"DiscardOption"))
+						)
+
+					.Type(
+						Class(L"RuleDef")
+							.Member(L"name", TokenType())
+							.Member(L"type", Type(L"TypeObj"))
+							.Member(L"grammars", Type(L"GrammarDef").Array())
+						)
+
+					.Type(
+						Class(L"ParserDef")
+							.Member(L"types", Type(L"TypeDef").Array())
+							.Member(L"tokens", Type(L"TokenDef").Array())
+							.Member(L"rules", Type(L"RuleDef").Array())
+						)
+					//-------------------------------------
+					.Token(L"CLASS",		L"class")
+					.Token(L"ENUM",			L"enum")
+					.Token(L"TOKEN",		L"token")
+					.Token(L"DISCARDTOKEN",	L"discardtoken")
+					.Token(L"RULE",			L"rule")
+					.Token(L"AS",			L"as")
+					.Token(L"WITH",			L"with")
+
+					.Token(L"OPEN",			L"/{")
+					.Token(L"CLOSE",		L"/}")
+					.Token(L"SEMICOLON",	L";")
+					.Token(L"COLON",		L":")
+					.Token(L"COMMA",		L",")
+					.Token(L"DOT",			L".")
+					.Token(L"ASSIGN",		L"/=")
+					.Token(L"USING",		L"/!")
+					.Token(L"OR",			L"/|")
+					.Token(L"OPTOPEN"	,	L"/[")
+					.Token(L"OPTCLOSE"	,	L"/]")
+					.Token(L"PREOPEN"	,	L"/(")
+					.Token(L"PRECLOSE"	,	L"/)")
+
+					.Token(L"NAME",			L"[a-zA-Z_]/w*")
+					.Token(L"STRING",		L"\"([^\"]|\"\")*\"")
+					.Discard(L"SPACE",		L"/s+")
+					//-------------------------------------
+					.Rule(L"Type", Type(L"TypeObj"))
+						.Imply(
+							(Rule(L"NAME")[L"name"])
+								.As(Type(L"PrimitiveTypeObj"))
+							)
+						.Imply(
+							Text(L"token")
+								.As(Type(L"TokenTypeObj"))
+							)
+						.Imply(
+							(Rule(L"Type")[L"parentType"] + Text(L".") + Rule(L"NAME")[L"name"])
+								.As(Type(L"SubTypeObj"))
+							)
+						.Imply(
+							(Rule(L"Type")[L"elementType"] + Text(L"[") + Text(L"]"))
+								.As(Type(L"ArrayTypeObj"))
+							)
+						.EndRule()
+					//-------------------------------------
+					.Rule(L"EnumMember", Type(L"EnumMemberDef"))
+						.Imply(
+							(Rule(L"NAME")[L"name"] + Text(L","))
+								.As(Type(L"EnumMemberDef"))
+							)
+						.EndRule()
+					.Rule(L"Enum", Type(L"EnumTypeDef"))
+						.Imply(
+							(Text(L"enum") + Rule(L"NAME")[L"name"] + Text(L"{") + *(Rule(L"EnumMember")[L"members"]) + Text(L"}"))
+								.As(Type(L"EnumTypeDef"))
+							)
+						.EndRule()
+					.Rule(L"ClassMember", Type(L"ClassMemberDef"))
+						.Imply(
+							(Rule(L"Type")[L"type"] + Rule(L"NAME")[L"name"] + Opt(Text(L"(") + Rule(L"NAME")[L"unescapingFunction"] + Text(L")")) + Text(L";"))
+								.As(Type(L"ClassMemberDef"))
+							)
+						.EndRule()
+					.Rule(L"Class", Type(L"ClassTypeDef"))
+						.Imply(
+							(
+								Text(L"class") + Rule(L"NAME")[L"name"] + Opt(Text(L":") + Rule(L"Type")[L"parentType"]) + Text(L"{")
+								+ *(Rule(L"ClassMember")[L"members"] | Rule(L"TypeDecl")[L"subTypes"])
+								+ Text(L"}")
+								)
+								.As(Type(L"ClassTypeDef"))
+							)
+						.EndRule()
+					.Rule(L"TypeDecl", Type(L"TypeDef"))
+						.Imply(!Rule(L"Enum") | !Rule(L"Class"))
+						.EndRule()
+					//------------------------------------
+					.Rule(L"PrimitiveGrammar", Type(L"GrammarDef"))
+						.Imply(
+							(Rule(L"NAME")[L"name"])
+								.As(Type(L"PrimitiveGrammarDef"))
+							)
+						.Imply(
+							(Rule(L"STRING")[L"text"])
+								.As(Type(L"TextGrammarDef"))
+							)
+						.Imply(
+							(Rule(L"PrimitiveGrammar")[L"grammar"] + Text(L":") + Rule(L"NAME")[L"memberName"])
+								.As(Type(L"AssignGrammarDef"))
+							)
+						.Imply(
+							(Text(L"!") + Rule(L"PrimitiveGrammar")[L"grammar"])
+								.As(Type(L"UseGrammarDef"))
+							)
+						.Imply(
+							(Text(L"[") + Rule(L"Grammar")[L"grammar"] + Text(L"]"))
+								.As(Type(L"OptionalGrammarDef"))
+							)
+						.Imply(
+							(Text(L"{") + Rule(L"Grammar")[L"grammar"] + Text(L"}"))
+								.As(Type(L"LoopGrammarDef"))
+							)
+						.Imply(
+							(Text(L"(") + !Rule(L"Grammar") + Text(L")"))
+							)
+						.EndRule()
+
+					.Rule(L"SequenceGrammar", Type(L"GrammarDef"))
+						.Imply(
+							!Rule(L"PrimitiveGrammar")
+							)
+						.Imply(
+							(Rule(L"SequenceGrammar")[L"first"] + Rule(L"PrimitiveGrammar")[L"second"])
+								.As(Type(L"SequenceGrammarDef"))
+							)
+						.EndRule()
+
+					.Rule(L"AlternativeGrammar", Type(L"GrammarDef"))
+						.Imply(
+							!Rule(L"SequenceGrammar")
+							)
+						.Imply(
+							(Rule(L"AlternativeGrammar")[L"first"] + Text(L"|") + Rule(L"SequenceGrammar")[L"second"])
+								.As(Type(L"AlternativeGrammarDef"))
+							)
+						.EndRule()
+
+					.Rule(L"Grammar", Type(L"GrammarDef"))
+						.Imply(
+							!Rule(L"AlternativeGrammar")
+							)
+						.Imply(
+							(Rule(L"Grammar")[L"grammar"] + Text(L"as") + Rule(L"Type")[L"type"])
+								.As(Type(L"CreateGrammarDef"))
+							)
+						.Imply(
+							(Rule(L"Grammar")[L"grammar"] + Text(L"with") + Text(L"{") + Rule(L"NAME")[L"memberName"] + Text(L"=") + Rule(L"STRING")[L"value"] + Text(L"}"))
+								.As(Type(L"SetterGrammarDef"))
+							)
+						.EndRule()
+					//------------------------------------
+					.Rule(L"TokenDecl", Type(L"TokenDef"))
+						.Imply(
+							(Text(L"token") + Rule(L"NAME")[L"name"] + Text(L"=") + Rule(L"STRING")[L"regex"] + Text(L";"))
+								.As(Type(L"TokenDef"))
+								.Set(L"discard", L"KeepToken")
+							)
+						.Imply(
+							(Text(L"discardtoken") + Rule(L"NAME")[L"name"] + Text(L"=") + Rule(L"STRING")[L"regex"] + Text(L";"))
+								.As(Type(L"TokenDef"))
+								.Set(L"discard", L"DiscardToken")
+							)
+						.EndRule()
+
+					.Rule(L"RuleFragmentDecl", Type(L"GrammarDef"))
+						.Imply(
+							Text(L"=") + !Rule(L"Grammar") + Text(L";")
+							)
+						.EndRule()
+
+					.Rule(L"RuleDecl", Type(L"RuleDef"))
+						.Imply(
+							(Text(L"rule") + Rule(L"Type")[L"type"] + Rule(L"NAME")[L"name"] + *(Text(L"=") + Rule(L"Grammar")[L"grammars"]) + Text(L";"))
+								.As(Type(L"RuleDef"))
+							)
+						.EndRule()
+					//------------------------------------
+					.Rule(L"ParserDecl", Type(L"ParserDef"))
+						.Imply(
+							(
+								*(
+									Rule(L"TypeDecl")[L"types"] |
+									Rule(L"TokenDecl")[L"tokens"] |
+									Rule(L"RuleDecl")[L"rules"]
+									)
+								+(
+									Rule(L"TypeDecl")[L"types"] |
+									Rule(L"TokenDecl")[L"tokens"] |
+									Rule(L"RuleDecl")[L"rules"]
+									)
+								)
+								.As(Type(L"ParserDef"))
+							)
+						.EndRule()
+					;
+
+				return definitionWriter.Definition();
+			}
+
+			WString DeserializeString(Ptr<ParsingTreeToken> token)
+			{
+				const WString& value=token->GetValue();
+				if(value.Length()>=2 && value[0]==L'"' && value[value.Length()-1]==L'"')
+				{
+					Array<wchar_t> chars(value.Length());
+					memset(&chars[0], 0, chars.Count()*sizeof(wchar_t));
+					const wchar_t* reading=value.Buffer()+1;
+					wchar_t* writing=&chars[0];
+					while(*reading)
+					{
+						if(*reading!=L'"')
+						{
+							*writing++=*reading++;
+						}
+						else if(reading[1]!=L'"')
+						{
+							break;
+						}
+						else
+						{
+							*writing++=L'"';
+							reading+=2;
+						}
+					}
+					return &chars[0];
+				}
+				return L"";
+			}
+
+			void SetName(WString& target, Ptr<ParsingTreeNode> node)
+			{
+				Ptr<ParsingTreeToken> token=node.Cast<ParsingTreeToken>();
+				if(token)
+				{
+					target=token->GetValue();
+				}
+			}
+
+			void SetText(WString& target, Ptr<ParsingTreeNode> node)
+			{
+				Ptr<ParsingTreeToken> token=node.Cast<ParsingTreeToken>();
+				if(token)
+				{
+					target=DeserializeString(token);
+				}
+			}
+
+			template<typename T>
+			void SetArray(List<Ptr<T>>& target, Ptr<ParsingTreeNode> node)
+			{
+				Ptr<ParsingTreeArray> source=node.Cast<ParsingTreeArray>();
+				if(source)
+				{
+					for(vint i=0;i<source->Count();i++)
+					{
+						target.Add(Deserialize(source->GetItem(i).Cast<ParsingTreeObject>()).Cast<T>());
+					}
+				}
+			}
+
+			template<typename T>
+			void SetMember(Ptr<T>& target, Ptr<ParsingTreeNode> node)
+			{
+				Ptr<ParsingTreeObject> source=node.Cast<ParsingTreeObject>();
+				if(source)
+				{
+					target=Deserialize(source).Cast<T>();
+				}
+			}
+
+			Ptr<ParsingTreeCustomBase> Deserialize(Ptr<ParsingTreeObject> node)
+			{
+				if(!node)
+				{
+					return 0;
+				}
+				else if(node->GetType()==L"PrimitiveTypeObj")
+				{
+					Ptr<ParsingDefinitionPrimitiveType> target=new ParsingDefinitionPrimitiveType;
+					SetName(target->name, node->GetMember(L"name"));
+					return target;
+				}
+				else if(node->GetType()==L"TokenTypeObj")
+				{
+					Ptr<ParsingDefinitionTokenType> target=new ParsingDefinitionTokenType;
+					return target;
+				}
+				else if(node->GetType()==L"SubTypeObj")
+				{
+					Ptr<ParsingDefinitionSubType> target=new ParsingDefinitionSubType;
+					SetMember(target->parentType, node->GetMember(L"parentType"));
+					SetName(target->subTypeName, node->GetMember(L"name"));
+					return target;
+				}
+				else if(node->GetType()==L"ArrayTypeObj")
+				{
+					Ptr<ParsingDefinitionArrayType> target=new ParsingDefinitionArrayType;
+					SetMember(target->elementType, node->GetMember(L"elementType"));
+					return target;
+				}
+				else if(node->GetType()==L"ClassMemberDef")
+				{
+					Ptr<ParsingDefinitionClassMemberDefinition> target=new ParsingDefinitionClassMemberDefinition;
+					SetMember(target->type, node->GetMember(L"type"));
+					SetName(target->name, node->GetMember(L"name"));
+					SetName(target->unescapingFunction, node->GetMember(L"unescapingFunction"));
+					return target;
+				}
+				else if(node->GetType()==L"ClassTypeDef")
+				{
+					Ptr<ParsingDefinitionClassDefinition> target=new ParsingDefinitionClassDefinition;
+					SetMember(target->parentType, node->GetMember(L"parentType"));
+					SetName(target->name, node->GetMember(L"name"));
+					SetArray(target->members, node->GetMember(L"members"));
+					SetArray(target->subTypes, node->GetMember(L"subTypes"));
+					return target;
+				}
+				else if(node->GetType()==L"EnumMemberDef")
+				{
+					Ptr<ParsingDefinitionEnumMemberDefinition> target=new ParsingDefinitionEnumMemberDefinition;
+					SetName(target->name, node->GetMember(L"name"));
+					return target;
+				}
+				else if(node->GetType()==L"EnumTypeDef")
+				{
+					Ptr<ParsingDefinitionEnumDefinition> target=new ParsingDefinitionEnumDefinition;
+					SetName(target->name, node->GetMember(L"name"));
+					SetArray(target->members, node->GetMember(L"members"));
+					return target;
+				}
+				else if(node->GetType()==L"PrimitiveGrammarDef")
+				{
+					Ptr<ParsingDefinitionPrimitiveGrammar> target=new ParsingDefinitionPrimitiveGrammar;
+					SetName(target->name, node->GetMember(L"name"));
+					return target;
+				}
+				else if(node->GetType()==L"TextGrammarDef")
+				{
+					Ptr<ParsingDefinitionTextGrammar> target=new ParsingDefinitionTextGrammar;
+					SetText(target->text, node->GetMember(L"text"));
+					return target;
+				}
+				else if(node->GetType()==L"SequenceGrammarDef")
+				{
+					Ptr<ParsingDefinitionSequenceGrammar> target=new ParsingDefinitionSequenceGrammar;
+					SetMember(target->first, node->GetMember(L"first"));
+					SetMember(target->second, node->GetMember(L"second"));
+					return target;
+				}
+				else if(node->GetType()==L"AlternativeGrammarDef")
+				{
+					Ptr<ParsingDefinitionAlternativeGrammar> target=new ParsingDefinitionAlternativeGrammar;
+					SetMember(target->first, node->GetMember(L"first"));
+					SetMember(target->second, node->GetMember(L"second"));
+					return target;
+				}
+				else if(node->GetType()==L"LoopGrammarDef")
+				{
+					Ptr<ParsingDefinitionLoopGrammar> target=new ParsingDefinitionLoopGrammar;
+					SetMember(target->grammar, node->GetMember(L"grammar"));
+					return target;
+				}
+				else if(node->GetType()==L"OptionalGrammarDef")
+				{
+					Ptr<ParsingDefinitionOptionalGrammar> target=new ParsingDefinitionOptionalGrammar;
+					SetMember(target->grammar, node->GetMember(L"grammar"));
+					return target;
+				}
+				else if(node->GetType()==L"CreateGrammarDef")
+				{
+					Ptr<ParsingDefinitionCreateGrammar> target=new ParsingDefinitionCreateGrammar;
+					SetMember(target->grammar, node->GetMember(L"grammar"));
+					SetMember(target->type, node->GetMember(L"type"));
+					return target;
+				}
+				else if(node->GetType()==L"AssignGrammarDef")
+				{
+					Ptr<ParsingDefinitionAssignGrammar> target=new ParsingDefinitionAssignGrammar;
+					SetMember(target->grammar, node->GetMember(L"grammar"));
+					SetName(target->memberName, node->GetMember(L"memberName"));
+					return target;
+				}
+				else if(node->GetType()==L"UseGrammarDef")
+				{
+					Ptr<ParsingDefinitionUseGrammar> target=new ParsingDefinitionUseGrammar;
+					SetMember(target->grammar, node->GetMember(L"grammar"));
+					return target;
+				}
+				else if(node->GetType()==L"SetterGrammarDef")
+				{
+					Ptr<ParsingDefinitionSetterGrammar> target=new ParsingDefinitionSetterGrammar;
+					SetMember(target->grammar, node->GetMember(L"grammar"));
+					SetName(target->memberName, node->GetMember(L"memberName"));
+					SetText(target->value, node->GetMember(L"value"));
+					return target;
+				}
+				else if(node->GetType()==L"TokenDef")
+				{
+					Ptr<ParsingDefinitionTokenDefinition> target=new ParsingDefinitionTokenDefinition;
+					SetName(target->name, node->GetMember(L"name"));
+					SetText(target->regex, node->GetMember(L"regex"));
+
+					Ptr<ParsingTreeToken> token=node->GetMember(L"discard").Cast<ParsingTreeToken>();
+					target->discard=(token && token->GetValue()==L"DiscardToken");
+					return target;
+				}
+				else if(node->GetType()==L"RuleDef")
+				{
+					Ptr<ParsingDefinitionRuleDefinition> target=new ParsingDefinitionRuleDefinition;
+					SetName(target->name, node->GetMember(L"name"));
+					SetMember(target->type, node->GetMember(L"type"));
+					SetArray(target->grammars, node->GetMember(L"grammars"));
+					return target;
+				}
+				else if(node->GetType()==L"ParserDef")
+				{
+					Ptr<ParsingDefinition> target=new ParsingDefinition;
+					SetArray(target->types, node->GetMember(L"types"));
+					SetArray(target->tokens, node->GetMember(L"tokens"));
+					SetArray(target->rules, node->GetMember(L"rules"));
+					return target;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			Ptr<ParsingDefinition> DeserializeDefinition(Ptr<ParsingTreeNode> node)
+			{
+				return Deserialize(node.Cast<ParsingTreeObject>()).Cast<ParsingDefinition>();
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingLogging.cpp
+***********************************************************************/
+
+namespace vl
+{
+	using namespace stream;
+	using namespace collections;
+
+	namespace parsing
+	{
+		namespace definitions
+		{
+			void LogString(const WString& input, TextWriter& writer)
+			{
+				writer.WriteChar(L'\"');
+				for(int i=0;i<input.Length();i++)
+				{
+					if(input[i]==L'\"')
+					{
+						writer.WriteString(L"\"\"");
+					}
+					else
+					{
+						writer.WriteChar(input[i]);
+					}
+				}
+				writer.WriteChar(L'\"');
+			}
+
+/***********************************************************************
+Logger (ParsingDefinitionType)
+***********************************************************************/
+
+			class ParsingDefinitionTypeLogger : public Object, public ParsingDefinitionType::IVisitor
+			{
+			public:
+				TextWriter&		writer;
+
+				ParsingDefinitionTypeLogger(TextWriter& _writer)
+					:writer(_writer)
+				{
+				}
+
+				static void LogInternal(ParsingDefinitionType* type, TextWriter& writer)
+				{
+					ParsingDefinitionTypeLogger visitor(writer);
+					type->Accept(&visitor);
+				}
+
+				void Visit(ParsingDefinitionPrimitiveType* node)override
+				{
+					writer.WriteString(node->name);
+				}
+
+				void Visit(ParsingDefinitionTokenType* node)override
+				{
+					writer.WriteString(L"token");
+				}
+
+				void Visit(ParsingDefinitionSubType* node)override
+				{
+					LogInternal(node->parentType.Obj(), writer);
+					writer.WriteString(L".");
+					writer.WriteString(node->subTypeName);
+				}
+
+				void Visit(ParsingDefinitionArrayType* node)override
+				{
+					LogInternal(node->elementType.Obj(), writer);
+					writer.WriteString(L"[]");
+				}
+			};
+
+			void Log(ParsingDefinitionType* type, TextWriter& writer)
+			{
+				ParsingDefinitionTypeLogger::LogInternal(type, writer);
+			}
+
+/***********************************************************************
+Logger (ParsingDefinitionTypeDefinition)
+***********************************************************************/
+
+			class ParsingDefinitionTypeDefinitionLogger : public Object, public ParsingDefinitionTypeDefinition::IVisitor
+			{
+			public:
+				WString			prefix;
+				TextWriter&		writer;
+
+				static void LogInternal(ParsingDefinitionTypeDefinition* definition, const WString& prefix, TextWriter& writer)
+				{
+					ParsingDefinitionTypeDefinitionLogger visitor(prefix, writer);
+					definition->Accept(&visitor);
+				}
+
+				ParsingDefinitionTypeDefinitionLogger(const WString& _prefix, TextWriter& _writer)
+					:prefix(_prefix)
+					,writer(_writer)
+				{
+				}
+
+				void Visit(ParsingDefinitionClassMemberDefinition* node)override
+				{
+					writer.WriteString(prefix);
+					Log(node->type.Obj(), writer);
+					writer.WriteString(L" ");
+					writer.WriteString(node->name);
+					if(node->unescapingFunction!=L"")
+					{
+						writer.WriteString(L" (");
+						writer.WriteString(node->unescapingFunction);
+						writer.WriteString(L")");
+					}
+					writer.WriteLine(L";");
+				}
+
+				void Visit(ParsingDefinitionClassDefinition* node)override
+				{
+					writer.WriteString(prefix);
+					writer.WriteString(L"class ");
+					if(node->parentType)
+					{
+						writer.WriteString(node->name);
+						writer.WriteString(L" : ");
+						Log(node->parentType.Obj(), writer);
+						writer.WriteLine(L"");
+					}
+					else
+					{
+						writer.WriteLine(node->name);
+					}
+
+					writer.WriteString(prefix);
+					writer.WriteLine(L"{");
+
+					for(int i=0;i<node->subTypes.Count();i++)
+					{
+						LogInternal(node->subTypes[i].Obj(), prefix+L"    ", writer);
+						writer.WriteLine(L"");
+					}
+
+					for(int i=0;i<node->members.Count();i++)
+					{
+						LogInternal(node->members[i].Obj(), prefix+L"    ", writer);
+					}
+
+					writer.WriteString(prefix);
+					writer.WriteLine(L"}");
+				}
+
+				void Visit(ParsingDefinitionEnumMemberDefinition* node)override
+				{
+					writer.WriteString(prefix);
+					writer.WriteString(node->name);
+					writer.WriteLine(L",");
+				}
+
+				void Visit(ParsingDefinitionEnumDefinition* node)override
+				{
+					writer.WriteString(prefix);
+					writer.WriteString(L"enum ");
+					writer.WriteLine(node->name);
+
+					writer.WriteString(prefix);
+					writer.WriteLine(L"{");
+
+					for(int i=0;i<node->members.Count();i++)
+					{
+						LogInternal(node->members[i].Obj(), prefix+L"    ", writer);
+					}
+
+					writer.WriteString(prefix);
+					writer.WriteLine(L"}");
+				}
+			};
+
+			void Log(ParsingDefinitionTypeDefinition* definition, const WString& prefix, TextWriter& writer)
+			{
+				ParsingDefinitionTypeDefinitionLogger::LogInternal(definition, prefix, writer);
+			}
+
+/***********************************************************************
+Logger (ParsingDefinitionGrammar)
+***********************************************************************/
+
+#define PRIORITY_NONE			0
+#define PRIORITY_CREATE			1
+#define PRIORITY_SET			1
+#define PRIORITY_ALTERNATIVE	2
+#define PRIORITY_SEQUENCE		3
+#define PRIORITY_USE			4
+#define PRIORITY_ASSIGN			4
+
+			class ParsingDefinitionGrammarLogger : public Object, public ParsingDefinitionGrammar::IVisitor
+			{
+			public:
+				TextWriter&					writer;
+				int							parentPriority;
+				ParsingDefinitionGrammar*	stateNode;
+				bool						beforeNode;
+
+				ParsingDefinitionGrammarLogger(TextWriter& _writer, int _parentPriority, ParsingDefinitionGrammar* _stateNode, bool _beforeNode)
+					:writer(_writer)
+					,parentPriority(_parentPriority)
+					,stateNode(_stateNode)
+					,beforeNode(_beforeNode)
+				{
+				}
+
+				static void LogInternal(ParsingDefinitionGrammar* grammar, int parentPriority, ParsingDefinitionGrammar* stateNode, bool beforeNode, TextWriter& writer)
+				{
+					if(grammar==stateNode && beforeNode)
+					{
+						writer.WriteString(L"●");
+					}
+					ParsingDefinitionGrammarLogger visitor(writer, parentPriority, stateNode, beforeNode);
+					grammar->Accept(&visitor);
+					if(grammar==stateNode && !beforeNode)
+					{
+						writer.WriteString(L"●");
+					}
+				}
+
+				void LogInternal(ParsingDefinitionGrammar* grammar, int parentPriority, TextWriter& writer)
+				{
+					LogInternal(grammar, parentPriority, stateNode, beforeNode, writer);
+				}
+
+				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
+				{
+					writer.WriteString(node->name);
+				}
+
+				void Visit(ParsingDefinitionTextGrammar* node)override
+				{
+					LogString(node->text, writer);
+				}
+
+				void Visit(ParsingDefinitionSequenceGrammar* node)override
+				{
+					int priority=PRIORITY_SEQUENCE;
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L"( ");
+					}
+					LogInternal(node->first.Obj(), priority, writer);
+					writer.WriteString(L" ");
+					LogInternal(node->second.Obj(), priority, writer);
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L" )");
+					}
+				}
+
+				void Visit(ParsingDefinitionAlternativeGrammar* node)override
+				{
+					int priority=PRIORITY_ALTERNATIVE;
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L"( ");
+					}
+					LogInternal(node->first.Obj(), priority, writer);
+					writer.WriteString(L" | ");
+					LogInternal(node->second.Obj(), priority, writer);
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L" )");
+					}
+				}
+
+				void Visit(ParsingDefinitionLoopGrammar* node)override
+				{
+					writer.WriteString(L"{ ");
+					LogInternal(node->grammar.Obj(), PRIORITY_NONE, writer);
+					writer.WriteString(L" }");
+				}
+
+				void Visit(ParsingDefinitionOptionalGrammar* node)override
+				{
+					writer.WriteString(L"[ ");
+					LogInternal(node->grammar.Obj(), PRIORITY_NONE, writer);
+					writer.WriteString(L" ]");
+				}
+
+				void Visit(ParsingDefinitionCreateGrammar* node)override
+				{
+					int priority=PRIORITY_CREATE;
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L"( ");
+					}
+					LogInternal(node->grammar.Obj(), priority, writer);
+					writer.WriteString(L" as ");
+					Log(node->type.Obj(), writer);
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L" )");
+					}
+				}
+
+				void Visit(ParsingDefinitionAssignGrammar* node)override
+				{
+					int priority=PRIORITY_ASSIGN;
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L"( ");
+					}
+					LogInternal(node->grammar.Obj(), priority, writer);
+					writer.WriteString(L" : ");
+					writer.WriteString(node->memberName);
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L" )");
+					}
+				}
+
+				void Visit(ParsingDefinitionUseGrammar* node)override
+				{
+					int priority=PRIORITY_USE;
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L"( ");
+					}
+					writer.WriteString(L"!");
+					LogInternal(node->grammar.Obj(), priority, writer);
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L" )");
+					}
+				}
+
+				void Visit(ParsingDefinitionSetterGrammar* node)override
+				{
+					int priority=PRIORITY_SET;
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L"( ");
+					}
+					LogInternal(node->grammar.Obj(), priority, writer);
+					writer.WriteString(L" with { ");
+					writer.WriteString(node->memberName);
+					writer.WriteString(L" = ");
+					LogString(node->value, writer);
+					writer.WriteString(L" }");
+					if(parentPriority>priority)
+					{
+						writer.WriteString(L" )");
+					}
+				}
+			};
+
+			void Log(ParsingDefinitionGrammar* grammar, TextWriter& writer)
+			{
+				ParsingDefinitionGrammarLogger::LogInternal(grammar, PRIORITY_NONE, 0, true, writer);
+			}
+
+			void Log(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode, TextWriter& writer)
+			{
+				ParsingDefinitionGrammarLogger::LogInternal(grammar, PRIORITY_NONE, stateNode, beforeNode, writer);
+			}
+
+#undef PRIORITY_NONE
+#undef PRIORITY_CREATE
+#undef PRIORITY_SET
+#undef PRIORITY_ALTERNATIVE
+#undef PRIORITY_SEQUENCE
+#undef PRIORITY_USE
+#undef PRIORITY_ASSIGN
+
+/***********************************************************************
+FindAppropriateGrammarState
+***********************************************************************/
+
+			class FindAppropriateGrammarStateVisitor : public Object, public ParsingDefinitionGrammar::IVisitor
+			{
+			public:
+				ParsingDefinitionGrammar*	stateNode;
+				bool						beforeNode;
+				ParsingDefinitionGrammar*	beforeReference;
+				ParsingDefinitionGrammar*	afterReference;
+				ParsingDefinitionGrammar*	result;
+
+				FindAppropriateGrammarStateVisitor(ParsingDefinitionGrammar* _stateNode, bool _beforeNode, ParsingDefinitionGrammar* _beforeReference, ParsingDefinitionGrammar* _afterReference)
+					:stateNode(_stateNode)
+					,beforeNode(_beforeNode)
+					,beforeReference(_beforeReference)
+					,afterReference(_afterReference)
+					,result(0)
+				{
+				}
+
+				static ParsingDefinitionGrammar* Find(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode, ParsingDefinitionGrammar* beforeReference, ParsingDefinitionGrammar* afterReference)
+				{
+					if(grammar==stateNode)
+					{
+						return
+							beforeNode
+							?(beforeReference?beforeReference:stateNode)
+							:(afterReference?afterReference:stateNode)
+							;
+					}
+					else
+					{
+						FindAppropriateGrammarStateVisitor visitor(stateNode, beforeNode, beforeReference, afterReference);
+						grammar->Accept(&visitor);
+						return visitor.result;
+					}
+				}
+
+				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionTextGrammar* node)override
+				{
+				}
+
+				void Visit(ParsingDefinitionSequenceGrammar* node)override
+				{
+					result=Find(node->first.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), 0);
+					if(!result)
+					{
+						result=Find(node->second.Obj(), stateNode, beforeNode, 0, (afterReference?afterReference:node));
+					}
+				}
+
+				void Visit(ParsingDefinitionAlternativeGrammar* node)override
+				{
+					result=Find(node->first.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+					if(!result)
+					{
+						result=Find(node->second.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+					}
+				}
+
+				void Visit(ParsingDefinitionLoopGrammar* node)override
+				{
+					result=Find(node->grammar.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+				}
+
+				void Visit(ParsingDefinitionOptionalGrammar* node)override
+				{
+					result=Find(node->grammar.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+				}
+
+				void Visit(ParsingDefinitionCreateGrammar* node)override
+				{
+					result=Find(node->grammar.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+				}
+
+				void Visit(ParsingDefinitionAssignGrammar* node)override
+				{
+					result=Find(node->grammar.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+				}
+
+				void Visit(ParsingDefinitionUseGrammar* node)override
+				{
+					result=Find(node->grammar.Obj(), stateNode, beforeNode, (beforeReference?beforeReference:node), (afterReference?afterReference:node));
+				}
+
+				void Visit(ParsingDefinitionSetterGrammar* node)override
+				{
+					result=Find(node->grammar.Obj(), stateNode, beforeNode, beforeReference, afterReference);
+				}
+			};
+
+/***********************************************************************
+Logger (ParsingDefinitionGrammar)
+***********************************************************************/
+
+			WString TypeToString(ParsingDefinitionType* type)
+			{
+				MemoryStream stream(64);
+				{
+					StreamWriter writer(stream);
+					Log(type, writer);
+				}
+				stream.SeekFromBegin(0);
+				{
+					StreamReader reader(stream);
+					return reader.ReadToEnd();
+				}
+			}
+
+			WString GrammarToString(ParsingDefinitionGrammar* grammar)
+			{
+				return GrammarStateToString(grammar, 0, true);
+			}
+
+			WString GrammarStateToString(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode)
+			{
+				MemoryStream stream(64);
+				{
+					StreamWriter writer(stream);
+					Log(grammar, stateNode, beforeNode, writer);
+				}
+				stream.SeekFromBegin(0);
+				{
+					StreamReader reader(stream);
+					return reader.ReadToEnd();
+				}
+			}
+
+			ParsingDefinitionGrammar* FindAppropriateGrammarState(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode)
+			{
+				return FindAppropriateGrammarStateVisitor::Find(grammar, stateNode, beforeNode, 0, 0);
+			}
+
+			void Log(Ptr<ParsingDefinition> definition, TextWriter& writer)
+			{
+				FOREACH(Ptr<ParsingDefinitionTypeDefinition>, type, definition->types)
+				{
+					Log(type.Obj(), L"", writer);
+					writer.WriteLine(L"");
+				}
+				
+				FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
+				{
+					if(token->discard)
+					{
+						writer.WriteString(L"discardtoken ");
+					}
+					else
+					{
+						writer.WriteString(L"token ");
+					}
+					writer.WriteString(token->name);
+					writer.WriteString(L" = ");
+					LogString(token->regex, writer);
+					writer.WriteLine(L";");
+				}
+				writer.WriteLine(L"");
+				
+				FOREACH(Ptr<ParsingDefinitionRuleDefinition>, rule, definition->rules)
+				{
+					writer.WriteString(L"rule ");
+					Log(rule->type.Obj(), writer);
+					writer.WriteString(L" ");
+					writer.WriteLine(rule->name);
+					FOREACH(Ptr<ParsingDefinitionGrammar>, grammar, rule->grammars)
+					{
+						writer.WriteString(L"        = ");
+						Log(grammar.Obj(), writer);
+						writer.WriteLine(L"");
+					}
+					writer.WriteLine(L"        ;");
+				}
+			}
+		}
+
+		namespace analyzing
+		{
+/***********************************************************************
+Logger (Automaton)
+***********************************************************************/
+
+			void LogTransitionSymbol(ParsingSymbol* symbol, stream::TextWriter& writer)
+			{
+				if(symbol->GetType()==ParsingSymbol::TokenDef)
+				{
+					writer.WriteString(L"[");
+					writer.WriteString(symbol->GetName());
+
+					WString regex=symbol->GetDescriptorString();
+					if(regex_internal::IsRegexEscapedListeralString(regex))
+					{
+						writer.WriteString(L" ");
+						definitions::LogString(regex_internal::UnescapeTextForRegex(regex), writer);
+					}
+					writer.WriteString(L"]");
+				}
+				else
+				{
+					writer.WriteString(L"<");
+					writer.WriteString(symbol->GetName());
+					writer.WriteString(L">");
+				}
+			}
+
+			void Log(Ptr<Automaton> automaton, stream::TextWriter& writer)
+			{
+				FOREACH(Ptr<RuleInfo>, ruleInfo, automaton->ruleInfos.Values())
+				{
+					writer.WriteString(L"Root Rule Start: ");
+					writer.WriteLine(ruleInfo->rootRuleStartState->stateName);
+
+					writer.WriteString(L"Root Rule End: ");
+					writer.WriteLine(ruleInfo->rootRuleEndState->stateName);
+
+					writer.WriteString(L"Rule Start: ");
+					writer.WriteLine(ruleInfo->startState->stateName);
+
+					FOREACH(State*, endState, ruleInfo->endStates)
+					{
+						writer.WriteString(L"Rule End: ");
+						writer.WriteLine(endState->stateName);
+					}
+
+					writer.WriteLine(L"");
+				}
+
+				List<State*> states;
+				FOREACH(Ptr<RuleInfo>, ruleInfo, automaton->ruleInfos.Values())
+				{
+					vint currentState=states.Count();
+					states.Add(ruleInfo->rootRuleStartState);
+
+					while(currentState<states.Count())
+					{
+						State* state=states[currentState++];
+						writer.WriteLine(state->stateExpression);
+						if(state->endState)
+						{
+							writer.WriteString(L"END STATE ");
+						}
+						else
+						{
+							writer.WriteString(L"STATE ");
+						}
+						writer.WriteLine(state->stateName);
+
+						FOREACH(Transition*, transition, state->transitions)
+						{
+							if(!states.Contains(transition->target))
+							{
+								states.Add(transition->target);
+							}
+							switch(transition->transitionType)
+							{
+							case Transition::Epsilon:
+								writer.WriteString(L"    EPSILON");
+								break;
+							case Transition::TokenBegin:
+								writer.WriteString(L"    TOKEN-BEGIN");
+								break;
+							case Transition::TokenFinish:
+								writer.WriteString(L"    TOKEN-FINISH");
+								break;
+							case Transition::TryReduce:
+								writer.WriteString(L"    TRY-REDUCE");
+								break;
+							case Transition::Symbol:
+								{
+									writer.WriteString(L"    ");
+									if(transition->transitionSymbol)
+									{
+										LogTransitionSymbol(transition->transitionSymbol, writer);
+									}
+								}
+								break;
+							}
+							switch(transition->stackOperationType)
+							{
+							case Transition::None:
+								writer.WriteString(L" => ");
+								break;
+							case Transition::ShiftReduceCompacted:
+								writer.WriteString(L" [SHIFT-REDUCE-COMPACTED] => ");
+								break;
+							case Transition::LeftRecursive:
+								writer.WriteString(L" [LEFT-RECURSIVE] => ");
+								break;
+							}
+							writer.WriteLine(transition->target->stateName);
+
+							FOREACH(Ptr<Action>, action, transition->actions)
+							{
+								switch(action->actionType)
+								{
+								case Action::Create:
+									writer.WriteString(L"        CREATE ");
+									break;
+								case Action::Assign:
+									writer.WriteString(L"        ASSIGN ");
+									break;
+								case Action::Using:
+									writer.WriteString(L"        USING ");
+									break;
+								case Action::Setter:
+									writer.WriteString(L"        SET ");
+									break;
+								case Action::Shift:
+									writer.WriteString(L"        SHIFT ");
+									break;
+								case Action::Reduce:
+									writer.WriteString(L"        REDUCE ");
+									break;
+								case Action::LeftRecursiveReduce:
+									writer.WriteString(L"        LR-REDUCE ");
+									break;
+								}
+
+								if(action->shiftReduceSource && action->shiftReduceTarget)
+								{
+									writer.WriteString(L"[");
+									writer.WriteString(action->shiftReduceSource->stateName);
+									writer.WriteString(L" => ");
+									writer.WriteString(action->shiftReduceTarget->stateName);
+									writer.WriteString(L"] ");
+								}
+
+								if(action->actionSource)
+								{
+									writer.WriteString(action->actionSource->GetName());
+								}
+								if(action->actionTarget)
+								{
+									writer.WriteString(L" => ");
+									writer.WriteString(action->actionTarget->GetName());
+								}
+								writer.WriteLine(L"");
+							}
+						}
+						writer.WriteLine(L"");
+					}
+					writer.WriteLine(L"--------------------------------");
+				}
+			}
+		}
+
+		namespace tabling
+		{
+/***********************************************************************
+Logger (ParsingTable)
+***********************************************************************/
+
+			void Log(Ptr<ParsingTable> table, stream::TextWriter& writer)
+			{
+				vint rows=table->GetStateCount()+1;
+				vint columns=table->GetTokenCount()+1;
+				Array<WString> stringTable(rows*columns);
+
+				stringTable[0]=L"<Parsing Table>";
+
+				for(vint row=0; row<table->GetStateCount();row++)
+				{
+					stringTable[(row+1)*columns]=itow(row)+L": "+table->GetStateInfo(row).stateName;
+				}
+
+				for(vint column=0;column<table->GetTokenCount();column++)
+				{
+					WString content=
+						column==ParsingTable::TokenBegin?L"0: $TokenBegin":
+						column==ParsingTable::TokenFinish?L"1: $TokenFinish":
+						column==ParsingTable::TryReduce?L"2: $TryReduce":
+						itow(column)+L": "+table->GetTokenInfo(column).name+L"\r\n  "+table->GetTokenInfo(column).regex;
+					stringTable[column+1]=content;
+				}
+				
+				for(vint row=0; row<table->GetStateCount();row++)
+				{
+					for(vint column=0;column<table->GetTokenCount();column++)
+					{
+						Ptr<ParsingTable::TransitionBag> bag=table->GetTransitionBag(row, column);
+						if(bag)
+						{
+							WString content;
+							FOREACH(Ptr<ParsingTable::TransitionItem>, item, bag->transitionItems)
+							{
+								if(content!=L"") content+=L"\r\n";
+								content+=itow(item->targetState);
+								FOREACH_INDEXER(vint, state, index, item->stackPattern)
+								{
+									content+=(index==0?L" : ":L", ");
+									content+=itow(state);
+								}
+								content+=L"\r\n  ";
+								FOREACH(ParsingTable::Instruction, ins, item->instructions)
+								{
+									switch(ins.instructionType)
+									{
+									case ParsingTable::Instruction::Create:
+										content+=L"C";
+										break;
+									case ParsingTable::Instruction::Using:
+										content+=L"U";
+										break;
+									case ParsingTable::Instruction::Assign:
+										content+=L"A";
+										break;
+									case ParsingTable::Instruction::Item:
+										content+=L"I";
+										break;
+									case ParsingTable::Instruction::Setter:
+										content+=L"S";
+										break;
+									case ParsingTable::Instruction::Shift:
+										content+=L"[+"+itow(ins.stateParameter)+L"]";
+										break;
+									case ParsingTable::Instruction::Reduce:
+										content+=L"[-"+itow(ins.stateParameter)+L"]";
+										break;
+									case ParsingTable::Instruction::LeftRecursiveReduce:
+										content+=L"[!"+itow(ins.stateParameter)+L"]";
+										break;
+									}
+								}
+							}
+							stringTable[(row+1)*columns+(column+1)]=content;
+						}
+					}
+				}
+
+				writer.WriteLine(L"C: Create");
+				writer.WriteLine(L"U: Using");
+				writer.WriteLine(L"A: Assign");
+				writer.WriteLine(L"I: Item");
+				writer.WriteLine(L"S: Setter");
+				writer.WriteLine(L"[+s]: Shift[push s]");
+				writer.WriteLine(L"[-s]: Reduce[pop s]");
+				writer.WriteLine(L"[!s]: Left-Recursive-Reduce[fake s]");
+				writer.WriteLine(L"");
+
+				for(vint i=0;i<table->GetRuleCount();i++)
+				{
+					const ParsingTable::RuleInfo& ruleInfo=table->GetRuleInfo(i);
+					writer.WriteString(ruleInfo.name);
+					writer.WriteChar(L'<');
+					writer.WriteString(ruleInfo.type);
+					writer.WriteString(L">: ");
+					writer.WriteString(itow(ruleInfo.rootStartState));
+					writer.WriteChar(L'[');
+					writer.WriteString(table->GetStateInfo(ruleInfo.rootStartState).stateName);
+					writer.WriteChar(L']');
+					writer.WriteLine(L"");
+				}
+				writer.WriteLine(L"");
+
+				writer.WriteMonospacedEnglishTable(stringTable, rows, columns);
+			}
+		}
+
+/***********************************************************************
+Logger (ParsingTreeNode)
+***********************************************************************/
+
+		class LogParsingTreeNodeVisitor : public Object, public ParsingTreeNode::IVisitor
+		{
+		protected:
+			TextWriter&				writer;
+			WString					prefix;
+			WString					originalInput;
+		public:
+			LogParsingTreeNodeVisitor(TextWriter& _writer, const WString& _originalInput, const WString& _prefix)
+				:writer(_writer)
+				,prefix(_prefix)
+				,originalInput(_originalInput)
+			{
+			}
+
+			void Write(ParsingTreeNode* node)
+			{
+				if(node)
+				{
+					node->Accept(this);
+				}
+				else
+				{
+					writer.WriteString(L"null");
+				}
+			}
+
+			void WriteInput(ParsingTreeNode* node)
+			{
+				if(originalInput!=L"")
+				{
+					ParsingTextRange range=node->GetCodeRange();
+					if(range.start.index!=ParsingTextPos::UnknownValue && range.end.index!=ParsingTextPos::UnknownValue)
+					{
+						vint start=range.start.index;
+						vint length=range.end.index-start+1;
+						if(length>0)
+						{
+							writer.WriteString(L" // 【");
+							writer.WriteString(originalInput.Sub(start, length));
+							writer.WriteString(L"】");
+						}
+					}
+				}
+			}
+
+			void Visit(ParsingTreeToken* node)
+			{
+				writer.WriteChar(L'[');
+				writer.WriteString(node->GetValue());
+				writer.WriteChar(L']');
+				WriteInput(node);
+			}
+
+			void Visit(ParsingTreeObject* node)
+			{
+				WString oldPrefix=prefix;
+				writer.WriteString(node->GetType());
+				writer.WriteString(L" {");
+				WriteInput(node);
+				writer.WriteLine(L"");
+				prefix+=L"    ";
+				for(vint i=0;i<node->GetMembers().Count();i++)
+				{
+					writer.WriteString(prefix);
+					writer.WriteString(node->GetMembers().Keys().Get(i));
+					writer.WriteString(L" = ");
+					Write(node->GetMembers().Values().Get(i).Obj());
+					writer.WriteLine(L"");
+				}
+				prefix=oldPrefix;
+				writer.WriteString(prefix);
+				writer.WriteString(L"}");
+			}
+
+			void Visit(ParsingTreeArray* node)
+			{
+				WString oldPrefix=prefix;
+				writer.WriteString(node->GetElementType());
+				writer.WriteString(L"[] {");
+				WriteInput(node);
+				writer.WriteLine(L"");
+				prefix+=L"    ";
+				for(vint i=0;i<node->Count();i++)
+				{
+					writer.WriteString(prefix);
+					Write(node->GetItem(i).Obj());
+					writer.WriteLine(L",");
+				}
+				prefix=oldPrefix;
+				writer.WriteString(prefix);
+				writer.WriteString(L"}");
+			}
+		};
+
+		void Log(Ptr<ParsingTreeNode> node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix)
+		{
+			writer.WriteString(prefix);
+			LogParsingTreeNodeVisitor visitor(writer, originalInput, prefix);
+			node->Accept(&visitor);
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingState.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+			using namespace collections;
+			using namespace regex;
+
+/***********************************************************************
+ParsingState
+***********************************************************************/
+
+			ParsingState::ParsingState(const WString& _input, Ptr<ParsingTable> _table, vint codeIndex)
+				:input(_input)
+				,table(_table)
+				,currentState(-1)
+				,currentToken(-1)
+				,tokenSequenceIndex(0)
+				,shiftToken(0)
+				,reduceToken(0)
+			{
+				CopyFrom(tokens, table->GetLexer().Parse(input, codeIndex));
+			}
+
+			ParsingState::~ParsingState()
+			{
+			}
+
+			const WString& ParsingState::GetInput()
+			{
+				return input;
+			}
+
+			Ptr<ParsingTable> ParsingState::GetTable()
+			{
+				return table;
+			}
+
+			const collections::List<regex::RegexToken>& ParsingState::GetTokens()
+			{
+				return tokens;
+			}
+
+			regex::RegexToken* ParsingState::GetToken(vint index)
+			{
+				if(index<=0)
+				{
+					index=0;
+				}
+				else if(index>tokens.Count())
+				{
+					index=tokens.Count();
+				}
+
+				return index==tokens.Count()?0:&tokens[index];
+			}
+
+			vint ParsingState::Reset(const WString& rule)
+			{
+				for(vint i=0;i<table->GetRuleCount();i++)
+				{
+					const ParsingTable::RuleInfo& info=table->GetRuleInfo(i);
+					if(info.name==rule)
+					{
+						stateStack.Clear();
+						currentState=info.rootStartState;
+						currentToken=-1;
+						tokenSequenceIndex=0;
+						shiftToken=0;
+						reduceToken=0;
+						return currentState;
+					}
+				}
+				return -1;
+			}
+
+			vint ParsingState::GetCurrentToken()
+			{
+				return currentToken;
+			}
+
+			const collections::List<vint>& ParsingState::GetStateStack()
+			{
+				return stateStack;
+			}
+
+			vint ParsingState::GetCurrentState()
+			{
+				return currentState;
+			}
+
+			ParsingTable::TransitionItem* ParsingState::MatchToken(vint tableTokenIndex)
+			{
+				Future future;
+				future.currentState=currentState;
+				return MatchTokenInFuture(tableTokenIndex, &future);
+			}
+
+			ParsingTable::TransitionItem* ParsingState::MatchTokenInFuture(vint tableTokenIndex, Future* future)
+			{
+				ParsingTable::TransitionBag* bag=table->GetTransitionBag(future->currentState, tableTokenIndex).Obj();
+				if(bag)
+				{
+					for(vint i=0;i<bag->transitionItems.Count();i++)
+					{
+						ParsingTable::TransitionItem* item=bag->transitionItems[i].Obj();
+						vint availableStackDepth=stateStack.Count()-future->reduceStateCount;
+						vint totalStackDepth=stateStack.Count()-future->reduceStateCount+future->shiftStates.Count();
+						if(item->stackPattern.Count()<=totalStackDepth)
+						{
+							if(tableTokenIndex!=ParsingTable::TokenFinish || item->stackPattern.Count()==totalStackDepth)
+							{
+								bool match=true;
+								for(vint j=0;j<item->stackPattern.Count();j++)
+								{
+									vint state=
+										j<future->shiftStates.Count()
+										?future->shiftStates[future->shiftStates.Count()-1-j]
+										:stateStack[availableStackDepth-1-(j-future->shiftStates.Count())]
+										;
+									if(item->stackPattern[j]!=state)
+									{
+										match=false;
+									}
+								}
+								if(match)
+								{
+									return item;
+								}
+							}
+						}
+					}
+				}
+				return 0;
+			}
+
+			ParsingState::TransitionResult ParsingState::ReadToken(vint tableTokenIndex, regex::RegexToken* regexToken)
+			{
+				ParsingTable::TransitionItem* item=MatchToken(tableTokenIndex);
+				if(item)
+				{
+					if(regexToken)
+					{
+						if(!shiftToken)
+						{
+							shiftToken=regexToken;
+							reduceToken=regexToken;
+						}
+					}
+					if(tableTokenIndex>=ParsingTable::UserTokenStart)
+					{
+						if(tokenSequenceIndex==0)
+						{
+							shiftTokenStack.Add(shiftToken);
+						}
+						tokenSequenceIndex++;
+					}
+
+					TransitionResult result;
+					result.tableTokenIndex=tableTokenIndex;
+					result.token=regexToken;
+					result.tokenIndexInStream=regexToken?currentToken:-1;
+					result.tableStateSource=currentState;
+					result.tableStateTarget=item->targetState;
+					result.transition=item;
+
+					for(vint j=0;j<item->instructions.Count();j++)
+					{
+						ParsingTable::Instruction& ins=item->instructions[j];
+						switch(ins.instructionType)
+						{
+						case ParsingTable::Instruction::Shift:
+							{
+								stateStack.Add(ins.stateParameter);
+
+								shiftTokenStack.Add(shiftToken);
+								shiftToken=regexToken;
+								reduceToken=regexToken;
+							}
+							break;
+						case ParsingTable::Instruction::Reduce:
+							{
+								stateStack.RemoveAt(stateStack.Count()-1);
+
+								result.AddShiftReduceRange(shiftToken, reduceToken);
+								shiftToken=shiftTokenStack[shiftTokenStack.Count()-1];
+								shiftTokenStack.RemoveAt(shiftTokenStack.Count()-1);
+							}
+							break;
+						case ParsingTable::Instruction::LeftRecursiveReduce:
+							{
+								result.AddShiftReduceRange(shiftToken, reduceToken);
+								if(regexToken)
+								{
+									reduceToken=regexToken;
+								}
+							}
+							break;
+						}
+					}
+
+					if(regexToken)
+					{
+						reduceToken=regexToken;
+					}
+
+					if(tableTokenIndex==ParsingTable::TokenFinish)
+					{
+						shiftToken=shiftTokenStack[shiftTokenStack.Count()-1];
+						shiftTokenStack.RemoveAt(shiftTokenStack.Count()-1);
+						result.AddShiftReduceRange(shiftToken, reduceToken);
+					}
+
+					currentState=item->targetState;
+					return result;
+				}
+				return TransitionResult();
+			}
+
+			ParsingState::TransitionResult ParsingState::ReadToken()
+			{
+				vint token=-1;
+				RegexToken* regexToken=0;
+				while(0<=currentToken && currentToken<tokens.Count())
+				{
+					if(table->IsInputToken((regexToken=&tokens[currentToken])->token))
+					{
+						break;
+					}
+					else
+					{
+						regexToken=0;
+						currentToken++;
+					}
+				}
+				if(currentToken==-1)
+				{
+					token=ParsingTable::TokenBegin;
+				}
+				else if(currentToken==tokens.Count())
+				{
+					token=ParsingTable::TokenFinish;
+				}
+				else if(0<=currentToken && currentToken<tokens.Count())
+				{
+					token=table->GetTableTokenIndex(regexToken->token);
+				}
+				else
+				{
+					return TransitionResult();
+				}
+
+				bool tryReduce=false;
+				TransitionResult result=ReadToken(token, regexToken);
+				if(!result)
+				{
+					result=ReadToken(ParsingTable::TryReduce, 0);
+					tryReduce=true;
+				}
+
+				if(result && !tryReduce)
+				{
+					currentToken++;
+				}
+				return result;
+			}
+
+			bool ParsingState::ReadTokenInFuture(vint tableTokenIndex, Future* previous, Future* now)
+			{
+				ParsingTable::TransitionItem* selectedItem=0;
+				if(previous)
+				{
+					selectedItem=MatchTokenInFuture(tableTokenIndex, previous);
+				}
+				else
+				{
+					selectedItem=MatchToken(tableTokenIndex);
+				}
+
+				if(selectedItem)
+				{
+					if(previous)
+					{
+						now->reduceStateCount=previous->reduceStateCount;
+						CopyFrom(now->shiftStates, previous->shiftStates);
+					}
+					else
+					{
+						now->reduceStateCount=0;
+						now->shiftStates.Clear();
+					}
+					now->currentState=selectedItem->targetState;
+					now->selectedToken=tableTokenIndex;
+					now->previous=previous;
+					now->next=0;
+
+					for(vint j=0;j<selectedItem->instructions.Count();j++)
+					{
+						ParsingTable::Instruction& ins=selectedItem->instructions[j];
+						switch(ins.instructionType)
+						{
+						case ParsingTable::Instruction::Shift:
+							{
+								now->shiftStates.Add(ins.stateParameter);
+							}
+							break;
+						case ParsingTable::Instruction::Reduce:
+							{
+								if(now->shiftStates.Count()==0)
+								{
+									now->reduceStateCount++;
+								}
+								else
+								{
+									now->shiftStates.RemoveAt(now->shiftStates.Count()-1);
+								}
+							}
+							break;
+						}
+					}
+
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+/***********************************************************************
+ParsingTreeBuilder
+***********************************************************************/
+
+			ParsingTreeBuilder::ParsingTreeBuilder()
+			{
+			}
+
+			ParsingTreeBuilder::~ParsingTreeBuilder()
+			{
+			}
+
+			void ParsingTreeBuilder::Reset()
+			{
+				createdObject=0;
+				operationTarget=new ParsingTreeObject();
+				nodeStack.Clear();
+			}
+
+			bool ParsingTreeBuilder::Run(const ParsingState::TransitionResult& result)
+			{
+				if(!operationTarget)
+				{
+					return false;
+				}
+				vint shiftReduceRangeIndex=0;
+				for(vint j=0;j<result.transition->instructions.Count();j++)
+				{
+					ParsingTable::Instruction& ins=result.transition->instructions[j];
+					switch(ins.instructionType)
+					{
+					case ParsingTable::Instruction::Create:
+						{
+							if(operationTarget->GetType()!=L"")
+							{
+								return false;
+							}
+							operationTarget->SetType(ins.nameParameter);
+						}
+						break;
+					case ParsingTable::Instruction::Using:
+						{
+							if(operationTarget->GetType()!=L"" || !createdObject)
+							{
+								return false;
+							}
+							Ptr<ParsingTreeObject> obj=createdObject.Cast<ParsingTreeObject>();
+							if(!obj)
+							{
+								return false;
+							}
+							for(vint i=0;i<operationTarget->GetMembers().Count();i++)
+							{
+								WString name=operationTarget->GetMembers().Keys().Get(i);
+								Ptr<ParsingTreeNode> value=operationTarget->GetMembers().Values().Get(i);
+								obj->SetMember(name, value);
+							}
+							operationTarget=obj;
+							createdObject=0;
+						}
+						break;
+					case ParsingTable::Instruction::Assign:
+						{
+							if(!createdObject)
+							{
+								Ptr<ParsingTreeToken> value;
+								if(result.token==0)
+								{
+									value=new ParsingTreeToken(L"", result.tokenIndexInStream);
+								}
+								else
+								{
+									value=new ParsingTreeToken(WString(result.token->reading, result.token->length), result.tokenIndexInStream);
+									value->SetCodeRange(ParsingTextRange(result.token, result.token));
+								}
+								operationTarget->SetMember(ins.nameParameter, value);
+							}
+							else
+							{
+								operationTarget->SetMember(ins.nameParameter, createdObject);
+								createdObject=0;
+							}
+						}
+						break;
+					case ParsingTable::Instruction::Item:
+						{
+							Ptr<ParsingTreeArray> arr=operationTarget->GetMember(ins.nameParameter).Cast<ParsingTreeArray>();;
+							if(!arr)
+							{
+								arr=new ParsingTreeArray();
+								operationTarget->SetMember(ins.nameParameter, arr);
+							}
+							ParsingTextRange arrRange=arr->GetCodeRange();
+							ParsingTextRange itemRange;
+							if(!createdObject)
+							{
+								Ptr<ParsingTreeToken> value;
+								if(result.token==0)
+								{
+									value=new ParsingTreeToken(L"", result.tokenIndexInStream);
+								}
+								else
+								{
+									value=new ParsingTreeToken(WString(result.token->reading, result.token->length), result.tokenIndexInStream);
+									value->SetCodeRange(ParsingTextRange(result.token, result.token));
+									itemRange=value->GetCodeRange();
+								}
+								arr->AddItem(value);
+							}
+							else
+							{
+								arr->AddItem(createdObject);
+								itemRange=createdObject->GetCodeRange();
+								createdObject=0;
+							}
+
+							if(arrRange.start.index==ParsingTextPos::UnknownValue || itemRange.start<arrRange.start)
+							{
+								arrRange.start=itemRange.start;
+							}
+							if(arrRange.end.index==ParsingTextPos::UnknownValue || itemRange.end>arrRange.end)
+							{
+								arrRange.end=itemRange.end;
+							}
+							arr->SetCodeRange(arrRange);
+						}
+						break;
+					case ParsingTable::Instruction::Setter:
+						{
+							Ptr<ParsingTreeToken> value=new ParsingTreeToken(ins.value, -1);
+							operationTarget->SetMember(ins.nameParameter, value);
+						}
+						break;
+					case ParsingTable::Instruction::Shift:
+						{
+							nodeStack.Add(operationTarget);
+							operationTarget=new ParsingTreeObject();
+							createdObject=0;
+						}
+						break;
+					case ParsingTable::Instruction::Reduce:
+						{
+							if(nodeStack.Count()==0)
+							{
+								return false;
+							}
+							createdObject=operationTarget;
+							operationTarget=nodeStack[nodeStack.Count()-1];
+							nodeStack.RemoveAt(nodeStack.Count()-1);
+
+							if(result.shiftReduceRanges)
+							{
+								ParsingState::ShiftReduceRange tokenRange=result.shiftReduceRanges->Get(shiftReduceRangeIndex++);
+								if(tokenRange.shiftToken && tokenRange.reduceToken)
+								{
+									ParsingTextRange codeRange(tokenRange.shiftToken, tokenRange.reduceToken);
+									createdObject->SetCodeRange(codeRange);
+								}
+							}
+						}
+						break;
+					case ParsingTable::Instruction::LeftRecursiveReduce:
+						{
+							createdObject=operationTarget;
+							operationTarget=new ParsingTreeObject();
+
+							if(result.shiftReduceRanges)
+							{
+								ParsingState::ShiftReduceRange tokenRange=result.shiftReduceRanges->Get(shiftReduceRangeIndex++);
+								if(tokenRange.shiftToken && tokenRange.reduceToken)
+								{
+									ParsingTextRange codeRange(tokenRange.shiftToken, tokenRange.reduceToken);
+									createdObject->SetCodeRange(codeRange);
+								}
+							}
+						}
+						break;
+					default:
+						return false;
+					}
+				}
+
+				if(result.tableTokenIndex==ParsingTable::TokenFinish)
+				{
+					if(result.shiftReduceRanges)
+					{
+						ParsingState::ShiftReduceRange tokenRange=result.shiftReduceRanges->Get(shiftReduceRangeIndex++);
+						if(tokenRange.shiftToken && tokenRange.reduceToken)
+						{
+							ParsingTextRange codeRange(tokenRange.shiftToken, tokenRange.reduceToken);
+							operationTarget->SetCodeRange(codeRange);
+						}
+					}
+				}
+				return true;
+			}
+
+			Ptr<ParsingTreeObject> ParsingTreeBuilder::GetNode()
+			{
+				if(nodeStack.Count()==0)
+				{
+					return operationTarget;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingTable.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+			using namespace collections;
+			using namespace regex;
+
+/***********************************************************************
+ParsingTable::TransitionItem
+***********************************************************************/
+
+			enum TransitionLevel
+			{
+				ReduceTransition,
+				LeftRecursiveReduceTransition,
+				NormalTransition,
+			};
+
+			TransitionLevel GetTransitionLevel(Ptr<ParsingTable::TransitionItem> t)
+			{
+				bool hasReduce=false;
+				bool hasLrReduce=false;
+				FOREACH(ParsingTable::Instruction, ins, t->instructions)
+				{
+					switch(ins.instructionType)
+					{
+					case ParsingTable::Instruction::Reduce:
+						hasReduce=true;
+						break;
+					case ParsingTable::Instruction::LeftRecursiveReduce:
+						hasLrReduce=true;
+						break;
+					}
+				}
+
+				return
+					hasLrReduce?LeftRecursiveReduceTransition:
+					hasReduce?ReduceTransition:
+					NormalTransition;
+			}
+
+			ParsingTable::TransitionItem::OrderResult ParsingTable::TransitionItem::CheckOrder(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2, bool forceGivingOrder)
+			{
+				if(t1->token!=t2->token) return UnknownOrder;
+				TransitionLevel level1=GetTransitionLevel(t1);
+				TransitionLevel level2=GetTransitionLevel(t2);
+				if(level1>level2) return CorrectOrder;
+				if(level1<level2) return WrongOrder;
+
+				vint ic1=t1->stackPattern.Count();
+				vint ic2=t2->stackPattern.Count();
+				vint ic=ic1<ic2?ic1:ic2;
+
+				for(vint i=0;i<ic;i++)
+				{
+					vint s1=t1->stackPattern[i];
+					vint s2=t2->stackPattern[i];
+
+					if(s1>s2)
+					{
+						return CorrectOrder;
+					}
+					else if(s1<s2)
+					{
+						return WrongOrder;
+					}
+				}
+
+				if(t1->token==TokenFinish)
+				{
+					if(ic1>ic2)
+					{
+						return CorrectOrder;
+					}
+					else if(ic1<ic2)
+					{
+						return WrongOrder;
+					}
+				}
+
+				if(forceGivingOrder)
+				{
+					return t1>t2?CorrectOrder:SameOrder;
+				}
+				else
+				{
+					return UnknownOrder;
+				}
+			}
+
+			vint ParsingTable::TransitionItem::Compare(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2)
+			{
+				OrderResult order=CheckOrder(t1, t2, true);
+				switch(order)
+				{
+				case CorrectOrder:	return -1;
+				case WrongOrder:	return 1;
+				default:			return 0;
+				}
+			}
+
+/***********************************************************************
+ParsingTable
+***********************************************************************/
+
+			ParsingTable::ParsingTable(vint _tokenCount, vint discardTokenCount, vint _stateCount, vint _ruleCount)
+				:tokenCount(_tokenCount+UserTokenStart)
+				,stateCount(_stateCount)
+				,tokenInfos(_tokenCount+UserTokenStart)
+				,discardTokenInfos(discardTokenCount)
+				,stateInfos(_stateCount)
+				,ruleInfos(_ruleCount)
+				,transitionBags((_tokenCount+UserTokenStart)*_stateCount)
+			{
+			}
+
+			ParsingTable::~ParsingTable()
+			{
+			}
+
+			vint ParsingTable::GetTokenCount()
+			{
+				return tokenCount;
+			}
+
+			const ParsingTable::TokenInfo& ParsingTable::GetTokenInfo(vint token)
+			{
+				return tokenInfos[token];
+			}
+
+			void ParsingTable::SetTokenInfo(vint token, const TokenInfo& info)
+			{
+				tokenInfos[token]=info;
+			}
+
+			vint ParsingTable::GetDiscardTokenCount()
+			{
+				return discardTokenInfos.Count();
+			}
+
+			const ParsingTable::TokenInfo& ParsingTable::GetDiscardTokenInfo(vint token)
+			{
+				return discardTokenInfos[token];
+			}
+
+			void ParsingTable::SetDiscardTokenInfo(vint token, const TokenInfo& info)
+			{
+				discardTokenInfos[token]=info;
+			}
+
+			vint ParsingTable::GetStateCount()
+			{
+				return stateCount;
+			}
+
+			const ParsingTable::StateInfo& ParsingTable::GetStateInfo(vint state)
+			{
+				return stateInfos[state];
+			}
+
+			void ParsingTable::SetStateInfo(vint state, const StateInfo& info)
+			{
+				stateInfos[state]=info;
+			}
+
+			vint ParsingTable::GetRuleCount()
+			{
+				return ruleInfos.Count();
+			}
+
+			const ParsingTable::RuleInfo& ParsingTable::GetRuleInfo(vint rule)
+			{
+				return ruleInfos[rule];
+			}
+
+			void ParsingTable::SetRuleInfo(vint rule, const RuleInfo& info)
+			{
+				ruleInfos[rule]=info;
+			}
+
+			const regex::RegexLexer& ParsingTable::GetLexer()
+			{
+				return *lexer.Obj();
+			}
+
+			Ptr<ParsingTable::TransitionBag> ParsingTable::GetTransitionBag(vint state, vint token)
+			{
+				return transitionBags[state*tokenCount+token];
+			}
+
+			void ParsingTable::SetTransitionBag(vint state, vint token, Ptr<TransitionBag> bag)
+			{
+				transitionBags[state*tokenCount+token]=bag;
+			}
+
+			void ParsingTable::Initialize()
+			{
+				List<WString> tokens;
+				FOREACH(TokenInfo, info, From(tokenInfos).Skip(UserTokenStart))
+				{
+					tokens.Add(info.regex);
+				}
+				FOREACH(TokenInfo, info, discardTokenInfos)
+				{
+					tokens.Add(info.regex);
+				}
+
+				vint regexTokenIndex=0;
+				for(vint i=UserTokenStart;i<tokenInfos.Count();i++)
+				{
+					tokenInfos[i].regexTokenIndex=regexTokenIndex++;
+				}
+				for(vint i=0;i<discardTokenInfos.Count();i++)
+				{
+					discardTokenInfos[i].regexTokenIndex=regexTokenIndex++;
+				}
+				lexer=new RegexLexer(tokens);
+			}
+
+			bool ParsingTable::IsInputToken(vint regexTokenIndex)
+			{
+				return regexTokenIndex>=0 && regexTokenIndex<tokenCount-UserTokenStart;
+			}
+
+			vint ParsingTable::GetTableTokenIndex(vint regexTokenIndex)
+			{
+				return IsInputToken(regexTokenIndex)?regexTokenIndex+UserTokenStart:-1;
+			}
+
+			vint ParsingTable::GetTableDiscardTokenIndex(vint regexTokenIndex)
+			{
+				return regexTokenIndex>=tokenCount-UserTokenStart?regexTokenIndex-(tokenCount-UserTokenStart):-1;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\ParsingTree.cpp
+***********************************************************************/
+
+namespace vl
+{
+	using namespace collections;
+
+	namespace parsing
+	{
+		vint CompareTextRange(Ptr<ParsingTreeNode> r1, Ptr<ParsingTreeNode> r2)
+		{
+			return r1->GetCodeRange().start.index-r2->GetCodeRange().start.index;
+		}
+
+/***********************************************************************
+ParsingTreeNode::TraversalVisitor
+***********************************************************************/
+
+		ParsingTreeNode::TraversalVisitor::TraversalVisitor(TraverseDirection _direction)
+			:direction(_direction)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::BeforeVisit(ParsingTreeToken* node)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::AfterVisit(ParsingTreeToken* node)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::BeforeVisit(ParsingTreeObject* node)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::AfterVisit(ParsingTreeObject* node)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::BeforeVisit(ParsingTreeArray* node)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::AfterVisit(ParsingTreeArray* node)
+		{
+		}
+
+		void ParsingTreeNode::TraversalVisitor::Visit(ParsingTreeToken* node)
+		{
+			BeforeVisit(node);
+			AfterVisit(node);
+		}
+
+		void ParsingTreeNode::TraversalVisitor::Visit(ParsingTreeObject* node)
+		{
+			BeforeVisit(node);
+			switch(direction)
+			{
+			case TraverseDirection::ByTextPosition:
+				{
+					FOREACH(Ptr<ParsingTreeNode>, node, node->GetSubNodes())
+					{
+						node->Accept(this);
+					}
+				}
+				break;
+			case TraverseDirection::ByStorePosition:
+				{
+					FOREACH(Ptr<ParsingTreeNode>, node, node->GetMembers().Values())
+					{
+						node->Accept(this);
+					}
+				}
+				break;
+			}
+			AfterVisit(node);
+		}
+
+		void ParsingTreeNode::TraversalVisitor::Visit(ParsingTreeArray* node)
+		{
+			BeforeVisit(node);
+			switch(direction)
+			{
+			case TraverseDirection::ByTextPosition:
+				{
+					FOREACH(Ptr<ParsingTreeNode>, node, node->GetSubNodes())
+					{
+						node->Accept(this);
+					}
+				}
+				break;
+			case TraverseDirection::ByStorePosition:
+				{
+					FOREACH(Ptr<ParsingTreeNode>, node, node->GetItems())
+					{
+						node->Accept(this);
+					}
+				}
+				break;
+			}
+			AfterVisit(node);
+		}
+
+/***********************************************************************
+ParsingTreeNode
+***********************************************************************/
+
+		bool ParsingTreeNode::BeforeAddChild(Ptr<ParsingTreeNode> node)
+		{
+			return node->parent==0;
+		}
+
+		void ParsingTreeNode::AfterAddChild(Ptr<ParsingTreeNode> node)
+		{
+			node->parent=this;
+			ClearQueryCache();
+		}
+
+		bool ParsingTreeNode::BeforeRemoveChild(Ptr<ParsingTreeNode> node)
+		{
+			return node->parent!=0;
+		}
+
+		void ParsingTreeNode::AfterRemoveChild(Ptr<ParsingTreeNode> node)
+		{
+			node->parent=0;
+			ClearQueryCache();
+		}
+
+		ParsingTreeNode::ParsingTreeNode(const ParsingTextRange& _codeRange)
+			:codeRange(_codeRange)
+			,parent(0)
+		{
+		}
+
+		ParsingTreeNode::~ParsingTreeNode()
+		{
+		}
+
+		ParsingTextRange ParsingTreeNode::GetCodeRange()
+		{
+			return codeRange;
+		}
+
+		void ParsingTreeNode::SetCodeRange(const ParsingTextRange& range)
+		{
+			codeRange=range;
+		}
+
+		void ParsingTreeNode::InitializeQueryCache()
+		{
+			const NodeList& subNodes=GetSubNodesInternal();
+			ClearQueryCache();
+			if(&subNodes)
+			{
+				CopyFrom(cachedOrderedSubNodes, collections::From(subNodes).OrderBy(&CompareTextRange));
+				FOREACH(Ptr<ParsingTreeNode>, node, cachedOrderedSubNodes)
+				{
+					node->InitializeQueryCache();
+				}
+			}
+		}
+
+		void ParsingTreeNode::ClearQueryCache()
+		{
+			cachedOrderedSubNodes.Clear();
+		}
+
+		ParsingTreeNode* ParsingTreeNode::GetParent()
+		{
+			return parent;
+		}
+
+		const ParsingTreeNode::NodeList& ParsingTreeNode::GetSubNodes()
+		{
+			return cachedOrderedSubNodes;
+		}
+
+		ParsingTreeNode* ParsingTreeNode::FindSubNode(const ParsingTextPos& position)
+		{
+			return FindSubNode(ParsingTextRange(position, position));
+		}
+
+		ParsingTreeNode* ParsingTreeNode::FindSubNode(const ParsingTextRange& range)
+		{
+			if(codeRange.start<=range.start && range.end<=codeRange.end)
+			{
+				vint start=0;
+				vint end=cachedOrderedSubNodes.Count()-1;
+				while(start<=end)
+				{
+					vint selected=(start+end)/2;
+					ParsingTreeNode* selectedNode=cachedOrderedSubNodes[selected].Obj();
+					if(range.end<selectedNode->codeRange.start)
+					{
+						end=selected-1;
+					}
+					else if(range.start>selectedNode->codeRange.end)
+					{
+						start=selected+1;
+					}
+					else
+					{
+						return cachedOrderedSubNodes[selected].Obj();
+					}
+				}
+			}
+			return this;
+		}
+
+		ParsingTreeNode* ParsingTreeNode::FindDeepestNode(const ParsingTextPos& position)
+		{
+			return FindDeepestNode(ParsingTextRange(position, position));
+		}
+
+		ParsingTreeNode* ParsingTreeNode::FindDeepestNode(const ParsingTextRange& range)
+		{
+			ParsingTreeNode* result=0;
+			ParsingTreeNode* node=this;
+			do
+			{
+				result=node;
+				node=node->FindSubNode(range);
+			}while(result!=node);
+			return result;
+		}
+
+/***********************************************************************
+ParsingTreeToken
+***********************************************************************/
+
+		const ParsingTreeToken::NodeList& ParsingTreeToken::GetSubNodesInternal()
+		{
+			return *(NodeList*)0;
+		}
+
+		ParsingTreeToken::ParsingTreeToken(const WString& _value, vint _tokenIndex, const ParsingTextRange& _codeRange)
+			:ParsingTreeNode(_codeRange)
+			,value(_value)
+			,tokenIndex(_tokenIndex)
+		{
+		}
+
+		ParsingTreeToken::~ParsingTreeToken()
+		{
+		}
+
+		void ParsingTreeToken::Accept(IVisitor* visitor)
+		{
+			visitor->Visit(this);
+		}
+
+		vint ParsingTreeToken::GetTokenIndex()
+		{
+			return tokenIndex;
+		}
+
+		void ParsingTreeToken::SetTokenIndex(vint _tokenIndex)
+		{
+			tokenIndex=_tokenIndex;
+		}
+
+		const WString& ParsingTreeToken::GetValue()
+		{
+			return value;
+		}
+
+		void ParsingTreeToken::SetValue(const WString& _value)
+		{
+			value=_value;
+		}
+
+/***********************************************************************
+ParsingTreeObject
+***********************************************************************/
+
+		const ParsingTreeObject::NodeList& ParsingTreeObject::GetSubNodesInternal()
+		{
+			return members.Values();
+		}
+
+		ParsingTreeObject::ParsingTreeObject(const WString& _type, const ParsingTextRange& _codeRange)
+			:ParsingTreeNode(_codeRange)
+			,type(_type)
+		{
+		}
+
+		ParsingTreeObject::~ParsingTreeObject()
+		{
+		}
+
+		void ParsingTreeObject::Accept(IVisitor* visitor)
+		{
+			visitor->Visit(this);
+		}
+
+		const WString& ParsingTreeObject::GetType()
+		{
+			return type;
+		}
+
+		void ParsingTreeObject::SetType(const WString& _type)
+		{
+			type=_type;
+		}
+
+		ParsingTreeObject::NodeMap& ParsingTreeObject::GetMembers()
+		{
+			return members;
+		}
+
+		Ptr<ParsingTreeNode> ParsingTreeObject::GetMember(const WString& name)
+		{
+			vint index=members.Keys().IndexOf(name);
+			return index==-1?0:members.Values().Get(index);
+		}
+
+		bool ParsingTreeObject::SetMember(const WString& name, Ptr<ParsingTreeNode> node)
+		{
+			vint index=members.Keys().IndexOf(name);
+			if(index!=-1)
+			{
+				Ptr<ParsingTreeNode> previous=members.Values().Get(index);
+				if(previous==node) return true;
+				if(!BeforeRemoveChild(previous) || !BeforeAddChild(node)) return false;
+				members.Remove(name);
+				AfterRemoveChild(previous);
+			}
+			members.Add(name, node);
+			AfterAddChild(node);
+			return true;
+		}
+
+		bool ParsingTreeObject::RemoveMember(const WString& name)
+		{
+			vint index=members.Keys().IndexOf(name);
+			if(index!=-1)
+			{
+				Ptr<ParsingTreeNode> previous=members.Values().Get(index);
+				if(BeforeRemoveChild(previous))
+				{
+					members.Remove(name);
+					AfterRemoveChild(previous);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		const ParsingTreeObject::NameList& ParsingTreeObject::GetMemberNames()
+		{
+			return members.Keys();
+		}
+
+/***********************************************************************
+ParsingTreeArray
+***********************************************************************/
+
+		const ParsingTreeArray::NodeList& ParsingTreeArray::GetSubNodesInternal()
+		{
+			return items;
+		}
+
+		ParsingTreeArray::ParsingTreeArray(const WString& _elementType, const ParsingTextRange& _codeRange)
+			:ParsingTreeNode(_codeRange)
+			,elementType(_elementType)
+		{
+		}
+
+		ParsingTreeArray::~ParsingTreeArray()
+		{
+		}
+
+		void ParsingTreeArray::Accept(IVisitor* visitor)
+		{
+			visitor->Visit(this);
+		}
+
+		const WString& ParsingTreeArray::GetElementType()
+		{
+			return elementType;
+		}
+
+		void ParsingTreeArray::SetElementType(const WString& _elementType)
+		{
+			elementType=_elementType;
+		}
+
+		ParsingTreeArray::NodeArray& ParsingTreeArray::GetItems()
+		{
+			return items;
+		}
+
+		Ptr<ParsingTreeNode> ParsingTreeArray::GetItem(vint index)
+		{
+			if(0<=index && index<items.Count())
+			{
+				return items[index];
+			}
+			else
+			{
+				return 0;
+			}
+		}
+
+		bool ParsingTreeArray::SetItem(vint index, Ptr<ParsingTreeNode> node)
+		{
+			if(0<=index && index<items.Count())
+			{
+				items[index]=node;
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		bool ParsingTreeArray::AddItem(Ptr<ParsingTreeNode> node)
+		{
+			return InsertItem(items.Count(), node);
+		}
+
+		bool ParsingTreeArray::InsertItem(vint index, Ptr<ParsingTreeNode> node)
+		{
+			if(0<=index && index<=items.Count())
+			{
+				if(BeforeAddChild(node))
+				{
+					items.Insert(index, node);
+					AfterAddChild(node);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool ParsingTreeArray::RemoveItem(vint index)
+		{
+			if(0<=index && index<items.Count())
+			{
+				Ptr<ParsingTreeNode> previous=items[index];
+				if(BeforeRemoveChild(previous))
+				{
+					items.RemoveAt(index);
+					AfterRemoveChild(previous);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool ParsingTreeArray::RemoveItem(Ptr<ParsingTreeNode> node)
+		{
+			return RemoveItem(items.IndexOf(node.Obj()));
+		}
+
+		vint ParsingTreeArray::IndexOfItem(Ptr<ParsingTreeNode> node)
+		{
+			return items.IndexOf(node.Obj());
+		}
+
+		bool ParsingTreeArray::ContainsItem(Ptr<ParsingTreeNode> node)
+		{
+			return items.Contains(node.Obj());
+		}
+
+		vint ParsingTreeArray::Count()
+		{
+			return items.Count();
+		}
+
+		bool ParsingTreeArray::Clear()
+		{
+			FOREACH(Ptr<ParsingTreeNode>, node, items)
+			{
+				if(!BeforeRemoveChild(node)) return false;
+			}
+			FOREACH(Ptr<ParsingTreeNode>, node, items)
+			{
+				AfterRemoveChild(node);
+			}
+			items.Clear();
+			return true;
+		}
+
+/***********************************************************************
+ParsingError
+***********************************************************************/
+
+		ParsingError::ParsingError()
+			:token(0)
+			,parsingTree(0)
+		{
+		}
+
+		ParsingError::ParsingError(const WString& _errorMessage)
+			:token(0)
+			,parsingTree(0)
+			,errorMessage(_errorMessage)
+		{
+		}
+
+		ParsingError::ParsingError(const regex::RegexToken* _token, const WString& _errorMessage)
+			:token(_token)
+			,parsingTree(0)
+			,errorMessage(_errorMessage)
+		{
+			if(token)
+			{
+				codeRange.start.row=_token->rowStart;
+				codeRange.start.column=_token->columnStart;
+				codeRange.start.index=_token->start;
+				codeRange.end.row=_token->rowEnd;
+				codeRange.end.column=_token->columnEnd;
+				codeRange.end.index=_token->start+_token->length-1;
+			}
+		}
+
+		ParsingError::ParsingError(ParsingTreeCustomBase* _parsingTree, const WString& _errorMessage)
+			:codeRange(_parsingTree->codeRange)
+			,token(0)
+			,parsingTree(_parsingTree)
+			,errorMessage(_errorMessage)
+		{
+		}
+
+		ParsingError::~ParsingError()
+		{
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\Xml\ParsingXml.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace xml
+		{
+			using namespace stream;
+			using namespace collections;
+			using namespace regex;
+
+/***********************************************************************
+Unescaping Function Foward Declarations
+***********************************************************************/
+
+			void XmlMergeTextFragment(vl::collections::List<vl::Ptr<XmlNode>>& value, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				vint begin=-1;
+				vint end=-1;
+				for(vint i=value.Count()-1;i>=-1;i--)
+				{
+					if(i==-1)
+					{
+						if(end!=-1) begin=0;
+					}
+					else if(value[i].Cast<XmlText>())
+					{
+						if(end==-1) end=i;
+					}
+					else
+					{
+						if(end!=-1) begin=i+1;
+					}
+					if(begin!=-1 && end!=-1)
+					{
+						vint tokenBegin=value[begin].Cast<XmlText>()->content.tokenIndex;
+						vint tokenEnd=value[end].Cast<XmlText>()->content.tokenIndex;
+						while(tokenBegin>0)
+						{
+							if(tokens.Get(tokenBegin-1).token==XmlParserTokenIndex::SPACE || tokens.Get(tokenBegin-1).token==-1)
+							{
+								tokenBegin--;
+							}
+							else
+							{
+								break;
+							}
+						}
+						while(tokenEnd<tokens.Count()-1)
+						{
+							if(tokens.Get(tokenEnd+1).token==XmlParserTokenIndex::SPACE || tokens.Get(tokenEnd+1).token==-1)
+							{
+								tokenEnd++;
+							}
+							else
+							{
+								break;
+							}
+						}
+
+						const RegexToken& beginToken=tokens.Get(tokenBegin);
+						const RegexToken& endToken=tokens.Get(tokenEnd);
+						const wchar_t* textBegin=beginToken.reading;
+						const wchar_t* textEnd=endToken.reading+endToken.length;
+						WString text(textBegin, textEnd-textBegin);
+						ParsingTextRange range(&beginToken, &endToken);
+
+						Ptr<XmlText> xmlText=new XmlText;
+						xmlText->codeRange=range;
+						xmlText->content.codeRange=range;
+						xmlText->content.value=XmlUnescapeValue(text);
+
+						value.RemoveRange(begin, end-begin+1);
+						value.Insert(begin, xmlText);
+
+						begin=-1;
+						end=-1;
+					}
+				}
+			}
+
+			void XmlUnescapeAttributeValue(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				value.value=XmlUnescapeValue(value.value.Sub(1, value.value.Length()-2));
+			}
+
+			void XmlUnescapeCData(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				value.value=XmlUnescapeCData(value.value);
+			}
+
+			void XmlUnescapeComment(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				value.value=XmlUnescapeComment(value.value);
+			}
+
+/***********************************************************************
+XmlPrintVisitor
+***********************************************************************/
+
+			class XmlPrintVisitor : public Object, public XmlNode::IVisitor
+			{
+			public:
+				TextWriter&					writer;
+
+				XmlPrintVisitor(TextWriter& _writer)
+					:writer(_writer)
+				{
+				}
+
+				void Visit(XmlText* node)
+				{
+					writer.WriteString(XmlEscapeValue(node->content.value));
+				}
+
+				void Visit(XmlCData* node)
+				{
+					writer.WriteString(XmlEscapeCData(node->content.value));
+				}
+
+				void Visit(XmlAttribute* node)
+				{
+					writer.WriteString(node->name.value);
+					writer.WriteString(L"=\"");
+					writer.WriteString(XmlEscapeValue(node->value.value));
+					writer.WriteString(L"\"");
+				}
+
+				void Visit(XmlComment* node)
+				{
+					writer.WriteString(XmlEscapeComment(node->content.value));
+				}
+
+				void Visit(XmlElement* node)
+				{
+					writer.WriteChar(L'<');
+					writer.WriteString(node->name.value);
+					FOREACH(Ptr<XmlAttribute>, att, node->attributes)
+					{
+						writer.WriteChar(L' ');
+						att->Accept(this);
+					}
+					if(node->subNodes.Count()==0)
+					{
+						writer.WriteString(L"/>");
+					}
+					else
+					{
+						writer.WriteChar(L'>');
+						FOREACH(Ptr<XmlNode>, subNode, node->subNodes)
+						{
+							subNode->Accept(this);
+						}
+						writer.WriteString(L"</");
+						writer.WriteString(node->name.value);
+						writer.WriteChar(L'>');
+					}
+				}
+
+				void Visit(XmlInstruction* node)
+				{
+					writer.WriteString(L"<?");
+					writer.WriteString(node->name.value);
+					FOREACH(Ptr<XmlAttribute>, att, node->attributes)
+					{
+						writer.WriteChar(L' ');
+						att->Accept(this);
+					}
+					writer.WriteString(L"?>");
+				}
+
+				void Visit(XmlDocument* node)
+				{
+					FOREACH(Ptr<XmlNode>, prolog, node->prologs)
+					{
+						prolog->Accept(this);
+					}
+					node->rootElement->Accept(this);
+				}
+			};
+
+/***********************************************************************
+API
+***********************************************************************/
+
+			WString XmlEscapeValue(const WString& value)
+			{
+				WString result;
+				const wchar_t* reading=value.Buffer();
+				while(wchar_t c=*reading++)
+				{
+					switch(c)
+					{
+					case L'<':
+						result+=L"&lt;";
+						break;
+					case L'>':
+						result+=L"&gt;";
+						break;
+					case L'&':
+						result+=L"&amp;";
+						break;
+					case L'\'':
+						result+=L"&apos;";
+						break;
+					case L'\"':
+						result+=L"&quot;";
+						break;
+					default:
+						result+=c;
+					}
+				}
+				return result;
+			}
+
+			WString XmlUnescapeValue(const WString& value)
+			{
+				WString result;
+				const wchar_t* reading=value.Buffer();
+				while(*reading)
+				{
+					if(wcsncmp(reading, L"&lt;", 4)==0)
+					{
+						result+=L'<';
+						reading+=4;
+					}
+					else if(wcsncmp(reading, L"&gt;", 4)==0)
+					{
+						result+=L'>';
+						reading+=4;
+					}
+					else if(wcsncmp(reading, L"&amp;", 5)==0)
+					{
+						result+=L'&';
+						reading+=5;
+					}
+					else if(wcsncmp(reading, L"&apos;", 6)==0)
+					{
+						result+=L'\'';
+						reading+=6;
+					}
+					else if(wcsncmp(reading, L"&quot;", 6)==0)
+					{
+						result+=L'\"';
+						reading+=6;
+					}
+					else
+					{
+						result+=*reading++;
+					}
+				}
+				return result;
+			}
+
+			WString XmlEscapeCData(const WString& value)
+			{
+				return L"<![CDATA["+value+L"]]>";
+			}
+
+			WString XmlUnescapeCData(const WString& value)
+			{
+				return value.Sub(9, value.Length()-12);
+			}
+
+			WString XmlEscapeComment(const WString& value)
+			{
+				return L"<!--"+value+L"-->";
+			}
+
+			WString XmlUnescapeComment(const WString& value)
+			{
+				return value.Sub(4, value.Length()-7);
+			}
+
+			void XmlPrint(Ptr<XmlNode> node, stream::TextWriter& writer)
+			{
+				XmlPrintVisitor visitor(writer);
+				node->Accept(&visitor);
+			}
+
+			WString XmlToString(Ptr<XmlNode> node)
+			{
+				MemoryStream stream;
+				{
+					StreamWriter writer(stream);
+					XmlPrint(node, writer);
+				}
+				stream.SeekFromBegin(0);
+				{
+					StreamReader reader(stream);
+					return reader.ReadToEnd();
+				}
+			}
+
+			Ptr<XmlAttribute> XmlGetAttribute(Ptr<XmlElement> element, const WString& name)
+			{
+				FOREACH(Ptr<XmlAttribute>, att, element->attributes)
+				{
+					if(att->name.value==name)
+					{
+						return att;
+					}
+				}
+				return 0;
+			}
+
+			Ptr<XmlElement> XmlGetElement(Ptr<XmlElement> element, const WString& name)
+			{
+				FOREACH(Ptr<XmlNode>, node, element->subNodes)
+				{
+					Ptr<XmlElement> subElement=node.Cast<XmlElement>();
+					if(subElement && subElement->name.value==name)
+					{
+						return subElement;
+					}
+				}
+				return 0;
+			}
+
+			collections::LazyList<Ptr<XmlElement>> XmlGetElements(Ptr<XmlElement> element)
+			{
+				return From(element->subNodes)
+					.FindType<XmlElement>();
+			}
+
+			collections::LazyList<Ptr<XmlElement>> XmlGetElements(Ptr<XmlElement> element, const WString& name)
+			{
+				return From(element->subNodes)
+					.FindType<XmlElement>()
+					.Where([name](Ptr<XmlElement> e){return e->name.value==name;});
+			}
+
+			WString XmlGetValue(Ptr<XmlElement> element)
+			{
+				WString result;
+				FOREACH(Ptr<XmlNode>, node, element->subNodes)
+				{
+					if(Ptr<XmlText> text=node.Cast<XmlText>())
+					{
+						result+=text->content.value;
+					}
+					else if(Ptr<XmlCData> text=node.Cast<XmlCData>())
+					{
+						result+=text->content.value;
+					}
+				}
+				return result;
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Parsing\Xml\ParsingXml_Parser.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace xml
+		{
+/***********************************************************************
+Unescaping Function Foward Declarations
+***********************************************************************/
+
+			extern void XmlMergeTextFragment(vl::collections::List<vl::Ptr<XmlNode>>& value, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern void XmlUnescapeAttributeValue(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern void XmlUnescapeCData(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern void XmlUnescapeComment(vl::parsing::ParsingToken& value, const vl::collections::List<vl::regex::RegexToken>& tokens);
+
+/***********************************************************************
+Parsing Tree Conversion Driver Implementation
+***********************************************************************/
+
+			class XmlTreeConverter : public vl::parsing::ParsingTreeConverter
+			{
+			public:
+				using vl::parsing::ParsingTreeConverter::SetMember;
+
+				void Fill(vl::Ptr<XmlNode> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+				}
+
+				void Fill(vl::Ptr<XmlText> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->content, obj->GetMember(L"content"), tokens);
+				}
+
+				void Fill(vl::Ptr<XmlCData> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					if(SetMember(tree->content, obj->GetMember(L"content"), tokens))
+					{
+						XmlUnescapeCData(tree->content, tokens);
+					}
+				}
+
+				void Fill(vl::Ptr<XmlAttribute> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->name, obj->GetMember(L"name"), tokens);
+					if(SetMember(tree->value, obj->GetMember(L"value"), tokens))
+					{
+						XmlUnescapeAttributeValue(tree->value, tokens);
+					}
+				}
+
+				void Fill(vl::Ptr<XmlComment> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					if(SetMember(tree->content, obj->GetMember(L"content"), tokens))
+					{
+						XmlUnescapeComment(tree->content, tokens);
+					}
+				}
+
+				void Fill(vl::Ptr<XmlElement> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->name, obj->GetMember(L"name"), tokens);
+					SetMember(tree->closingName, obj->GetMember(L"closingName"), tokens);
+					SetMember(tree->attributes, obj->GetMember(L"attributes"), tokens);
+					if(SetMember(tree->subNodes, obj->GetMember(L"subNodes"), tokens))
+					{
+						XmlMergeTextFragment(tree->subNodes, tokens);
+					}
+				}
+
+				void Fill(vl::Ptr<XmlInstruction> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->name, obj->GetMember(L"name"), tokens);
+					SetMember(tree->attributes, obj->GetMember(L"attributes"), tokens);
+				}
+
+				void Fill(vl::Ptr<XmlDocument> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+				{
+					SetMember(tree->prologs, obj->GetMember(L"prologs"), tokens);
+					SetMember(tree->rootElement, obj->GetMember(L"rootElement"), tokens);
+				}
+
+				vl::Ptr<vl::parsing::ParsingTreeCustomBase> ConvertClass(vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)override
+				{
+					if(obj->GetType()==L"Text")
+					{
+						vl::Ptr<XmlText> tree = new XmlText;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"CData")
+					{
+						vl::Ptr<XmlCData> tree = new XmlCData;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Attribute")
+					{
+						vl::Ptr<XmlAttribute> tree = new XmlAttribute;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Comment")
+					{
+						vl::Ptr<XmlComment> tree = new XmlComment;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Element")
+					{
+						vl::Ptr<XmlElement> tree = new XmlElement;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Instruction")
+					{
+						vl::Ptr<XmlInstruction> tree = new XmlInstruction;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else if(obj->GetType()==L"Document")
+					{
+						vl::Ptr<XmlDocument> tree = new XmlDocument;
+						Fill(tree, obj, tokens);
+						Fill(tree.Cast<XmlNode>(), obj, tokens);
+						return tree;
+					}
+					else 
+						return 0;
+				}
+			};
+
+			vl::Ptr<vl::parsing::ParsingTreeCustomBase> XmlConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				XmlTreeConverter converter;
+				vl::Ptr<vl::parsing::ParsingTreeCustomBase> tree;
+				converter.SetMember(tree, node, tokens);
+				return tree;
+			}
+
+/***********************************************************************
+Parsing Tree Conversion Implementation
+***********************************************************************/
+
+			vl::Ptr<XmlText> XmlText::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlText>();
+			}
+
+			vl::Ptr<XmlCData> XmlCData::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlCData>();
+			}
+
+			vl::Ptr<XmlAttribute> XmlAttribute::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlAttribute>();
+			}
+
+			vl::Ptr<XmlComment> XmlComment::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlComment>();
+			}
+
+			vl::Ptr<XmlElement> XmlElement::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlElement>();
+			}
+
+			vl::Ptr<XmlInstruction> XmlInstruction::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlInstruction>();
+			}
+
+			vl::Ptr<XmlDocument> XmlDocument::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+			{
+				return XmlConvertParsingTreeNode(node, tokens).Cast<XmlDocument>();
+			}
+
+/***********************************************************************
+Visitor Pattern Implementation
+***********************************************************************/
+
+			void XmlText::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void XmlCData::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void XmlAttribute::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void XmlComment::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void XmlElement::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void XmlInstruction::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+			void XmlDocument::Accept(XmlNode::IVisitor* visitor)
+			{
+				visitor->Visit(this);
+			}
+
+/***********************************************************************
+Parser Function
+***********************************************************************/
+
+			vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::parsing::tabling::ParsingState state(input, table);
+				state.Reset(L"XDocument");
+				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
+				if(node)
+				{
+					return XmlConvertParsingTreeNode(node, state.GetTokens()).Cast<XmlDocument>();
+				}
+				return 0;
+			}
+
+			vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::parsing::tabling::ParsingState state(input, table);
+				state.Reset(L"XElement");
+				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
+				if(node)
+				{
+					return XmlConvertParsingTreeNode(node, state.GetTokens()).Cast<XmlElement>();
+				}
+				return 0;
+			}
+
+/***********************************************************************
+Table Generation
+***********************************************************************/
+
+			vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable()
+			{
+				vl::Ptr<vl::parsing::tabling::ParsingTable> table=new vl::parsing::tabling::ParsingTable(15-vl::parsing::tabling::ParsingTable::UserTokenStart, 1, 42, 8);
+				table->SetTokenInfo(0, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
+				table->SetTokenInfo(1, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
+				table->SetTokenInfo(2, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
+				table->SetTokenInfo(3, vl::parsing::tabling::ParsingTable::TokenInfo(L"INSTRUCTION_OPEN", L"/</?"));
+				table->SetTokenInfo(4, vl::parsing::tabling::ParsingTable::TokenInfo(L"INSTRUCTION_CLOSE", L"/?/>"));
+				table->SetTokenInfo(5, vl::parsing::tabling::ParsingTable::TokenInfo(L"COMPLEX_ELEMENT_OPEN", L"/<//"));
+				table->SetTokenInfo(6, vl::parsing::tabling::ParsingTable::TokenInfo(L"SINGLE_ELEMENT_CLOSE", L"///>"));
+				table->SetTokenInfo(7, vl::parsing::tabling::ParsingTable::TokenInfo(L"ELEMENT_OPEN", L"/<"));
+				table->SetTokenInfo(8, vl::parsing::tabling::ParsingTable::TokenInfo(L"ELEMENT_CLOSE", L"/>"));
+				table->SetTokenInfo(9, vl::parsing::tabling::ParsingTable::TokenInfo(L"EQUAL", L"/="));
+				table->SetTokenInfo(10, vl::parsing::tabling::ParsingTable::TokenInfo(L"NAME", L"[a-zA-Z0-9:_/-]+"));
+				table->SetTokenInfo(11, vl::parsing::tabling::ParsingTable::TokenInfo(L"ATTVALUE", L"\"[^<>\"]*\"|\'[^<>\']*\'"));
+				table->SetTokenInfo(12, vl::parsing::tabling::ParsingTable::TokenInfo(L"COMMENT", L"/</!--([^/->]|-[^/->]|--[^>])*--/>"));
+				table->SetTokenInfo(13, vl::parsing::tabling::ParsingTable::TokenInfo(L"CDATA", L"/</!/[CDATA/[([^/]]|/][^/]]|/]/][^>])*/]/]/>"));
+				table->SetTokenInfo(14, vl::parsing::tabling::ParsingTable::TokenInfo(L"TEXT", L"([^<>=\"\' /r/n/ta-zA-Z0-9:_/-])+|\"|\'"));
+				table->SetDiscardTokenInfo(0, vl::parsing::tabling::ParsingTable::TokenInfo(L"SPACE", L"/s+"));
+				table->SetStateInfo(0, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.RootStart", L"● $<XAttribute>"));
+				table->SetStateInfo(1, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.Start", L"· <XAttribute>"));
+				table->SetStateInfo(2, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.1", L"<XAttribute>: NAME : name● \"=\" ATTVALUE : value as Attribute"));
+				table->SetStateInfo(3, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.2", L"<XAttribute>: NAME : name \"=\"● ATTVALUE : value as Attribute"));
+				table->SetStateInfo(4, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.3", L"<XAttribute>: NAME : name \"=\" ATTVALUE : value as Attribute●"));
+				table->SetStateInfo(5, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.RootEnd", L"$<XAttribute> ●"));
+				table->SetStateInfo(6, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.3", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element●"));
+				table->SetStateInfo(7, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.4", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\"● { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element\r\n<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" ●{ XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element"));
+				table->SetStateInfo(8, vl::parsing::tabling::ParsingTable::StateInfo(L"XInstruction", L"XInstruction.3", L"<XInstruction>: \"<?\" NAME : name { XAttribute : attributes } \"?>\" as Instruction●"));
+				table->SetStateInfo(9, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.RootEnd", L"$<XElement> ●"));
+				table->SetStateInfo(10, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.5", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\"● NAME : closingName \">\" ) as Element"));
+				table->SetStateInfo(11, vl::parsing::tabling::ParsingTable::StateInfo(L"XText", L"XText.1", L"<XText>: NAME : content | EQUAL : content | ATTVALUE : content | TEXT : content as Text●"));
+				table->SetStateInfo(12, vl::parsing::tabling::ParsingTable::StateInfo(L"XCData", L"XCData.1", L"<XCData>: CDATA : content as CData●"));
+				table->SetStateInfo(13, vl::parsing::tabling::ParsingTable::StateInfo(L"XComment", L"XComment.1", L"<XComment>: COMMENT : content as Comment●"));
+				table->SetStateInfo(14, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.1", L"<XElement>: \"<\"● NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element"));
+				table->SetStateInfo(15, vl::parsing::tabling::ParsingTable::StateInfo(L"XSubNode", L"XSubNode.RootEnd", L"$<XSubNode> ●"));
+				table->SetStateInfo(16, vl::parsing::tabling::ParsingTable::StateInfo(L"XDocument", L"XDocument.RootEnd", L"$<XDocument> ●"));
+				table->SetStateInfo(17, vl::parsing::tabling::ParsingTable::StateInfo(L"XInstruction", L"XInstruction.RootEnd", L"$<XInstruction> ●"));
+				table->SetStateInfo(18, vl::parsing::tabling::ParsingTable::StateInfo(L"XInstruction", L"XInstruction.1", L"<XInstruction>: \"<?\"● NAME : name { XAttribute : attributes } \"?>\" as Instruction"));
+				table->SetStateInfo(19, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.6", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName● \">\" ) as Element"));
+				table->SetStateInfo(20, vl::parsing::tabling::ParsingTable::StateInfo(L"XText", L"XText.RootEnd", L"$<XText> ●"));
+				table->SetStateInfo(21, vl::parsing::tabling::ParsingTable::StateInfo(L"XCData", L"XCData.RootEnd", L"$<XCData> ●"));
+				table->SetStateInfo(22, vl::parsing::tabling::ParsingTable::StateInfo(L"XComment", L"XComment.RootEnd", L"$<XComment> ●"));
+				table->SetStateInfo(23, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.2", L"<XElement>: \"<\" NAME : name● { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element\r\n<XElement>: \"<\" NAME : name ●{ XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element"));
+				table->SetStateInfo(24, vl::parsing::tabling::ParsingTable::StateInfo(L"XInstruction", L"XInstruction.2", L"<XInstruction>: \"<?\" NAME : name● { XAttribute : attributes } \"?>\" as Instruction\r\n<XInstruction>: \"<?\" NAME : name ●{ XAttribute : attributes } \"?>\" as Instruction"));
+				table->SetStateInfo(25, vl::parsing::tabling::ParsingTable::StateInfo(L"XText", L"XText.RootStart", L"● $<XText>"));
+				table->SetStateInfo(26, vl::parsing::tabling::ParsingTable::StateInfo(L"XText", L"XText.Start", L"· <XText>"));
+				table->SetStateInfo(27, vl::parsing::tabling::ParsingTable::StateInfo(L"XCData", L"XCData.RootStart", L"● $<XCData>"));
+				table->SetStateInfo(28, vl::parsing::tabling::ParsingTable::StateInfo(L"XCData", L"XCData.Start", L"· <XCData>"));
+				table->SetStateInfo(29, vl::parsing::tabling::ParsingTable::StateInfo(L"XComment", L"XComment.RootStart", L"● $<XComment>"));
+				table->SetStateInfo(30, vl::parsing::tabling::ParsingTable::StateInfo(L"XComment", L"XComment.Start", L"· <XComment>"));
+				table->SetStateInfo(31, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.RootStart", L"● $<XElement>"));
+				table->SetStateInfo(32, vl::parsing::tabling::ParsingTable::StateInfo(L"XElement", L"XElement.Start", L"· <XElement>"));
+				table->SetStateInfo(33, vl::parsing::tabling::ParsingTable::StateInfo(L"XSubNode", L"XSubNode.RootStart", L"● $<XSubNode>"));
+				table->SetStateInfo(34, vl::parsing::tabling::ParsingTable::StateInfo(L"XSubNode", L"XSubNode.Start", L"· <XSubNode>"));
+				table->SetStateInfo(35, vl::parsing::tabling::ParsingTable::StateInfo(L"XInstruction", L"XInstruction.RootStart", L"● $<XInstruction>"));
+				table->SetStateInfo(36, vl::parsing::tabling::ParsingTable::StateInfo(L"XInstruction", L"XInstruction.Start", L"· <XInstruction>"));
+				table->SetStateInfo(37, vl::parsing::tabling::ParsingTable::StateInfo(L"XDocument", L"XDocument.RootStart", L"● $<XDocument>"));
+				table->SetStateInfo(38, vl::parsing::tabling::ParsingTable::StateInfo(L"XDocument", L"XDocument.Start", L"· <XDocument>"));
+				table->SetStateInfo(39, vl::parsing::tabling::ParsingTable::StateInfo(L"XSubNode", L"XSubNode.1", L"<XSubNode>: !XText | !XCData | !XComment | !XElement●"));
+				table->SetStateInfo(40, vl::parsing::tabling::ParsingTable::StateInfo(L"XDocument", L"XDocument.1", L"<XDocument>: { XInstruction : prologs | XComment : prologs } XElement : rootElement as Document●"));
+				table->SetStateInfo(41, vl::parsing::tabling::ParsingTable::StateInfo(L"XDocument", L"XDocument.2", L"<XDocument>: ●{ XInstruction : prologs | XComment : prologs } XElement : rootElement as Document"));
+				table->SetRuleInfo(0, vl::parsing::tabling::ParsingTable::RuleInfo(L"XAttribute", L"Attribute", 0));
+				table->SetRuleInfo(1, vl::parsing::tabling::ParsingTable::RuleInfo(L"XText", L"Text", 25));
+				table->SetRuleInfo(2, vl::parsing::tabling::ParsingTable::RuleInfo(L"XCData", L"CData", 27));
+				table->SetRuleInfo(3, vl::parsing::tabling::ParsingTable::RuleInfo(L"XComment", L"Comment", 29));
+				table->SetRuleInfo(4, vl::parsing::tabling::ParsingTable::RuleInfo(L"XElement", L"Element", 31));
+				table->SetRuleInfo(5, vl::parsing::tabling::ParsingTable::RuleInfo(L"XSubNode", L"Node", 33));
+				table->SetRuleInfo(6, vl::parsing::tabling::ParsingTable::RuleInfo(L"XInstruction", L"Instruction", 35));
+				table->SetRuleInfo(7, vl::parsing::tabling::ParsingTable::RuleInfo(L"XDocument", L"Document", 37));
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 1);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(0, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(1, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 3);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(2, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 4);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Attribute", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"value", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(3, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 5);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(4, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 8);
+						item->stackPattern.Add(24);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"attributes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Instruction", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(4, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 6);
+						item->stackPattern.Add(23);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 23, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"attributes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Element", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(4, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 7);
+						item->stackPattern.Add(23);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 23, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"attributes", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(4, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 2);
+						item->stackPattern.Add(24);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"attributes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 2);
+						item->stackPattern.Add(23);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 23, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"attributes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 23, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(4, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 9);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 16);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Document", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"rootElement", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 16);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"rootElement", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Document", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 15);
+						item->stackPattern.Add(34);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 10);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(6, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 10);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(7, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 17);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 18);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 18);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(8, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 19);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"closingName", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(10, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 20);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 15);
+						item->stackPattern.Add(34);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 10);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(11, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 21);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 15);
+						item->stackPattern.Add(34);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 10);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(12, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 22);
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(1, 15);
+						item->stackPattern.Add(34);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 1, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 18);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 18);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(5, 10);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 5, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(41);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(38);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"prologs", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 41, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->stackPattern.Add(34);
+						item->stackPattern.Add(7);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Using, 0, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Reduce, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Item, 0, L"subNodes", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 7, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(13, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 23);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(14, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 24);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(18, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Element", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(19, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(6, 6);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Element", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(23, 6, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(8, 7);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(23, 8, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 23, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(23, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(4, 8);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Instruction", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 4, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 2);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 24, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"name", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(24, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 26);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(25, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(26, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(26, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(26, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(26, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 28);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(27, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(28, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 30);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(29, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(30, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 32);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(31, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(32, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 34);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(33, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(9, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 9, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(10, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 10, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(11, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 11, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 12, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(13, 12);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"CData", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 13, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(14, 11);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 34, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Text", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(34, 14, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 36);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(35, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 18);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(36, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(0, 38);
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(37, 0, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(3, 18);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 38, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(38, 3, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(7, 14);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 38, L"", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(38, 7, bag);
+				}
+				{
+					vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag;
+					{
+						vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(12, 13);
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Shift, 38, L"", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Assign, 0, L"content", L""));
+						item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::Create, 0, L"Comment", L""));
+						bag->transitionItems.Add(item);
+					}
+					table->SetTransitionBag(38, 12, bag);
+				}
+				table->Initialize();
+				return table;
+			}
+
+		}
 	}
 }
 
@@ -810,13 +10783,13 @@ description::TypeManager
 
 				IValueSerializer* GetValueSerializer(vint index)
 				{
-					return valueSerializers.Values()[index].Obj();
+					return valueSerializers.Values().Get(index).Obj();
 				}
 
 				IValueSerializer* GetValueSerializer(const WString& name)
 				{
 					vint index=valueSerializers.Keys().IndexOf(name);
-					return index==-1?0:valueSerializers.Values()[index].Obj();
+					return index==-1?0:valueSerializers.Values().Get(index).Obj();
 				}
 
 				bool SetValueSerializer(const WString& name, Ptr<IValueSerializer> valueSerializer)
@@ -847,13 +10820,13 @@ description::TypeManager
 
 				ITypeDescriptor* GetTypeDescriptor(vint index)
 				{
-					return typeDescriptors.Values()[index].Obj();
+					return typeDescriptors.Values().Get(index).Obj();
 				}
 
 				ITypeDescriptor* GetTypeDescriptor(const WString& name)
 				{
 					vint index=typeDescriptors.Keys().IndexOf(name);
-					return index==-1?0:typeDescriptors.Values()[index].Obj();
+					return index==-1?0:typeDescriptors.Values().Get(index).Obj();
 				}
 
 				bool SetTypeDescriptor(const WString& name, Ptr<ITypeDescriptor> typeDescriptor)
@@ -1211,7 +11184,7 @@ description::MethodInfoImpl
 				IMethodGroupInfo*											ownerMethodGroup;
 				List<Ptr<ParameterInfoImpl>>									parameters;
 				Ptr<MethodReturnImpl>										returnInfo;
-				Func<Value(const Value&, collections::IArray<Value>&)>		invoker;
+				Func<Value(const Value&, collections::Array<Value>&)>		invoker;
 			public:
 				MethodInfoImpl(IMethodGroupInfo* _ownerMethodGroup)
 					:ownerMethodGroup(_ownerMethodGroup)
@@ -1255,7 +11228,7 @@ description::MethodInfoImpl
 					return returnInfo.Obj();
 				}
 
-				Value Invoke(const Value& thisObject, collections::IArray<Value>& arguments)override
+				Value Invoke(const Value& thisObject, collections::Array<Value>& arguments)override
 				{
 					return invoker(thisObject, arguments);
 				}
@@ -1277,7 +11250,7 @@ description::MethodInfoImpl
 					returnInfo=new MethodReturnImpl(_type, _nullable);
 				}
 
-				void BuilderSetInvoker(const Func<Value(const Value&, collections::IArray<Value>&)>& _invoker)
+				void BuilderSetInvoker(const Func<Value(const Value&, collections::Array<Value>&)>& _invoker)
 				{
 					invoker=_invoker;
 				}
@@ -1505,7 +11478,7 @@ description::GeneralTypeDescriptor::PropertyGroup
 				}
 				else
 				{
-					buildingMethodGroup=propertyGroup.methodGroups.Values()[index];
+					buildingMethodGroup=propertyGroup.methodGroups.Values().Get(index);
 					methodGroup=buildingMethodGroup.Cast<MethodGroupInfoImpl>();
 				}
 
@@ -1526,7 +11499,7 @@ description::GeneralTypeDescriptor::PropertyGroup
 				return *this;
 			}
 
-			GeneralTypeDescriptor::PropertyGroup::MethodBuilder& GeneralTypeDescriptor::PropertyGroup::MethodBuilder::Invoker(const Func<Value(const Value&, collections::IArray<Value>&)>& _invoker)
+			GeneralTypeDescriptor::PropertyGroup::MethodBuilder& GeneralTypeDescriptor::PropertyGroup::MethodBuilder::Invoker(const Func<Value(const Value&, collections::Array<Value>&)>& _invoker)
 			{
 				dynamic_cast<MethodInfoImpl*>(buildingMethod.Obj())->BuilderSetInvoker(_invoker);
 				return *this;
@@ -1669,7 +11642,7 @@ description::GeneralTypeDescriptor
 				propertyGroup.Prepare();
 				if(0<=index && index<propertyGroup.properties.Count())
 				{
-					return propertyGroup.properties.Values()[index].Obj();
+					return propertyGroup.properties.Values().Get(index).Obj();
 				}
 				else
 				{
@@ -1703,7 +11676,7 @@ description::GeneralTypeDescriptor
 				vint index=propertyGroup.properties.Keys().IndexOf(name);
 				if(index!=-1)
 				{
-					return propertyGroup.properties.Values()[index].Obj();
+					return propertyGroup.properties.Values().Get(index).Obj();
 				}
 				if(inheritable)
 				{
@@ -1730,7 +11703,7 @@ description::GeneralTypeDescriptor
 				propertyGroup.Prepare();
 				if(0<=index && index<propertyGroup.events.Count())
 				{
-					return propertyGroup.events.Values()[index].Obj();
+					return propertyGroup.events.Values().Get(index).Obj();
 				}
 				else
 				{
@@ -1764,7 +11737,7 @@ description::GeneralTypeDescriptor
 				vint index=propertyGroup.events.Keys().IndexOf(name);
 				if(index!=-1)
 				{
-					return propertyGroup.events.Values()[index].Obj();
+					return propertyGroup.events.Values().Get(index).Obj();
 				}
 				if(inheritable)
 				{
@@ -1791,7 +11764,7 @@ description::GeneralTypeDescriptor
 				propertyGroup.Prepare();
 				if(0<=index && index<propertyGroup.methodGroups.Count())
 				{
-					return propertyGroup.methodGroups.Values()[index].Obj();
+					return propertyGroup.methodGroups.Values().Get(index).Obj();
 				}
 				else
 				{
@@ -1825,7 +11798,7 @@ description::GeneralTypeDescriptor
 				vint index=propertyGroup.methodGroups.Keys().IndexOf(name);
 				if(index!=-1)
 				{
-					return propertyGroup.methodGroups.Values()[index].Obj();
+					return propertyGroup.methodGroups.Values().Get(index).Obj();
 				}
 				if(inheritable)
 				{
@@ -1921,7 +11894,7 @@ RegexMatch
 				}
 				else
 				{
-					groups.Add(_rich->CaptureNames()[capture.capture], RegexString(_string, capture.start, capture.length));
+					groups.Add(_rich->CaptureNames().Get(capture.capture), RegexString(_string, capture.start, capture.length));
 				}
 			}
 		}
@@ -1944,12 +11917,12 @@ RegexMatch
 
 		const RegexMatch::CaptureList& RegexMatch::Captures()const
 		{
-			return captures.Wrap();
+			return captures;
 		}
 
 		const RegexMatch::CaptureGroup& RegexMatch::Groups()const
 		{
-			return groups.Wrap();
+			return groups;
 		}
 
 /***********************************************************************
@@ -2218,7 +12191,6 @@ RegexTokens
 		class RegexTokenEnumerator : public Object, public IEnumerator<RegexToken>
 		{
 		protected:
-			bool					available;
 			RegexToken				token;
 			vint					index;
 
@@ -2233,94 +12205,9 @@ RegexTokens
 			bool					cacheAvailable;
 			RegexToken				cacheToken;
 
-			void Read()
-			{
-				if(cacheAvailable || *reading)
-				{
-					if(cacheAvailable)
-					{
-						token=cacheToken;
-						cacheAvailable=false;
-					}
-					else
-					{
-						token.reading=reading;
-						token.start=0;
-						token.length=0;
-						token.token=-2;
-					}
-					token.rowStart=rowStart;
-					token.columnStart=columnStart;
-					token.rowEnd=rowStart;
-					token.columnEnd=columnStart;
-					token.codeIndex=codeIndex;
-
-					PureResult result;
-					while(*reading)
-					{
-						vint id=-1;
-						if(!pure->MatchHead(reading, start, result))
-						{
-							result.start=reading-start;
-							result.length=1;
-						}
-						else
-						{
-							id=stateTokens[result.finalState];
-						}
-						if(token.token==-2)
-						{
-							token.start=result.start;
-							token.length=result.length;
-							token.token=id;
-						}
-						else if(token.token==id && id==-1)
-						{
-							token.length+=result.length;
-						}
-						else
-						{
-							cacheAvailable=true;
-							cacheToken.reading=reading;
-							cacheToken.start=result.start;
-							cacheToken.length=result.length;
-							cacheToken.codeIndex=codeIndex;
-							cacheToken.token=id;
-						}
-						reading+=result.length;
-						if(cacheAvailable)
-						{
-							break;
-						}
-					}
-
-					index++;
-					available=true;
-
-					for(vint i=0;i<token.length;i++)
-					{
-						token.rowEnd=rowStart;
-						token.columnEnd=columnStart;
-						if(token.reading[i]==L'\n')
-						{
-							rowStart++;
-							columnStart=0;
-						}
-						else
-						{
-							columnStart++;
-						}
-					}
-				}
-				else
-				{
-					available=false;
-				}
-			}
 		public:
 			RegexTokenEnumerator(const RegexTokenEnumerator& enumerator)
-				:available(enumerator.available)
-				,token(enumerator.token)
+				:token(enumerator.token)
 				,index(enumerator.index)
 				,pure(enumerator.pure)
 				,stateTokens(enumerator.stateTokens)
@@ -2335,8 +12222,7 @@ RegexTokens
 			}
 
 			RegexTokenEnumerator(PureInterpretor* _pure, const Array<vint>& _stateTokens, const wchar_t* _start, vint _codeIndex)
-				:available(true)
-				,index(-1)
+				:index(-1)
 				,pure(_pure)
 				,stateTokens(_stateTokens)
 				,reading(_start)
@@ -2346,7 +12232,6 @@ RegexTokens
 				,codeIndex(_codeIndex)
 				,cacheAvailable(false)
 			{
-				Read();
 			}
 
 			IEnumerator<RegexToken>* Clone()const
@@ -2366,13 +12251,81 @@ RegexTokens
 
 			bool Next()
 			{
-				Read();
-				return available;
-			}
+				if(!cacheAvailable && !*reading) return false;
+				if(cacheAvailable)
+				{
+					token=cacheToken;
+					cacheAvailable=false;
+				}
+				else
+				{
+					token.reading=reading;
+					token.start=0;
+					token.length=0;
+					token.token=-2;
+				}
+				token.rowStart=rowStart;
+				token.columnStart=columnStart;
+				token.rowEnd=rowStart;
+				token.columnEnd=columnStart;
+				token.codeIndex=codeIndex;
 
-			bool Available()const
-			{
-				return available;
+				PureResult result;
+				while(*reading)
+				{
+					vint id=-1;
+					if(!pure->MatchHead(reading, start, result))
+					{
+						result.start=reading-start;
+						result.length=1;
+					}
+					else
+					{
+						id=stateTokens.Get(result.finalState);
+					}
+					if(token.token==-2)
+					{
+						token.start=result.start;
+						token.length=result.length;
+						token.token=id;
+					}
+					else if(token.token==id && id==-1)
+					{
+						token.length+=result.length;
+					}
+					else
+					{
+						cacheAvailable=true;
+						cacheToken.reading=reading;
+						cacheToken.start=result.start;
+						cacheToken.length=result.length;
+						cacheToken.codeIndex=codeIndex;
+						cacheToken.token=id;
+					}
+					reading+=result.length;
+					if(cacheAvailable)
+					{
+						break;
+					}
+				}
+
+				index++;
+
+				for(vint i=0;i<token.length;i++)
+				{
+					token.rowEnd=rowStart;
+					token.columnEnd=columnStart;
+					if(token.reading[i]==L'\n')
+					{
+						rowStart++;
+						columnStart=0;
+					}
+					else
+					{
+						columnStart++;
+					}
+				}
+				return true;
 			}
 
 			void Reset()
@@ -2380,18 +12333,16 @@ RegexTokens
 				index=-1;
 				reading=start;
 				cacheAvailable=false;
-				Read();
 			}
 
 			void ReadToEnd(List<RegexToken>& tokens, bool(*discard)(vint))
 			{
-				while(available)
+				while(Next())
 				{
 					if(!discard(token.token))
 					{
 						tokens.Add(token);
 					}
-					Read();
 				}
 			}
 		};
@@ -2451,7 +12402,7 @@ RegexLexerWalker
 		vint RegexLexerWalker::GetRelatedToken(vint state)const
 		{
 			vint finalState=pure->GetRelatedFinalState(state);
-			return finalState==-1?-1:stateTokens[finalState];
+			return finalState==-1?-1:stateTokens.Get(finalState);
 		}
 
 		void RegexLexerWalker::Walk(wchar_t input, vint& state, vint& token, bool& finalState, bool& previousTokenStop)const
@@ -2482,7 +12433,7 @@ RegexLexerWalker
 			}
 			if(pure->IsFinalState(state))
 			{
-				token=stateTokens[state];
+				token=stateTokens.Get(state);
 				finalState=true;
 				return;
 			}
@@ -2617,10 +12568,9 @@ RegexLexer
 			List<Automaton::Ref> dfas;
 			CharRange::List subsets;
 			Ptr<IEnumerator<WString>> enumerator=tokens.CreateEnumerator();
-			while(enumerator->Available())
+			while(enumerator->Next())
 			{
 				const WString& code=enumerator->Current();
-				enumerator->Next();
 
 				RegexExpression::Ref regex=ParseRegexExpression(code);
 				Expression::Ref expression=regex->Merge();
@@ -2660,8 +12610,8 @@ RegexLexer
 			Automaton::Ref bigEnfa=new Automaton;
 			for(vint i=0;i<dfas.Count();i++)
 			{
-				CopyFrom(bigEnfa->states.Wrap(), dfas[i]->states.Wrap());
-				CopyFrom(bigEnfa->transitions.Wrap(), dfas[i]->transitions.Wrap());
+				CopyFrom(bigEnfa->states, dfas[i]->states);
+				CopyFrom(bigEnfa->transitions, dfas[i]->transitions);
 			}
 			bigEnfa->startState=bigEnfa->NewState();
 			for(vint i=0;i<dfas.Count();i++)
@@ -2675,16 +12625,16 @@ RegexLexer
 			Automaton::Ref bigNfa=EpsilonNfaToNfa(bigEnfa, PureEpsilonChecker, nfaStateMap);
 			for(vint i=0;i<nfaStateMap.Keys().Count();i++)
 			{
-				void* userData=nfaStateMap.Values()[i]->userData;
+				void* userData=nfaStateMap.Values().Get(i)->userData;
 				nfaStateMap.Keys()[i]->userData=userData;
 			}
 			Automaton::Ref bigDfa=NfaToDfa(bigNfa, dfaStateMap);
 			for(vint i=0;i<dfaStateMap.Keys().Count();i++)
 			{
-				void* userData=dfaStateMap.GetByIndex(i)[0]->userData;
+				void* userData=dfaStateMap.GetByIndex(i).Get(0)->userData;
 				for(vint j=1;j<dfaStateMap.GetByIndex(i).Count();j++)
 				{
-					void* newData=dfaStateMap.GetByIndex(i)[j]->userData;
+					void* newData=dfaStateMap.GetByIndex(i).Get(j)->userData;
 					if(userData>newData)
 					{
 						userData=newData;
@@ -2928,7 +12878,7 @@ Automaton
 			stateMap.Add(source->startState, target->NewState());
 			nfaStateMap.Add(stateMap[source->startState], source->startState);
 			target->startState=target->states[0].Obj();
-			CopyFrom(target->captureNames.Wrap(), source->captureNames.Wrap());
+			CopyFrom(target->captureNames, source->captureNames);
 
 			for(vint i=0;i<target->states.Count();i++)
 			{
@@ -2972,7 +12922,7 @@ Automaton
 			Group<Transition*, Transition*> nfaTransitions;
 			List<Transition*> transitionClasses;//保证转换先后顺序不被nfaTransitions.Keys破坏
 
-			CopyFrom(target->captureNames.Wrap(), source->captureNames.Wrap());
+			CopyFrom(target->captureNames, source->captureNames);
 			State* startState=target->NewState();
 			target->startState=startState;
 			dfaStateMap.Add(startState, source->startState);
@@ -2989,10 +12939,10 @@ Automaton
 				transitionClasses.Clear();
 
 				//对该DFA状态的所有等价NFA状态进行遍历
-				const IReadonlyList<State*>& nfaStates=dfaStateMap[currentState];
+				const List<State*>& nfaStates=dfaStateMap[currentState];
 				for(vint j=0;j<nfaStates.Count();j++)
 				{
-					State* nfaState=nfaStates[j];
+					State* nfaState=nfaStates.Get(j);
 					//对每一个NFA状态的所有转换进行遍历
 					for(vint k=0;k<nfaState->transitions.Count();k++)
 					{
@@ -3022,12 +12972,12 @@ Automaton
 				//遍历所有种类的NFA转换
 				for(vint j=0;j<transitionClasses.Count();j++)
 				{
-					const IReadonlyList<Transition*>& transitionSet=nfaTransitions[transitionClasses[j]];
+					const List<Transition*>& transitionSet=nfaTransitions[transitionClasses[j]];
 					//对所有转换的NFA目标状态集合进行排序
 					transitionTargets.Clear();
 					for(vint l=0;l<transitionSet.Count();l++)
 					{
-						State* nfaState=transitionSet[l]->target;
+						State* nfaState=transitionSet.Get(l)->target;
 						if(!transitionTargets.Contains(nfaState))
 						{
 							transitionTargets.Add(nfaState);
@@ -3038,7 +12988,7 @@ Automaton
 					for(vint k=0;k<dfaStateMap.Count();k++)
 					{
 						//将DFA的等价NFA状态集合进行排序
-						dfaStateMap.CopyValuesToCollection(k, relativeStates);
+						CopyFrom(relativeStates, dfaStateMap.GetByIndex(k));
 						//比较两者是否相等
 						if(relativeStates.Count()==transitionTargets.Count())
 						{
@@ -3619,7 +13569,7 @@ CharSetNormalizationAlgorithm
 			void Apply(CharSetExpression* expression, NormalizedCharSet* target)
 			{
 				CharRange::List source;
-				CopyFrom(source.Wrap(), expression->ranges.Wrap());
+				CopyFrom(source, expression->ranges);
 				expression->ranges.Clear();
 				Loop(expression, source, target);
 				expression->reverse=false;
@@ -3643,7 +13593,7 @@ MergeAlgorithm
 			Expression::Ref Apply(CharSetExpression* expression, MergeParameter* target)
 			{
 				Ptr<CharSetExpression> result=new CharSetExpression;
-				CopyFrom(result->ranges.Wrap(), expression->ranges.Wrap());
+				CopyFrom(result->ranges, expression->ranges);
 				result->reverse=expression->reverse;
 				return result;
 			}
@@ -3986,21 +13936,21 @@ Expression
 			NormalizedCharSet normalized;
 			BuildNormalizedCharSetAlgorithm().Invoke(this, &normalized);
 			SetNormalizedCharSetAlgorithm().Invoke(this, &normalized);
-			CopyFrom(subsets.Wrap(), normalized.ranges.Wrap());
+			CopyFrom(subsets, normalized.ranges);
 		}
 
 		void Expression::CollectCharSet(CharRange::List& subsets)
 		{
 			NormalizedCharSet normalized;
-			CopyFrom(normalized.ranges.Wrap(), subsets.Wrap());
+			CopyFrom(normalized.ranges, subsets);
 			BuildNormalizedCharSetAlgorithm().Invoke(this, &normalized);
-			CopyFrom(subsets.Wrap(), normalized.ranges.Wrap());
+			CopyFrom(subsets, normalized.ranges);
 		}
 
 		void Expression::ApplyCharSet(CharRange::List& subsets)
 		{
 			NormalizedCharSet normalized;
-			CopyFrom(normalized.ranges.Wrap(), subsets.Wrap());
+			CopyFrom(normalized.ranges, subsets);
 			SetNormalizedCharSetAlgorithm().Invoke(this, &normalized);
 		}
 
@@ -4693,6 +14643,113 @@ namespace vl
 				throw ParsingException(e.Message(), code, input-start);
 			}
 		}
+
+		WString EscapeTextForRegex(const WString& literalString)
+		{
+			WString result;
+			for(vint i=0;i<literalString.Length();i++)
+			{
+				wchar_t c=literalString[i];
+				switch(c)
+				{
+				case L'\\':case L'/':case L'(':case L')':case L'+':case L'*':case L'?':case L'|':
+				case L'{':case L'}':case L'[':case L']':case L'<':case L'>':
+				case L'^':case L'$':case L'!':case L'=':
+					result+=WString(L"\\")+c;
+					break;
+				case L'\r':
+					result+=L"\\r";
+					break;
+				case L'\n':
+					result+=L"\\n";
+					break;
+				case L'\t':
+					result+=L"\\t";
+					break;
+				default:
+					result+=c;
+				}
+			}
+			return result;
+		}
+
+		WString UnescapeTextForRegex(const WString& escapedText)
+		{
+			WString result;
+			for(vint i=0;i<escapedText.Length();i++)
+			{
+				wchar_t c=escapedText[i];
+				if(c==L'\\' || c==L'/')
+				{
+					if(i<escapedText.Length()-1)
+					{
+						i++;
+						c=escapedText[i];
+						switch(c)
+						{
+						case L'r':
+							result+=L"\r";
+							break;
+						case L'n':
+							result+=L"\n";
+							break;
+						case L't':
+							result+=L"\t";
+							break;
+						default:
+							result+=c;
+						}
+						continue;
+					}
+				}
+				result+=c;
+			}
+			return result;
+		}
+
+		WString NormalizeEscapedTextForRegex(const WString& escapedText)
+		{
+			WString result;
+			for(vint i=0;i<escapedText.Length();i++)
+			{
+				wchar_t c=escapedText[i];
+				if(c==L'\\' || c==L'/')
+				{
+					if(i<escapedText.Length()-1)
+					{
+						i++;
+						c=escapedText[i];
+						result+=WString(L"\\")+c;
+						continue;
+					}
+				}
+				result+=c;
+			}
+			return result;
+		}
+
+		bool IsRegexEscapedListeralString(const WString& regex)
+		{
+			for(vint i=0;i<regex.Length();i++)
+			{
+				wchar_t c=regex[i];
+				if(c==L'\\' || c==L'/')
+				{
+					i++;
+				}
+				else
+				{
+					switch(c)
+					{
+					case L'\\':case L'/':case L'(':case L')':case L'+':case L'*':case L'?':case L'|':
+					case L'{':case L'}':case L'[':case L']':case L'<':case L'>':
+					case L'^':case L'$':case L'!':case L'=':
+						return false;
+					}
+				}
+			}
+			return true;
+		}
 	}
 }
 
@@ -5320,9 +15377,9 @@ RichInterpretor
 			return false;
 		}
 
-		const IReadonlyList<WString>& RichInterpretor::CaptureNames()
+		const List<WString>& RichInterpretor::CaptureNames()
 		{
-			return dfa->captureNames.Wrap();
+			return dfa->captureNames;
 		}
 	}
 }
@@ -5411,7 +15468,7 @@ RegexNode
 			CharSetExpression* source=dynamic_cast<CharSetExpression*>(expression.Obj());
 			CHECK_ERROR(source, L"RegexNode::operator!()#!操作符只能使用在字符集合表达式上。");
 			Ptr<CharSetExpression> target=new CharSetExpression;
-			CopyFrom(target->ranges.Wrap(), source->ranges.Wrap());
+			CopyFrom(target->ranges, source->ranges);
 			target->reverse=!source->reverse;
 			return RegexNode(target);
 		}
@@ -5423,7 +15480,7 @@ RegexNode
 			CHECK_ERROR(left && right && !left->reverse && !right->reverse, L"RegexNode::operator%(const RegexNode&)#非凡转字符集合表达式才能使用%操作符连接。");
 			Ptr<CharSetExpression> target=new CharSetExpression;
 			target->reverse=false;
-			CopyFrom(target->ranges.Wrap(), left->ranges.Wrap());
+			CopyFrom(target->ranges, left->ranges);
 			for(vint i=0;i<right->ranges.Count();i++)
 			{
 				if(!target->AddRangeWithConflict(right->ranges[i]))
@@ -5517,6 +15574,7 @@ namespace vl
 {
 	namespace stream
 	{
+		using namespace collections;
 
 /***********************************************************************
 TextReader
@@ -5653,6 +15711,106 @@ TextWriter
 		{
 			WriteString(string);
 			WriteString(L"\r\n", 2);
+		}
+
+		namespace monospace_tabling
+		{
+			void WriteBorderLine(TextWriter& writer, Array<vint>& columnWidths, vint columns)
+			{
+				writer.WriteChar(L'+');
+				for(vint i=0;i<columns;i++)
+				{
+					vint c=columnWidths[i];
+					for(vint j=0;j<c;j++)
+					{
+						writer.WriteChar(L'-');
+					}
+					writer.WriteChar(L'+');
+				}
+				writer.WriteLine(L"");
+			}
+
+			void WriteContentLine(TextWriter& writer, Array<vint>& columnWidths, vint rowHeight, vint columns, Array<WString>& tableByRow, vint startRow)
+			{
+				vint cellStart=startRow*columns;
+				for(vint r=0;r<rowHeight;r++)
+				{
+					writer.WriteChar(L'|');
+					for(vint c=0;c<columns;c++)
+					{
+						const wchar_t* cell=tableByRow[cellStart+c].Buffer();
+						for(vint i=0;i<r;i++)
+						{
+							if(cell) cell=wcsstr(cell, L"\r\n");
+							if(cell) cell+=2;
+						}
+
+						writer.WriteChar(L' ');
+						vint length=0;
+						if(cell)
+						{
+							const wchar_t* end=wcsstr(cell, L"\r\n");
+							length=end?end-cell:(vint)wcslen(cell);
+							writer.WriteString(cell, length);
+						}
+
+						for(vint i=columnWidths[c]-2;i>=length;i--)
+						{
+							writer.WriteChar(L' ');
+						}
+						writer.WriteChar(L'|');
+					}
+					writer.WriteLine(L"");
+				}
+			}
+		}
+		using namespace monospace_tabling;
+
+		void TextWriter::WriteMonospacedEnglishTable(collections::Array<WString>& tableByRow, vint rows, vint columns)
+		{
+			Array<vint> rowHeights(rows);
+			Array<vint> columnWidths(columns);
+			for(vint i=0;i<rows;i++) rowHeights[i]=0;
+			for(vint j=0;j<columns;j++) columnWidths[j]=0;
+
+			for(vint i=0;i<rows;i++)
+			{
+				for(vint j=0;j<columns;j++)
+				{
+					WString text=tableByRow[i*columns+j];
+					const wchar_t* reading=text.Buffer();
+					vint width=0;
+					vint height=0;
+
+					while(reading)
+					{
+						height++;
+						const wchar_t* crlf=wcsstr(reading, L"\r\n");
+						if(crlf)
+						{
+							vint length=crlf-reading+2;
+							if(width<length) width=length;
+							reading=crlf+2;
+						}
+						else
+						{
+							vint length=(vint)wcslen(reading)+2;
+							if(width<length) width=length;
+							reading=0;
+						}
+					}
+
+					if(rowHeights[i]<height) rowHeights[i]=height;
+					if(columnWidths[j]<width) columnWidths[j]=width;
+				}
+			}
+
+			WriteBorderLine(*this, columnWidths, columns);
+			for(vint i=0;i<rows;i++)
+			{
+				WriteContentLine(*this, columnWidths, rowHeights[i], columns, tableByRow, i);
+				WriteBorderLine(*this, columnWidths, columns);
+			}
 		}
 
 /***********************************************************************
@@ -6013,9 +16171,9 @@ BroadcastStream
 		{
 		}
 
-		BroadcastStream::_ListInterface& BroadcastStream::Targets()
+		BroadcastStream::StreamList& BroadcastStream::Targets()
 		{
-			return streams.Wrap();
+			return streams;
 		}
 
 		bool BroadcastStream::CanRead()const
@@ -6910,6 +17068,292 @@ BomDecoder
 		vint BomDecoder::Read(void* _buffer, vint _size)
 		{
 			return decoder->Read(_buffer, _size);
+		}
+
+/***********************************************************************
+CharEncoder
+***********************************************************************/
+
+		bool CanBeMbcs(unsigned char* buffer, vint size)
+		{
+			bool needTrail=false;
+			for(vint i=0;i<size;i++)
+			{
+				if(buffer[i]==0) return false;
+				if(needTrail)
+				{
+					needTrail=false;
+				}
+				else if(buffer[i]>=128)
+				{
+					needTrail=true;
+				}
+			}
+			return !needTrail;
+		}
+
+		bool CanBeUtf8(unsigned char* buffer, vint size)
+		{
+			for(vint i=0;i<size;i++)
+			{
+				unsigned char c=(unsigned char)buffer[i];
+				if(c==0)
+				{
+					return false;
+				}
+				else
+				{
+					vint count10xxxxxx=0;
+					if((c&0x80)==0x00) /* 0x0xxxxxxx */ count10xxxxxx=0;
+					else if((c&0xE0)==0xC0) /* 0x110xxxxx */ count10xxxxxx=1;
+					else if((c&0xF0)==0xE0) /* 0x1110xxxx */ count10xxxxxx=2;
+					else if((c&0xF8)==0xF0) /* 0x11110xxx */ count10xxxxxx=3;
+					else if((c&0xFC)==0xF8) /* 0x111110xx */ count10xxxxxx=4;
+					else if((c&0xFE)==0xFC) /* 0x1111110x */ count10xxxxxx=5;
+
+					if(size<=i+count10xxxxxx)
+					{
+						return false;
+					}
+					else
+					{
+						for(vint j=0;j<count10xxxxxx;j++)
+						{
+							c=(unsigned char)buffer[i+j+1];
+							if((c&0xC0)!=0x80) /* 0x10xxxxxx */ return false;
+						}
+					}
+					i+=count10xxxxxx;
+				}
+			}
+			return true;
+		}
+
+		bool CanBeUtf16(unsigned char* buffer, vint size)
+		{
+			if(size%2!=0) return false;
+			bool needTrail=false;
+			for(vint i=0;i<size;i+=2)
+			{
+				if(buffer[i]>=128 && buffer[i+1]==0) return false;
+				unsigned __int16 c=buffer[i]+(buffer[i+1]<<8);
+				if(c==0xFFFF) return false;
+				vint type=0;
+				if(0xD800<=c && c<=0xDBFF) type=1;
+				else if(0xDC00<=c && c<=0xDFFF) type=2;
+				if(needTrail)
+				{
+					if(type==2)
+					{
+						needTrail=false;
+					}
+					else
+					{
+						return false;
+					}
+				}
+				else
+				{
+					if(type==1)
+					{
+						needTrail=true;
+					}
+					else if(type!=0)
+					{
+						return false;
+					}
+				}
+			}
+			return !needTrail;
+		}
+
+		bool CanBeUtf16BE(unsigned char* buffer, vint size)
+		{
+			if(size%2!=0) return false;
+			bool needTrail=false;
+			for(vint i=0;i<size;i+=2)
+			{
+				if(buffer[i+1]>=128 && buffer[i]==0) return false;
+				unsigned __int16 c=buffer[i+1]+(buffer[i]<<8);
+				if(c==0xFFFF) return false;
+				vint type=0;
+				if(0xD800<=c && c<=0xDBFF) type=1;
+				else if(0xDC00<=c && c<=0xDFFF) type=2;
+				if(needTrail)
+				{
+					if(type==2)
+					{
+						needTrail=false;
+					}
+					else
+					{
+						return false;
+					}
+				}
+				else
+				{
+					if(type==1)
+					{
+						needTrail=true;
+					}
+					else if(type!=0)
+					{
+						return false;
+					}
+				}
+			}
+			return !needTrail;
+		}
+
+		template<vint Count>
+		bool GetEncodingResult(int (&tests)[Count], bool(&results)[Count], int test)
+		{
+			for(vint i=0;i<Count;i++)
+			{
+				if(tests[i]&test)
+				{
+					if(results[i]) return true;
+				}
+			}
+			return false;
+		}
+
+		void TestEncoding(unsigned char* buffer, vint size, BomEncoder::Encoding& encoding, bool& containsBom)
+		{
+			if(size>=3 && strncmp((char*)buffer, "\xEF\xBB\xBF", 3)==0)
+			{
+				encoding=BomEncoder::Utf8;
+				containsBom=true;
+			}
+			else if(size>=2 && strncmp((char*)buffer, "\xFF\xFE", 2)==0)
+			{
+				encoding=BomEncoder::Utf16;
+				containsBom=true;
+			}
+			else if(size>=2 && strncmp((char*)buffer, "\xFE\xFF", 2)==0)
+			{
+				encoding=BomEncoder::Utf16BE;
+				containsBom=true;
+			}
+			else
+			{
+				encoding=BomEncoder::Mbcs;
+				containsBom=true;
+
+				bool roughMbcs=CanBeMbcs(buffer, size);
+				bool roughUtf8=CanBeUtf8(buffer, size);
+				bool roughUtf16=CanBeUtf16(buffer, size);
+				bool roughUtf16BE=CanBeUtf16BE(buffer, size);
+				vint roughCount=(roughMbcs?1:0)+(roughUtf8?1:0)+(roughUtf16?1:0)+(roughUtf16BE?1:0);
+				if(roughCount==1)
+				{
+					if(roughUtf8) encoding=BomEncoder::Utf8;
+					if(roughUtf16) encoding=BomEncoder::Utf16;
+					if(roughUtf16BE) encoding=BomEncoder::Utf16BE;
+				}
+				else if(roughCount>1)
+				{
+					int tests[]=
+					{
+						IS_TEXT_UNICODE_REVERSE_ASCII16,
+						IS_TEXT_UNICODE_REVERSE_STATISTICS,
+						IS_TEXT_UNICODE_REVERSE_CONTROLS,
+
+						IS_TEXT_UNICODE_ASCII16,
+						IS_TEXT_UNICODE_STATISTICS,
+						IS_TEXT_UNICODE_CONTROLS,
+
+						IS_TEXT_UNICODE_ILLEGAL_CHARS,
+						IS_TEXT_UNICODE_ODD_LENGTH,
+						IS_TEXT_UNICODE_NULL_BYTES,
+					};
+
+					const vint TestCount=sizeof(tests)/sizeof(*tests);
+					bool results[TestCount];
+					for(vint i=0;i<TestCount;i++)
+					{
+						int test=tests[i];
+						results[i]=IsTextUnicode(buffer, size, &test)!=0;
+					}
+
+					if(size%2==0
+						&& !GetEncodingResult(tests, results, IS_TEXT_UNICODE_REVERSE_ASCII16)
+						&& !GetEncodingResult(tests, results, IS_TEXT_UNICODE_REVERSE_STATISTICS)
+						&& !GetEncodingResult(tests, results, IS_TEXT_UNICODE_REVERSE_CONTROLS)
+						)
+					{
+						for(vint i=0;i<size;i+=2)
+						{
+							unsigned char c=buffer[i];
+							buffer[i]=buffer[i+1];
+							buffer[i+1]=c;
+						}
+						// 3 = (count of reverse group) = (count of unicode group)
+						for(vint i=0;i<3;i++)
+						{
+							int test=tests[i+3];
+							results[i]=IsTextUnicode(buffer, size, &test)!=0;
+						}
+						for(vint i=0;i<size;i+=2)
+						{
+							unsigned char c=buffer[i];
+							buffer[i]=buffer[i+1];
+							buffer[i+1]=c;
+						}
+					}
+
+					if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_NOT_UNICODE_MASK))
+					{
+						if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_NOT_ASCII_MASK))
+						{
+							encoding=BomEncoder::Utf8;
+						}
+						else if(roughUtf8||!roughMbcs)
+						{
+							encoding=BomEncoder::Utf8;
+						}
+					}
+					else if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_ASCII16))
+					{
+						encoding=BomEncoder::Utf16;
+					}
+					else if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_REVERSE_ASCII16))
+					{
+						encoding=BomEncoder::Utf16BE;
+					}
+					else if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_CONTROLS))
+					{
+						encoding=BomEncoder::Utf16;
+					}
+					else if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_REVERSE_CONTROLS))
+					{
+						encoding=BomEncoder::Utf16BE;
+					}
+					else
+					{
+						if(!roughUtf8)
+						{
+							if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_STATISTICS))
+							{
+								encoding=BomEncoder::Utf16;
+							}
+							else if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_STATISTICS))
+							{
+								encoding=BomEncoder::Utf16BE;
+							}
+						}
+						else if(GetEncodingResult(tests, results, IS_TEXT_UNICODE_NOT_UNICODE_MASK))
+						{
+							encoding=BomEncoder::Utf8;
+						}
+						else if(roughUtf8||!roughMbcs)
+						{
+							encoding=BomEncoder::Utf8;
+						}
+					}
+				}
+				containsBom=encoding==BomEncoder::Mbcs;
+			}
 		}
 	}
 }

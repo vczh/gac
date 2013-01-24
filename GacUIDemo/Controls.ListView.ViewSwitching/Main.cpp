@@ -107,7 +107,7 @@ FillData
 void FillList(GuiListView* listView, const WString& path, List<WString>& files)
 {
 	// Fill all information about a directory or a file.
-	FOREACH(WString, file, files.Wrap())
+	FOREACH(WString, file, files)
 	{
 		Ptr<list::ListViewItem> item=new list::ListViewItem;
 		WString fullPath=path+L"\\"+file;

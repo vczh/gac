@@ -68,6 +68,7 @@ typedef signed __int64	pos_t;
 
 #ifndef _MSC_VER
 #define override
+#define abstract
 #endif
 
 #define VCZH_NO_OLD_OS
@@ -630,8 +631,8 @@ namespace vl
 	extern vint					wtoi(const WString& string);
 	extern __int64				atoi64(const AString& string);
 	extern __int64				wtoi64(const WString& string);
-	extern vuint			atou(const AString& string);
-	extern vuint			wtou(const WString& string);
+	extern vuint				atou(const AString& string);
+	extern vuint				wtou(const WString& string);
 	extern unsigned __int64		atou64(const AString& string);
 	extern unsigned __int64		wtou64(const WString& string);
 	extern double				atof(const AString& string);
@@ -4892,6 +4893,303 @@ vl::Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		}
 	};
  
+	namespace function_lambda
+	{
+		template<typename T>
+		struct LambdaRetriveType
+		{
+			typedef vint Type;
+			typedef vint ResultType;
+		};
+ 
+		template<typename T>
+		struct FunctionObjectRetriveType
+		{
+			typedef typename LambdaRetriveType<decltype(&T::operator())>::Type Type;
+			typedef typename LambdaRetriveType<decltype(&T::operator())>::ResultType ResultType;
+		};
+ 
+/***********************************************************************
+vl::Func<R()>
+***********************************************************************/
+ 
+		template<typename TObject, typename R >
+		struct LambdaRetriveType<R (__thiscall TObject::*)()const>
+		{
+			typedef Func<R()> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R >
+		struct LambdaRetriveType<R (__thiscall TObject::*)()>
+		{
+			typedef Func<R()> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R >
+		struct FunctionObjectRetriveType<R(*)()>
+		{
+			typedef Func<R()> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0)const>
+		{
+			typedef Func<R(T0)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0)>
+		{
+			typedef Func<R(T0)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0>
+		struct FunctionObjectRetriveType<R(*)(T0)>
+		{
+			typedef Func<R(T0)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1)const>
+		{
+			typedef Func<R(T0,T1)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1)>
+		{
+			typedef Func<R(T0,T1)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1>
+		struct FunctionObjectRetriveType<R(*)(T0,T1)>
+		{
+			typedef Func<R(T0,T1)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2)const>
+		{
+			typedef Func<R(T0,T1,T2)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2)>
+		{
+			typedef Func<R(T0,T1,T2)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2)>
+		{
+			typedef Func<R(T0,T1,T2)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3)const>
+		{
+			typedef Func<R(T0,T1,T2,T3)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3)>
+		{
+			typedef Func<R(T0,T1,T2,T3)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3)>
+		{
+			typedef Func<R(T0,T1,T2,T3)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3,T4)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4)const>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3,T4,T5)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5)const>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3,T4,T5,T6)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6)const>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7)const>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6,T7)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8)const>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> Type;
+			typedef R ResultType;
+		};
+ /***********************************************************************
+vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+***********************************************************************/
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)const>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename TObject, typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> Type;
+			typedef R ResultType;
+		};
+ 
+		template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+		{
+			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> Type;
+			typedef R ResultType;
+		};
+ 
+ 
+		template<typename T>
+		typename LambdaRetriveType<decltype(&T::operator())>::Type Lambda(T functionObject)
+		{
+			return functionObject;
+		}
+		template<typename T>
+		typename FunctionObjectRetriveType<T>::Type ConvertToFunction(T functionObject)
+		{
+			return functionObject;
+		}
+#define LAMBDA vl::function_lambda::Lambda
+#define FUNCTION vl::function_lambda::ConvertToFunction
+#define FUNCTION_TYPE(T) typename vl::function_lambda::FunctionObjectRetriveType<T>::Type
+#define FUNCTION_RESULT_TYPE(T) typename vl::function_lambda::FunctionObjectRetriveType<T>::ResultType
+	}
 	namespace function_binding
 	{
 		template<typename T>
@@ -6182,14 +6480,6 @@ Data Structure::Interfaces
 Interfaces:
 	IEnumerator<T>									：枚举器
 	IEnumerable<T>									：可枚举对象
-	IReadonlyList<T>								：只读列表
-	IArray<T>										：数组
-	ICollection<T>									：集合
-	IList<T>										：列表
-	IReadonlyDictionary<K,V>						：只读映射
-	IDictionary<K,V>								：映射
-	IReadonlyGroup<K,V>								：只读多重映射
-	IGroup<K,V>										：多重映射
 ***********************************************************************/
 
 #ifndef VCZH_COLLECTIONS_INTERFACES
@@ -6213,7 +6503,6 @@ namespace vl
 			virtual const T&							Current()const=0;
 			virtual vint								Index()const=0;
 			virtual bool								Next()=0;
-			virtual bool								Available()const=0;
 			virtual void								Reset()=0;
 		};
 
@@ -6221,514 +6510,53 @@ namespace vl
 		class IEnumerable : public virtual Interface
 		{
 		public:
+			typedef T									ElementType;
+
 			virtual IEnumerator<T>*						CreateEnumerator()const=0;
 		};
 
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class IReadonlyList : public virtual IEnumerable<T>
-		{
-		public:
-			virtual bool								Contains(const K& item)const=0;
-			virtual vint								Count()const=0;
-			virtual const T&							Get(vint index)const=0;
-			virtual const T&							operator[](vint index)const=0;
-			virtual vint								IndexOf(const K& item)const=0;
-		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class IArray : public virtual IReadonlyList<T, K>
-		{
-		public:
-			virtual void								Set(vint index, const T& item)=0;
-			virtual void								Resize(vint size)=0;
-		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class ICollection : public virtual IReadonlyList<T, K>
-		{
-		public:
-			virtual vint								Add(const T& item)=0;
-			virtual bool								Remove(const K& item)=0;
-			virtual bool								RemoveAt(vint index)=0;
-			virtual bool								RemoveRange(vint index, vint count)=0;
-			virtual bool								Clear()=0;
-		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class IList : public virtual ICollection<T, K>
-		{
-		public:
-			virtual vint								Insert(vint index, const T& item)=0;
-			virtual bool								Set(vint index, const T& item)=0;
-		};
-
-		template<typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class IReadonlyDictionary : public virtual IEnumerable<Pair<KT, VT>>
-		{
-		public:
-			virtual const IReadonlyList<KT, KK>&		Keys()const=0;
-			virtual const IReadonlyList<VT, VK>&		Values()const=0;
-			virtual vint								Count()const=0;
-			virtual const VT&							Get(const KK& key)const=0;
-			virtual const VT&							operator[](const KK& key)const=0;
-		};
-
-		template<typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class IDictionary : public virtual IReadonlyDictionary<KT, VT, KK, VK>
-		{
-		public:
-			virtual bool								Set(const KK& key, const VT& value)=0;
-			virtual bool								Add(const KT& key, const VT& value)=0;
-			virtual bool								Remove(const KK& key)=0;
-			virtual bool								Clear()=0;
-		};
-
-		template<typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class IReadonlyGroup : public virtual IEnumerable<Pair<KT, VT>>
-		{
-		public:
-			virtual const IReadonlyList<KT, KK>&		Keys()const=0;
-			virtual vint								Count()const=0;
-			virtual const IReadonlyList<VT, VK>&		Get(const KK& key)const=0;
-			virtual const IReadonlyList<VT, VK>&		GetByIndex(vint index)const=0;
-			virtual const IReadonlyList<VT, VK>&		operator[](const KK& key)const=0;
-			virtual bool								Contains(const KK& key)const=0;
-			virtual bool								Contains(const KK& key, const VK& value)const=0;
-		};
-
-		template<typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class IGroup: public virtual IReadonlyGroup<KT, VT, KK, VK>
-		{
-		public:
-			virtual bool								Add(const KT& key, const VT& value)=0;
-			virtual bool								Remove(const KK& key)=0;
-			virtual bool								Remove(const KK& key, const VK& value)=0;
-			virtual bool								Clear()=0;
-		};
-	}
-}
-
-#endif
-
 /***********************************************************************
-COMMON\SOURCE\COLLECTIONS\LISTWRAPPERS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::List Wrappers
-
-Classes:
-	ReadonlyListEnumerator<T>
-	ReadonlyListConverter<T>
-	ReadonlyListWrapper<T>
-	ArrayWrapper<T>
-	CollectionWrapper<T>
-	ListWrapper<T>
+随机存取
 ***********************************************************************/
 
-#ifndef VCZH_COLLECTIONS_LISTWRAPPERS
-#define VCZH_COLLECTIONS_LISTWRAPPERS
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-代理
-***********************************************************************/
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class ReadonlyListEnumerator : public Object, public virtual IEnumerator<T>
+		namespace randomaccess_internal
 		{
-		private:
-			const IReadonlyList<T, K>*			container;
-			vint									index;
-		public:
-			ReadonlyListEnumerator(const IReadonlyList<T, K>* _container, vint _index)
+			template<typename T>
+			struct RandomAccessable
 			{
-				container=_container;
-				index=_index;
-			}
+				static const bool							CanRead = false;
+				static const bool							CanResize = false;
+			};
 
-			ReadonlyListEnumerator<T>* Clone()const
+			template<typename T>
+			struct RandomAccess
 			{
-				return new ReadonlyListEnumerator<T, K>(container, index);
-			}
-
-			const T& Current()const
-			{
-				return container->Get(index);
-			}
-
-			vint Index()const
-			{
-				return index;
-			}
-
-			bool Next()
-			{
-				index++;
-				return Available();
-			}
-
-			bool Available()const
-			{
-				return index>=0 && index<container->Count();
-			}
-
-			void Reset()
-			{
-				index=0;
-			}
-		};
-
-		template<typename C, typename T, typename K=typename KeyType<T>::Type>
-		class ReadonlyListWrapper : public Object, public virtual IReadonlyList<T, K>
-		{
-		private:
-			C*									container;
-		public:
-			ReadonlyListWrapper(C* _container=0)
-			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new ReadonlyListEnumerator<T, K>(this, 0);
-			}
-
-			bool Contains(const K& item)const
-			{
-				return container->Contains(item);
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const T& Get(vint index)const
-			{
-				return container->Get(index);
-			}
-
-			const T& operator[](vint index)const
-			{
-				return container->operator[](index);
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				return container->IndexOf(item);
-			}
-		};
-
-		template<typename C, typename T, typename K=typename KeyType<T>::Type>
-		class ArrayWrapper : public Object, public virtual IArray<T, K>
-		{
-		private:
-			C*									container;
-		public:
-			ArrayWrapper(C* _container=0)
-			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new ReadonlyListEnumerator<T, K>(this, 0);
-			}
-
-			bool Contains(const K& item)const
-			{
-				return container->Contains(item);
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const T& Get(vint index)const
-			{
-				return container->Get(index);
-			}
-
-			const T& operator[](vint index)const
-			{
-				return container->operator[](index);
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				return container->IndexOf(item);
-			}
-
-			void Set(vint index, const T& item)
-			{
-				container->Set(index, item);
-			}
-
-			void Resize(vint size)
-			{
-				container->Resize(size);
-			}
-		};
-
-		template<typename C, typename T, typename K=KeyType<T>::Type>
-		class CollectionWrapper : public Object, public virtual ICollection<T, K>
-		{
-		private:
-			C*									container;
-		public:
-			CollectionWrapper(C* _container=0)
-			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new ReadonlyListEnumerator<T, K>(this, 0);
-			}
-
-			bool Contains(const K& item)const
-			{
-				return container->Contains(item);
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const T& Get(vint index)const
-			{
-				return container->Get(index);
-			}
-
-			const T& operator[](vint index)const
-			{
-				return container->operator[](index);
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				return container->IndexOf(item);
-			}
-
-			vint Add(const T& item)
-			{
-				return container->Add(item);
-			}
-
-			bool Remove(const K& item)
-			{
-				return container->Remove(item);
-			}
-
-			bool RemoveAt(vint index)
-			{
-				return container->RemoveAt(index);
-			}
-
-			bool RemoveRange(vint index, vint count)
-			{
-				return container->RemoveRange(index, count);
-			}
-
-			bool Clear()
-			{
-				return container->Clear();
-			}
-		};
-
-		template<typename C, typename T, typename K=KeyType<T>::Type>
-		class ListWrapper : public Object, public virtual IList<T, K>
-		{
-		private:
-			C*									container;
-		public:
-			ListWrapper(C* _container=0)
-			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new ReadonlyListEnumerator<T, K>(this, 0);
-			}
-
-			bool Contains(const K& item)const
-			{
-				return container->Contains(item);
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const T& Get(vint index)const
-			{
-				return container->Get(index);
-			}
-
-			const T& operator[](vint index)const
-			{
-				return container->operator[](index);
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				return container->IndexOf(item);
-			}
-
-			vint Add(const T& item)
-			{
-				return container->Add(item);
-			}
-
-			bool Remove(const K& item)
-			{
-				return container->Remove(item);
-			}
-
-			bool RemoveAt(vint index)
-			{
-				return container->RemoveAt(index);
-			}
-
-			bool RemoveRange(vint index, vint count)
-			{
-				return container->RemoveRange(index, count);
-			}
-
-			bool Clear()
-			{
-				return container->Clear();
-			}
-
-			vint Insert(vint index, const T& item)
-			{
-				return container->Insert(index, item);
-			}
-
-			bool Set(vint index, const T& item)
-			{
-				return container->Set(index, item);
-			}
-		};
-
-/***********************************************************************
-类型转换代理
-***********************************************************************/
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class ReadonlyListImplBase : public virtual IReadonlyList<T, K>
-		{
-		public:
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new ReadonlyListEnumerator<T, K>(this, 0);
-			}
-
-			bool Contains(const K& item)const
-			{
-				return IndexOf(item)!=-1;
-			}
-
-			const T& operator[](vint index)const
-			{
-				return Get(index);
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				vint count=Count();
-				for(vint i=0;i<count;i++)
+				static vint GetCount(const T& t)
 				{
-					if(Get(i)==item)
-					{
-						return i;
-					}
+					return t.Count();
 				}
-				return -1;
-			}
-		};
 
-		template<typename TS, typename TD, typename KS=typename KeyType<TS>::Type, typename KD=typename KeyType<TD>::Type>
-		class ReadonlyListConverterBase : protected ReadonlyListImplBase<TD, KD>
-		{
-		private:
-			IReadonlyList<TS, KS>*				container;
+				static const typename T::ElementType& GetValue(const T& t, vint index)
+				{
+					return t.Get(index);
+				}
 
-		protected:
-			ReadonlyListConverterBase()
-				:container(0)
-			{
-			}
+				static void SetCount(T& t, vint count)
+				{
+					t.Resize(count);
+				}
 
-			vint Count()const
-			{
-				return container->Count();
-			}
+				static void SetValue(T& t, vint index, const typename T::ElementType& value)
+				{
+					t.Set(index, value);
+				}
 
-			const TD& Get(vint index)const
-			{
-				return Convert(container->Get(index));
-			}
-
-			void SetContainer(IReadonlyList<TS, KS>* _container)
-			{
-				container=_container;
-			}
-
-			virtual const TD& Convert(const TS& value)const;
-		};
+				static void AppendValue(T& t, const typename T::ElementType& value)
+				{
+					t.Add(value);
+				}
+			};
+		}
 	}
 }
 
@@ -6770,7 +6598,7 @@ namespace vl
 		};
 		
 		template<typename T>
-		class ListStore<T,false> abstract : public Object
+		class ListStore<T, false> abstract : public Object
 		{
 		protected:
 			static void CopyObjects(T* dest, const T* source, vint count)
@@ -6802,7 +6630,7 @@ namespace vl
 		};
 		
 		template<typename T>
-		class ListStore<T,true> abstract : public Object
+		class ListStore<T, true> abstract : public Object
 		{
 		protected:
 			static void CopyObjects(T* dest, const T* source, vint count)
@@ -6818,14 +6646,88 @@ namespace vl
 			}
 		public:
 		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class ListBase abstract : public ListStore<T,POD<T>::Result>
+		
+		template<typename T>
+		class ArrayBase abstract : public ListStore<T,POD<T>::Result>, public virtual IEnumerable<T>
 		{
 		protected:
-			vint						count;
-			vint						capacity;
+			class Enumerator : public Object, public virtual IEnumerator<T>
+			{
+			private:
+				const ArrayBase<T>*				container;
+				vint							index;
+
+			public:
+				Enumerator(const ArrayBase<T>* _container, vint _index=-1)
+				{
+					container=_container;
+					index=_index;
+				}
+
+				IEnumerator<T>* Clone()const
+				{
+					return new Enumerator(container, index);
+				}
+
+				const T& Current()const
+				{
+					return container->Get(index);
+				}
+
+				vint Index()const
+				{
+					return index;
+				}
+
+				bool Next()
+				{
+					index++;
+					return index>=0 && index<container->Count();
+				}
+
+				void Reset()
+				{
+					index=-1;
+				}
+			};
+			
 			T*						buffer;
+			vint					count;
+		public:
+			ArrayBase()
+				:buffer(0)
+				,count(0)
+			{
+			}
+
+			IEnumerator<T>* CreateEnumerator()const
+			{
+				return new Enumerator(this);
+			}
+
+			vint Count()const
+			{
+				return count;
+			}
+
+			const T& Get(vint index)const
+			{
+				CHECK_ERROR(index>=0 && index<count, L"ArrayBase<T, K>::Get(vint)#参数越界。");
+				return buffer[index];
+			}
+
+			const T& operator[](vint index)const
+			{
+				CHECK_ERROR(index>=0 && index<count, L"ArrayBase<T, K>::operator[](vint)#参数index越界。");
+				return buffer[index];
+			}
+		};
+
+		template<typename T, typename K=typename KeyType<T>::Type>
+		class ListBase abstract : public ArrayBase<T>
+		{
+		protected:
+			vint					capacity;
 			bool					lessMemoryMode;
 
 			vint CalculateCapacity(vint expected)
@@ -6896,23 +6798,6 @@ namespace vl
 				lessMemoryMode=mode;
 			}
 
-			vint Count()const
-			{
-				return count;
-			}
-
-			const T& Get(vint index)const
-			{
-				CHECK_ERROR(index>=0 && index<count, L"ListBase<T, K>::Get(vint)#参数越界。");
-				return buffer[index];
-			}
-
-			const T& operator[](vint index)const
-			{
-				CHECK_ERROR(index>=0 && index<count, L"ListBase<T, K>::operator[](vint)#参数index越界。");
-				return buffer[index];
-			}
-
 			bool RemoveAt(vint index)
 			{
 				vint previousCount=count;
@@ -6957,13 +6842,9 @@ namespace vl
 ***********************************************************************/
 
 		template<typename T, typename K=typename KeyType<T>::Type>
-		class Array : public ListStore<T, POD<T>::Result>, private NotCopyable
+		class Array : public ArrayBase<T>
 		{
 		protected:
-			vint								count;
-			T*								buffer;
-			mutable ArrayWrapper<Array<T, K>, T, K>		wrapper;
-
 			void Create(vint size)
 			{
 				if(size>0)
@@ -6987,13 +6868,11 @@ namespace vl
 		public:
 			Array(vint size=0)
 			{
-				wrapper.SetContainer(this);
 				Create(size);
 			}
 
 			Array(const T* _buffer, vint size)
 			{
-				wrapper.SetContainer(this);
 				Create(size);
 				CopyObjects(buffer, _buffer, size);
 			}
@@ -7006,23 +6885,6 @@ namespace vl
 			bool Contains(const K& item)const
 			{
 				return IndexOf(item)!=-1;
-			}
-
-			vint Count()const
-			{
-				return count;
-			}
-
-			const T& Get(vint index)const
-			{
-				CHECK_ERROR(index>=0 && index<count, L"Array<T, K>::Get(vint)#参数越界。");
-				return buffer[index];
-			}
-
-			const T& operator[](vint index)const
-			{
-				CHECK_ERROR(index>=0 && index<count, L"Array<T, K>::operator[](vint)#参数index越界。");
-				return buffer[index];
 			}
 
 			vint IndexOf(const K& item)const
@@ -7057,22 +6919,14 @@ namespace vl
 				CopyObjects(buffer, oldBuffer, (count<oldCount?count:oldCount));
 				delete[] oldBuffer;
 			}
-
-			IArray<T, K>& Wrap()const
-			{
-				return wrapper;
-			}
 		};
 
 		template<typename T, typename K=typename KeyType<T>::Type>
-		class List : public ListBase<T, K>, private NotCopyable
+		class List : public ListBase<T, K>
 		{
-		protected:
-			mutable ListWrapper<List<T, K>, T, K>	wrapper;
 		public:
 			List()
 			{
-				wrapper.SetContainer(this);
 			}
 
 			bool Contains(const K& item)const
@@ -7133,22 +6987,14 @@ namespace vl
 				CHECK_ERROR(index>=0 && index<count, L"List<T, K>::operator[](vint)#参数index越界。");
 				return buffer[index];
 			}
-
-			IList<T, K>& Wrap()const
-			{
-				return wrapper;
-			}
 		};
 
 		template<typename T, typename K=typename KeyType<T>::Type>
-		class SortedList : public ListBase<T, K>, private NotCopyable
+		class SortedList : public ListBase<T, K>
 		{
-		protected:
-			mutable CollectionWrapper<SortedList<T, K>, T, K>	wrapper;
 		public:
 			SortedList()
 			{
-				wrapper.SetContainer(this);
 			}
 
 			bool Contains(const K& item)const
@@ -7239,518 +7085,35 @@ SORTED_LIST_INSERT:
 					return false;
 				}
 			}
-
-			ICollection<T, K>& Wrap()const
-			{
-				return wrapper;
-			}
 		};
 
 /***********************************************************************
-容器复制模板
+随机访问
 ***********************************************************************/
 
-		template<typename A, typename B>
-		void CopyToCollection(A& dst, const B& src, bool append=false)
+		namespace randomaccess_internal
 		{
-			if(!append)dst.Clear();
-			vint count=src.Count();
-			for(vint i=0;i<count;i++)
+			template<typename T, typename K>
+			struct RandomAccessable<Array<T, K>>
 			{
-				dst.Add(src.Get(i));
-			}
-		}
-
-		template<typename A, typename B>
-		void CopyToArray(A& dst, const B& src, bool append=false)
-		{
-			vint start=0;
-			vint count=src.Count();
-			if(append)
-			{
-				start=dst.Count();
-				dst.Resize(start+count);
-			}
-			else
-			{
-				dst.Resize(count);
-			}
-			for(vint i=0;i<count;i++)
-			{
-				dst[start+i]=src.Get(i);
-			}
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-COMMON\SOURCE\COLLECTIONS\DICTIONARYWRAPPERS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Dictionary Wrappers
-
-Classes:
-	ReadonlyDictionaryWrapper<V,K>
-	DictionaryWrapper<V,K>
-	ReadonlyGroupWrapper<V,K>
-	GroupWrapper<V,K>
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_DICTIONARYWRAPPERS
-#define VCZH_COLLECTIONS_DICTIONARYWRAPPERS
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-代理
-***********************************************************************/
-
-		template<typename C, typename KT, typename VT, typename KK, typename VK>
-		class DictionaryWrapper;
-		
-		template<typename C, typename KT, typename VT, typename KK, typename VK>
-		class GroupWrapper;
-
-		template<typename C, typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class ReadonlyDictionaryWrapper : public Object, public virtual IReadonlyDictionary<KT, VT, KK, VK>
-		{
-			friend class DictionaryWrapper<C, KT, VT, KK, VK>;
-		private:
-			class Enumerator : public Object, public virtual IEnumerator<Pair<KT, VT>>
-			{
-			private:
-				const IReadonlyDictionary<KT, VT, KK, VK>*	container;
-				vint											index;
-				Pair<KT, VT>								current;
-
-				void UpdateCurrent()
-				{
-					if(index<container->Count())
-					{
-						current.key=container->Keys()[index];
-						current.value=container->Values()[index];
-					}
-				}
-			public:
-				Enumerator(const IReadonlyDictionary* _container, vint _index=0)
-				{
-					container=_container;
-					index=_index;
-					UpdateCurrent();
-				}
-				
-				IEnumerator<Pair<KT, VT>>* Clone()const
-				{
-					return new Enumerator(container, index);
-				}
-
-				const Pair<KT, VT>& Current()const
-				{
-					return current;
-				}
-
-				vint Index()const
-				{
-					return index;
-				}
-
-				bool Next()
-				{
-					index++;
-					UpdateCurrent();
-					return Available();
-				}
-
-				bool Available()const
-				{
-					return index>=0 && index<container->Count();
-				}
-
-				void Reset()
-				{
-					index=0;
-					UpdateCurrent();
-				}
+				static const bool							CanRead = true;
+				static const bool							CanResize = true;
 			};
 
-			C*						container;
-		public:
-			ReadonlyDictionaryWrapper(C* _container=0)
+			template<typename T, typename K>
+			struct RandomAccessable<List<T, K>>
 			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<Pair<KT, VT>>* CreateEnumerator()const
-			{
-				return new Enumerator(this);
-			}
-
-			const IReadonlyList<KT, KK>& Keys()const
-			{
-				return container->Keys();
-			}
-
-			const IReadonlyList<VT, VK>& Values()const
-			{
-				return container->Values();
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const VT& Get(const KK& key)const
-			{
-				return container->Get(key);
-			}
-
-			const VT& operator[](const KK& key)const
-			{
-				return container->operator[](key);
-			}
-		};
-
-		template<typename C, typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class DictionaryWrapper : public Object, public virtual IDictionary<KT, VT, KK, VK>
-		{
-		private:
-			C*						container;
-		public:
-			DictionaryWrapper(C* _container=0)
-			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<Pair<KT, VT>>* CreateEnumerator()const
-			{
-				return new ReadonlyDictionaryWrapper<C, KT, VT, KK, VK>::Enumerator(this);
-			}
-
-			const IReadonlyList<KT, KK>& Keys()const
-			{
-				return container->Keys();
-			}
-
-			const IReadonlyList<VT, VK>& Values()const
-			{
-				return container->Values();
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const VT& Get(const KK& key)const
-			{
-				return container->Get(key);
-			}
-
-			const VT& operator[](const KK& key)const
-			{
-				return container->operator[](key);
-			}
-
-			bool Set(const KK& key, const VT& value)
-			{
-				return container->Set(key, value);
-			}
-
-			bool Add(const KT& key, const VT& value)
-			{
-				return container->Add(key, value);
-			}
-
-			bool Remove(const KK& key)
-			{
-				return container->Remove(key);
-			}
-
-			bool Clear()
-			{
-				return container->Clear();
-			}
-		};
-
-		template<typename C, typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class ReadonlyGroupWrapper : public Object, public virtual IReadonlyGroup<KT, VT, KK, VK>
-		{
-			friend class GroupWrapper<C, KT, VT, KK, VK>;
-		private:
-			class Enumerator : public Object, public virtual IEnumerator<Pair<KT, VT>>
-			{
-			private:
-				const IReadonlyGroup<KT, VT, KK, VK>*		container;
-				vint											keyIndex;
-				vint											valueIndex;
-				Pair<KT, VT>								current;
-
-				void UpdateCurrent()
-				{
-					if(keyIndex<container->Count())
-					{
-						const IReadonlyList<VT, VK>& values=container->GetByIndex(keyIndex);
-						if(valueIndex<values.Count())
-						{
-							current.key=container->Keys()[keyIndex];
-							current.value=values[valueIndex];
-						}
-					}
-				}
-			public:
-				Enumerator(const IReadonlyGroup* _container, vint _keyIndex=0, vint _valueIndex=0)
-				{
-					container=_container;
-					keyIndex=_keyIndex;
-					valueIndex=_valueIndex;
-					UpdateCurrent();
-				}
-				
-				IEnumerator<Pair<KT, VT>>* Clone()const
-				{
-					return new Enumerator(container, keyIndex, valueIndex);
-				}
-
-				const Pair<KT, VT>& Current()const
-				{
-					return current;
-				}
-
-				vint Index()const
-				{
-					if(Available())
-					{
-						vint index=0;
-						for(vint i=0;i<keyIndex;i++)
-						{
-							index+=container->GetByIndex(i).Count();
-						}
-						return index+valueIndex;
-					}
-					else
-					{
-						return -1;
-					}
-				}
-
-				bool Next()
-				{
-					if(keyIndex<container->Count())
-					{
-						const IReadonlyList<VT, VK>& values=container->GetByIndex(keyIndex);
-						valueIndex++;
-						if(valueIndex<values.Count())
-						{
-							UpdateCurrent();
-							return true;
-						}
-						else
-						{
-							keyIndex++;
-							valueIndex=0;
-							UpdateCurrent();
-							return keyIndex<container->Count();
-						}
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool Available()const
-				{
-					if(keyIndex<container->Count())
-					{
-						const IReadonlyList<VT, VK>& values=container->GetByIndex(keyIndex);
-						if(valueIndex<values.Count())
-						{
-							return true;
-						}
-					}
-					return false;
-				}
-
-				void Reset()
-				{
-					keyIndex=0;
-					valueIndex=0;
-					UpdateCurrent();
-				}
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
 			};
 
-			C*									container;
-		public:
-			ReadonlyGroupWrapper(C* _container=0)
+			template<typename T, typename K>
+			struct RandomAccessable<SortedList<T, K>>
 			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<Pair<KT, VT>>* CreateEnumerator()const
-			{
-				return new Enumerator(this);
-			}
-
-			const IReadonlyList<KT, KK>& Keys()const
-			{
-				return container->Keys();
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const IReadonlyList<VT, VK>& Get(const KK& key)const
-			{
-				return container->Get(key);
-			}
-
-			const IReadonlyList<VT, VK>& GetByIndex(vint index)const
-			{
-				return container->GetByIndex(index);
-			}
-
-			const IReadonlyList<VT, VK>& operator[](const KK& key)const
-			{
-				return container->operator[](key);
-			}
-
-			bool Contains(const KK& key)const
-			{
-				return container->Contains(key);
-			}
-
-			bool Contains(const KK& key, const VK& value)const
-			{
-				return container->Contains(key, value);
-			}
-		};
-
-		template<typename C, typename KT, typename VT, typename KK=typename KeyType<KT>::Type, typename VK=typename KeyType<VT>::Type>
-		class GroupWrapper : public Object, public virtual IGroup<KT, VT, KK, VK>
-		{
-		private:
-			C*									container;
-		public:
-			GroupWrapper(C* _container=0)
-			{
-				container=_container;
-			}
-
-			C* GetContainer()
-			{
-				return container;
-			}
-
-			void SetContainer(C* _container)
-			{
-				container=_container;
-			}
-
-			IEnumerator<Pair<KT, VT>>* CreateEnumerator()const
-			{
-				return new ReadonlyGroupWrapper<C, KT, VT, KK, VK>::Enumerator(this);
-			}
-
-			const IReadonlyList<KT, KK>& Keys()const
-			{
-				return container->Keys();
-			}
-
-			vint Count()const
-			{
-				return container->Count();
-			}
-
-			const IReadonlyList<VT, VK>& Get(const KK& key)const
-			{
-				return container->Get(key);
-			}
-
-			const IReadonlyList<VT, VK>& GetByIndex(vint index)const
-			{
-				return container->GetByIndex(index);
-			}
-
-			const IReadonlyList<VT, VK>& operator[](const KK& key)const
-			{
-				return container->operator[](key);
-			}
-
-			bool Contains(const KK& key)const
-			{
-				return container->Contains(key);
-			}
-
-			bool Contains(const KK& key, const VK& value)const
-			{
-				return container->Contains(key, value);
-			}
-
-			bool Add(const KT& key, const VT& value)
-			{
-				return container->Add(key, value);
-			}
-
-			bool Remove(const KK& key)
-			{
-				return container->Remove(key);
-			}
-
-			bool Remove(const KK& key, const VK& value)
-			{
-				return container->Remove(key, value);
-			}
-
-			bool Clear()
-			{
-				return container->Clear();
-			}
-		};
-
-/***********************************************************************
-类型转换代理
-***********************************************************************/
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		}
 	}
 }
 
@@ -7780,20 +7143,75 @@ namespace vl
 		template<
 			typename KT,
 			typename VT,
-			typename ValueContainer=List<VT, typename KeyType<VT>::Type>,
 			typename KK=typename KeyType<KT>::Type, 
 			typename VK=typename KeyType<VT>::Type
 		>
-		class Dictionary : public Object, private NotCopyable
+		class Dictionary : public Object, public virtual IEnumerable<Pair<KT, VT>>
 		{
+			typedef SortedList<KT, KK>			KeyContainer;
+			typedef List<VT, VK>				ValueContainer;
 		protected:
-			SortedList<KT, KK>					keys;
+			class Enumerator : public Object, public virtual IEnumerator<Pair<KT, VT>>
+			{
+			private:
+				const Dictionary<KT, VT, KK, VK>*	container;
+				vint								index;
+				Pair<KT, VT>						current;
+
+				void UpdateCurrent()
+				{
+					if(index<container->Count())
+					{
+						current.key=container->Keys().Get(index);
+						current.value=container->Values().Get(index);
+					}
+				}
+			public:
+				Enumerator(const Dictionary<KT, VT, KK, VK>* _container, vint _index=-1)
+				{
+					container=_container;
+					index=_index;
+				}
+				
+				IEnumerator<Pair<KT, VT>>* Clone()const
+				{
+					return new Enumerator(container, index);
+				}
+
+				const Pair<KT, VT>& Current()const
+				{
+					return current;
+				}
+
+				vint Index()const
+				{
+					return index;
+				}
+
+				bool Next()
+				{
+					index++;
+					UpdateCurrent();
+					return index>=0 && index<container->Count();
+				}
+
+				void Reset()
+				{
+					index=-1;
+					UpdateCurrent();
+				}
+			};
+
+			KeyContainer						keys;
 			ValueContainer						values;
-			mutable DictionaryWrapper<Dictionary<KT, VT, ValueContainer, KK, VK>, KT, VT, KK, VK>	wrapper;
 		public:
 			Dictionary()
 			{
-				wrapper.SetContainer(this);
+			}
+
+			IEnumerator<Pair<KT, VT>>* CreateEnumerator()const
+			{
+				return new Enumerator(this);
 			}
 
 			void SetLessMemoryMode(bool mode)
@@ -7802,38 +7220,14 @@ namespace vl
 				values.SetLessMemoryMode(mode);
 			}
 
-			template<typename T>
-			void CopyKeysToCollection(T& dst, bool append=false)const
+			const KeyContainer& Keys()const
 			{
-				CopyToCollection(dst, keys, append);
+				return keys;
 			}
 
-			template<typename T>
-			void CopyKeysToArray(T& dst, bool append=false)const
+			const ValueContainer& Values()const
 			{
-				CopyToArray(dst, keys, append);
-			}
-
-			template<typename T>
-			void CopyValuesToCollection(T& dst, bool append=false)const
-			{
-				CopyToCollection(dst, values, append);
-			}
-
-			template<typename T>
-			void CopyValuesToArray(T& dst, bool append=false)const
-			{
-				CopyToArray(dst, values, append);
-			}
-
-			const IReadonlyList<KT, KK>& Keys()const
-			{
-				return keys.Wrap();
-			}
-
-			const IReadonlyList<VT, VK>& Values()const
-			{
-				return values.Wrap();
+				return values;
 			}
 
 			vint Count()const
@@ -7866,6 +7260,11 @@ namespace vl
 				return true;
 			}
 
+			bool Add(const Pair<KT, VT>& value)
+			{
+				return Add(value.key, value.value);
+			}
+
 			bool Add(const KT& key, const VT& value)
 			{
 				CHECK_ERROR(!keys.Contains(key), L"Dictionary<KT, KK, ValueContainer, VT, VK>::Add(const KT&, const VT&)#key已存在。");
@@ -7895,30 +7294,111 @@ namespace vl
 				values.Clear();
 				return true;
 			}
-
-			IDictionary<KT, VT, KK, VK>& Wrap()const
-			{
-				return wrapper;
-			}
 		};
 
 		template<
 			typename KT,
 			typename VT,
-			typename ValueContainer=List<VT, typename KeyType<VT>::Type>,
 			typename KK=typename KeyType<KT>::Type,
 			typename VK=typename KeyType<VT>::Type
 		>
-		class Group : public Object, private NotCopyable
+		class Group : public Object, public virtual IEnumerable<Pair<KT, VT>>
 		{
+			typedef SortedList<KT, KK>		KeyContainer;
+			typedef List<VT, VK>			ValueContainer;
 		protected:
-			SortedList<KT, KK>				keys;
+			class Enumerator : public Object, public virtual IEnumerator<Pair<KT, VT>>
+			{
+			private:
+				const Group<KT, VT, KK, VK>*		container;
+				vint								keyIndex;
+				vint								valueIndex;
+				Pair<KT, VT>						current;
+
+				void UpdateCurrent()
+				{
+					if(keyIndex<container->Count())
+					{
+						const ValueContainer& values=container->GetByIndex(keyIndex);
+						if(valueIndex<values.Count())
+						{
+							current.key=container->Keys().Get(keyIndex);
+							current.value=values.Get(valueIndex);
+						}
+					}
+				}
+			public:
+				Enumerator(const Group<KT, VT, KK, VK>* _container, vint _keyIndex=-1, vint _valueIndex=-1)
+				{
+					container=_container;
+					keyIndex=_keyIndex;
+					valueIndex=_valueIndex;
+				}
+				
+				IEnumerator<Pair<KT, VT>>* Clone()const
+				{
+					return new Enumerator(container, keyIndex, valueIndex);
+				}
+
+				const Pair<KT, VT>& Current()const
+				{
+					return current;
+				}
+
+				vint Index()const
+				{
+					if(0<=keyIndex && keyIndex<container->Count())
+					{
+						vint index=0;
+						for(vint i=0;i<keyIndex;i++)
+						{
+							index+=container->GetByIndex(i).Count();
+						}
+						return index+valueIndex;
+					}
+					else
+					{
+						return -1;
+					}
+				}
+
+				bool Next()
+				{
+					if(keyIndex==-1)
+					{
+						keyIndex=0;
+					}
+					while(keyIndex<container->Count())
+					{
+						valueIndex++;
+						const ValueContainer& values=container->GetByIndex(keyIndex);
+						if(valueIndex<values.Count())
+						{
+							UpdateCurrent();
+							return true;
+						}
+						else
+						{
+							keyIndex++;
+							valueIndex=-1;
+						}
+					}
+					return false;
+				}
+
+				void Reset()
+				{
+					keyIndex=-1;
+					valueIndex=-1;
+					UpdateCurrent();
+				}
+			};
+
+			KeyContainer					keys;
 			List<ValueContainer*>			values;
-			mutable GroupWrapper<Group<KT, VT, ValueContainer, KK, VK>, KT, VT, KK, VK>	wrapper;
 		public:
 			Group()
 			{
-				wrapper.SetContainer(this);
 			}
 
 			~Group()
@@ -7926,33 +7406,14 @@ namespace vl
 				Clear();
 			}
 
-			template<typename T>
-			void CopyKeysToCollection(T& dst, bool append=false)const
+			IEnumerator<Pair<KT, VT>>* CreateEnumerator()const
 			{
-				CopyToCollection(dst, keys, append);
+				return new Enumerator(this);
 			}
 
-			template<typename T>
-			void CopyKeysToArray(T& dst, bool append=false)const
+			const KeyContainer& Keys()const
 			{
-				CopyToArray(dst, keys, append);
-			}
-
-			template<typename T>
-			void CopyValuesToCollection(vint index, T& dst, bool append=false)const
-			{
-				CopyToCollection(dst, *(values.Get(index)), append);
-			}
-
-			template<typename T>
-			void CopyValuesToArray(vint index, T& dst, bool append=false)const
-			{
-				CopyToArray(dst, *(values.Get(index)), append);
-			}
-
-			const IReadonlyList<KT, KK>& Keys()const
-			{
-				return keys.Wrap();
+				return keys;
 			}
 
 			vint Count()const
@@ -7960,19 +7421,19 @@ namespace vl
 				return keys.Count();
 			}
 
-			const IReadonlyList<VT, VK>& Get(const KK& key)const
+			const ValueContainer& Get(const KK& key)const
 			{
-				return values.Get(keys.IndexOf(key))->Wrap();
+				return *values.Get(keys.IndexOf(key));
 			}
 
-			const IReadonlyList<VT, VK>& GetByIndex(vint index)const
+			const ValueContainer& GetByIndex(vint index)const
 			{
-				return values.Get(index)->Wrap();
+				return *values.Get(index);
 			}
 
-			const IReadonlyList<VT, VK>& operator[](const KK& key)const
+			const ValueContainer& operator[](const KK& key)const
 			{
-				return values.Get(keys.IndexOf(key))->Wrap();
+				return *values.Get(keys.IndexOf(key));
 			}
 
 			bool Contains(const KK& key)const
@@ -7991,6 +7452,11 @@ namespace vl
 				{
 					return false;
 				}
+			}
+
+			bool Add(const Pair<KT, VT>& value)
+			{
+				return Add(value.key, value.value);
 			}
 
 			bool Add(const KT& key, const VT& value)
@@ -8058,12 +7524,39 @@ namespace vl
 				values.Clear();
 				return true;
 			}
-
-			IGroup<KT, VT, KK, VK>& Wrap()const
-			{
-				return wrapper;
-			}
 		};
+
+/***********************************************************************
+随机访问
+***********************************************************************/
+		namespace randomaccess_internal
+		{
+			template<typename KT, typename VT, typename KK, typename VK>
+			struct RandomAccessable<Dictionary<KT, VT, KK, VK>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		
+			template<typename KT, typename VT, typename KK, typename VK>
+			struct RandomAccess<Dictionary<KT, VT, KK, VK>>
+			{
+				static vint GetCount(const Dictionary<KT, VT, KK, VK>& t)
+				{
+					return t.Count();
+				}
+
+				static Pair<KT, VT> GetValue(const Dictionary<KT, VT, KK, VK>& t, vint index)
+				{
+					return Pair<KT, VT>(t.Keys().Get(index), t.Values().Get(index));
+				}
+
+				static void AppendValue(Dictionary<KT, VT, KK, VK>& t, const Pair<KT, VT>& value)
+				{
+					t.Set(value.key, value.value);
+				}
+			};
+		}
 	}
 }
 
@@ -8092,240 +7585,141 @@ namespace vl
 容器复制
 ***********************************************************************/
 
-		template<typename T, typename K>
-		void CopyFrom(IArray<T, K>& dst, const IReadonlyList<T, K>& src, bool append=false)
+		namespace copyfrom_internal
 		{
-			vint start=0;
-			if(append)
-			{
-				start=dst.Count();
-				dst.Resize(start+src.Count());
-			}
-			else
-			{
-				dst.Resize(src.Count());
-			}
-			vint srcCount=src.Count();
-			for(vint i=0;i<srcCount;i++)
-			{
-				dst.Set(start+i, src[i]);
-			}
-		}
+			using namespace randomaccess_internal;
 
-		template<typename T, typename K>
-		void CopyFrom(ICollection<T, K>& dst, const IReadonlyList<T, K>& src, bool append=false)
-		{
-			if(!append)
+			template<typename Ds, typename Ss, bool DsRA, bool SsRA>
+			struct CopyFromAlgorithm
 			{
-				dst.Clear();
-			}
-			vint srcCount=src.Count();
-			for(vint i=0;i<srcCount;i++)
-			{
-				dst.Add(src[i]);
-			}
-		}
+			};
 
-		template<typename KT, typename VT, typename KK, typename VK>
-		void CopyFrom(IDictionary<KT, VT, KK, VK>& dst, const IReadonlyList<Pair<KT, VT>>& src, bool append=false)
-		{
-			if(!append)
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, true, true>
 			{
-				dst.Clear();
-			}
-			vint srcCount=src.Count();
-			for(vint i=0;i<srcCount;i++)
-			{
-				const Pair<KT, VT>& pair=src[i];
-				dst.Set(pair.key, pair.value);
-			}
-		}
-
-		template<typename KT, typename VT, typename KK, typename VK>
-		void CopyFrom(IGroup<KT, VT, KK, VK>& dst, const IReadonlyList<Pair<KT, VT>>& src, bool append=false)
-		{
-			if(!append)
-			{
-				dst.Clear();
-			}
-			vint srcCount=src.Count();
-			for(vint i=0;i<srcCount;i++)
-			{
-				const Pair<KT, VT>& pair=src[i];
-				dst.Add(pair.key, pair.value);
-			}
-		}
-
-		template<typename T, typename K>
-		void CopyFrom(IArray<T, K>& dst, const IEnumerable<T>& src, bool append=false)
-		{
-			IEnumerator<T>* enumerator=src.CreateEnumerator();
-			try
-			{
-				vint count=0;
-				while(enumerator->Available())
+				static void Perform(Ds& ds, const Ss& ss, bool append)
 				{
-					count++;
-					enumerator->Next();
+					vint copyCount=RandomAccess<Ss>::GetCount(ss);
+					vint index=(append?RandomAccess<Ds>::GetCount(ds):0);
+					vint resizeCount=index+copyCount;
+					RandomAccess<Ds>::SetCount(ds, resizeCount);
+					for(vint i=0;i<copyCount;i++)
+					{
+						RandomAccess<Ds>::SetValue(ds, index+i, RandomAccess<Ss>::GetValue(ss, i));
+					}
 				}
-				enumerator->Reset();
-				vint start=0;
-				if(append)
-				{
-					start=dst.Count();
-					dst.Resize(start+count);
-				}
-				else
-				{
-					dst.Resize(count);
-				}
-				while(enumerator->Available())
-				{
-					dst.Set(start+enumerator->Index(), enumerator->Current());
-					enumerator->Next();
-				}
-				delete enumerator;
-			}
-			catch(...)
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, false, true>
 			{
-				delete enumerator;
-				throw;
-			}
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					if(!append)
+					{
+						ds.Clear();
+					}
+					vint copyCount=RandomAccess<Ss>::GetCount(ss);
+					for(vint i=0;i<copyCount;i++)
+					{
+						RandomAccess<Ds>::AppendValue(ds, RandomAccess<Ss>::GetValue(ss, i));
+					}
+				}
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, true, false>
+			{
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					Ptr<IEnumerator<typename Ss::ElementType>> enumerator;
+					vint copyCount=0;
+
+					enumerator=ss.CreateEnumerator();
+					while(enumerator->Next())
+					{
+						copyCount++;
+					}
+
+					vint index=(append?RandomAccess<Ds>::GetCount(ds):0);
+					vint resizeCount=index+copyCount;
+					RandomAccess<Ds>::SetCount(ds, resizeCount);
+
+					enumerator=ss.CreateEnumerator();
+					while(enumerator->Next())
+					{
+						RandomAccess<Ds>::SetValue(ds, index++, enumerator->Current());
+					}
+				}
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, false, false>
+			{
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					if(!append)
+					{
+						ds.Clear();
+					}
+					Ptr<IEnumerator<typename Ss::ElementType>> enumerator=ss.CreateEnumerator();
+					while(enumerator->Next())
+					{
+						RandomAccess<Ds>::AppendValue(ds, enumerator->Current());
+					}
+				}
+			};
+
+			template<typename T>
+			struct Slice
+			{
+				const T*	items;
+				vint		count;
+			};
 		}
 
-		template<typename T, typename K>
-		void CopyFrom(ICollection<T, K>& dst, const IEnumerable<T>& src, bool append=false)
+		namespace randomaccess_internal
 		{
-			IEnumerator<T>* enumerator=src.CreateEnumerator();
-			try
+			template<typename T>
+			struct RandomAccessable<copyfrom_internal::Slice<T>>
 			{
-				if(!append)
-				{
-					dst.Clear();
-				}
-				while(enumerator->Available())
-				{
-					dst.Add(enumerator->Current());
-					enumerator->Next();
-				}
-				delete enumerator;
-			}
-			catch(...)
+				static const bool							CanRead = true;
+				static const bool							CanResize = true;
+			};
+		
+			template<typename T>
+			struct RandomAccess<copyfrom_internal::Slice<T>>
 			{
-				delete enumerator;
-				throw;
-			}
+				static vint GetCount(const copyfrom_internal::Slice<T>& t)
+				{
+					return t.count;
+				}
+
+				static const T& GetValue(const copyfrom_internal::Slice<T>& t, vint index)
+				{
+					return t.items[index];
+				}
+			};
 		}
 
-		template<typename KT, typename VT, typename KK, typename VK>
-		void CopyFrom(IDictionary<KT, VT, KK, VK>& dst, const IEnumerable<Pair<KT, VT>>& src, bool append=false)
+		template<typename Ds, typename Ss>
+		void CopyFrom(Ds& ds, const Ss& ss, bool append=false)
 		{
-			IEnumerator<Pair<KT, VT>>* enumerator=src.CreateEnumerator();
-			try
-			{
-				if(!append)
-				{
-					dst.Clear();
-				}
-				while(enumerator->Available())
-				{
-					const Pair<KT, VT>& pair=enumerator->Current();
-					dst.Set(pair.key, pair.value);
-					enumerator->Next();
-				}
-				delete enumerator;
-			}
-			catch(...)
-			{
-				delete enumerator;
-				throw;
-			}
+			copyfrom_internal::CopyFromAlgorithm<Ds, Ss, randomaccess_internal::RandomAccessable<Ds>::CanResize, randomaccess_internal::RandomAccessable<Ss>::CanRead>::Perform(ds, ss, append);
 		}
 
-		template<typename KT, typename VT, typename KK, typename VK>
-		void CopyFrom(IGroup<KT, VT, KK, VK>& dst, const IEnumerable<Pair<KT, VT>>& src, bool append=false)
+		template<typename Ds, typename S>
+		void CopyFrom(Ds& ds, const S* buffer, vint count, bool append=false)
 		{
-			IEnumerator<Pair<KT, VT>>* enumerator=src.CreateEnumerator();
-			try
-			{
-				if(!append)
-				{
-					dst.Clear();
-				}
-				while(enumerator->Available())
-				{
-					const Pair<KT, VT>& pair=enumerator->Current();
-					dst.Add(pair.key, pair.value);
-					enumerator->Next();
-				}
-				delete enumerator;
-			}
-			catch(...)
-			{
-				delete enumerator;
-				throw;
-			}
+			copyfrom_internal::Slice<S> slice={buffer, count};
+			CopyFrom(ds, slice, append);
 		}
 
-		template<typename T, typename K, typename I>
-		void CopyFrom(IArray<T, K>& dst, I begin, vint length, bool append=false)
+		template<typename Ds, typename S>
+		void CopyFrom(Ds& ds, const S* begin, const S* end, bool append=false)
 		{
-			vint start=0;
-			if(append)
-			{
-				start=dst.Count();
-				dst.Resize(start+length);
-			}
-			else
-			{
-				dst.Resize(length);
-			}
-
-			for(vint i=0;i<length;i++)
-			{
-				dst.Set(start+i, *begin++);
-			}
-		}
-
-		template<typename T, typename K, typename I>
-		void CopyFrom(ICollection<T, K>& dst, I begin, vint length, bool append=false)
-		{
-			if(!append)
-			{
-				dst.Clear();
-			}
-
-			for(vint i=0;i<length;i++)
-			{
-				dst.Add(*begin++);
-			}
-		}
-
-		template<typename T, typename K, typename I>
-		void CopyFrom(IArray<T, K>& dst, I begin, I end, bool append=false)
-		{
-			vint length=0;
-			I current=begin;
-			while(current!=end)
-			{
-				length++;
-				current++;
-			}
-			CopyFrom(dst, begin, length, append);
-		}
-
-		template<typename T, typename K, typename I>
-		void CopyFrom(ICollection<T, K>& dst, I begin, I end, bool append=false)
-		{
-			if(!append)
-			{
-				dst.Clear();
-			}
-
-			while(begin!=end)
-			{
-				dst.Add(*begin++);
-			}
+			copyfrom_internal::Slice<S> slice={begin, end-begin};
+			CopyFrom(ds, slice, append);
 		}
 	}
 }
@@ -8385,11 +7779,6 @@ namespace vl
 					return false;
 				}
 
-				bool Available()const
-				{
-					return false;
-				}
-
 				void Reset()
 				{
 				}
@@ -8402,119 +7791,47 @@ namespace vl
 		};
 
 /***********************************************************************
-算法串联
+自包含迭代器
 ***********************************************************************/
 
-		template<typename T, typename R>
-		class EnumerableProcessor : public Object
+		template<typename T, typename TContainer>
+		class ContainerEnumerator : public Object, public virtual IEnumerator<T>
 		{
-		public:
-			virtual R operator()(const IEnumerable<T>& enumerable)const=0;
-		};
-
-		template<typename T, typename R>
-		R operator>>(const IEnumerable<T>& enumerable, const EnumerableProcessor<T, R>& processor)
-		{
-			return processor(enumerable);
-		}
-
-		template<template<typename T> class R>
-		class SequenceEnumerableProcessor : public Object
-		{
-		public:
-			template<typename T>
-			struct ResultTypeRetriver
-			{
-				typedef R<T> ResultType;
-			};
-		};
-
-		class AggregateEnumerableProcessor : public Object
-		{
-		public:
-			template<typename T>
-			struct ResultTypeRetriver
-			{
-				typedef T ResultType;
-			};
-		};
-
-		class FreeEnumerableProcessor : public Object
-		{
-		};
-
-		template<typename T, typename P>
-		typename P::template ResultTypeRetriver<T>::ResultType operator>>(const IEnumerable<T>& enumerable, const P& processor)
-		{
-			return processor(enumerable);
-		}
-
-/***********************************************************************
-迭代器存储
-***********************************************************************/
-
-		template<typename T, vint I=0>
-		class EnumerableStore : public virtual Object
-		{
-			friend class Enumerable<T>;
 		private:
-			IEnumerator<T>*			enumerator;
-		protected:
-			IEnumerator<T>* CopyEnumerator()const
-			{
-				return enumerator->Clone();
-			}
+			Ptr<TContainer>					container;
+			vint							index;
+
 		public:
-			EnumerableStore(const IEnumerable<T>& enumerable)
+			ContainerEnumerator(Ptr<TContainer> _container, vint _index=-1)
 			{
-				enumerator=enumerable.CreateEnumerator();
+				container=_container;
+				index=_index;
 			}
 
-			EnumerableStore(const EnumerableStore<T>& store)
+			IEnumerator<T>* Clone()const
 			{
-				enumerator=store->CopyEnumerator();
+				return new ContainerEnumerator(container, index);
 			}
 
-			~EnumerableStore()
+			const T& Current()const
 			{
-				delete enumerator;
+				return container->Get(index);
 			}
 
-			EnumerableStore<T>& operator=(const EnumerableStore<T>& store)
+			vint Index()const
 			{
-				delete enumerator;
-				enumerator=store->CopyEnumerator();
-				return *this;
-			}
-		};
-
-/***********************************************************************
-迭代器副本
-***********************************************************************/
-
-		template<typename T>
-		class Enumerable : public Object, public IEnumerable<T>
-		{
-		protected:
-			Ptr<EnumerableStore<T>>		store;
-		public:
-			Enumerable()
-			{
+				return index;
 			}
 
-			Enumerable(const Enumerable<T>& enumerable)
+			bool Next()
 			{
-				store=enumerable.store;
+				index++;
+				return index>=0 && index<container->Count();
 			}
 
-			Enumerable(const IEnumerable<T>& enumerable)
+			void Reset()
 			{
-				store=new EnumerableStore<T>(enumerable);
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return store?store->CopyEnumerator():new EmptyEnumerable<T>::Enumerator();
+				index=-1;
 			}
 		};
 
@@ -8527,8 +7844,14 @@ namespace vl
 		{
 			Ptr<IEnumerator<T>> ator=a.CreateEnumerator();
 			Ptr<IEnumerator<U>> btor=b.CreateEnumerator();
-			while(ator->Available() && btor->Available())
+			while()
 			{
+				bool a=ator->Next();
+				bool b=btor->Next();
+				if(a&&!b) return 1;
+				if(!a&&b) return -1;
+				if(!a&&!b) break;
+
 				const T& ac=ator->Current();
 				const U& bc=btor->Current();
 				if(ac<bc)
@@ -8542,18 +7865,7 @@ namespace vl
 				ator->Next();
 				btor->Next();
 			}
-			if(ator->Available())
-			{
-				return 1;
-			}
-			else if(btor->Available())
-			{
-				return -1;
-			}
-			else
-			{
-				return 0;
-			}
+			return 0;
 		}
 	}
 }
@@ -8584,112 +7896,57 @@ Select
 ***********************************************************************/
 
 		template<typename T, typename K>
-		class SelectEnumerable : public EnumerableStore<T>, public virtual IEnumerable<K>
+		class SelectEnumerator : public virtual IEnumerator<K>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<K>
-			{
-			protected:
-				IEnumerator<T>*		enumerator;
-				Func<K(T)>			selector;
-				K					current;
-			public:
-				Enumerator(IEnumerator<T>* _enumerator, const Func<K(T)>& _selector)
-					:enumerator(_enumerator)
-					,selector(_selector)
-				{
-					if(enumerator->Available())
-					{
-						current=selector(enumerator->Current());
-					}
-				}
-
-				~Enumerator()
-				{
-					delete enumerator;
-				}
-
-				IEnumerator<K>* Clone()const
-				{
-					return new Enumerator(enumerator->Clone(), selector);
-				}
-
-				const K& Current()const
-				{
-					return current;
-				}
-
-				vint Index()const
-				{
-					return enumerator->Index();
-				}
-
-				bool Next()
-				{
-					if(enumerator->Next())
-					{
-						current=selector(enumerator->Current());
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available();
-				}
-
-				void Reset()
-				{
-					enumerator->Reset();
-				}
-			};
 		protected:
-			Func<K(T)>				selector;
+			IEnumerator<T>*		enumerator;
+			Func<K(T)>			selector;
+			K					current;
 		public:
-			SelectEnumerable(const IEnumerable<T>& enumerable, const Func<K(T)>& _selector)
-				:EnumerableStore<T>(enumerable)
+			SelectEnumerator(IEnumerator<T>* _enumerator, const Func<K(T)>& _selector)
+				:enumerator(_enumerator)
 				,selector(_selector)
 			{
 			}
 
-			IEnumerator<K>* CreateEnumerator()const
+			~SelectEnumerator()
 			{
-				return new Enumerator(CopyEnumerator(), selector);
+				delete enumerator;
+			}
+
+			IEnumerator<K>* Clone()const
+			{
+				return new SelectEnumerator(enumerator->Clone(), selector);
+			}
+
+			const K& Current()const
+			{
+				return current;
+			}
+
+			vint Index()const
+			{
+				return enumerator->Index();
+			}
+
+			bool Next()
+			{
+				if(enumerator->Next())
+				{
+					current=selector(enumerator->Current());
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void Reset()
+			{
+				enumerator->Reset();
 			}
 		};
-
-		template<typename T, typename K>
-		class SelectProcessor : public EnumerableProcessor<T, SelectEnumerable<T, K>>
-		{
-		protected:
-			Func<K(T)>				selector;
-		public:
-			SelectProcessor(const Func<K(T)>& _selector)
-				:selector(_selector)
-			{
-			}
-
-			SelectEnumerable<T, K> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return SelectEnumerable<T, K>(enumerable, selector);
-			}
-		};
-
-		template<typename T, typename K>
-		SelectProcessor<T, K> Select(const Func<K(T)>& selector)
-		{
-			return SelectProcessor<T, K>(selector);
-		}
-
-		template<typename T, typename K>
-		SelectProcessor<T, K> Select(K(*selector)(T))
-		{
-			return SelectProcessor<T, K>(selector);
-		}
 	}
 }
 
@@ -8713,675 +7970,64 @@ namespace vl
 {
 	namespace collections
 	{
-
 /***********************************************************************
 Where
 ***********************************************************************/
 
 		template<typename T>
-		class WhereEnumerable : public EnumerableStore<T>, public virtual IEnumerable<T>
+		class WhereEnumerator : public virtual IEnumerator<T>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<T>
-			{
-			protected:
-				IEnumerator<T>*		enumerator;
-				Func<bool(T)>		selector;
-				vint					index;
-
-				void GoNearest()
-				{
-					while(enumerator->Available())
-					{
-						if(selector(enumerator->Current()))
-						{
-							break;
-						}
-						else
-						{
-							enumerator->Next();
-						}
-					}
-				}
-			public:
-				Enumerator(IEnumerator<T>* _enumerator, const Func<bool(T)>& _selector, vint _index=0)
-					:enumerator(_enumerator)
-					,selector(_selector)
-					,index(_index)
-				{
-					GoNearest();
-				}
-
-				~Enumerator()
-				{
-					delete enumerator;
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(enumerator->Clone(), selector, index);
-				}
-
-				const T& Current()const
-				{
-					return enumerator->Current();
-				}
-
-				vint Index()const
-				{
-					return index;
-				}
-
-				bool Next()
-				{
-					index++;
-					enumerator->Next();
-					GoNearest();
-					return Available();
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available();
-				}
-
-				void Reset()
-				{
-					enumerator->Reset();
-					GoNearest();
-				}
-			};
 		protected:
+			IEnumerator<T>*			enumerator;
 			Func<bool(T)>			selector;
+			vint					index;
+
 		public:
-			WhereEnumerable(const IEnumerable<T>& enumerable, const Func<bool(T)>& _selector)
-				:EnumerableStore<T>(enumerable)
+			WhereEnumerator(IEnumerator<T>* _enumerator, const Func<bool(T)>& _selector, vint _index=-1)
+				:enumerator(_enumerator)
 				,selector(_selector)
+				,index(_index)
 			{
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			~WhereEnumerator()
 			{
-				return new Enumerator(CopyEnumerator(), selector);
-			}
-		};
-
-		template<typename T>
-		class WhereProcessor : public EnumerableProcessor<T, WhereEnumerable<T>>
-		{
-		protected:
-			Func<bool(T)>			selector;
-		public:
-			WhereProcessor(const Func<bool(T)>& _selector)
-				:selector(_selector)
-			{
+				delete enumerator;
 			}
 
-			WhereEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
+			IEnumerator<T>* Clone()const
 			{
-				return WhereEnumerable<T>(enumerable, selector);
+				return new WhereEnumerator(enumerator->Clone(), selector, index);
 			}
-		};
 
-		template<typename T>
-		WhereProcessor<T> Where(const Func<bool(T)>& selector)
-		{
-			return WhereProcessor<T>(selector);
-		}
-
-		template<typename T>
-		WhereProcessor<T> Where(bool(*selector)(T))
-		{
-			return WhereProcessor<T>(selector);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-COMMON\SOURCE\COLLECTIONS\OPERATIONORDERBY.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Operations
-
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_OPERATIONORDERBY
-#define VCZH_COLLECTIONS_OPERATIONORDERBY
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-OrderBy Quick Sort
-***********************************************************************/
-
-		template<typename T>
-		void Sort(T* items, vint length, const Func<vint(T, T)>& orderer)
-		{
-			if(length==0) return;
-			vint pivot=0;
-			vint left=0;
-			vint right=0;
-			bool flag=false;
-
-			while(left+right+1!=length)
+			const T& Current()const
 			{
-				vint& mine=(flag?left:right);
-				vint& theirs=(flag?right:left);
-				vint candidate=(flag?left:length-right-1);
-				vint factor=(flag?-1:1);
+				return enumerator->Current();
+			}
 
-				if(orderer(items[pivot], items[candidate])*factor<=0)
+			vint Index()const
+			{
+				return index;
+			}
+
+			bool Next()
+			{
+				while(enumerator->Next())
 				{
-					mine++;
-				}
-				else
-				{
-					theirs++;
-					T temp=items[pivot];
-					items[pivot]=items[candidate];
-					items[candidate]=temp;
-					pivot=candidate;
-					flag=!flag;
-				}
-			}
-
-			Sort(items, left, orderer);
-			Sort(items+left+1, right, orderer);
-		}
-
-/***********************************************************************
-OrderBy
-***********************************************************************/
-
-		template<typename T>
-		class OrderByEnumerable : public virtual IEnumerable<T>
-		{
-		protected:
-			List<T>					values;
-		public:
-			OrderByEnumerable(const IEnumerable<T>& enumerable, const Func<vint(T, T)>& orderer)
-			{
-				CopyFrom(values.Wrap(), enumerable);
-				if(values.Count()>0)
-				{
-					Sort(&values[0], values.Count(), orderer);
-				}
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return values.Wrap().CreateEnumerator();
-			}
-		};
-
-		template<typename T>
-		class OrderByProcessor : public EnumerableProcessor<T, OrderByEnumerable<T>>
-		{
-		protected:
-			Func<vint(T, T)>		orderer;
-		public:
-			OrderByProcessor(const Func<vint(T, T)>& _orderer)
-				:orderer(_orderer)
-			{
-			}
-
-			OrderByEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return OrderByEnumerable<T>(enumerable, orderer);
-			}
-		};
-
-		template<typename T>
-		OrderByProcessor<T> OrderBy(const Func<vint(T, T)>& orderer)
-		{
-			return OrderByProcessor<T>(orderer);
-		}
-
-		template<typename T>
-		OrderByProcessor<T> OrderBy(vint(*orderer)(T, T))
-		{
-			return OrderByProcessor<T>(orderer);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-COMMON\SOURCE\COLLECTIONS\OPERATIONFOREACH.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Operations
-
-扩展：
-	实现一个函数重载IteratorType CreateForEachIterator(const CollectionType& collection);
-	CollectionType是所需要的容器类型
-	IteratorType继承自ForEachIterator<T>
-	必须写在vl::collections命名空间里
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_FOREACH
-#define VCZH_COLLECTIONS_FOREACH
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-ForEach基础设施
-***********************************************************************/
-
-		template<typename T>
-		class ForEachIterator : public Object
-		{
-		public:
-			virtual bool				Available(T& variable)const=0;
-			virtual void				Next()const=0;
-
-			operator bool()const
-			{
-				return true;
-			}
-		};
-
-/***********************************************************************
-IEnumerable<T>支持
-***********************************************************************/
-
-		template<typename T>
-		class EnumerableForEachIterator : public ForEachIterator<T>
-		{
-		protected:
-			Ptr<IEnumerator<T>>			iterator;
-		public:
-			EnumerableForEachIterator(const IEnumerable<T>& enumerable)
-				:iterator(enumerable.CreateEnumerator())
-			{
-			}
-
-			EnumerableForEachIterator(const EnumerableForEachIterator<T>& enumerableIterator)
-				:iterator(enumerableIterator.iterator)
-			{
-			}
-
-			bool Available(T& variable)const
-			{
-				if(iterator->Available())
-				{
-					variable=iterator->Current();
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void Next()const
-			{
-				iterator->Next();
-			}
-		};
-
-		template<typename T>
-		EnumerableForEachIterator<T> CreateForEachIterator(const IEnumerable<T>& enumerable)
-		{
-			return enumerable;
-		}
-
-/***********************************************************************
-ForEach宏
-***********************************************************************/
-
-#define SCOPE_VARIABLE(TYPE, VARIABLE, VALUE)\
-		if(bool __scope_variable_flag__=true)\
-			for(TYPE VARIABLE = VALUE;__scope_variable_flag__;__scope_variable_flag__=false)
-
-#define FOREACH(TYPE, VARIABLE, COLLECTION)\
-		SCOPE_VARIABLE(const ForEachIterator<TYPE>&, __foreach_iterator__, CreateForEachIterator(COLLECTION))\
-		for(TYPE VARIABLE;__foreach_iterator__.Available(VARIABLE);__foreach_iterator__.Next())
-
-#define FOREACH_INDEXER(TYPE, VARIABLE, INDEXER, COLLECTION)\
-		SCOPE_VARIABLE(const ForEachIterator<TYPE>&, __foreach_iterator__, CreateForEachIterator(COLLECTION))\
-		SCOPE_VARIABLE(vint, INDEXER, 0)\
-		for(TYPE VARIABLE;__foreach_iterator__.Available(VARIABLE);__foreach_iterator__.Next(),INDEXER++)
-	}
-}
-
-#endif
-
-/***********************************************************************
-COMMON\SOURCE\COLLECTIONS\OPERATIONAGGREGATE.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Operations
-
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_OPERATIONAGGREGATE
-#define VCZH_COLLECTIONS_OPERATIONAGGREGATE
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-Aggregate
-***********************************************************************/
-
-		template<typename T>
-		class AggregateProcessor : public EnumerableProcessor<T, T>
-		{
-		protected:
-			Func<T(T,T)>				selector;
-			T							initial;
-			bool						hasInitial;
-		public:
-			AggregateProcessor(const Func<T(T,T)>& _selector)
-				:selector(_selector)
-				,hasInitial(false)
-			{
-			}
-
-			AggregateProcessor(const Func<T(T,T)>& _selector, const T& _initial)
-				:selector(_selector)
-				,initial(_initial)
-				,hasInitial(true)
-			{
-			}
-
-			T operator()(const IEnumerable<T>& enumerable)const
-			{
-				T result;
-				IEnumerator<T>* enumerator=enumerable.CreateEnumerator();
-				try
-				{
-					if(hasInitial)
+					if(selector(enumerator->Current()))
 					{
-						result=initial;
+						index++;
+						return true;
 					}
-					else if(enumerator->Available())
-					{
-						result=enumerator->Current();
-						enumerator->Next();
-					}
-					else
-					{
-						throw Error(L"AggregateProcessor<T>::operator(const IEnumerable<T>&)#容器为空并且没有初始值，Aggregate操作失败。");
-					}
-					while(enumerator->Available())
-					{
-						result=selector(result, enumerator->Current());
-						enumerator->Next();
-					}
-					delete enumerator;
 				}
-				catch(...)
-				{
-					delete enumerator;
-					throw;
-				}
-				return result;
+				return false;
+			}
+
+			void Reset()
+			{
+				enumerator->Reset();
 			}
 		};
-
-		template<typename T>
-		AggregateProcessor<T> Aggregate(const Func<T(T,T)>& selector)
-		{
-			return AggregateProcessor<T>(selector);
-		}
-
-		template<typename T>
-		AggregateProcessor<T> Aggregate(T(*selector)(T,T))
-		{
-			return AggregateProcessor<T>(selector);
-		}
-
-		template<typename T>
-		AggregateProcessor<T> Aggregate(const Func<T(T,T)>& selector, const T& initial)
-		{
-			return AggregateProcessor<T>(selector, initial);
-		}
-
-		template<typename T>
-		AggregateProcessor<T> Aggregate(T(*selector)(T,T), const T& initial)
-		{
-			return AggregateProcessor<T>(selector, initial);
-		}
-
-/***********************************************************************
-All
-***********************************************************************/
-
-		template<typename T>
-		class AllProcessor : public EnumerableProcessor<T, bool>
-		{
-		protected:
-			Func<bool(T)>				selector;
-
-			static bool Op(bool a, bool b)
-			{
-				return a && b;
-			}
-		public:
-			AllProcessor(const Func<bool(T)>& _selector)
-				:selector(_selector)
-			{
-			}
-
-			bool operator()(const IEnumerable<T>& enumerable)const
-			{
-				return enumerable>>Select(selector)>>Aggregate(Op, true);
-			}
-		};
-
-		template<typename T>
-		AllProcessor<T> All(const Func<bool(T)>& selector)
-		{
-			return AllProcessor<T>(selector);
-		}
-
-		template<typename T>
-		AllProcessor<T> All(bool(*selector)(T))
-		{
-			return AllProcessor<T>(selector);
-		}
-
-/***********************************************************************
-Any
-***********************************************************************/
-
-		template<typename T>
-		class AnyProcessor : public EnumerableProcessor<T, bool>
-		{
-		protected:
-			Func<bool(T)>				selector;
-
-			static bool Op(bool a, bool b)
-			{
-				return a || b;
-			}
-		public:
-			AnyProcessor(const Func<bool(T)>& _selector)
-				:selector(_selector)
-			{
-			}
-
-			bool operator()(const IEnumerable<T>& enumerable)const
-			{
-				return enumerable>>Select(selector)>>Aggregate(Op, false);
-			}
-		};
-
-		template<typename T>
-		AnyProcessor<T> Any(const Func<bool(T)>& selector)
-		{
-			return AnyProcessor<T>(selector);
-		}
-
-		template<typename T>
-		AnyProcessor<T> Any(bool(*selector)(T))
-		{
-			return AnyProcessor<T>(selector);
-		}
-
-/***********************************************************************
-Max
-***********************************************************************/
-
-		class MaxProcessor : public AggregateEnumerableProcessor
-		{
-		protected:
-			template<typename T>
-			static T Op(T a, T b)
-			{
-				return a>b?a:b;
-			}
-		public:
-			MaxProcessor()
-			{
-			}
-
-			template<typename T>
-			T operator()(const IEnumerable<T>& enumerable)const
-			{
-				return enumerable>>Aggregate(Op<T>);
-			}
-		};
-
-		extern MaxProcessor Max();
-
-/***********************************************************************
-Min
-***********************************************************************/
-
-		class MinProcessor : public AggregateEnumerableProcessor
-		{
-		protected:
-			template<typename T>
-			static T Op(T a, T b)
-			{
-				return a<b?a:b;
-			}
-		public:
-			MinProcessor()
-			{
-			}
-
-			template<typename T>
-			T operator()(const IEnumerable<T>& enumerable)const
-			{
-				return enumerable>>Aggregate(Op<T>);
-			}
-		};
-
-		extern MinProcessor Min();
-
-/***********************************************************************
-First
-***********************************************************************/
-
-		class FirstProcessor : public FreeEnumerableProcessor
-		{
-		public:
-			template<typename T>
-			struct ResultTypeRetriver
-			{
-				typedef T ResultType;
-			};
-
-			FirstProcessor()
-			{
-			}
-
-			template<typename T>
-			T operator()(const IEnumerable<T>& enumerable)const
-			{
-				FOREACH(T, x, enumerable)
-				{
-					return x;
-				}
-				return T();
-			}
-		};
-
-		extern FirstProcessor First();
-
-/***********************************************************************
-Count
-***********************************************************************/
-
-		class CountProcessor : public FreeEnumerableProcessor
-		{
-		public:
-			template<typename T>
-			struct ResultTypeRetriver
-			{
-				typedef vint ResultType;
-			};
-
-			CountProcessor()
-			{
-			}
-
-			template<typename T>
-			vint operator()(const IEnumerable<T>& enumerable)const
-			{
-				vint count=0;
-				FOREACH(T, x, enumerable)
-				{
-					count++;
-				}
-				return count;
-			}
-		};
-
-		extern CountProcessor Count();
-
-/***********************************************************************
-IsEmpty
-***********************************************************************/
-
-		class IsEmptyProcessor : public FreeEnumerableProcessor
-		{
-		public:
-			template<typename T>
-			struct ResultTypeRetriver
-			{
-				typedef bool ResultType;
-			};
-
-			IsEmptyProcessor()
-			{
-			}
-
-			template<typename T>
-			bool operator()(const IEnumerable<T>& enumerable)const
-			{
-				FOREACH(T, x, enumerable)
-				{
-					return false;
-				}
-				return true;
-			}
-		};
-
-		extern IsEmptyProcessor IsEmpty();
 	}
 }
 
@@ -9411,122 +8057,78 @@ Concat
 ***********************************************************************/
 
 		template<typename T>
-		class ConcatEnumerable : public EnumerableStore<T, 1>, public EnumerableStore<T, 2>, public virtual IEnumerable<T>
+		class ConcatEnumerator : public virtual IEnumerator<T>
 		{
 		protected:
-			class Enumerator : public virtual IEnumerator<T>
+			IEnumerator<T>*					enumerator1;
+			IEnumerator<T>*					enumerator2;
+			vint							index;
+			bool							turned;
+		public:
+			ConcatEnumerator(IEnumerator<T>* _enumerator1, IEnumerator<T>* _enumerator2, vint _index=-1, bool _turned=false)
+				:enumerator1(_enumerator1)
+				,enumerator2(_enumerator2)
+				,index(_index)
+				,turned(_turned)
 			{
-			protected:
-				IEnumerator<T>*					enumerator1;
-				IEnumerator<T>*					enumerator2;
-				vint							index;
-				bool							turned;
-			public:
-				Enumerator(IEnumerator<T>* _enumerator1, IEnumerator<T>* _enumerator2, vint _index=0, bool _turned=false)
-					:enumerator1(_enumerator1)
-					,enumerator2(_enumerator2)
-					,index(_index)
-					,turned(_turned)
-				{
-					if(turned==false && !enumerator1->Available())
-					{
-						turned=true;
-					}
-				}
+			}
 
-				~Enumerator()
-				{
-					delete enumerator1;
-					delete enumerator2;
-				}
+			~ConcatEnumerator()
+			{
+				delete enumerator1;
+				delete enumerator2;
+			}
 
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(enumerator1->Clone(), enumerator2->Clone(), index, turned);
-				}
+			IEnumerator<T>* Clone()const
+			{
+				return new ConcatEnumerator(enumerator1->Clone(), enumerator2->Clone(), index, turned);
+			}
 
-				const T& Current()const
+			const T& Current()const
+			{
+				if(turned)
 				{
-					if(enumerator1->Available())
-					{
-						return enumerator1->Current();
-					}
-					else
-					{
-						return enumerator2->Current();
-					}
+					return enumerator2->Current();
 				}
-
-				vint Index()const
+				else
 				{
-					return index;
+					return enumerator1->Current();
 				}
+			}
 
-				bool Next()
+			vint Index()const
+			{
+				return index;
+			}
+
+			bool Next()
+			{
+				index++;
+				if(turned)
 				{
-					index++;
+					return enumerator2->Next();
+				}
+				else
+				{
 					if(enumerator1->Next())
 					{
 						return true;
 					}
-					else if(turned==false)
-					{
-						turned=true;
-						return enumerator2->Available();
-					}
 					else
 					{
+						turned=true;
 						return enumerator2->Next();
 					}
 				}
-
-				bool Available()const
-				{
-					return enumerator1->Available() || enumerator2->Available();
-				}
-
-				void Reset()
-				{
-					enumerator1->Reset();
-					enumerator2->Reset();
-					index=0;
-				}
-			};
-		public:
-			ConcatEnumerable(const IEnumerable<T>& enumerable1, const IEnumerable<T>& enumerable2)
-				:EnumerableStore<T, 1>(enumerable1)
-				,EnumerableStore<T, 2>(enumerable2)
-			{
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			void Reset()
 			{
-				return new Enumerator(EnumerableStore<T, 1>::CopyEnumerator(), EnumerableStore<T, 2>::CopyEnumerator());
+				enumerator1->Reset();
+				enumerator2->Reset();
+				index=-1;
 			}
 		};
-
-		template<typename T>
-		class ConcatProcessor : public EnumerableProcessor<T, ConcatEnumerable<T>>
-		{
-		protected:
-			const IEnumerable<T>&				second;
-		public:
-			ConcatProcessor(const IEnumerable<T>& _second)
-				:second(_second)
-			{
-			}
-
-			ConcatEnumerable<T> operator()(const IEnumerable<T>& first)const
-			{
-				return ConcatEnumerable<T>(first, second);
-			}
-		};
-
-		template<typename T>
-		ConcatProcessor<T> Concat(const IEnumerable<T>& second)
-		{
-			return ConcatProcessor<T>(second);
-		}
 	}
 }
 
@@ -9556,515 +8158,292 @@ Take
 ***********************************************************************/
 
 		template<typename T>
-		class TakeEnumerable : public EnumerableStore<T>, public virtual IEnumerable<T>
+		class TakeEnumerator : public virtual IEnumerator<T>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<T>
-			{
-			protected:
-				IEnumerator<T>*		enumerator;
-				vint					count;
-			public:
-				Enumerator(IEnumerator<T>* _enumerator, vint _count)
-					:enumerator(_enumerator)
-					,count(_count)
-				{
-				}
-
-				~Enumerator()
-				{
-					delete enumerator;
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(enumerator->Clone(), count);
-				}
-
-				const T& Current()const
-				{
-					return enumerator->Current();
-				}
-
-				vint Index()const
-				{
-					return enumerator->Index();
-				}
-
-				bool Next()
-				{
-					if(enumerator->Index()==count-1)
-					{
-						enumerator->Next();
-						return false;
-					}
-					else if(enumerator->Index()>=count)
-					{
-						return false;
-					}
-					else
-					{
-						return enumerator->Next();
-					}
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available() && enumerator->Index()<count;
-				}
-
-				void Reset()
-				{
-					enumerator->Reset();
-				}
-			};
 		protected:
+			IEnumerator<T>*			enumerator;
 			vint					count;
 		public:
-			TakeEnumerable(const IEnumerable<T>& enumerable, vint _count)
-				:EnumerableStore<T>(enumerable)
+			TakeEnumerator(IEnumerator<T>* _enumerator, vint _count)
+				:enumerator(_enumerator)
 				,count(_count)
 			{
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			~TakeEnumerator()
 			{
-				return new Enumerator(CopyEnumerator(), count);
+				delete enumerator;
+			}
+
+			IEnumerator<T>* Clone()const
+			{
+				return new TakeEnumerator(enumerator->Clone(), count);
+			}
+
+			const T& Current()const
+			{
+				return enumerator->Current();
+			}
+
+			vint Index()const
+			{
+				return enumerator->Index();
+			}
+
+			bool Next()
+			{
+				if(enumerator->Index()>=count-1) return false;
+				return enumerator->Next();
+			}
+
+			void Reset()
+			{
+				enumerator->Reset();
 			}
 		};
-
-		class TakeProcessor : public SequenceEnumerableProcessor<TakeEnumerable>
-		{
-		protected:
-			vint					count;
-		public:
-			TakeProcessor(vint _count)
-				:count(_count)
-			{
-			}
-
-			template<typename T>
-			TakeEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return TakeEnumerable<T>(enumerable, count);
-			}
-		};
-
-		extern TakeProcessor Take(vint count);
 
 /***********************************************************************
 Skip
 ***********************************************************************/
 
 		template<typename T>
-		class SkipEnumerable : public EnumerableStore<T>, public virtual IEnumerable<T>
+		class SkipEnumerator : public virtual IEnumerator<T>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<T>
-			{
-			protected:
-				IEnumerator<T>*		enumerator;
-				vint					count;
-			public:
-				Enumerator(IEnumerator<T>* _enumerator, vint _count)
-					:enumerator(_enumerator)
-					,count(_count)
-				{
-					for(vint i=0;i<count;i++)
-					{
-						enumerator->Next();
-					}
-				}
-
-				~Enumerator()
-				{
-					delete enumerator;
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(enumerator->Clone(), count);
-				}
-
-				const T& Current()const
-				{
-					return enumerator->Current();
-				}
-
-				vint Index()const
-				{
-					return enumerator->Index()-count;
-				}
-
-				bool Next()
-				{
-					return enumerator->Next();
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available();
-				}
-
-				void Reset()
-				{
-					enumerator->Reset();
-					for(vint i=0;i<count;i++)
-					{
-						enumerator->Next();
-					}
-				}
-			};
 		protected:
+			IEnumerator<T>*			enumerator;
 			vint					count;
 		public:
-			SkipEnumerable(const IEnumerable<T>& enumerable, vint _count)
-				:EnumerableStore<T>(enumerable)
+			SkipEnumerator(IEnumerator<T>* _enumerator, vint _count, bool runSkip=true)
+				:enumerator(_enumerator)
 				,count(_count)
 			{
+				if(runSkip)
+				{
+					for(vint i=0;i<count;i++)
+					{
+						enumerator->Next();
+					}
+				}
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			~SkipEnumerator()
 			{
-				return new Enumerator(CopyEnumerator(), count);
+				delete enumerator;
+			}
+
+			IEnumerator<T>* Clone()const
+			{
+				return new SkipEnumerator(enumerator->Clone(), count, false);
+			}
+
+			const T& Current()const
+			{
+				return enumerator->Current();
+			}
+
+			vint Index()const
+			{
+				return enumerator->Index()-count;
+			}
+
+			bool Next()
+			{
+				return enumerator->Next();
+			}
+
+			void Reset()
+			{
+				enumerator->Reset();
+				for(vint i=0;i<count;i++)
+				{
+					enumerator->Next();
+				}
 			}
 		};
-
-		class SkipProcessor : public SequenceEnumerableProcessor<SkipEnumerable>
-		{
-		protected:
-			vint					count;
-		public:
-			SkipProcessor(vint _count)
-				:count(_count)
-			{
-			}
-
-			template<typename T>
-			SkipEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return SkipEnumerable<T>(enumerable, count);
-			}
-		};
-
-		extern SkipProcessor Skip(vint count);
 
 /***********************************************************************
 Repeat
 ***********************************************************************/
 
 		template<typename T>
-		class RepeatEnumerable : public EnumerableStore<T>, public virtual IEnumerable<T>
+		class RepeatEnumerator : public virtual IEnumerator<T>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<T>
+		protected:
+			IEnumerator<T>*			enumerator;
+			vint					count;
+			vint					index;
+			vint					repeatedCount;
+		public:
+			RepeatEnumerator(IEnumerator<T>* _enumerator, vint _count, vint _index=-1, vint _repeatedCount=0)
+				:enumerator(_enumerator)
+				,count(_count)
+				,index(_index)
+				,repeatedCount(_repeatedCount)
 			{
-			protected:
-				IEnumerator<T>*		enumerator;
-				vint					count;
-				vint					index;
-				vint					repeatedCount;
-			public:
-				Enumerator(IEnumerator<T>* _enumerator, vint _count, vint _index=0, vint _repeatedCount=0)
-					:enumerator(_enumerator)
-					,count(_count)
-					,index(_index)
-					,repeatedCount(_repeatedCount)
-				{
-				}
+			}
 
-				~Enumerator()
-				{
-					delete enumerator;
-				}
+			~RepeatEnumerator()
+			{
+				delete enumerator;
+			}
 
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(enumerator->Clone(), count, index, repeatedCount);
-				}
+			IEnumerator<T>* Clone()const
+			{
+				return new RepeatEnumerator(enumerator->Clone(), count, index, repeatedCount);
+			}
 
-				const T& Current()const
-				{
-					return enumerator->Current();
-				}
+			const T& Current()const
+			{
+				return enumerator->Current();
+			}
 
-				vint Index()const
-				{
-					return index;
-				}
+			vint Index()const
+			{
+				return index;
+			}
 
-				bool Next()
+			bool Next()
+			{
+				while(repeatedCount<count)
 				{
-					if(repeatedCount>=count)
-					{
-						return false;
-					}
-					else if(enumerator->Next())
+					if(enumerator->Next())
 					{
 						index++;
 						return true;
 					}
-					else
-					{
-						repeatedCount++;
-						if(repeatedCount<count)
-						{
-							index++;
-							enumerator->Reset();
-							return enumerator->Available();
-						}
-						else
-						{
-							return false;
-						}
-					}
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available() && repeatedCount<count;
-				}
-
-				void Reset()
-				{
+					repeatedCount++;
 					enumerator->Reset();
-					index=0;
-					repeatedCount=0;
 				}
-			};
-		protected:
-			vint					count;
-		public:
-			RepeatEnumerable(const IEnumerable<T>& enumerable, vint _count)
-				:EnumerableStore<T>(enumerable)
-				,count(_count)
-			{
+				return false;
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			void Reset()
 			{
-				return new Enumerator(CopyEnumerator(), count);
+				enumerator->Reset();
+				index=-1;
+				repeatedCount=0;
 			}
 		};
-
-		class RepeatProcessor : public SequenceEnumerableProcessor<RepeatEnumerable>
-		{
-		protected:
-			vint					count;
-		public:
-			RepeatProcessor(vint _count)
-				:count(_count)
-			{
-			}
-
-			template<typename T>
-			RepeatEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return RepeatEnumerable<T>(enumerable, count);
-			}
-		};
-
-		extern RepeatProcessor Repeat(vint count);
 
 /***********************************************************************
 Distinct
 ***********************************************************************/
 
 		template<typename T>
-		class DistinctEnumerable : public EnumerableStore<T>, public virtual IEnumerable<T>
+		class DistinctEnumerator : public virtual IEnumerator<T>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<T>
-			{
-			protected:
-				IEnumerator<T>*		enumerator;
-				SortedList<T>		distinct;
-				T					lastValue;
+		protected:
+			IEnumerator<T>*		enumerator;
+			SortedList<T>		distinct;
+			T					lastValue;
 
-				void GoNearest()
+		public:
+			DistinctEnumerator(IEnumerator<T>* _enumerator)
+				:enumerator(_enumerator)
+			{
+			}
+
+			DistinctEnumerator(const DistinctEnumerator& _enumerator)
+			{
+				enumerator=_enumerator.enumerator->Clone();
+				CopyFrom(distinct, _enumerator.distinct);
+			}
+
+			~DistinctEnumerator()
+			{
+				delete enumerator;
+			}
+
+			IEnumerator<T>* Clone()const
+			{
+				return new DistinctEnumerator(*this);
+			}
+
+			const T& Current()const
+			{
+				return lastValue;
+			}
+
+			vint Index()const
+			{
+				return distinct.Count()-1;
+			}
+
+			bool Next()
+			{
+				while(enumerator->Next())
 				{
-					while(enumerator->Available())
+					const T& current=enumerator->Current();
+					if(!distinct.Contains(current))
 					{
-						const T& current=enumerator->Current();
-						if(!distinct.Contains(current))
-						{
-							lastValue=current;
-							distinct.Add(current);
-							break;
-						}
-						enumerator->Next();
+						lastValue=current;
+						distinct.Add(current);
+						return true;
 					}
 				}
-			public:
-				Enumerator(IEnumerator<T>* _enumerator)
-					:enumerator(_enumerator)
-				{
-					GoNearest();
-				}
-
-				Enumerator(const Enumerator& _enumerator)
-				{
-					enumerator=_enumerator.enumerator->Clone();
-					CopyFrom(distinct.Wrap(), _enumerator.distinct.Wrap());
-				}
-
-				~Enumerator()
-				{
-					delete enumerator;
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(*this);
-				}
-
-				const T& Current()const
-				{
-					return lastValue;
-				}
-
-				vint Index()const
-				{
-					return distinct.Count()-1;
-				}
-
-				bool Next()
-				{
-					enumerator->Next();
-					GoNearest();
-					return Available();
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available();
-				}
-
-				void Reset()
-				{
-					enumerator->Reset();
-					distinct.Clear();
-					GoNearest();
-				}
-			};
-		public:
-			DistinctEnumerable(const IEnumerable<T>& enumerable)
-				:EnumerableStore<T>(enumerable)
-			{
+				return false;
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			void Reset()
 			{
-				return new Enumerator(CopyEnumerator());
+				enumerator->Reset();
+				distinct.Clear();
 			}
 		};
-
-		class DistinctProcessor : public SequenceEnumerableProcessor<DistinctEnumerable>
-		{
-		public:
-			DistinctProcessor()
-			{
-			}
-
-			template<typename T>
-			DistinctEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return DistinctEnumerable<T>(enumerable);
-			}
-		};
-
-		extern DistinctProcessor Distinct();
 
 /***********************************************************************
 Reverse
 ***********************************************************************/
 
 		template<typename T>
-		class ReverseEnumerable : public Object, public virtual IEnumerable<T>
+		class ReverseEnumerator : public virtual IEnumerator<T>
 		{
-		private:
-			class Enumerator : public virtual IEnumerator<T>
-			{
-			protected:
-				List<T>					cache;
-				vint						index;
-			public:
-				Enumerator(const IEnumerable<T>& enumerable)
-					:index(0)
-				{
-					CopyFrom(cache.Wrap(), enumerable);
-				}
-
-				Enumerator(const Enumerator& _enumerator)
-				{
-					CopyFrom(cache.Wrap(), _enumerator.cache.Wrap());
-					index=_enumerator.index;
-				}
-
-				~Enumerator()
-				{
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(*this);
-				}
-
-				const T& Current()const
-				{
-					return cache.Get(cache.Count()-1-index);
-				}
-
-				vint Index()const
-				{
-					return index;
-				}
-
-				bool Next()
-				{
-					index++;
-					return Available();
-				}
-
-				bool Available()const
-				{
-					return index<cache.Count();
-				}
-
-				void Reset()
-				{
-					index=0;
-				}
-			};
 		protected:
-			const IEnumerable<T>&		enumerable;
+			List<T>						cache;
+			vint						index;
 		public:
-			ReverseEnumerable(const IEnumerable<T>& _enumerable)
-				:enumerable(_enumerable)
+			ReverseEnumerator(const IEnumerable<T>& enumerable)
+				:index(-1)
+			{
+				CopyFrom(cache, enumerable);
+			}
+
+			ReverseEnumerator(const ReverseEnumerator& _enumerator)
+			{
+				CopyFrom(cache, _enumerator.cache);
+				index=_enumerator.index;
+			}
+
+			~ReverseEnumerator()
 			{
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			IEnumerator<T>* Clone()const
 			{
-				return new Enumerator(enumerable);
+				return new ReverseEnumerator(*this);
+			}
+
+			const T& Current()const
+			{
+				return cache.Get(cache.Count()-1-index);
+			}
+
+			vint Index()const
+			{
+				return index;
+			}
+
+			bool Next()
+			{
+				index++;
+				return index<cache.Count();
+			}
+
+			void Reset()
+			{
+				index=0;
 			}
 		};
-
-		class ReverseProcessor : public SequenceEnumerableProcessor<ReverseEnumerable>
-		{
-		public:
-			ReverseProcessor()
-			{
-			}
-
-			template<typename T>
-			ReverseEnumerable<T> operator()(const IEnumerable<T>& enumerable)const
-			{
-				return ReverseEnumerable<T>(enumerable);
-			}
-		};
-
-		extern ReverseProcessor Reverse();
 
 /***********************************************************************
 FromIterator
@@ -10081,20 +8460,18 @@ FromIterator
 				I				begin;
 				I				end;
 				I				current;
-				vint			index;
 
 			public:
-				Enumerator(I _begin, I _end, I _current, vint _index)
+				Enumerator(I _begin, I _end, I _current)
 					:begin(_begin)
 					,end(_end)
 					,current(_current)
-					,index(_index)
 				{
 				}
 
 				IEnumerator<T>* Clone()const
 				{
-					return new Enumerator(begin, end, current, index);
+					return new Enumerator(begin, end, current);
 				}
 
 				const T& Current()const
@@ -10104,36 +8481,18 @@ FromIterator
 
 				vint Index()const
 				{
-					return index;
+					return current-begin;
 				}
 
 				bool Next()
 				{
-					if(current==end)
-					{
-						return false;
-					}
 					current++;
-					if(current==end)
-					{
-						return false;
-					}
-					else
-					{
-						index++;
-						return true;
-					}
-				}
-
-				bool Available()const
-				{
-					return current!=end;
+					return begin<=current && current<end;
 				}
 
 				void Reset()
 				{
-					current=begin;
-					index=0;
+					current=begin-1;
 				}
 			};
 		private:
@@ -10142,7 +8501,7 @@ FromIterator
 		public:
 			IEnumerator<T>* CreateEnumerator()const
 			{
-				return new Enumerator(begin, end, begin, 0);
+				return new Enumerator(begin, end, begin-1);
 			}
 
 			FromIteratorEnumerable(I _begin, I _end)
@@ -10203,156 +8562,67 @@ Intersect/Except
 ***********************************************************************/
 
 		template<typename T, bool Intersect>
-		class IntersectExceptEnumerable : public EnumerableStore<T>, public virtual IEnumerable<T>
+		class IntersectExceptEnumerator : public virtual IEnumerator<T>
 		{
 		protected:
-			class Enumerator : public virtual IEnumerator<T>
-			{
-			protected:
-				IEnumerator<T>*			enumerator;
-				SortedList<T>			reference;
-				vint						index;
+			IEnumerator<T>*				enumerator;
+			SortedList<T>				reference;
+			vint						index;
 
-				void GoNearest()
+		public:
+			IntersectExceptEnumerator(IEnumerator<T>* _enumerator, const IEnumerable<T>& _reference)
+				:enumerator(_enumerator)
+				,index(-1)
+			{
+				CopyFrom(reference, _reference);
+			}
+
+			IntersectExceptEnumerator(const IntersectExceptEnumerator& _enumerator)
+			{
+				enumerator=_enumerator.enumerator->Clone();
+				CopyFrom(reference, _enumerator.reference);
+				index=_enumerator.index;
+			}
+
+			~IntersectExceptEnumerator()
+			{
+				delete enumerator;
+			}
+
+			IEnumerator<T>* Clone()const
+			{
+				return new IntersectExceptEnumerator(*this);
+			}
+
+			const T& Current()const
+			{
+				return enumerator->Current();
+			}
+
+			vint Index()const
+			{
+				return index;
+			}
+
+			bool Next()
+			{
+				while(enumerator->Next())
 				{
-					while(enumerator->Available())
+					if(reference.Contains(enumerator->Current())==Intersect)
 					{
-						if(reference.Contains(enumerator->Current())==Intersect)
-						{
-							break;
-						}
-						else
-						{
-							enumerator->Next();
-						}
+						index++;
+						return true;
 					}
 				}
-			public:
-				Enumerator(IEnumerator<T>* _enumerator, const IEnumerable<T>& _reference)
-					:enumerator(_enumerator)
-					,index(0)
-				{
-					CopyFrom(reference.Wrap(), _reference);
-					GoNearest();
-				}
-
-				Enumerator(const Enumerator& _enumerator)
-				{
-					enumerator=_enumerator.enumerator->Clone();
-					CopyFrom(reference.Wrap(), _enumerator.reference.Wrap());
-					index=_enumerator.index;
-				}
-
-				~Enumerator()
-				{
-					delete enumerator;
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(*this);
-				}
-
-				const T& Current()const
-				{
-					return enumerator->Current();
-				}
-
-				vint Index()const
-				{
-					return index;
-				}
-
-				bool Next()
-				{
-					index++;
-					enumerator->Next();
-					GoNearest();
-					return Available();
-				}
-
-				bool Available()const
-				{
-					return enumerator->Available();
-				}
-
-				void Reset()
-				{
-					enumerator->Reset();
-					index=0;
-					GoNearest();
-				}
-			};
-		protected:
-			const IEnumerable<T>&				reference;
-		public:
-			IntersectExceptEnumerable(const IEnumerable<T>& enumerable, const IEnumerable<T>& _reference)
-				:EnumerableStore<T>(enumerable)
-				,reference(_reference)
-			{
+				return false;
 			}
 
-			IEnumerator<T>* CreateEnumerator()const
+			void Reset()
 			{
-				return new Enumerator(CopyEnumerator(), reference);
+				enumerator->Reset();
+				index=0;
 			}
 		};
-
-		template<typename T, bool Intersect>
-		class IntersectExceptProcessor : public EnumerableProcessor<T, IntersectExceptEnumerable<T, Intersect>>
-		{
-		protected:
-			const IEnumerable<T>&				second;
-		public:
-			IntersectExceptProcessor(const IEnumerable<T>& _second)
-				:second(_second)
-			{
-			}
-
-			IntersectExceptEnumerable<T, Intersect> operator()(const IEnumerable<T>& first)const
-			{
-				return IntersectExceptEnumerable<T, Intersect>(first, second);
-			}
-		};
-
-		template<typename T>
-		IntersectExceptProcessor<T, true> Intersect(const IEnumerable<T>& second)
-		{
-			return IntersectExceptProcessor<T, true>(second);
-		}
-
-		template<typename T>
-		IntersectExceptProcessor<T, false> Except(const IEnumerable<T>& second)
-		{
-			return IntersectExceptProcessor<T, false>(second);
-		}
-
-/***********************************************************************
-Union
-***********************************************************************/
-
-		template<typename T>
-		class UnionProcessor : public EnumerableProcessor<T, DistinctEnumerable<T>>
-		{
-		protected:
-			const IEnumerable<T>&				second;
-		public:
-			UnionProcessor(const IEnumerable<T>& _second)
-				:second(_second)
-			{
-			}
-
-			DistinctEnumerable<T> operator()(const IEnumerable<T>& first)const
-			{
-				return first>>Concat(second)>>Distinct();
-			}
-		};
-
-		template<typename T>
-		UnionProcessor<T> Union(const IEnumerable<T>& second)
-		{
-			return UnionProcessor<T>(second);
-		}
 	}
 }
 
@@ -10382,117 +8652,59 @@ Pairwise
 ***********************************************************************/
 
 		template<typename S, typename T>
-		class PairwiseEnumerable : public EnumerableStore<S, 1>, public EnumerableStore<T, 2>, public virtual IEnumerable<Pair<S, T>>
+		class PairwiseEnumerator : public virtual IEnumerator<Pair<S, T>>
 		{
 		protected:
-			class Enumerator : public virtual IEnumerator<Pair<S, T>>
-			{
-			protected:
-				IEnumerator<S>*					enumerator1;
-				IEnumerator<T>*					enumerator2;
-				Pair<S, T>						current;
-			public:
-				Enumerator(IEnumerator<S>* _enumerator1, IEnumerator<T>* _enumerator2, vint _index=0, bool _turned=false)
-					:enumerator1(_enumerator1)
-					,enumerator2(_enumerator2)
-				{
-					if(Available())
-					{
-						current=Pair<S, T>(enumerator1->Current(), enumerator2->Current());
-					}
-				}
-
-				~Enumerator()
-				{
-					delete enumerator1;
-					delete enumerator2;
-				}
-
-				IEnumerator<Pair<S, T>>* Clone()const
-				{
-					return new Enumerator(enumerator1->Clone(), enumerator2->Clone());
-				}
-
-				const Pair<S, T>& Current()const
-				{
-					return current;
-				}
-
-				vint Index()const
-				{
-					return enumerator1->Index();
-				}
-
-				bool Next()
-				{
-					if(enumerator1->Next() && enumerator2->Next())
-					{
-						current=Pair<S, T>(enumerator1->Current(), enumerator2->Current());
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool Available()const
-				{
-					return enumerator1->Available() && enumerator2->Available();
-				}
-
-				void Reset()
-				{
-					enumerator1->Reset();
-					enumerator2->Reset();
-					if(Available())
-					{
-						current=Pair<S, T>(enumerator1->Current(), enumerator2->Current());
-					}
-				}
-			};
+			IEnumerator<S>*					enumerator1;
+			IEnumerator<T>*					enumerator2;
+			Pair<S, T>						current;
 		public:
-			PairwiseEnumerable(const IEnumerable<S>& enumerable1, const IEnumerable<T>& enumerable2)
-				:EnumerableStore<S, 1>(enumerable1)
-				,EnumerableStore<T, 2>(enumerable2)
+			PairwiseEnumerator(IEnumerator<S>* _enumerator1, IEnumerator<T>* _enumerator2)
+				:enumerator1(_enumerator1)
+				,enumerator2(_enumerator2)
 			{
 			}
 
-			IEnumerator<Pair<S, T>>* CreateEnumerator()const
+			~PairwiseEnumerator()
 			{
-				return new Enumerator(EnumerableStore<S, 1>::CopyEnumerator(), EnumerableStore<T, 2>::CopyEnumerator());
+				delete enumerator1;
+				delete enumerator2;
+			}
+
+			IEnumerator<Pair<S, T>>* Clone()const
+			{
+				return new PairwiseEnumerator(enumerator1->Clone(), enumerator2->Clone());
+			}
+
+			const Pair<S, T>& Current()const
+			{
+				return current;
+			}
+
+			vint Index()const
+			{
+				return enumerator1->Index();
+			}
+
+			bool Next()
+			{
+				if(enumerator1->Next() && enumerator2->Next())
+				{
+					current=Pair<S, T>(enumerator1->Current(), enumerator2->Current());
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void Reset()
+			{
+				enumerator1->Reset();
+				enumerator2->Reset();
 			}
 		};
-
-		template<typename T>
-		class PairwiseProcessor : public FreeEnumerableProcessor
-		{
-		protected:
-			const IEnumerable<T>&				second;
-		public:
-			template<typename S>
-			struct ResultTypeRetriver
-			{
-				typedef PairwiseEnumerable<S, T> ResultType;
-			};
-
-			PairwiseProcessor(const IEnumerable<T>& _second)
-				:second(_second)
-			{
-			}
-
-			template<typename S>
-			PairwiseEnumerable<S, T> operator()(const IEnumerable<S>& first)const
-			{
-				return PairwiseEnumerable<S, T>(first, second);
-			}
-		};
-
-		template<typename T>
-		PairwiseProcessor<T> Pairwise(const IEnumerable<T>& second)
-		{
-			return PairwiseProcessor<T>(second);
-		}
 	}
 }
 
@@ -10516,111 +8728,128 @@ namespace vl
 {
 	namespace collections
 	{
-		template<typename T, typename K>
-		void CopyFrom(IArray<T, K>& dst, const ObjectString<T>& src, bool append=false)
+		template<typename Ds, typename S>
+		void CopyFrom(Ds& ds, const ObjectString<S>& ss, bool append=false)
 		{
-			vint start=0;
-			if(append)
+			const S* buffer=ss.Buffer();
+			vint count=ss.Length();
+			CopyFrom(ds, buffer, count, append);
+		}
+
+		template<typename D, typename Ss>
+		void CopyFrom(ObjectString<D>& ds, const Ss& ss, bool append=false)
+		{
+			Array<D> da(ds.Buffer(), ds.Length());
+			CopyFrom(da, ss, append);
+			if(da.Count()==0)
 			{
-				start=dst.Count();
-				dst.Resize(start+src.Length());
+				ds=ObjectString<D>();
 			}
 			else
 			{
-				dst.Resize(src.Length());
-			}
-			for(vint i=0;i<src.Length();i++)
-			{
-				dst.Set(start+i, src[i]);
+				ds=ObjectString<D>(&da[0], da.Count());
 			}
 		}
+	}
+}
 
-		template<typename T, typename K>
-		void CopyFrom(ICollection<T, K>& dst, const ObjectString<T>& src, bool append=false)
-		{
-			if(!append)
-			{
-				dst.Clear();
-			}
-			for(vint i=0;i<src.Length();i++)
-			{
-				dst.Add(src[i]);
-			}
-		}
+#endif
 
-		template<typename T, typename K>
-		void CopyFrom(ObjectString<T>& dst, const IReadonlyList<T, K>& src, bool append=false)
+/***********************************************************************
+COMMON\SOURCE\COLLECTIONS\OPERATIONFOREACH.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Data Structure::Operations
+
+扩展：
+	实现一个函数重载IteratorType CreateForEachIterator(const CollectionType& collection);
+	CollectionType是所需要的容器类型
+	IteratorType继承自ForEachIterator<T>
+	必须写在vl::collections命名空间里
+***********************************************************************/
+
+#ifndef VCZH_COLLECTIONS_FOREACH
+#define VCZH_COLLECTIONS_FOREACH
+
+namespace vl
+{
+	namespace collections
+	{
+
+/***********************************************************************
+ForEach基础设施
+***********************************************************************/
+
+		template<typename T>
+		class ForEachIterator : public Object
 		{
-			T* buffer=new T[src.Count()+1];
-			try
+		public:
+			virtual bool				Next(T& variable)const=0;
+
+			operator bool()const
 			{
-				for(vint i=0;i<src.Count();i++)
+				return true;
+			}
+		};
+
+/***********************************************************************
+IEnumerable<T>支持
+***********************************************************************/
+
+		template<typename T>
+		class EnumerableForEachIterator : public ForEachIterator<T>
+		{
+		protected:
+			Ptr<IEnumerator<T>>			enumerator;
+		public:
+			EnumerableForEachIterator(const IEnumerable<T>& enumerable)
+				:enumerator(enumerable.CreateEnumerator())
+			{
+			}
+
+			EnumerableForEachIterator(const EnumerableForEachIterator<T>& enumerableIterator)
+				:enumerator(enumerableIterator.iterator)
+			{
+			}
+
+			bool Next(T& variable)const
+			{
+				if(enumerator->Next())
 				{
-					buffer[i]=src[i];
-				}
-				buffer[src.Count()]=0;
-				if(append)
-				{
-					dst+=buffer;
+					variable=enumerator->Current();
+					return true;
 				}
 				else
 				{
-					dst=buffer;
+					return false;
 				}
-				delete[] buffer;
 			}
-			catch(...)
-			{
-				delete[] buffer;
-				throw;
-			}
-		}
+		};
 
 		template<typename T>
-		void CopyFrom(ObjectString<T>& dst, const IEnumerable<T>& src, bool append=false)
+		EnumerableForEachIterator<T> CreateForEachIterator(const IEnumerable<T>& enumerable)
 		{
-			IEnumerator<T>* enumerator=src.CreateEnumerator();
-			try
-			{
-				vint count=0;
-				while(enumerator->Available())
-				{
-					count++;
-					enumerator->Next();
-				}
-				enumerator->Reset();
-				T* buffer=new T[count+1];
-				try
-				{
-					while(enumerator->Available())
-					{
-						buffer[enumerator->Index()]=enumerator->Current();
-						enumerator->Next();
-					}
-					buffer[count]=0;
-					if(append)
-					{
-						dst+=buffer;
-					}
-					else
-					{
-						dst=buffer;
-					}
-					delete[] buffer;
-				}
-				catch(...)
-				{
-					delete[] buffer;
-					throw;
-				}
-				delete enumerator;
-			}
-			catch(...)
-			{
-				delete enumerator;
-				throw;
-			}
+			return enumerable;
 		}
+
+/***********************************************************************
+ForEach宏
+***********************************************************************/
+
+#define SCOPE_VARIABLE(TYPE, VARIABLE, VALUE)\
+		if(bool __scope_variable_flag__=true)\
+			for(TYPE VARIABLE = VALUE;__scope_variable_flag__;__scope_variable_flag__=false)
+
+#define FOREACH(TYPE, VARIABLE, COLLECTION)\
+		SCOPE_VARIABLE(const ForEachIterator<TYPE>&, __foreach_iterator__, CreateForEachIterator(COLLECTION))\
+		for(TYPE VARIABLE;__foreach_iterator__.Next(VARIABLE);)
+
+#define FOREACH_INDEXER(TYPE, VARIABLE, INDEXER, COLLECTION)\
+		SCOPE_VARIABLE(const ForEachIterator<TYPE>&, __foreach_iterator__, CreateForEachIterator(COLLECTION))\
+		SCOPE_VARIABLE(vint, INDEXER, 0)\
+		for(TYPE VARIABLE;__foreach_iterator__.Next(VARIABLE);INDEXER++)
 	}
 }
 
@@ -10636,39 +8865,387 @@ Data Structure::Operations
 
 Functions:
 	CopyFrom(TargetContainer, SourceContainer)
-	[T] >>	Select(T->K) => [K]
-	[T] >>	Where(T->bool) => [T]
-	[T] >>	OrderBy(T->T->int) => [T]
-	[T] >>	Aggregate(T->T->T) => T
-	[T] >>	Aggregate(T->T->T, T) => T
-	[T] >>	All(T->bool) => bool
-	[T] >>	Any(T->bool) => bool
-	[T] >>	Max() => T
-	[T] >>	Min() => T
-	[T] >>	First() => T
-	[T] >>	Count() => vint
-	[T] >>	IsEmpty() => bool
-	[T] >>	Concat([T]) => [T]
-	[T] >>	Repeat(vint) => [T]
-	[T] >>	Take(vint) => [T]
-	[T] >>	Skip(vint) => [T]
-	[T] >>	Distinct() => [T]
-	[T] >>	Reverse() => [T]
-			FromIterator<T>::Wrap(begin, end) => [T]
-			FromPointer<T>(begin, end) => [T]
-			FromArray<T[]>(array) => [T]
-	[T] >>	Intersect([T]) => [T]
-	[T] >>	Union([T]) => [T]
-	[T] >>	Except([T]) => [T]
-	[T] >>	Pairwise([K]) => [(T,K)]
+	[T]		.Select(T->K) => [K]
+	[T]		.SelectMany(T->[K]) => [K]
+	[T]		.Where(T->bool) => [T]
+	[Ptr<T>].Cast<K>() => [Ptr<K>]
+	[Ptr<T>].FindType<K>() => [Ptr<K>]
+	[T]		.OrderBy(T->T->int) => [T]
 
-FOREACH(X, a, XList.Wrap())
-FOREACH_INDEXER(X, a, index, XList.Wrap())
+	[T]		.Aggregate(T->T->T) => T
+	[T]		.Aggregate(T->T->T, T) => T
+	[T]		.All(T->bool) => bool
+	[T]		.Any(T->bool) => bool
+	[T]		.Max() => T
+	[T]		.Min() => T
+	[T]		.First() => T
+	[T]		.FirstOrDefault(T) => T
+	[T]		.Last() => T
+	[T]		.LastOrDefault(T) => T
+	[T]		.Count() => vint
+	[T]		.IsEmpty() => bool
+
+	[T]		.Concat([T]) => [T]
+	[T]		.Repeat(vint) => [T]
+	[T]		.Take(vint) => [T]
+	[T]		.Skip(vint) => [T]
+	[T]		.Distinct() => [T]
+	[T]		.Reverse() => [T]
+
+	[T]		.Pairwise([K]) => [(T,K)]
+	[T]		.Intersect([T]) => [T]
+	[T]		.Union([T]) => [T]
+	[T]		.Except([T]) => [T]
+
+	From(begin, end) => [T]
+	From(array) => [T]
+
+	FOREACH(X, a, XList)
+	FOREACH_INDEXER(X, a, index, XList)
 ***********************************************************************/
 
 #ifndef VCZH_COLLECTIONS_OPERATION
 #define VCZH_COLLECTIONS_OPERATION
 
+
+namespace vl
+{
+	namespace collections
+	{
+
+/***********************************************************************
+OrderBy Quick Sort
+***********************************************************************/
+
+		template<typename T>
+		void Sort(T* items, vint length, const Func<vint(T, T)>& orderer)
+		{
+			if(length==0) return;
+			vint pivot=0;
+			vint left=0;
+			vint right=0;
+			bool flag=false;
+
+			while(left+right+1!=length)
+			{
+				vint& mine=(flag?left:right);
+				vint& theirs=(flag?right:left);
+				vint candidate=(flag?left:length-right-1);
+				vint factor=(flag?-1:1);
+
+				if(orderer(items[pivot], items[candidate])*factor<=0)
+				{
+					mine++;
+				}
+				else
+				{
+					theirs++;
+					T temp=items[pivot];
+					items[pivot]=items[candidate];
+					items[candidate]=temp;
+					pivot=candidate;
+					flag=!flag;
+				}
+			}
+
+			Sort(items, left, orderer);
+			Sort(items+left+1, right, orderer);
+		}
+
+/***********************************************************************
+LazyList
+***********************************************************************/
+
+		template<typename T>
+		class LazyList : public Object, public IEnumerable<T>
+		{
+		protected:
+			Ptr<IEnumerator<T>>			enumeratorPrototype;
+
+			IEnumerator<T>* xs()const
+			{
+				return enumeratorPrototype->Clone();
+			}
+		public:
+			LazyList(Ptr<IEnumerator<T>> enumerator)
+				:enumeratorPrototype(enumerator)
+			{
+			}
+
+			LazyList(const IEnumerable<T>& enumerable)
+				:enumeratorPrototype(enumerable.CreateEnumerator())
+			{
+			}
+
+			LazyList(const LazyList<T>& lazyList)
+				:enumeratorPrototype(lazyList.enumeratorPrototype)
+			{
+			}
+
+			template<typename TContainer>
+			LazyList(Ptr<TContainer> container)
+				:enumeratorPrototype(new ContainerEnumerator<T, TContainer>(container))
+			{
+			}
+			
+			LazyList()
+				:enumeratorPrototype(EmptyEnumerable<T>().CreateEnumerator())
+			{
+			}
+
+			LazyList<T>& operator=(const LazyList<T>& lazyList)
+			{
+				enumeratorPrototype=lazyList.enumeratorPrototype;
+				return *this;
+			}
+
+			IEnumerator<T>* CreateEnumerator()const
+			{
+				return enumeratorPrototype->Clone();
+			}
+
+			//-------------------------------------------------------
+
+			template<typename F>
+			LazyList<FUNCTION_RESULT_TYPE(F)> Select(F f)const
+			{
+				return new SelectEnumerator<T, FUNCTION_RESULT_TYPE(F)>(xs(), f);
+			}
+
+			template<typename F>
+			auto SelectMany(F f)const -> LazyList<decltype(From(f(T())).First())>
+			{
+				typedef decltype(From(f(T())).First()) U;
+				return Select(f).Aggregate(LazyList<U>(), [](const LazyList<U>& a, const IEnumerable<U>& b){return a.Concat(b);});
+			}
+			
+			template<typename F>
+			LazyList<T> Where(F f)const
+			{
+				return new WhereEnumerator<T>(xs(), f);
+			}
+
+			template<typename U>
+			LazyList<Ptr<U>> Cast()const
+			{
+				Func<Ptr<U>(T)> f=[](T t)->Ptr<U>{return t.Cast<U>();};
+				return new SelectEnumerator<T, Ptr<U>>(xs(), f);
+			}
+
+			template<typename U>
+			LazyList<Ptr<U>> FindType()const
+			{
+				return Cast<U>().Where([](T t){return t;});
+			}
+
+			template<typename F>
+			LazyList<T> OrderBy(F f)const
+			{
+				Ptr<List<T>> sorted=new List<T>;
+				CopyFrom(*sorted.Obj(), *this);
+				if(sorted->Count()>0)
+				{
+					Sort<T>(&sorted->operator[](0), sorted->Count(), f);
+				}
+				return new ContainerEnumerator<T, List<T>>(sorted);
+			}
+
+			//-------------------------------------------------------
+
+			template<typename F>
+			T Aggregate(F f)const
+			{
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				if(!enumerator->Next())
+				{
+					throw Error(L"LazyList<T>::Aggregate(F)#容器为空并且没有初始值，Aggregate操作失败。");
+				}
+				T result=enumerator->Current();
+				while(enumerator->Next())
+				{
+					result=f(result, enumerator->Current());
+				}
+				return result;
+			}
+
+			template<typename I, typename F>
+			I Aggregate(I init, F f)const
+			{
+				FOREACH(T, t, *this)
+				{
+					init=f(init, t);
+				}
+				return init;
+			}
+
+			template<typename F>
+			bool All(F f)const
+			{
+				return Select(f).Aggregate(true, [](bool a, bool b){return a&&b;});
+			}
+
+			template<typename F>
+			bool Any(F f)const
+			{
+				return Select(f).Aggregate(false, [](bool a, bool b){return a||b;});
+			}
+
+			T Max()const
+			{
+				return Aggregate([](T a, T b){return a>b?a:b;});
+			}
+
+			T Min()const
+			{
+				return Aggregate([](T a, T b){return a<b?a:b;});
+			}
+
+			T First()const
+			{
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				if(!enumerator->Next())
+				{
+					throw Error(L"LazyList<T>::First(F)#容器为空并且没有初始值，Aggregate操作失败。");
+				}
+				return enumerator->Current();
+			}
+
+			T First(T defaultValue)const
+			{
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				if(!enumerator->Next())
+				{
+					return defaultValue;
+				}
+				return enumerator->Current();
+			}
+
+			T Last()const
+			{
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				if(!enumerator->Next())
+				{
+					throw Error(L"LazyList<T>::Last(F)#容器为空并且没有初始值，Aggregate操作失败。");
+				}
+				else
+				{
+					T value=enumerator->Current();
+					while(enumerator->Next())
+					{
+						value=enumerator->Current();
+					}
+					return value;
+				}
+			}
+
+			T Last(T defaultValue)const
+			{
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				while(enumerator->Next())
+				{
+					defaultValue=enumerator->Current();
+				}
+				return defaultValue;
+			}
+
+			vint Count()const
+			{
+				vint result=0;
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				while(enumerator->Next())
+				{
+					result++;
+				}
+				return result;
+			}
+
+			bool IsEmpty()const
+			{
+				Ptr<IEnumerator<T>> enumerator=CreateEnumerator();
+				return enumerator->Next();
+			}
+
+			//-------------------------------------------------------
+
+			LazyList<T> Concat(const IEnumerable<T>& remains)const
+			{
+				return new ConcatEnumerator<T>(xs(), remains.CreateEnumerator());
+			}
+
+			LazyList<T> Take(vint count)const
+			{
+				return new TakeEnumerator<T>(xs(), count);
+			}
+
+			LazyList<T> Skip(vint count)const
+			{
+				return new SkipEnumerator<T>(xs(), count);
+			}
+
+			LazyList<T> Repeat(vint count)const
+			{
+				return new RepeatEnumerator<T>(xs(), count);
+			}
+
+			LazyList<T> Distinct()const
+			{
+				return new DistinctEnumerator<T>(xs());
+			}
+
+			LazyList<T> Reverse()const
+			{
+				return new ReverseEnumerator<T>(*this);
+			}
+
+			//-------------------------------------------------------
+
+			template<typename U>
+			LazyList<Pair<T, U>> Pairwise(const IEnumerable<U>& remains)const
+			{
+				return new PairwiseEnumerator<T, U>(xs(), remains.CreateEnumerator());
+			}
+
+			LazyList<T> Intersect(const IEnumerable<T>& remains)const
+			{
+				return new IntersectExceptEnumerator<T, true>(xs(), remains);
+			}
+
+			LazyList<T> Except(const IEnumerable<T>& remains)const
+			{
+				return new IntersectExceptEnumerator<T, false>(xs(), remains);
+			}
+
+			LazyList<T> Union(const IEnumerable<T>& remains)const
+			{
+				return Concat(remains).Distinct();
+			}
+		};
+
+		template<typename T>
+		LazyList<T> From(const IEnumerable<T>& enumerable)
+		{
+			return enumerable;
+		}
+
+		template<typename T>
+		LazyList<T> From(const T* begin, const T* end)
+		{
+			return FromPointer(begin, end);
+		}
+
+		template<typename T, int size>
+		LazyList<T> From(T (&items)[size])
+		{
+			return FromArray(items);
+		}
+
+		template<typename T, int size>
+		LazyList<T> From(const T (&items)[size])
+		{
+			return FromArray(items);
+		}
+	}
+}
 
 #endif
 
@@ -11013,8 +9590,8 @@ namespace vl
 		public:
 			typedef Ptr<RegexMatch>										Ref;
 			typedef collections::List<Ref>								List;
-			typedef collections::IReadonlyList<RegexString>				CaptureList;
-			typedef collections::IReadonlyGroup<WString, RegexString>	CaptureGroup;
+			typedef collections::List<RegexString>						CaptureList;
+			typedef collections::Group<WString, RegexString>			CaptureGroup;
 		protected:
 			collections::List<RegexString>				captures;
 			collections::Group<WString, RegexString>	groups;
@@ -11488,7 +10065,7 @@ ITypeDescriptor (method)
 				virtual vint					GetParameterCount()=0;
 				virtual IParameterInfo*			GetParameter(vint index)=0;
 				virtual IValueInfo*				GetReturn()=0;
-				virtual Value					Invoke(const Value& thisObject, collections::IArray<Value>& arguments)=0;
+				virtual Value					Invoke(const Value& thisObject, collections::Array<Value>& arguments)=0;
 			};
 
 			class IMethodGroupInfo : public IMemberInfo
@@ -11661,20 +10238,20 @@ TextPos
 		
 		struct TextPos
 		{
-			int			row;
-			int			column;
+			vint			row;
+			vint			column;
 
 			TextPos()
 				:row(0) ,column(0)
 			{
 			}
 
-			TextPos(int _row, int _column)
+			TextPos(vint _row, vint _column)
 				:row(_row) ,column(_column)
 			{
 			}
 
-			int Compare(const TextPos& value)const
+			vint Compare(const TextPos& value)const
 			{
 				if(row<value.row) return -1;
 				if(row>value.row) return 1;
@@ -11697,15 +10274,15 @@ Point
 		
 		struct Point
 		{
-			int			x;
-			int			y;
+			vint			x;
+			vint			y;
 
 			Point()
 				:x(0) ,y(0)
 			{
 			}
 
-			Point(int _x, int _y)
+			Point(vint _x, vint _y)
 				:x(_x) ,y(_y)
 			{
 			}
@@ -11727,15 +10304,15 @@ Size
 		
 		struct Size
 		{
-			int			x;
-			int			y;
+			vint			x;
+			vint			y;
 
 			Size()
 				:x(0) ,y(0)
 			{
 			}
 
-			Size(int _x, int _y)
+			Size(vint _x, vint _y)
 				:x(_x) ,y(_y)
 			{
 			}
@@ -11757,17 +10334,17 @@ Rectangle
 		
 		struct Rect
 		{
-			int		x1;
-			int		y1;
-			int		x2;
-			int		y2;
+			vint		x1;
+			vint		y1;
+			vint		x2;
+			vint		y2;
 
 			Rect()
 				:x1(0), y1(0), x2(0), y2(0)
 			{
 			}
 
-			Rect(int _x1, int _y1, int _x2, int _y2)
+			Rect(vint _x1, vint _y1, vint _x2, vint _y2)
 				:x1(_x1), y1(_y1), x2(_x2), y2(_y2)
 			{
 			}
@@ -11802,37 +10379,37 @@ Rectangle
 				return Size(x2-x1, y2-y1);
 			}
 
-			int Left()const
+			vint Left()const
 			{
 				return x1;
 			}
 
-			int Right()const
+			vint Right()const
 			{
 				return x2;
 			}
 
-			int Width()const
+			vint Width()const
 			{
 				return x2-x1;
 			}
 
-			int Top()const
+			vint Top()const
 			{
 				return y1;
 			}
 
-			int Bottom()const
+			vint Bottom()const
 			{
 				return y2;
 			}
 
-			int Height()const
+			vint Height()const
 			{
 				return y2-y1;
 			}
 
-			void Expand(int x, int y)
+			void Expand(vint x, vint y)
 			{
 				x1-=x;
 				y1-=y;
@@ -11848,7 +10425,7 @@ Rectangle
 				y2+=s.y;
 			}
 
-			void Move(int x, int y)
+			void Move(vint x, vint y)
 			{
 				x1+=x;
 				y1+=y;
@@ -11904,12 +10481,12 @@ Rectangle
 			return Size(s1.x-s2.x, s1.y-s2.y);
 		}
 
-		inline Size operator*(Size s, int i)
+		inline Size operator*(Size s, vint i)
 		{
 			return Size(s.x*i, s.y*i);
 		}
 
-		inline Size operator/(Size s, int i)
+		inline Size operator/(Size s, vint i)
 		{
 			return Size(s.x/i, s.y/i);
 		}
@@ -11970,7 +10547,7 @@ Color
 			{
 			}
 
-			int Compare(Color color)const
+			vint Compare(Color color)const
 			{
 				return value-color.value;
 			}
@@ -11989,17 +10566,17 @@ Margin
 		
 		struct Margin
 		{
-			int		left;
-			int		top;
-			int		right;
-			int		bottom;
+			vint		left;
+			vint		top;
+			vint		right;
+			vint		bottom;
 
 			Margin()
 				:left(0), top(0), right(0), bottom(0)
 			{
 			}
 
-			Margin(int _left, int _top, int _right, int _bottom)
+			Margin(vint _left, vint _top, vint _right, vint _bottom)
 				:left(_left), top(_top), right(_right), bottom(_bottom)
 			{
 			}
@@ -12022,7 +10599,7 @@ Resources
 		struct FontProperties
 		{
 			WString				fontFamily;
-			int					size;
+			vint					size;
 			bool				bold;
 			bool				italic;
 			bool				underline;
@@ -12041,9 +10618,9 @@ Resources
 			{
 			}
 			
-			int Compare(const FontProperties& value)const
+			vint Compare(const FontProperties& value)const
 			{
-				int result=0;
+				vint result=0;
 				
 				result=WString::Compare(fontFamily, value.fontFamily);
 				if(result!=0) return result;
@@ -12051,19 +10628,19 @@ Resources
 				result=size-value.size;
 				if(result!=0) return result;
 
-				result=(int)bold-(int)value.bold;
+				result=(vint)bold-(vint)value.bold;
 				if(result!=0) return result;
 
-				result=(int)italic-(int)value.italic;
+				result=(vint)italic-(vint)value.italic;
 				if(result!=0) return result;
 
-				result=(int)underline-(int)value.underline;
+				result=(vint)underline-(vint)value.underline;
 				if(result!=0) return result;
 
-				result=(int)strikeline-(int)value.strikeline;
+				result=(vint)strikeline-(vint)value.strikeline;
 				if(result!=0) return result;
 
-				result=(int)antialias-(int)value.antialias;
+				result=(vint)antialias-(vint)value.antialias;
 				if(result!=0) return result;
 
 				return 0;
@@ -12215,7 +10792,7 @@ Layout Engine
 				struct InlineObjectProperties
 				{
 					Size					size;
-					int						baseline;
+					vint						baseline;
 					BreakCondition			breakCondition;
 
 					InlineObjectProperties()
@@ -12228,17 +10805,17 @@ Layout Engine
 				virtual IGuiGraphicsRenderTarget*			GetRenderTarget()=0;
 				virtual bool								GetWrapLine()=0;
 				virtual void								SetWrapLine(bool value)=0;
-				virtual int									GetMaxWidth()=0;
-				virtual void								SetMaxWidth(int value)=0;
+				virtual vint									GetMaxWidth()=0;
+				virtual void								SetMaxWidth(vint value)=0;
 
-				virtual bool								SetFont(int start, int length, const WString& value)=0;
-				virtual bool								SetSize(int start, int length, int value)=0;
-				virtual bool								SetStyle(int start, int length, TextStyle value)=0;
-				virtual bool								SetColor(int start, int length, Color value)=0;
-				virtual bool								SetInlineObject(int start, int length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
-				virtual bool								ResetInlineObject(int start, int length)=0;
+				virtual bool								SetFont(vint start, vint length, const WString& value)=0;
+				virtual bool								SetSize(vint start, vint length, vint value)=0;
+				virtual bool								SetStyle(vint start, vint length, TextStyle value)=0;
+				virtual bool								SetColor(vint start, vint length, Color value)=0;
+				virtual bool								SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
+				virtual bool								ResetInlineObject(vint start, vint length)=0;
 
-				virtual int									GetHeight()=0;
+				virtual vint									GetHeight()=0;
 				virtual void								Render(Rect bounds)=0;
 			};
 
@@ -12318,7 +10895,7 @@ System Object
 				LastSystemCursor=SizeWE,
 			};
 
-			static const int			SystemCursorCount=LastSystemCursor+1;
+			static const vint			SystemCursorCount=LastSystemCursor+1;
 		public:
 			virtual bool				IsSystemCursor()=0;
 			virtual SystemCursorType	GetSystemCursorType()=0;
@@ -12367,8 +10944,8 @@ Image Object
 			
 			virtual INativeImageService*		GetImageService()=0;
 			virtual FormatType					GetFormat()=0;
-			virtual int							GetFrameCount()=0;
-			virtual INativeImageFrame*			GetFrame(int index)=0;
+			virtual vint							GetFrameCount()=0;
+			virtual INativeImageFrame*			GetFrame(vint index)=0;
 		};
 		
 		class INativeImageService : public Interface
@@ -12376,7 +10953,7 @@ Image Object
 		public:
 			virtual Ptr<INativeImage>			CreateImageFromFile(const WString& path)=0;
 
-			virtual Ptr<INativeImage>			CreateImageFromMemory(void* buffer, int length)=0;
+			virtual Ptr<INativeImage>			CreateImageFromMemory(void* buffer, vint length)=0;
 
 			virtual Ptr<INativeImage>			CreateImageFromStream(stream::IStream& stream)=0;
 		};
@@ -12474,14 +11051,14 @@ Native Window
 			bool						left;
 			bool						middle;
 			bool						right;
-			int							x;
-			int							y;
-			int							wheel;
+			vint							x;
+			vint							y;
+			vint							wheel;
 		};
 		
 		struct NativeWindowKeyInfo
 		{
-			int							code;
+			vint							code;
 			bool						ctrl;
 			bool						shift;
 			bool						alt;
@@ -12580,7 +11157,7 @@ Native Window Services
 			virtual bool					IsInMainThread()=0;
 			virtual void					InvokeAsync(AsyncTaskProc* proc, void* argument)=0;
 			virtual void					InvokeInMainThread(AsyncTaskProc* proc, void* argument)=0;
-			virtual bool					InvokeInMainThreadAndWait(AsyncTaskProc* proc, void* argument, int milliseconds=-1)=0;
+			virtual bool					InvokeInMainThreadAndWait(AsyncTaskProc* proc, void* argument, vint milliseconds=-1)=0;
 		};
 		
 		class INativeClipboardService : public virtual Interface
@@ -12594,8 +11171,8 @@ Native Window Services
 		class INativeScreenService : public virtual Interface
 		{
 		public:
-			virtual int						GetScreenCount()=0;
-			virtual INativeScreen*			GetScreen(int index)=0;
+			virtual vint						GetScreenCount()=0;
+			virtual INativeScreen*			GetScreen(vint index)=0;
 			virtual INativeScreen*			GetScreen(INativeWindow* window)=0;
 		};
 		
@@ -12620,10 +11197,10 @@ Native Window Services
 			virtual void					StopTimer()=0;
 			virtual bool					IsTimerEnabled()=0;
 			
-			virtual bool					IsKeyPressing(int code)=0;
-			virtual bool					IsKeyToggled(int code)=0;
+			virtual bool					IsKeyPressing(vint code)=0;
+			virtual bool					IsKeyToggled(vint code)=0;
 
-			virtual WString					GetKeyName(int code)=0;
+			virtual WString					GetKeyName(vint code)=0;
 		};
 		
 		class INativeCallbackService : public virtual Interface
@@ -12718,7 +11295,7 @@ Native Window Services
 				FileDialogAddToRecent = 256,
 			};
 
-			virtual bool							ShowFileDialog(INativeWindow* window, collections::List<WString>& selectionFileNames, int& selectionFilterIndex, FileDialogTypes dialogType, const WString& title, const WString& initialFileName, const WString& initialDirectory, const WString& defaultExtension, const WString& filter, FileDialogOptions options)=0;
+			virtual bool							ShowFileDialog(INativeWindow* window, collections::List<WString>& selectionFileNames, vint& selectionFilterIndex, FileDialogTypes dialogType, const WString& title, const WString& initialFileName, const WString& initialDirectory, const WString& defaultExtension, const WString& filter, FileDialogOptions options)=0;
 		};
 
 /***********************************************************************
@@ -12738,6 +11315,7 @@ Native Window Controller
 			virtual INativeInputService*			InputService()=0;
 			virtual INativeDialogService*			DialogService()=0;
 			virtual WString							GetOSVersion()=0;
+			virtual WString							GetExecutablePath()=0;
 		};
 		
 		class INativeControllerListener : public Interface
@@ -13162,11 +11740,11 @@ Helpers
 
 #define DEFINE_CACHED_RESOURCE_ALLOCATOR(TKEY, TVALUE)\
 			public:\
-				static const int DeadPackageMax=32;\
+				static const vint DeadPackageMax=32;\
 				struct Package\
 				{\
 					TVALUE							resource;\
-					int								counter;\
+					vint								counter;\
 					bool operator==(const Package& package)const{return false;}\
 					bool operator!=(const Package& package)const{return true;}\
 				};\
@@ -13182,16 +11760,16 @@ Helpers
 			public:\
 				TVALUE Create(const TKEY& key)\
 				{\
-					int index=aliveResources.Keys().IndexOf(key);\
+					vint index=aliveResources.Keys().IndexOf(key);\
 					if(index!=-1)\
 					{\
-						Package package=aliveResources.Values()[index];\
+						Package package=aliveResources.Values().Get(index);\
 						package.counter++;\
 						aliveResources.Set(key, package);\
 						return package.resource;\
 					}\
 					TVALUE resource;\
-					for(int i=0;i<deadResources.Count();i++)\
+					for(vint i=0;i<deadResources.Count();i++)\
 					{\
 						if(deadResources[i].key==key)\
 						{\
@@ -13213,10 +11791,10 @@ Helpers
 				}\
 				void Destroy(const TKEY& key)\
 				{\
-					int index=aliveResources.Keys().IndexOf(key);\
+					vint index=aliveResources.Keys().IndexOf(key);\
 					if(index!=-1)\
 					{\
-						Package package=aliveResources.Values()[index];\
+						Package package=aliveResources.Values().Get(index);\
 						package.counter--;\
 						if(package.counter==0)\
 						{\
@@ -13299,7 +11877,7 @@ Elements
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiRoundBorderElement, L"RoundBorder")
 			protected:
 				Color					color;
-				int						radius;
+				vint						radius;
 
 				GuiRoundBorderElement();
 			public:
@@ -13308,8 +11886,8 @@ Elements
 				Color					GetColor();
 				void					SetColor(Color value);
 				
-				int						GetRadius();
-				void					SetRadius(int value);
+				vint						GetRadius();
+				void					SetRadius(vint value);
 			};
 			
 			class Gui3DBorderElement : public Object, public IGuiGraphicsElement, public Description<Gui3DBorderElement>
@@ -13450,7 +12028,7 @@ Elements
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiImageFrameElement, L"ImageFrame");
 			protected:
 				Ptr<INativeImage>		image;
-				int						frameIndex;
+				vint						frameIndex;
 				Alignment::Type			hAlignment;
 				Alignment::Type			vAlignment;
 				bool					stretch;
@@ -13461,8 +12039,8 @@ Elements
 				~GuiImageFrameElement();
 
 				Ptr<INativeImage>		GetImage();
-				int						GetFrameIndex();
-				void					SetImage(Ptr<INativeImage> _image, int _frameIndex=0);
+				vint						GetFrameIndex();
+				void					SetImage(Ptr<INativeImage> _image, vint _frameIndex=0);
 				
 				Alignment::Type			GetHorizontalAlignment();
 				Alignment::Type			GetVerticalAlignment();
@@ -13491,9 +12069,9 @@ Elements
 				Size					GetSize();
 				void					SetSize(Size value);
 
-				const Point&			GetPoint(int index);
-				int						GetPointCount();
-				void					SetPoints(const Point* p, int count);
+				const Point&			GetPoint(vint index);
+				vint						GetPointCount();
+				void					SetPoints(const Point* p, vint count);
 				
 				Color					GetBorderColor();
 				void					SetBorderColor(Color value);
@@ -13542,29 +12120,29 @@ Colorized Plain Text (model)
 				
 				struct TextLine
 				{
-					static const int				BlockSize=32;
-					static const int				MaxWidth=0xFFFF;
+					static const vint				BlockSize=32;
+					static const vint				MaxWidth=0xFFFF;
 					
 					wchar_t*						text;
 					CharAtt*						att;
-					int								availableOffsetCount;
-					int								bufferLength;
-					int								dataLength;
-					int								lexerFinalState;
-					int								contextFinalState;
+					vint								availableOffsetCount;
+					vint								bufferLength;
+					vint								dataLength;
+					vint								lexerFinalState;
+					vint								contextFinalState;
 
 					TextLine();
 					~TextLine();
 
-					static int						CalculateBufferLength(int dataLength);
+					static vint						CalculateBufferLength(vint dataLength);
 					bool							operator==(const TextLine& value)const{return false;}
 					bool							operator!=(const TextLine& value)const{return true;}
 
 					void							Initialize();
 					void							Finalize();
 					bool							IsReady();
-					bool							Modify(int start, int count, const wchar_t* input, int inputCount);
-					TextLine						Split(int index);
+					bool							Modify(vint start, vint count, const wchar_t* input, vint inputCount);
+					TextLine						Split(vint index);
 					void							AppendAndFinalize(TextLine& line);
 				};
 
@@ -13572,19 +12150,19 @@ Colorized Plain Text (model)
 				{
 				protected:
 					IGuiGraphicsRenderTarget*		oldRenderTarget;
-					int								rowHeight;
-					int								widths[65536];
+					vint								rowHeight;
+					vint								widths[65536];
 					
-					virtual int						MeasureWidthInternal(wchar_t character, IGuiGraphicsRenderTarget* renderTarget)=0;
-					virtual int						GetRowHeightInternal(IGuiGraphicsRenderTarget* renderTarget)=0;
+					virtual vint						MeasureWidthInternal(wchar_t character, IGuiGraphicsRenderTarget* renderTarget)=0;
+					virtual vint						GetRowHeightInternal(IGuiGraphicsRenderTarget* renderTarget)=0;
 				public:
 
-					CharMeasurer(int _rowHeight);
+					CharMeasurer(vint _rowHeight);
 					~CharMeasurer();
 
 					void							SetRenderTarget(IGuiGraphicsRenderTarget* value);
-					int								MeasureWidth(wchar_t character);
-					int								GetRowHeight();
+					vint								MeasureWidth(wchar_t character);
+					vint								GetRowHeight();
 				};
 
 				struct TextLines
@@ -13594,18 +12172,18 @@ Colorized Plain Text (model)
 					TextLineList					lines;
 					CharMeasurer*					charMeasurer;
 					IGuiGraphicsRenderTarget*		renderTarget;
-					int								tabWidth;
-					int								tabSpaceCount;
-					int								availableColorizedLines;
+					vint								tabWidth;
+					vint								tabSpaceCount;
+					vint								availableColorizedLines;
 					wchar_t							passwordChar;
 				public:
 					TextLines();
 					~TextLines();
 
-					int								GetCount();
-					TextLine&						GetLine(int row);
-					int								GetAvailableColorizedLines();
-					void							SetAvailableColorizedLines(int value);
+					vint								GetCount();
+					TextLine&						GetLine(vint row);
+					vint								GetAvailableColorizedLines();
+					void							SetAvailableColorizedLines(vint value);
 					CharMeasurer*					GetCharMeasurer();
 					void							SetCharMeasurer(CharMeasurer* value);
 					IGuiGraphicsRenderTarget*		GetRenderTarget();
@@ -13614,23 +12192,23 @@ Colorized Plain Text (model)
 					WString							GetText();
 					void							SetText(const WString& value);
 					
-					bool							RemoveLines(int start, int count);
+					bool							RemoveLines(vint start, vint count);
 					bool							IsAvailable(TextPos pos);
 					TextPos							Normalize(TextPos pos);
-					TextPos							Modify(TextPos start, TextPos end, const wchar_t** inputs, int* inputCounts, int rows);
-					TextPos							Modify(TextPos start, TextPos end, const wchar_t* input, int inputCount);
+					TextPos							Modify(TextPos start, TextPos end, const wchar_t** inputs, vint* inputCounts, vint rows);
+					TextPos							Modify(TextPos start, TextPos end, const wchar_t* input, vint inputCount);
 					TextPos							Modify(TextPos start, TextPos end, const wchar_t* input);
 					TextPos							Modify(TextPos start, TextPos end, const WString& input);
 					void							Clear();
 					
 					void							ClearMeasurement();
-					int								GetTabSpaceCount();
-					void							SetTabSpaceCount(int value);
-					void							MeasureRow(int row);
-					int								GetRowWidth(int row);
-					int								GetRowHeight();
-					int								GetMaxWidth();
-					int								GetMaxHeight();
+					vint								GetTabSpaceCount();
+					void							SetTabSpaceCount(vint value);
+					void							MeasureRow(vint row);
+					vint								GetRowWidth(vint row);
+					vint								GetRowHeight();
+					vint								GetMaxWidth();
+					vint								GetMaxHeight();
 					TextPos							GetTextPosFromPoint(Point point);
 					Point							GetPointFromTextPos(TextPos pos);
 					Rect							GetRectFromTextPos(TextPos pos);
@@ -13664,7 +12242,6 @@ Colorized Plain Text (element)
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiColorizedTextElement, L"ColorizedText");
 
 				typedef collections::Array<text::ColorEntry>			ColorArray;
-				typedef collections::IReadonlyList<text::ColorEntry>	IColorArray;
 			public:
 				class ICallback : public virtual IDescriptable, public Description<ICallback>
 				{
@@ -13695,7 +12272,7 @@ Colorized Plain Text (element)
 				ICallback*							GetCallback();
 				void								SetCallback(ICallback* value);
 				
-				const IColorArray&					GetColors();
+				const ColorArray&					GetColors();
 				void								SetColors(const ColorArray& value);
 				const FontProperties&				GetFont();
 				void								SetFont(const FontProperties& value);
@@ -13758,7 +12335,7 @@ Rich Content Document (model)
 				{
 				public:
 					Size							size;
-					int								baseline;
+					vint								baseline;
 
 					DocumentInlineObjectRun():baseline(-1){}
 				};
@@ -13767,7 +12344,7 @@ Rich Content Document (model)
 				{
 				public:
 					Ptr<INativeImage>				image;
-					int								frameIndex;
+					vint								frameIndex;
 
 					DocumentImageRun():frameIndex(0){}
 
@@ -13819,12 +12396,12 @@ Rich Content Document (element)
 
 					typedef collections::Array<Ptr<text::ParagraphCache>>		ParagraphCacheArray;
 				protected:
-					int									paragraphDistance;
-					int									lastMaxWidth;
-					int									cachedTotalHeight;
+					vint									paragraphDistance;
+					vint									lastMaxWidth;
+					vint									cachedTotalHeight;
 					IGuiGraphicsLayoutProvider*			layoutProvider;
 					ParagraphCacheArray					paragraphCaches;
-					collections::Array<int>				paragraphHeights;
+					collections::Array<vint>				paragraphHeights;
 
 					void					InitializeInternal();
 					void					FinalizeInternal();
@@ -13835,7 +12412,7 @@ Rich Content Document (element)
 					void					Render(Rect bounds)override;
 					void					OnElementStateChanged()override;
 
-					void					NotifyParagraphUpdated(int index);
+					void					NotifyParagraphUpdated(vint index);
 				};
 
 			protected:
@@ -13847,7 +12424,7 @@ Rich Content Document (element)
 				
 				Ptr<text::DocumentModel>	GetDocument();
 				void						SetDocument(Ptr<text::DocumentModel> value);
-				void						NotifyParagraphUpdated(int index);
+				void						NotifyParagraphUpdated(vint index);
 			};
 		}
 	}
@@ -14144,7 +12721,7 @@ Predefined Item Events
 			
 			struct GuiItemEventArgs : public GuiEventArgs
 			{
-				int			itemIndex;
+				vint			itemIndex;
 
 				GuiItemEventArgs()
 					:itemIndex(-1)
@@ -14160,7 +12737,7 @@ Predefined Item Events
 			
 			struct GuiItemMouseEventArgs : public GuiMouseEventArgs
 			{
-				int			itemIndex;
+				vint			itemIndex;
 
 				GuiItemMouseEventArgs()
 					:itemIndex(-1)
@@ -14297,7 +12874,6 @@ Basic Construction
 
 			class GuiGraphicsComposition : public Object, public Description<GuiGraphicsComposition>
 			{
-				typedef collections::IReadonlyList<GuiGraphicsComposition*> ICompositionList;
 				typedef collections::List<GuiGraphicsComposition*> CompositionList;
 
 				friend class controls::GuiControl;
@@ -14340,11 +12916,11 @@ Basic Construction
 				~GuiGraphicsComposition();
 
 				GuiGraphicsComposition*						GetParent();
-				const ICompositionList&						Children();
+				const CompositionList&						Children();
 				bool										AddChild(GuiGraphicsComposition* child);
-				bool										InsertChild(int index, GuiGraphicsComposition* child);
+				bool										InsertChild(vint index, GuiGraphicsComposition* child);
 				bool										RemoveChild(GuiGraphicsComposition* child);
-				bool										MoveChild(GuiGraphicsComposition* child, int newIndex);
+				bool										MoveChild(GuiGraphicsComposition* child, vint newIndex);
 
 				Ptr<elements::IGuiGraphicsElement>			GetOwnedElement();
 				void										SetOwnedElement(Ptr<elements::IGuiGraphicsElement> element);
@@ -14515,7 +13091,7 @@ Table Compositions
 				};
 
 				ComposeType		composeType;
-				int				absolute;
+				vint				absolute;
 				double			percentage;
 
 				GuiCellOption()
@@ -14528,7 +13104,7 @@ Table Compositions
 				bool operator==(const GuiCellOption& value){return false;}
 				bool operator!=(const GuiCellOption& value){return true;}
 
-				static GuiCellOption AbsoluteOption(int value)
+				static GuiCellOption AbsoluteOption(vint value)
 				{
 					GuiCellOption option;
 					option.composeType=Absolute;
@@ -14556,11 +13132,11 @@ Table Compositions
 			{
 				friend class GuiCellComposition;
 			protected:
-				int											rows;
-				int											columns;
-				int											cellPadding;
-				int											rowExtending;
-				int											columnExtending;
+				vint											rows;
+				vint											columns;
+				vint											cellPadding;
+				vint											rowExtending;
+				vint											columnExtending;
 				collections::Array<GuiCellOption>			rowOptions;
 				collections::Array<GuiCellOption>			columnOptions;
 				collections::Array<GuiCellComposition*>		cellCompositions;
@@ -14569,34 +13145,34 @@ Table Compositions
 				Size										previousContentMinSize;
 				Size										tableContentMinSize;
 
-				int									GetSiteIndex(int _rows, int _columns, int _row, int _column);
-				void								SetSitedCell(int _row, int _column, GuiCellComposition* cell);
+				vint									GetSiteIndex(vint _rows, vint _columns, vint _row, vint _column);
+				void								SetSitedCell(vint _row, vint _column, GuiCellComposition* cell);
 
 				void								UpdateCellBoundsInternal(
-														collections::Array<int>& dimSizes,
-														int& dimSize, 
-														int& dimSizeWithPercentage,
+														collections::Array<vint>& dimSizes,
+														vint& dimSize, 
+														vint& dimSizeWithPercentage,
 														collections::Array<GuiCellOption>& dimOptions,
-														int GuiTableComposition::* dim1,
-														int GuiTableComposition::* dim2,
-														int (*getSize)(Size),
-														int (*getLocation)(GuiCellComposition*),
-														int (*getSpan)(GuiCellComposition*),
-														int (*getRow)(int, int),
-														int (*getCol)(int, int),
-														int maxPass
+														vint GuiTableComposition::* dim1,
+														vint GuiTableComposition::* dim2,
+														vint (*getSize)(Size),
+														vint (*getLocation)(GuiCellComposition*),
+														vint (*getSpan)(GuiCellComposition*),
+														vint (*getRow)(vint, vint),
+														vint (*getCol)(vint, vint),
+														vint maxPass
 														);
 				void								UpdateCellBoundsPercentages(
-														collections::Array<int>& dimSizes,
-														int dimSize,
-														int maxDimSize,
+														collections::Array<vint>& dimSizes,
+														vint dimSize,
+														vint maxDimSize,
 														collections::Array<GuiCellOption>& dimOptions
 														);
-				int									UpdateCellBoundsOffsets(
-														collections::Array<int>& offsets,
-														collections::Array<int>& sizes,
-														int start,
-														int max
+				vint									UpdateCellBoundsOffsets(
+														collections::Array<vint>& offsets,
+														collections::Array<vint>& sizes,
+														vint start,
+														vint max
 														);
 				
 				void								UpdateCellBoundsInternal();
@@ -14606,18 +13182,18 @@ Table Compositions
 				GuiTableComposition();
 				~GuiTableComposition();
 
-				int									GetRows();
-				int									GetColumns();
-				bool								SetRowsAndColumns(int _rows, int _columns);
-				GuiCellComposition*					GetSitedCell(int _row, int _column);
+				vint									GetRows();
+				vint									GetColumns();
+				bool								SetRowsAndColumns(vint _rows, vint _columns);
+				GuiCellComposition*					GetSitedCell(vint _row, vint _column);
 
-				GuiCellOption						GetRowOption(int _row);
-				void								SetRowOption(int _row, GuiCellOption option);
-				GuiCellOption						GetColumnOption(int _column);
-				void								SetColumnOption(int _column, GuiCellOption option);
+				GuiCellOption						GetRowOption(vint _row);
+				void								SetRowOption(vint _row, GuiCellOption option);
+				GuiCellOption						GetColumnOption(vint _column);
+				void								SetColumnOption(vint _column, GuiCellOption option);
 
-				int									GetCellPadding();
-				void								SetCellPadding(int value);
+				vint									GetCellPadding();
+				void								SetCellPadding(vint value);
 				Rect								GetCellArea();
 				void								UpdateCellBounds();
 				
@@ -14630,17 +13206,17 @@ Table Compositions
 			{
 				friend class GuiTableComposition;
 			protected:
-				int									row;
-				int									rowSpan;
-				int									column;
-				int									columnSpan;
+				vint									row;
+				vint									rowSpan;
+				vint									column;
+				vint									columnSpan;
 				GuiTableComposition*				tableParent;
 				Size								lastPreferredSize;
 				
 				void								ClearSitedCells(GuiTableComposition* table);
 				void								SetSitedCells(GuiTableComposition* table);
 				void								ResetSiteInternal();
-				bool								SetSiteInternal(int _row, int _column, int _rowSpan, int _columnSpan);
+				bool								SetSiteInternal(vint _row, vint _column, vint _rowSpan, vint _columnSpan);
 				void								OnParentChanged(GuiGraphicsComposition* oldParent, GuiGraphicsComposition* newParent)override;
 				void								OnTableRowsAndColumnsChanged();
 			public:
@@ -14649,11 +13225,11 @@ Table Compositions
 
 				GuiTableComposition*				GetTableParent();
 
-				int									GetRow();
-				int									GetRowSpan();
-				int									GetColumn();
-				int									GetColumnSpan();
-				bool								SetSite(int _row, int _column, int _rowSpan, int _columnSpan);
+				vint									GetRow();
+				vint									GetRowSpan();
+				vint									GetColumn();
+				vint									GetColumnSpan();
+				bool								SetSite(vint _row, vint _column, vint _rowSpan, vint _columnSpan);
 
 				Rect								GetBounds()override;
 			};
@@ -14697,7 +13273,6 @@ Stack Compositions
 				friend class GuiStackItemComposition;
 
 				typedef collections::List<GuiStackItemComposition*>				ItemCompositionList;
-				typedef collections::IReadonlyList<GuiStackItemComposition*>	IItemCompositionList;
 			public:
 				enum Direction
 				{
@@ -14709,7 +13284,7 @@ Stack Compositions
 				ItemCompositionList					stackItems;
 				collections::Array<Rect>			stackItemBounds;
 				Size								stackItemTotalSize;
-				int									padding;
+				vint									padding;
 				Rect								previousBounds;
 				Margin								extraMargin;
 
@@ -14721,13 +13296,13 @@ Stack Compositions
 				GuiStackComposition();
 				~GuiStackComposition();
 
-				const IItemCompositionList&			GetStackItems();
-				bool								InsertStackItem(int index, GuiStackItemComposition* item);
+				const ItemCompositionList&			GetStackItems();
+				bool								InsertStackItem(vint index, GuiStackItemComposition* item);
 				
 				Direction							GetDirection();
 				void								SetDirection(Direction value);
-				int									GetPadding();
-				void								SetPadding(int value);
+				vint									GetPadding();
+				void								SetPadding(vint value);
 
 				Size								GetMinPreferredClientSize()override;
 				Rect								GetBounds()override;
@@ -14802,7 +13377,7 @@ Specialized Compositions
 				};
 			protected:
 				Direction							direction;
-				int									maxLength;
+				vint									maxLength;
 				double								maxRatio;
 			public:
 				GuiSideAlignedComposition();
@@ -14810,8 +13385,8 @@ Specialized Compositions
 				
 				Direction							GetDirection();
 				void								SetDirection(Direction value);
-				int									GetMaxLength();
-				void								SetMaxLength(int value);
+				vint									GetMaxLength();
+				void								SetMaxLength(vint value);
 				double								GetMaxRatio();
 				void								SetMaxRatio(double value);
 				
@@ -14880,9 +13455,9 @@ namespace vl
 					virtual void						DetachMeasurer(GuiSubComponentMeasurer* value)=0;
 					virtual GuiSubComponentMeasurer*	GetAttachedMeasurer()=0;
 					virtual WString						GetMeasuringCategory()=0;
-					virtual int							GetSubComponentCount()=0;
-					virtual WString						GetSubComponentName(int index)=0;
-					virtual GuiGraphicsComposition*		GetSubComponentComposition(int index)=0;
+					virtual vint							GetSubComponentCount()=0;
+					virtual WString						GetSubComponentName(vint index)=0;
+					virtual GuiGraphicsComposition*		GetSubComponentComposition(vint index)=0;
 					virtual GuiGraphicsComposition*		GetSubComponentComposition(const WString& name)=0;
 					virtual GuiGraphicsComposition*		GetMainComposition()=0;
 					virtual void						SubComponentPreferredMinSizeUpdated()=0;
@@ -14912,9 +13487,9 @@ namespace vl
 					void								DetachMeasurer(GuiSubComponentMeasurer* value)override;
 					GuiSubComponentMeasurer*			GetAttachedMeasurer()override;
 					WString								GetMeasuringCategory()override;
-					int									GetSubComponentCount()override;
-					WString								GetSubComponentName(int index)override;
-					GuiGraphicsComposition*				GetSubComponentComposition(int index)override;
+					vint									GetSubComponentCount()override;
+					WString								GetSubComponentName(vint index)override;
+					GuiGraphicsComposition*				GetSubComponentComposition(vint index)override;
 					GuiGraphicsComposition*				GetSubComponentComposition(const WString& name)override;
 					GuiGraphicsComposition*				GetMainComposition()override;
 					void								SubComponentPreferredMinSizeUpdated()override;
@@ -14966,9 +13541,9 @@ Animation
 			class IGuiGraphicsAnimation : public virtual IDescriptable, public Description<IGuiGraphicsAnimation>
 			{
 			public:
-				virtual int						GetTotalLength()=0;
-				virtual int						GetCurrentPosition()=0;
-				virtual void					Play(int currentPosition, int totalLength)=0;
+				virtual vint						GetTotalLength()=0;
+				virtual vint						GetCurrentPosition()=0;
+				virtual void					Play(vint currentPosition, vint totalLength)=0;
 				virtual void					Stop()=0;
 			};
 
@@ -15004,8 +13579,8 @@ Shortcut Key Manager
 			class IGuiShortcutKeyManager : public Interface, public Description<IGuiShortcutKeyManager>
 			{
 			public:
-				virtual int								GetItemCount()=0;
-				virtual IGuiShortcutKeyItem*			GetItem(int index)=0;
+				virtual vint								GetItemCount()=0;
+				virtual IGuiShortcutKeyItem*			GetItem(vint index)=0;
 				virtual bool							Execute(const NativeWindowKeyInfo& info)=0;
 			};
 
@@ -15096,14 +13671,14 @@ Animation Helpers
 			{
 			protected:
 				unsigned __int64				startTime;
-				int								length;
+				vint								length;
 			public:
-				GuiTimeBasedAnimation(int totalMilliseconds);
+				GuiTimeBasedAnimation(vint totalMilliseconds);
 				~GuiTimeBasedAnimation();
 
-				void							Restart(int totalMilliseconds=-1);
-				int								GetTotalLength()override;
-				int								GetCurrentPosition()override;
+				void							Restart(vint totalMilliseconds=-1);
+				vint								GetTotalLength()override;
+				vint								GetCurrentPosition()override;
 			};
 
 /***********************************************************************
@@ -15119,18 +13694,18 @@ Shortcut Key Manager Helpers
 				bool							ctrl;
 				bool							shift;
 				bool							alt;
-				int								key;
+				vint								key;
 
 				void							AttachManager(GuiShortcutKeyManager* manager);
 				void							DetachManager(GuiShortcutKeyManager* manager);
 			public:
-				GuiShortcutKeyItem(GuiShortcutKeyManager* _shortcutKeyManager, bool _ctrl, bool _shift, bool _alt, int _key);
+				GuiShortcutKeyItem(GuiShortcutKeyManager* _shortcutKeyManager, bool _ctrl, bool _shift, bool _alt, vint _key);
 				~GuiShortcutKeyItem();
 
 				IGuiShortcutKeyManager*			GetManager()override;
 				WString							GetName()override;
 				bool							CanActivate(const NativeWindowKeyInfo& info);
-				bool							CanActivate(bool _ctrl, bool _shift, bool _alt, int _key);
+				bool							CanActivate(bool _ctrl, bool _shift, bool _alt, vint _key);
 			};
 
 			class GuiShortcutKeyManager : public Object, public IGuiShortcutKeyManager, public Description<GuiShortcutKeyManager>
@@ -15143,13 +13718,13 @@ Shortcut Key Manager Helpers
 				GuiShortcutKeyManager();
 				~GuiShortcutKeyManager();
 
-				int								GetItemCount()override;
-				IGuiShortcutKeyItem*			GetItem(int index)override;
+				vint								GetItemCount()override;
+				IGuiShortcutKeyItem*			GetItem(vint index)override;
 				bool							Execute(const NativeWindowKeyInfo& info)override;
 
-				IGuiShortcutKeyItem*			CreateShortcut(bool ctrl, bool shift, bool alt, int key);
-				bool							DestroyShortcut(bool ctrl, bool shift, bool alt, int key);
-				IGuiShortcutKeyItem*			TryGetShortcut(bool ctrl, bool shift, bool alt, int key);
+				IGuiShortcutKeyItem*			CreateShortcut(bool ctrl, bool shift, bool alt, vint key);
+				bool							DestroyShortcut(bool ctrl, bool shift, bool alt, vint key);
+				IGuiShortcutKeyItem*			TryGetShortcut(bool ctrl, bool shift, bool alt, vint key);
 			};
 		}
 	}
@@ -15265,8 +13840,8 @@ Basic Construction
 				compositions::GuiGraphicsComposition*	GetFocusableComposition();
 				compositions::GuiGraphicsEventReceiver*	GetEventReceiver();
 				GuiControl*								GetParent();
-				int										GetChildrenCount();
-				GuiControl*								GetChild(int index);
+				vint										GetChildrenCount();
+				GuiControl*								GetChild(vint index);
 				bool									AddChild(GuiControl* control);
 				
 				virtual GuiControlHost*					GetRelatedControlHost();
@@ -15316,19 +13891,19 @@ Basic Construction
 				}
 			};
 			
-			class GuiImageData
+			class GuiImageData : public Object
 			{
 			protected:
 				Ptr<INativeImage>				image;
-				int								frameIndex;
+				vint								frameIndex;
 
 			public:
 				GuiImageData();
-				GuiImageData(Ptr<INativeImage> _image, int _frameIndex);
+				GuiImageData(Ptr<INativeImage> _image, vint _frameIndex);
 				~GuiImageData();
 
 				Ptr<INativeImage>				GetImage();
-				int								GetFrameIndex();
+				vint								GetFrameIndex();
 			};
 
 /***********************************************************************
@@ -15470,18 +14045,18 @@ Scrolls
 					virtual void						BigDecrease()=0;
 					virtual void						BigIncrease()=0;
 
-					virtual void						SetTotalSize(int value)=0;
-					virtual void						SetPageSize(int value)=0;
-					virtual void						SetPosition(int value)=0;
+					virtual void						SetTotalSize(vint value)=0;
+					virtual void						SetPageSize(vint value)=0;
+					virtual void						SetPosition(vint value)=0;
 				};
 				
 				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
 				{
 				public:
 					virtual void						SetCommandExecutor(ICommandExecutor* value)=0;
-					virtual void						SetTotalSize(int value)=0;
-					virtual void						SetPageSize(int value)=0;
-					virtual void						SetPosition(int value)=0;
+					virtual void						SetTotalSize(vint value)=0;
+					virtual void						SetPageSize(vint value)=0;
+					virtual void						SetPosition(vint value)=0;
 				};
 			protected:
 				class CommandExecutor : public Object, public ICommandExecutor
@@ -15497,18 +14072,18 @@ Scrolls
 					void								BigDecrease()override;
 					void								BigIncrease()override;
 
-					void								SetTotalSize(int value)override;
-					void								SetPageSize(int value)override;
-					void								SetPosition(int value)override;
+					void								SetTotalSize(vint value)override;
+					void								SetPageSize(vint value)override;
+					void								SetPosition(vint value)override;
 				};
 
 				IStyleController*						styleController;
 				Ptr<CommandExecutor>					commandExecutor;
-				int										totalSize;
-				int										pageSize;
-				int										position;
-				int										smallMove;
-				int										bigMove;
+				vint										totalSize;
+				vint										pageSize;
+				vint										position;
+				vint										smallMove;
+				vint										bigMove;
 			public:
 				GuiScroll(IStyleController* _styleController);
 				~GuiScroll();
@@ -15519,135 +14094,19 @@ Scrolls
 				compositions::GuiNotifyEvent			SmallMoveChanged;
 				compositions::GuiNotifyEvent			BigMoveChanged;
 				
-				virtual int								GetTotalSize();
-				virtual void							SetTotalSize(int value);
-				virtual int								GetPageSize();
-				virtual void							SetPageSize(int value);
-				virtual int								GetPosition();
-				virtual void							SetPosition(int value);
-				virtual int								GetSmallMove();
-				virtual void							SetSmallMove(int value);
-				virtual int								GetBigMove();
-				virtual void							SetBigMove(int value);
+				virtual vint								GetTotalSize();
+				virtual void							SetTotalSize(vint value);
+				virtual vint								GetPageSize();
+				virtual void							SetPageSize(vint value);
+				virtual vint								GetPosition();
+				virtual void							SetPosition(vint value);
+				virtual vint								GetSmallMove();
+				virtual void							SetSmallMove(vint value);
+				virtual vint								GetBigMove();
+				virtual void							SetBigMove(vint value);
 				
-				int										GetMinPosition();
-				int										GetMaxPosition();
-			};
-
-			class GuiScrollView : public GuiControl, public Description<GuiScrollView>
-			{
-			public:
-				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
-				{
-				public:
-					virtual GuiScroll::IStyleController*			CreateHorizontalScrollStyle()=0;
-					virtual GuiScroll::IStyleController*			CreateVerticalScrollStyle()=0;
-					virtual int										GetDefaultScrollSize()=0;
-					virtual compositions::GuiGraphicsComposition*	InstallBackground(compositions::GuiBoundsComposition* boundsComposition)=0;
-				};
-				
-				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
-				{
-				protected:
-					Ptr<IStyleProvider>						styleProvider;
-					GuiScrollView*							scrollView;
-					GuiScroll*								horizontalScroll;
-					GuiScroll*								verticalScroll;
-					compositions::GuiBoundsComposition*		boundsComposition;
-					compositions::GuiTableComposition*		tableComposition;
-					compositions::GuiCellComposition*		containerCellComposition;
-					compositions::GuiBoundsComposition*		containerComposition;
-					bool									horizontalAlwaysVisible;
-					bool									verticalAlwaysVisible;
-
-					void									UpdateTable();
-				public:
-					StyleController(IStyleProvider* _styleProvider);
-					~StyleController();
-
-					void									SetScrollView(GuiScrollView* _scrollView);
-					void									AdjustView(Size fullSize);
-					IStyleProvider*							GetStyleProvider();
-
-					GuiScroll*								GetHorizontalScroll();
-					GuiScroll*								GetVerticalScroll();
-					compositions::GuiTableComposition*		GetInternalTableComposition();
-					compositions::GuiBoundsComposition*		GetInternalContainerComposition();
-
-					bool									GetHorizontalAlwaysVisible();
-					void									SetHorizontalAlwaysVisible(bool value);
-					bool									GetVerticalAlwaysVisible();
-					void									SetVerticalAlwaysVisible(bool value);
-
-					compositions::GuiBoundsComposition*		GetBoundsComposition()override;
-					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
-					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
-					void									SetText(const WString& value)override;
-					void									SetFont(const FontProperties& value)override;
-					void									SetVisuallyEnabled(bool value)override;
-				};
-			protected:
-
-				StyleController*						styleController;
-				bool									supressScrolling;
-
-				void									OnContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnHorizontalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnVerticalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									CallUpdateView();
-				void									Initialize();
-
-				virtual Size							QueryFullSize()=0;
-				virtual void							UpdateView(Rect viewBounds)=0;
-				
-				GuiScrollView(StyleController* _styleController);
-			public:
-				GuiScrollView(IStyleProvider* styleProvider);
-				~GuiScrollView();
-
-				void									CalculateView();
-				Size									GetViewSize();
-				Rect									GetViewBounds();
-				
-				GuiScroll*								GetHorizontalScroll();
-				GuiScroll*								GetVerticalScroll();
-				bool									GetHorizontalAlwaysVisible();
-				void									SetHorizontalAlwaysVisible(bool value);
-				bool									GetVerticalAlwaysVisible();
-				void									SetVerticalAlwaysVisible(bool value);
-			};
-			
-			class GuiScrollContainer : public GuiScrollView, public Description<GuiScrollContainer>
-			{
-			public:
-				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
-				{
-				protected:
-					compositions::GuiBoundsComposition*		controlContainerComposition;
-					bool									extendToFullWidth;
-				public:
-					StyleController(GuiScrollView::IStyleProvider* styleProvider);
-					~StyleController();
-
-					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
-					void									MoveContainer(Point leftTop);
-
-					bool									GetExtendToFullWidth();
-					void									SetExtendToFullWidth(bool value);
-				};
-
-			protected:
-				StyleController*						styleController;
-
-				void									OnControlContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				Size									QueryFullSize()override;
-				void									UpdateView(Rect viewBounds)override;
-			public:
-				GuiScrollContainer(GuiScrollContainer::IStyleProvider* styleProvider);
-				~GuiScrollContainer();
-				
-				bool									GetExtendToFullWidth();
-				void									SetExtendToFullWidth(bool value);
+				vint										GetMinPosition();
+				vint										GetMaxPosition();
 			};
 			
 			namespace list
@@ -15657,12 +14116,26 @@ List interface common implementation
 ***********************************************************************/
 
 				template<typename T, typename K=typename KeyType<T>::Type>
-				class ItemsBase : public Object, public collections::IList<T, K>
+				class ItemsBase : public Object, public virtual collections::IEnumerable<T>
 				{
 				protected:
 					collections::List<T, K>					items;
 
-					virtual void							NotifyUpdateInternal(int start, int count, int newCount)=0;
+					virtual void NotifyUpdateInternal(vint start, vint count, vint newCount)
+					{
+					}
+
+					virtual bool InsertInternal(vint index, const T& value)
+					{
+						items.Insert(index, value);
+						return true;
+					}
+
+					virtual bool RemoveAtInternal(vint index, const T& value)
+					{
+						items.RemoveAt(index);
+						return true;
+					}
 					
 				public:
 					ItemsBase()
@@ -15673,7 +14146,12 @@ List interface common implementation
 					{
 					}
 
-					bool NotifyUpdate(int start, int count=1)
+					collections::IEnumerator<T>* CreateEnumerator()const
+					{
+						return items.CreateEnumerator();
+					}
+
+					bool NotifyUpdate(vint start, vint count=1)
 					{
 						if(start<0 || start>=items.Count() || count<=0 || start+count>items.Count())
 						{
@@ -15684,11 +14162,6 @@ List interface common implementation
 							NotifyUpdateInternal(start, count, count);
 							return true;
 						}
-					}
-
-					collections::IEnumerator<T>* CreateEnumerator()const
-					{
-						return items.Wrap().CreateEnumerator();
 					}
 
 					bool Contains(const K& item)const
@@ -15735,7 +14208,7 @@ List interface common implementation
 
 					bool RemoveAt(vint index)
 					{
-						if(items.RemoveAt(index))
+						if(RemoveAtInternal(index, items[index]))
 						{
 							NotifyUpdateInternal(index, 1, 0);
 							return true;
@@ -15748,9 +14221,13 @@ List interface common implementation
 
 					bool RemoveRange(vint index, vint count)
 					{
-						if(items.RemoveRange(index, count))
+						if(count<=0) return false;
+						if(0<=index && index<items.Count() && index+count<=items.Count())
 						{
-							NotifyUpdateInternal(index, count, 0);
+							while(count-->0)
+							{
+								RemoveAt(index+count);
+							}
 							return true;
 						}
 						else
@@ -15761,31 +14238,31 @@ List interface common implementation
 
 					bool Clear()
 					{
-						vint count=items.Count();
-						if(items.Clear())
+						while(items.Count()>0)
 						{
-							NotifyUpdateInternal(0, count, 0);
-							return true;
+							RemoveAt(items.Count()-1);
 						}
-						else
-						{
-							return false;
-						}
+						return true;
 					}
 
 					vint Insert(vint index, const T& item)
 					{
-						vint result=items.Insert(index, item);
-						NotifyUpdateInternal(index, 0, 1);
-						return result;
+						if(InsertInternal(index, item))
+						{
+							NotifyUpdateInternal(index, 0, 1);
+							return index;
+						}
+						else
+						{
+							return -1;
+						}
 					}
 
 					bool Set(vint index, const T& item)
 					{
-						if(items.Set(index, item))
+						if(Insert(index, item))
 						{
-							NotifyUpdateInternal(index, 1, 1);
-							return true;
+							return RemoveAt(index+1);
 						}
 						else
 						{
@@ -15794,6 +14271,19 @@ List interface common implementation
 					}
 				};
 			}
+		}
+	}
+
+	namespace collections
+	{
+		namespace randomaccess_internal
+		{
+			template<typename T>
+			struct RandomAccessable<presentation::controls::list::ItemsBase<T>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
 		}
 	}
 }
@@ -16052,16 +14542,18 @@ namespace vl
 				void											OnMouseDown(Point location);
 			public:
 				void											Run(GuiWindow* _mainWindow);
-				const collections::IReadonlyList<GuiWindow*>&	GetWindows();
+				const collections::List<GuiWindow*>&			GetWindows();
 				GuiWindow*										GetWindow(Point location);
+				WString											GetExecutablePath();
+				WString											GetExecutableFolder();
 
 				bool											IsInMainThread();
 				void											InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument);
 				void											InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				bool											InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, int milliseconds=-1);
+				bool											InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds=-1);
 				void											InvokeAsync(const Func<void()>& proc);
 				void											InvokeInMainThread(const Func<void()>& proc);
-				bool											InvokeInMainThreadAndWait(const Func<void()>& proc, int milliseconds=-1);
+				bool											InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds=-1);
 
 				template<typename T>
 				void InvokeLambdaInMainThread(const T& proc)
@@ -16070,7 +14562,7 @@ namespace vl
 				}
 				
 				template<typename T>
-				bool InvokeLambdaInMainThreadAndWait(const T& proc, int milliseconds=-1)
+				bool InvokeLambdaInMainThreadAndWait(const T& proc, vint milliseconds=-1)
 				{
 					return InvokeInMainThreadAndWait(Func<void()>(proc), milliseconds);
 				}
@@ -16086,7 +14578,7 @@ extern void GuiApplicationMain();
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\GUITEXTCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\GUICONTAINERCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -16096,8 +14588,240 @@ GacUI::Control System
 Interfaces:
 ***********************************************************************/
 
-#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
-#define VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
+#ifndef VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
+#define VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+/***********************************************************************
+Tab Control
+***********************************************************************/
+
+			class GuiTab;
+
+			class GuiTabPage : public Object, public Description<GuiTabPage>
+			{
+				friend class GuiTab;
+				friend class Ptr<GuiTabPage>;
+			protected:
+				GuiControl*										container;
+				GuiTab*											owner;
+				WString											text;
+				
+				GuiTabPage();
+				~GuiTabPage();
+
+				bool											AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController);
+				bool											DeassociateTab(GuiTab* _owner);
+			public:
+				compositions::GuiNotifyEvent					TextChanged;
+				compositions::GuiNotifyEvent					PageInstalled;
+				compositions::GuiNotifyEvent					PageUninstalled;
+				compositions::GuiNotifyEvent					PageContainerReady;
+
+				GuiControl*										GetContainer();
+				GuiTab*											GetOwnerTab();
+				const WString&									GetText();
+				void											SetText(const WString& param);
+				bool											GetSelected();
+			};
+
+			class GuiTab : public GuiControl, public Description<GuiTab>
+			{
+				friend class GuiTabPage;
+			public:
+				class ICommandExecutor : public virtual IDescriptable, public Description<ICommandExecutor>
+				{
+				public:
+					virtual void								ShowTab(vint index)=0;
+				};
+				
+				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
+				{
+				public:
+					virtual void								SetCommandExecutor(ICommandExecutor* value)=0;
+					virtual void								InsertTab(vint index)=0;
+					virtual void								SetTabText(vint index, const WString& value)=0;
+					virtual void								RemoveTab(vint index)=0;
+					virtual void								MoveTab(vint oldIndex, vint newIndex)=0;
+					virtual void								SetSelectedTab(vint index)=0;
+					virtual GuiControl::IStyleController*		CreateTabPageStyleController()=0;
+				};
+			protected:
+				class CommandExecutor : public Object, public ICommandExecutor
+				{
+				protected:
+					GuiTab*										tab;
+				public:
+					CommandExecutor(GuiTab* _tab);
+					~CommandExecutor();
+
+					void										ShowTab(vint index)override;
+				};
+
+				Ptr<CommandExecutor>							commandExecutor;
+				IStyleController*								styleController;
+				collections::List<GuiTabPage*>					tabPages;
+				GuiTabPage*										selectedPage;
+			public:
+				GuiTab(IStyleController* _styleController);
+				~GuiTab();
+
+				compositions::GuiNotifyEvent					SelectedPageChanged;
+
+				GuiTabPage*										CreatePage(vint index=-1);
+				bool											CreatePage(GuiTabPage* page, vint index=-1);
+				bool											RemovePage(GuiTabPage* value);
+				bool											MovePage(GuiTabPage* page, vint newIndex);
+				const collections::List<GuiTabPage*>&			GetPages();
+
+				GuiTabPage*										GetSelectedPage();
+				bool											SetSelectedPage(GuiTabPage* value);
+			};
+
+/***********************************************************************
+Scroll View
+***********************************************************************/
+
+			class GuiScrollView : public GuiControl, public Description<GuiScrollView>
+			{
+			public:
+				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
+				{
+				public:
+					virtual GuiScroll::IStyleController*			CreateHorizontalScrollStyle()=0;
+					virtual GuiScroll::IStyleController*			CreateVerticalScrollStyle()=0;
+					virtual vint										GetDefaultScrollSize()=0;
+					virtual compositions::GuiGraphicsComposition*	InstallBackground(compositions::GuiBoundsComposition* boundsComposition)=0;
+				};
+				
+				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
+				{
+				protected:
+					Ptr<IStyleProvider>						styleProvider;
+					GuiScrollView*							scrollView;
+					GuiScroll*								horizontalScroll;
+					GuiScroll*								verticalScroll;
+					compositions::GuiBoundsComposition*		boundsComposition;
+					compositions::GuiTableComposition*		tableComposition;
+					compositions::GuiCellComposition*		containerCellComposition;
+					compositions::GuiBoundsComposition*		containerComposition;
+					bool									horizontalAlwaysVisible;
+					bool									verticalAlwaysVisible;
+
+					void									UpdateTable();
+				public:
+					StyleController(IStyleProvider* _styleProvider);
+					~StyleController();
+
+					void									SetScrollView(GuiScrollView* _scrollView);
+					void									AdjustView(Size fullSize);
+					IStyleProvider*							GetStyleProvider();
+
+					GuiScroll*								GetHorizontalScroll();
+					GuiScroll*								GetVerticalScroll();
+					compositions::GuiTableComposition*		GetInternalTableComposition();
+					compositions::GuiBoundsComposition*		GetInternalContainerComposition();
+
+					bool									GetHorizontalAlwaysVisible();
+					void									SetHorizontalAlwaysVisible(bool value);
+					bool									GetVerticalAlwaysVisible();
+					void									SetVerticalAlwaysVisible(bool value);
+
+					compositions::GuiBoundsComposition*		GetBoundsComposition()override;
+					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
+					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+					void									SetText(const WString& value)override;
+					void									SetFont(const FontProperties& value)override;
+					void									SetVisuallyEnabled(bool value)override;
+				};
+			protected:
+
+				StyleController*						styleController;
+				bool									supressScrolling;
+
+				void									OnContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnHorizontalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnVerticalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									CallUpdateView();
+				void									Initialize();
+
+				virtual Size							QueryFullSize()=0;
+				virtual void							UpdateView(Rect viewBounds)=0;
+				
+				GuiScrollView(StyleController* _styleController);
+			public:
+				GuiScrollView(IStyleProvider* styleProvider);
+				~GuiScrollView();
+
+				void									CalculateView();
+				Size									GetViewSize();
+				Rect									GetViewBounds();
+				
+				GuiScroll*								GetHorizontalScroll();
+				GuiScroll*								GetVerticalScroll();
+				bool									GetHorizontalAlwaysVisible();
+				void									SetHorizontalAlwaysVisible(bool value);
+				bool									GetVerticalAlwaysVisible();
+				void									SetVerticalAlwaysVisible(bool value);
+			};
+			
+			class GuiScrollContainer : public GuiScrollView, public Description<GuiScrollContainer>
+			{
+			public:
+				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
+				{
+				protected:
+					compositions::GuiBoundsComposition*		controlContainerComposition;
+					bool									extendToFullWidth;
+				public:
+					StyleController(GuiScrollView::IStyleProvider* styleProvider);
+					~StyleController();
+
+					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
+					void									MoveContainer(Point leftTop);
+
+					bool									GetExtendToFullWidth();
+					void									SetExtendToFullWidth(bool value);
+				};
+
+			protected:
+				StyleController*						styleController;
+
+				void									OnControlContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				Size									QueryFullSize()override;
+				void									UpdateView(Rect viewBounds)override;
+			public:
+				GuiScrollContainer(GuiScrollContainer::IStyleProvider* styleProvider);
+				~GuiScrollContainer();
+				
+				bool									GetExtendToFullWidth();
+				void									SetExtendToFullWidth(bool value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\CONTROLS\TEXTEDITORPACKAGE\GUITEXTGENERALOPERATIONS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTELEMENTOPERATOR
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTELEMENTOPERATOR
 
 
 namespace vl
@@ -16111,136 +14835,53 @@ namespace vl
 Common Operations
 ***********************************************************************/
 
-			class GuiTextBoxCommonInterface;
-
-			class GuiTextElementOperator : public Object, public Description<GuiTextElementOperator>
+			class ICommonTextEditCallback : public virtual IDescriptable, public Description<ICommonTextEditCallback>
 			{
 			public:
-				class ICallback : public virtual IDescriptable, public Description<ICallback>
-				{
-				public:
-					virtual TextPos							GetLeftWord(TextPos pos)=0;
-					virtual TextPos							GetRightWord(TextPos pos)=0;
-					virtual void							GetWord(TextPos pos, TextPos& begin, TextPos& end)=0;
-					virtual int								GetPageRows()=0;
-					virtual bool							BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)=0;
-					virtual void							AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
-					virtual void							ScrollToView(Point point)=0;
-					virtual int								GetTextMargin()=0;
-				};
-
-				class DefaultCallback : public Object, public ICallback, public Description<DefaultCallback>
-				{
-				protected:
-					elements::GuiColorizedTextElement*		textElement;
-					compositions::GuiGraphicsComposition*	textComposition;
-					bool									readonly;
-				public:
-					DefaultCallback(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition);
-					~DefaultCallback();
-
-					TextPos									GetLeftWord(TextPos pos)override;
-					TextPos									GetRightWord(TextPos pos)override;
-					void									GetWord(TextPos pos, TextPos& begin, TextPos& end)override;
-					int										GetPageRows()override;
-					bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
-				};
-
-				class ITextEditCallback : public virtual IDescriptable, public Description<ITextEditCallback>
-				{
-				public:
-					virtual void							Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)=0;
-					virtual void							Detach()=0;
-					virtual void							TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
-				};
-
-				class ShortcutCommand
-				{
-				protected:
-					bool									ctrl;
-					bool									shift;
-					int										key;
-					Func<void()>							action;
-				public:
-					ShortcutCommand(bool _ctrl, bool _shift, int _key, const Func<void()> _action);
-					~ShortcutCommand();
-
-					bool									IsTheRightKey(bool _ctrl, bool _shift, int _key);
-					void									Execute();
-				};
-
-			protected:
-				elements::GuiColorizedTextElement*			textElement;
-				compositions::GuiGraphicsComposition*		textComposition;
-				GuiControl*									textControl;
-				GuiTextBoxCommonInterface*					textBoxCommonInterface;
-				ICallback*									callback;
-				bool										dragging;
-				bool										readonly;
-
-				SpinLock									elementModifyLock;
-				collections::List<Ptr<ITextEditCallback>>	textEditCallbacks;
-				collections::List<Ptr<ShortcutCommand>>		shortcutCommands;
-
-				void										UpdateCaretPoint();
-				void										Move(TextPos pos, bool shift);
-				void										Modify(TextPos start, TextPos end, const WString& input);
-				bool										ProcessKey(int code, bool shift, bool ctrl);
-					
-				void										OnGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void										OnLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void										OnCaretNotify(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-
-				void										OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void										OnLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void										OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void										OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
-				void										OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments);
-			public:
-				GuiTextElementOperator();
-				~GuiTextElementOperator();
-
-				void										Install(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition, GuiControl* _textControl);
-				ICallback*									GetCallback();
-				void										SetCallback(ICallback* value);
-				bool										AttachTextEditCallback(Ptr<ITextEditCallback> value);
-				bool										DetachTextEditCallback(Ptr<ITextEditCallback> value);
-				GuiTextBoxCommonInterface*					GetTextBoxCommonInterface();
-				void										SetTextBoxCommonInterface(GuiTextBoxCommonInterface* value);
-				void										AddShortcutCommand(Ptr<ShortcutCommand> shortcutCommand);
-
-				elements::GuiColorizedTextElement*			GetTextElement();
-				compositions::GuiGraphicsComposition*		GetTextComposition();
-				TextPos										GetNearestTextPos(Point point);
-				void										Select(TextPos begin, TextPos end);
-				WString										GetSelectionText();
-				void										SetSelectionText(const WString& value);
-				void										SetText(const WString& value);
-
-				bool										CanCut();
-				bool										CanCopy();
-				bool										CanPaste();
-				void										SelectAll();
-				bool										Cut();
-				bool										Copy();
-				bool										Paste();
-
-				bool										GetReadonly();
-				void										SetReadonly(bool value);
+				virtual void							Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)=0;
+				virtual void							Detach()=0;
+				virtual void							TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
 			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\CONTROLS\TEXTEDITORPACKAGE\GUITEXTCOLORIZER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCOLORIZER
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTCOLORIZER
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
 
 /***********************************************************************
 Colorizer
 ***********************************************************************/
 			
-			class GuiTextBoxColorizerBase : public Object, public GuiTextElementOperator::ITextEditCallback
+			class GuiTextBoxColorizerBase : public Object, public ICommonTextEditCallback
 			{
 			public:
 				typedef collections::Array<elements::text::ColorEntry>			ColorArray;
 			protected:
 				elements::GuiColorizedTextElement*			element;
 				SpinLock*									elementModifyLock;
-				volatile int								colorizedLineCount;
+				volatile vint								colorizedLineCount;
 				volatile bool								isColorizerRunning;
 				volatile bool								isFinalizing;
 				SpinLock									colorizerRunningEvent;
@@ -16256,10 +14897,11 @@ Colorizer
 				void										Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)override;
 				void										Detach()override;
 				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
+				void										RestartColorizer();
 
-				virtual int									GetLexerStartState()=0;
-				virtual int									GetContextStartState()=0;
-				virtual void								ColorizeLineWithCRLF(const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)=0;
+				virtual vint								GetLexerStartState()=0;
+				virtual vint								GetContextStartState()=0;
+				virtual void								ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)=0;
 				virtual const ColorArray&					GetColors()=0;
 			};
 
@@ -16281,22 +14923,51 @@ Colorizer
 				~GuiTextBoxRegexColorizer();
 
 				elements::text::ColorEntry									GetDefaultColor();
-				collections::IReadonlyList<WString>&						GetTokenRegexes();
-				collections::IReadonlyList<elements::text::ColorEntry>&		GetTokenColors();
-				collections::IReadonlyList<elements::text::ColorEntry>&		GetExtraTokenColors();
-				int															GetExtraTokenIndexStart();
+				collections::List<WString>&									GetTokenRegexes();
+				collections::List<elements::text::ColorEntry>&				GetTokenColors();
+				collections::List<elements::text::ColorEntry>&				GetExtraTokenColors();
+				vint														GetExtraTokenIndexStart();
 				
 				bool														SetDefaultColor(elements::text::ColorEntry value);
-				int															AddToken(const WString& regex, elements::text::ColorEntry color);
-				int															AddExtraToken(elements::text::ColorEntry color);
+				vint														AddToken(const WString& regex, elements::text::ColorEntry color);
+				vint														AddExtraToken(elements::text::ColorEntry color);
 				bool														Setup();
-				virtual void												ColorizeTokenContextSensitive(const wchar_t* text, vint start, vint length, vint& token, int& contextState);
+				virtual void												ColorizeTokenContextSensitive(vint lineIndex, const wchar_t* text, vint start, vint length, vint& token, vint& contextState);
 
-				int															GetLexerStartState()override;
-				int															GetContextStartState()override;
-				void														ColorizeLineWithCRLF(const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)override;
+				vint														GetLexerStartState()override;
+				vint														GetContextStartState()override;
+				void														ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)override;
 				const ColorArray&											GetColors()override;
 			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\CONTROLS\TEXTEDITORPACKAGE\GUITEXTUNDOREDO.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTUNDOREDO
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTUNDOREDO
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+			class GuiTextBoxCommonInterface;
 
 /***********************************************************************
 Undo Redo
@@ -16311,12 +14982,12 @@ Undo Redo
 					virtual void							Undo()=0;
 					virtual void							Redo()=0;
 				};
-				friend class collections::ReadonlyListEnumerator<Ptr<IEditStep>>;
+				friend class collections::ArrayBase<Ptr<IEditStep>>;
 
 			protected:
 				collections::List<Ptr<IEditStep>>			steps;
-				int											firstFutureStep;
-				int											savedStep;
+				vint										firstFutureStep;
+				vint										savedStep;
 				bool										performingUndoRedo;
 
 				void										PushStep(Ptr<IEditStep> step);
@@ -16333,7 +15004,7 @@ Undo Redo
 				bool										Redo();
 			};
 
-			class GuiTextBoxUndoRedoProcessor : public GuiGeneralUndoRedoProcessor, public GuiTextElementOperator::ITextEditCallback
+			class GuiTextBoxUndoRedoProcessor : public GuiGeneralUndoRedoProcessor, public ICommonTextEditCallback
 			{
 			protected:
 				class EditStep : public Object, public IEditStep
@@ -16351,15 +15022,42 @@ Undo Redo
 					void									Redo();
 				};
 
-				GuiTextElementOperator*						textElementOperator;
+				GuiTextBoxCommonInterface*					textBoxCommonInterface;
 			public:
-				GuiTextBoxUndoRedoProcessor(GuiTextElementOperator* _textElementOperator);
+				GuiTextBoxUndoRedoProcessor(GuiTextBoxCommonInterface* _textBoxCommonInterface);
 				~GuiTextBoxUndoRedoProcessor();
 
 				void										Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock);
 				void										Detach();
 				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText);
 			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\CONTROLS\TEXTEDITORPACKAGE\GUITEXTCOMMONINTERFACE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCOMMONINTERFACE
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTCOMMONINTERFACE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
 
 /***********************************************************************
 Common Interface
@@ -16367,66 +15065,182 @@ Common Interface
 
 			class GuiTextBoxCommonInterface : public Description<GuiTextBoxCommonInterface>
 			{
-				friend class GuiTextElementOperator;
 			protected:
-				GuiTextElementOperator*						textElementOperator;
-				GuiControl*									textControl;
-				Ptr<GuiTextBoxColorizerBase>				colorizer;
-				Ptr<GuiTextBoxUndoRedoProcessor>			undoRedoProcessor;
+				class ICallback : public virtual IDescriptable, public Description<ICallback>
+				{
+				public:
+					virtual TextPos									GetLeftWord(TextPos pos)=0;
+					virtual TextPos									GetRightWord(TextPos pos)=0;
+					virtual void									GetWord(TextPos pos, TextPos& begin, TextPos& end)=0;
+					virtual vint									GetPageRows()=0;
+					virtual bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)=0;
+					virtual void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
+					virtual void									ScrollToView(Point point)=0;
+					virtual vint									GetTextMargin()=0;
+				};
 
-				void										RaiseTextChanged();
-				void										RaiseSelectionChanged();
-				void										InitializeCommonInterface(GuiControl* _textControl, GuiTextElementOperator* _textElementOperator);
+				class DefaultCallback : public Object, public ICallback, public Description<DefaultCallback>
+				{
+				protected:
+					elements::GuiColorizedTextElement*				textElement;
+					compositions::GuiGraphicsComposition*			textComposition;
+					bool											readonly;
+				public:
+					DefaultCallback(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition);
+					~DefaultCallback();
+
+					TextPos											GetLeftWord(TextPos pos)override;
+					TextPos											GetRightWord(TextPos pos)override;
+					void											GetWord(TextPos pos, TextPos& begin, TextPos& end)override;
+					vint											GetPageRows()override;
+					bool											BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
+				};
+
+			public:
+				class ShortcutCommand
+				{
+				protected:
+					bool											ctrl;
+					bool											shift;
+					vint											key;
+					Func<void()>									action;
+				public:
+					ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<void()> _action);
+					ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<bool()> _action);
+					~ShortcutCommand();
+
+					bool											IsTheRightKey(bool _ctrl, bool _shift, vint _key);
+					void											Execute();
+				};
+
+			private:
+				elements::GuiColorizedTextElement*					textElement;
+				compositions::GuiGraphicsComposition*				textComposition;
+				GuiControl*											textControl;
+				ICallback*											callback;
+				bool												dragging;
+				bool												readonly;
+				Ptr<GuiTextBoxColorizerBase>						colorizer;
+				Ptr<GuiTextBoxUndoRedoProcessor>					undoRedoProcessor;
+
+				SpinLock											elementModifyLock;
+				collections::List<Ptr<ICommonTextEditCallback>>		textEditCallbacks;
+				collections::List<Ptr<ShortcutCommand>>				shortcutCommands;
+
+				void												UpdateCaretPoint();
+				void												Move(TextPos pos, bool shift);
+				void												Modify(TextPos start, TextPos end, const WString& input);
+				bool												ProcessKey(vint code, bool shift, bool ctrl);
+					
+				void												OnGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void												OnLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void												OnCaretNotify(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+
+				void												OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void												OnLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void												OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void												OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
+				void												OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments);
+
+			protected:
+
+				void												Install(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition, GuiControl* _textControl);
+				ICallback*											GetCallback();
+				void												SetCallback(ICallback* value);
+				bool												AttachTextEditCallback(Ptr<ICommonTextEditCallback> value);
+				bool												DetachTextEditCallback(Ptr<ICommonTextEditCallback> value);
+				void												AddShortcutCommand(Ptr<ShortcutCommand> shortcutCommand);
+				elements::GuiColorizedTextElement*					GetTextElement();
+				void												UnsafeSetText(const WString& value);
+
 			public:
 				GuiTextBoxCommonInterface();
 				~GuiTextBoxCommonInterface();
 
-				compositions::GuiNotifyEvent				SelectionChanged;
+				compositions::GuiNotifyEvent						SelectionChanged;
 
-				compositions::GuiGraphicsComposition*		GetTextComposition();
+				//================ clipboard operations
 
-				Ptr<GuiTextBoxColorizerBase>				GetColorizer();
-				void										SetColorizer(Ptr<GuiTextBoxColorizerBase> value);
+				bool												CanCut();
+				bool												CanCopy();
+				bool												CanPaste();
+				bool												Cut();
+				bool												Copy();
+				bool												Paste();
 
-				bool										CanUndo();
-				bool										CanRedo();
-				void										ClearUndoRedo();
-				bool										GetModified();
-				void										NotifyModificationSaved();
-				bool										Undo();
-				bool										Redo();
+				//================ editing control
+
+				bool												GetReadonly();
+				void												SetReadonly(bool value);
+
+				//================ text operations
+
+				void												SelectAll();
+				void												Select(TextPos begin, TextPos end);
+				WString												GetSelectionText();
+				void												SetSelectionText(const WString& value);
 				
-				bool										CanCut();
-				bool										CanCopy();
-				bool										CanPaste();
-				void										SelectAll();
-				bool										Cut();
-				bool										Copy();
-				bool										Paste();
-				
-				WString										GetRowText(int row);
-				WString										GetFragmentText(TextPos start, TextPos end);
-				int											GetRowWidth(int row);
-				int											GetRowHeight();
-				int											GetMaxWidth();
-				int											GetMaxHeight();
-				TextPos										GetTextPosFromPoint(Point point);
-				Point										GetPointFromTextPos(TextPos pos);
-				Rect										GetRectFromTextPos(TextPos pos);
-				TextPos										GetNearestTextPos(Point point);
+				WString												GetRowText(vint row);
+				WString												GetFragmentText(TextPos start, TextPos end);
 
-				TextPos										GetCaretBegin();
-				TextPos										GetCaretEnd();
-				TextPos										GetCaretSmall();
-				TextPos										GetCaretLarge();
-				void										Select(TextPos begin, TextPos end);
-				
-				WString										GetSelectionText();
-				void										SetSelectionText(const WString& value);
+				TextPos												GetCaretBegin();
+				TextPos												GetCaretEnd();
+				TextPos												GetCaretSmall();
+				TextPos												GetCaretLarge();
 
-				bool										GetReadonly();
-				void										SetReadonly(bool value);
+				//================ position query
+
+				vint												GetRowWidth(vint row);
+				vint												GetRowHeight();
+				vint												GetMaxWidth();
+				vint												GetMaxHeight();
+				TextPos												GetTextPosFromPoint(Point point);
+				Point												GetPointFromTextPos(TextPos pos);
+				Rect												GetRectFromTextPos(TextPos pos);
+				TextPos												GetNearestTextPos(Point point);
+
+				//================ colorizing
+
+				Ptr<GuiTextBoxColorizerBase>						GetColorizer();
+				void												SetColorizer(Ptr<GuiTextBoxColorizerBase> value);
+
+				//================ undo redo control
+
+				bool												CanUndo();
+				bool												CanRedo();
+				void												ClearUndoRedo();
+				bool												GetModified();
+				void												NotifyModificationSaved();
+				bool												Undo();
+				bool												Redo();
 			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\CONTROLS\TEXTEDITORPACKAGE\GUITEXTCONTROLS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
 
 /***********************************************************************
 MultilineTextBox
@@ -16435,23 +15249,23 @@ MultilineTextBox
 			class GuiMultilineTextBox : public GuiScrollView, public GuiTextBoxCommonInterface, public Description<GuiMultilineTextBox>
 			{
 			public:
-				static const int							TextMargin=3;
+				static const vint							TextMargin=3;
 
 				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
 				{
 				protected:
-					elements::GuiColorizedTextElement*		textElement;
-					compositions::GuiBoundsComposition*		textComposition;
-					GuiTextElementOperator					textElementOperator;
-					Ptr<GuiTextElementOperator::ICallback>	defaultCallback;
+					elements::GuiColorizedTextElement*			textElement;
+					compositions::GuiBoundsComposition*			textComposition;
+					GuiMultilineTextBox*						textBox;
+					Ptr<GuiTextBoxCommonInterface::ICallback>	defaultCallback;
 
 				public:
 					StyleController(GuiScrollView::IStyleProvider* styleProvider);
 					~StyleController();
 
+					void									Initialize(GuiMultilineTextBox* control);
 					elements::GuiColorizedTextElement*		GetTextElement();
 					compositions::GuiGraphicsComposition*	GetTextComposition();
-					GuiTextElementOperator*					GetTextElementOperator();
 					void									SetViewPosition(Point value);
 					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
 
@@ -16461,7 +15275,7 @@ MultilineTextBox
 					void									SetVisuallyEnabled(bool value)override;
 				};
 
-				class TextElementOperatorCallback : public GuiTextElementOperator::DefaultCallback, public Description<TextElementOperatorCallback>
+				class TextElementOperatorCallback : public GuiTextBoxCommonInterface::DefaultCallback, public Description<TextElementOperatorCallback>
 				{
 				protected:
 					GuiMultilineTextBox*					textControl;
@@ -16471,7 +15285,7 @@ MultilineTextBox
 
 					void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
 					void									ScrollToView(Point point)override;
-					int										GetTextMargin()override;
+					vint									GetTextMargin()override;
 				};
 
 			protected:
@@ -16498,7 +15312,7 @@ SinglelineTextBox
 			class GuiSinglelineTextBox : public GuiControl, public GuiTextBoxCommonInterface, public Description<GuiSinglelineTextBox>
 			{
 			public:
-				static const int							TextMargin=3;
+				static const vint							TextMargin=3;
 
 				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
 				{
@@ -16509,22 +15323,21 @@ SinglelineTextBox
 				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
 				{
 				protected:
-					Ptr<IStyleProvider>						styleProvider;
-					compositions::GuiBoundsComposition*		boundsComposition;
-					compositions::GuiGraphicsComposition*	containerComposition;
+					Ptr<IStyleProvider>							styleProvider;
+					compositions::GuiBoundsComposition*			boundsComposition;
+					compositions::GuiGraphicsComposition*		containerComposition;
 
-					GuiSinglelineTextBox*					textBox;
-					elements::GuiColorizedTextElement*		textElement;
-					compositions::GuiTableComposition*		textCompositionTable;
-					compositions::GuiCellComposition*		textComposition;
-					GuiTextElementOperator					textElementOperator;
-					Ptr<GuiTextElementOperator::ICallback>	defaultCallback;
+					GuiSinglelineTextBox*						textBox;
+					elements::GuiColorizedTextElement*			textElement;
+					compositions::GuiTableComposition*			textCompositionTable;
+					compositions::GuiCellComposition*			textComposition;
+					Ptr<GuiTextBoxCommonInterface::ICallback>	defaultCallback;
 
 				public:
 					StyleController(IStyleProvider* _styleProvider);
 					~StyleController();
 
-					void									SetTextBox(GuiSinglelineTextBox* value);
+					void									SetTextBox(GuiSinglelineTextBox* control);
 					void									RearrangeTextElement();
 					compositions::GuiBoundsComposition*		GetBoundsComposition();
 					compositions::GuiGraphicsComposition*	GetContainerComposition();
@@ -16537,11 +15350,10 @@ SinglelineTextBox
 
 					elements::GuiColorizedTextElement*		GetTextElement();
 					compositions::GuiGraphicsComposition*	GetTextComposition();
-					GuiTextElementOperator*					GetTextElementOperator();
 					void									SetViewPosition(Point value);
 				};
 
-				class TextElementOperatorCallback : public GuiTextElementOperator::DefaultCallback, public Description<TextElementOperatorCallback>
+				class TextElementOperatorCallback : public GuiTextBoxCommonInterface::DefaultCallback, public Description<TextElementOperatorCallback>
 				{
 				protected:
 					GuiSinglelineTextBox*					textControl;
@@ -16552,7 +15364,7 @@ SinglelineTextBox
 					bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
 					void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
 					void									ScrollToView(Point point)override;
-					int										GetTextMargin()override;
+					vint									GetTextMargin()override;
 				};
 			protected:
 				StyleController*							styleController;
@@ -16576,7 +15388,7 @@ SinglelineTextBox
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\GUILISTCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\LISTCONTROLPACKAGE\GUILISTCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -16616,13 +15428,13 @@ List Control
 				{
 				public:
 					virtual void								OnAttached(IItemProvider* provider)=0;
-					virtual void								OnItemModified(int start, int count, int newCount)=0;
+					virtual void								OnItemModified(vint start, vint count, vint newCount)=0;
 				};
 
 				class IItemArrangerCallback : public virtual IDescriptable, public Description<IItemArrangerCallback>
 				{
 				public:
-					virtual IItemStyleController*					RequestItem(int itemIndex)=0;
+					virtual IItemStyleController*					RequestItem(vint itemIndex)=0;
 					virtual void									ReleaseItem(IItemStyleController* style)=0;
 					virtual void									SetViewLocation(Point value)=0;
 					virtual Size									GetStylePreferredSize(IItemStyleController* style)=0;
@@ -16642,8 +15454,8 @@ List Control
 				public:
 					static const wchar_t* const					Identifier;
 
-					virtual WString								GetPrimaryTextViewText(int itemIndex)=0;
-					virtual bool								ContainsPrimaryText(int itemIndex)=0;
+					virtual WString								GetPrimaryTextViewText(vint itemIndex)=0;
+					virtual bool								ContainsPrimaryText(vint itemIndex)=0;
 				};
 
 				//-----------------------------------------------------------
@@ -16669,7 +15481,7 @@ List Control
 				public:
 					virtual bool								AttachCallback(IItemProviderCallback* value)=0;
 					virtual bool								DetachCallback(IItemProviderCallback* value)=0;
-					virtual int									Count()=0;
+					virtual vint									Count()=0;
 					virtual IDescriptable*						RequestView(const WString& identifier)=0;
 					virtual void								ReleaseView(IDescriptable* view)=0;
 				};
@@ -16678,7 +15490,7 @@ List Control
 				{
 				public:
 					virtual IItemStyleProvider*					GetStyleProvider()=0;
-					virtual int									GetItemStyleId()=0;
+					virtual vint									GetItemStyleId()=0;
 					virtual compositions::GuiBoundsComposition*	GetBoundsComposition()=0;
 					virtual bool								IsCacheable()=0;
 					virtual bool								IsInstalled()=0;
@@ -16691,10 +15503,10 @@ List Control
 				public:
 					virtual void								AttachListControl(GuiListControl* value)=0;
 					virtual void								DetachListControl()=0;
-					virtual int									GetItemStyleId(int itemIndex)=0;
-					virtual IItemStyleController*				CreateItemStyle(int styleId)=0;
+					virtual vint									GetItemStyleId(vint itemIndex)=0;
+					virtual IItemStyleController*				CreateItemStyle(vint styleId)=0;
 					virtual void								DestroyItemStyle(IItemStyleController* style)=0;
-					virtual void								Install(IItemStyleController* style, int itemIndex)=0;
+					virtual void								Install(IItemStyleController* style, vint itemIndex)=0;
 				};
 				
 				class IItemArranger : public virtual IItemProviderCallback, public Description<IItemArranger>
@@ -16705,11 +15517,11 @@ List Control
 					virtual IItemArrangerCallback*				GetCallback()=0;
 					virtual void								SetCallback(IItemArrangerCallback* value)=0;
 					virtual Size								GetTotalSize()=0;
-					virtual IItemStyleController*				GetVisibleStyle(int itemIndex)=0;
-					virtual int									GetVisibleIndex(IItemStyleController* style)=0;
+					virtual IItemStyleController*				GetVisibleStyle(vint itemIndex)=0;
+					virtual vint									GetVisibleIndex(IItemStyleController* style)=0;
 					virtual void								OnViewChanged(Rect bounds)=0;
-					virtual int									FindItem(int itemIndex, KeyDirection key)=0;
-					virtual bool								EnsureItemVisible(int itemIndex)=0;
+					virtual vint									FindItem(vint itemIndex, KeyDirection key)=0;
+					virtual bool								EnsureItemVisible(vint itemIndex)=0;
 				};
 				
 				class IItemCoordinateTransformer : public virtual IDescriptable, public Description<IItemCoordinateTransformer>
@@ -16748,8 +15560,8 @@ List Control
 					void										ClearCache();
 
 					void										OnAttached(IItemProvider* provider)override;
-					void										OnItemModified(int start, int count, int newCount)override;
-					IItemStyleController*						RequestItem(int itemIndex)override;
+					void										OnItemModified(vint start, vint count, vint newCount)override;
+					IItemStyleController*						RequestItem(vint itemIndex)override;
 					void										ReleaseItem(IItemStyleController* style)override;
 					void										SetViewLocation(Point value)override;
 					Size										GetStylePreferredSize(IItemStyleController* style)override;
@@ -16771,8 +15583,8 @@ List Control
 				Ptr<IItemCoordinateTransformer>					itemCoordinateTransformer;
 				Size											fullSize;
 
-				virtual void									OnItemModified(int start, int count, int newCount);
-				virtual void									OnStyleInstalled(int itemIndex, IItemStyleController* style);
+				virtual void									OnItemModified(vint start, vint count, vint newCount);
+				virtual void									OnStyleInstalled(vint itemIndex, IItemStyleController* style);
 				virtual void									OnStyleUninstalled(IItemStyleController* style);
 				
 				void											OnRenderTargetChanged(elements::IGuiGraphicsRenderTarget* renderTarget)override;
@@ -16804,7 +15616,7 @@ List Control
 					Ptr<compositions::GuiNotifyEvent::IHandler>		mouseLeaveHandler;
 				};
 				
-				friend class collections::ReadonlyListEnumerator<Ptr<VisibleStyleHelper>>;
+				friend class collections::ArrayBase<Ptr<VisibleStyleHelper>>;
 				collections::Dictionary<IItemStyleController*, Ptr<VisibleStyleHelper>>		visibleStyles;
 
 				void											OnItemMouseEvent(compositions::GuiItemMouseEvent& itemEvent, IItemStyleController* style, compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
@@ -16839,7 +15651,7 @@ List Control
 				virtual Ptr<IItemArranger>						SetArranger(Ptr<IItemArranger> value);
 				virtual IItemCoordinateTransformer*				GetCoordinateTransformer();
 				virtual Ptr<IItemCoordinateTransformer>			SetCoordinateTransformer(Ptr<IItemCoordinateTransformer> value);
-				virtual bool									EnsureItemVisible(int itemIndex);
+				virtual bool									EnsureItemVisible(vint itemIndex);
 			};
 
 /***********************************************************************
@@ -16857,20 +15669,20 @@ Selectable List Control
 			protected:
 
 				Ptr<IItemStyleProvider>							selectableStyleProvider;
-				collections::SortedList<int>					selectedItems;
+				collections::SortedList<vint>					selectedItems;
 				bool											multiSelect;
-				int												selectedItemIndexStart;
-				int												selectedItemIndexEnd;
+				vint												selectedItemIndexStart;
+				vint												selectedItemIndexEnd;
 
-				void											OnItemModified(int start, int count, int newCount)override;
-				void											OnStyleInstalled(int itemIndex, IItemStyleController* style)override;
+				void											OnItemModified(vint start, vint count, vint newCount)override;
+				void											OnStyleInstalled(vint itemIndex, IItemStyleController* style)override;
 				void											OnStyleUninstalled(IItemStyleController* style)override;
-				virtual void									OnItemSelectionChanged(int itemIndex, bool value);
+				virtual void									OnItemSelectionChanged(vint itemIndex, bool value);
 				virtual void									OnItemSelectionCleared();
 				void											OnItemLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiItemMouseEventArgs& arguments);
 
 				void											NormalizeSelectedItemIndexStartEnd();
-				void											SetMultipleItemsSelectedSilently(int start, int end, bool selected);
+				void											SetMultipleItemsSelectedSilently(vint start, vint end, bool selected);
 				void											OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
 			public:
 				GuiSelectableListControl(IStyleProvider* _styleProvider, IItemProvider* _itemProvider);
@@ -16883,11 +15695,11 @@ Selectable List Control
 				bool											GetMultiSelect();
 				void											SetMultiSelect(bool value);
 				
-				const collections::IReadonlyList<int>&			GetSelectedItems();
-				bool											GetSelected(int itemIndex);
-				void											SetSelected(int itemIndex, bool value);
-				bool											SelectItemsByClick(int itemIndex, bool ctrl, bool shift);
-				bool											SelectItemsByKey(int code, bool ctrl, bool shift);
+				const collections::SortedList<vint>&				GetSelectedItems();
+				bool											GetSelected(vint itemIndex);
+				void											SetSelected(vint itemIndex, bool value);
+				bool											SelectItemsByClick(vint itemIndex, bool ctrl, bool shift);
+				bool											SelectItemsByKey(vint code, bool ctrl, bool shift);
 				void											ClearSelection();
 			};
 
@@ -16961,7 +15773,7 @@ Predefined ItemArranger
 					GuiListControl::IItemArrangerCallback*		callback;
 					GuiListControl::IItemProvider*				itemProvider;
 					Rect										viewBounds;
-					int											startIndex;
+					vint											startIndex;
 					StyleList									visibleStyles;
 
 					virtual void								ClearStyles();
@@ -16973,26 +15785,26 @@ Predefined ItemArranger
 					~RangedItemArrangerBase();
 
 					void										OnAttached(GuiListControl::IItemProvider* provider)override;
-					void										OnItemModified(int start, int count, int newCount)override;
+					void										OnItemModified(vint start, vint count, vint newCount)override;
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
 					GuiListControl::IItemArrangerCallback*		GetCallback()override;
 					void										SetCallback(GuiListControl::IItemArrangerCallback* value)override;
 					Size										GetTotalSize()override;
-					GuiListControl::IItemStyleController*		GetVisibleStyle(int itemIndex)override;
-					int											GetVisibleIndex(GuiListControl::IItemStyleController* style)override;
+					GuiListControl::IItemStyleController*		GetVisibleStyle(vint itemIndex)override;
+					vint											GetVisibleIndex(GuiListControl::IItemStyleController* style)override;
 					void										OnViewChanged(Rect bounds)override;
 				};
 				
 				class FixedHeightItemArranger : public RangedItemArrangerBase, public Description<FixedHeightItemArranger>
 				{
 				protected:
-					int											rowHeight;
+					vint											rowHeight;
 					bool										suppressOnViewChanged;
 
 					virtual void								RearrangeItemBounds();
-					virtual int									GetWidth();
-					virtual int									GetYOffset();
+					virtual vint									GetWidth();
+					virtual vint									GetYOffset();
 					void										OnStylesCleared()override;
 					Size										OnCalculateTotalSize()override;
 					void										OnViewChangedInternal(Rect oldBounds, Rect newBounds)override;
@@ -17000,8 +15812,8 @@ Predefined ItemArranger
 					FixedHeightItemArranger();
 					~FixedHeightItemArranger();
 
-					int											FindItem(int itemIndex, GuiListControl::KeyDirection key)override;
-					bool										EnsureItemVisible(int itemIndex)override;
+					vint											FindItem(vint itemIndex, GuiListControl::KeyDirection key)override;
+					bool										EnsureItemVisible(vint itemIndex)override;
 				};
 
 				class FixedSizeMultiColumnItemArranger : public RangedItemArrangerBase, public Description<FixedSizeMultiColumnItemArranger>
@@ -17011,7 +15823,7 @@ Predefined ItemArranger
 					bool										suppressOnViewChanged;
 
 					virtual void								RearrangeItemBounds();
-					void										CalculateRange(Size itemSize, Rect bounds, int count, int& start, int& end);
+					void										CalculateRange(Size itemSize, Rect bounds, vint count, vint& start, vint& end);
 					void										OnStylesCleared()override;
 					Size										OnCalculateTotalSize()override;
 					void										OnViewChangedInternal(Rect oldBounds, Rect newBounds)override;
@@ -17019,18 +15831,18 @@ Predefined ItemArranger
 					FixedSizeMultiColumnItemArranger();
 					~FixedSizeMultiColumnItemArranger();
 
-					int											FindItem(int itemIndex, GuiListControl::KeyDirection key)override;
-					bool										EnsureItemVisible(int itemIndex)override;
+					vint											FindItem(vint itemIndex, GuiListControl::KeyDirection key)override;
+					bool										EnsureItemVisible(vint itemIndex)override;
 				};
 				
 				class FixedHeightMultiColumnItemArranger : public RangedItemArrangerBase, public Description<FixedHeightMultiColumnItemArranger>
 				{
 				protected:
-					int											itemHeight;
+					vint											itemHeight;
 					bool										suppressOnViewChanged;
 
 					virtual void								RearrangeItemBounds();
-					void										CalculateRange(int itemHeight, Rect bounds, int& rows, int& startColumn);
+					void										CalculateRange(vint itemHeight, Rect bounds, vint& rows, vint& startColumn);
 					void										OnStylesCleared()override;
 					Size										OnCalculateTotalSize()override;
 					void										OnViewChangedInternal(Rect oldBounds, Rect newBounds)override;
@@ -17038,8 +15850,8 @@ Predefined ItemArranger
 					FixedHeightMultiColumnItemArranger();
 					~FixedHeightMultiColumnItemArranger();
 
-					int											FindItem(int itemIndex, GuiListControl::KeyDirection key)override;
-					bool										EnsureItemVisible(int itemIndex)override;
+					vint											FindItem(vint itemIndex, GuiListControl::KeyDirection key)override;
+					bool										EnsureItemVisible(vint itemIndex)override;
 				};
 			}
 
@@ -17053,7 +15865,7 @@ Predefined ItemStyleController
 				{
 				protected:
 					GuiListControl::IItemStyleProvider*			provider;
-					int											styleId;
+					vint											styleId;
 					compositions::GuiBoundsComposition*			boundsComposition;
 					GuiControl*									associatedControl;
 					bool										isInstalled;
@@ -17061,12 +15873,12 @@ Predefined ItemStyleController
 					void										Initialize(compositions::GuiBoundsComposition* _boundsComposition, GuiControl* _associatedControl);
 					void										Finalize();
 
-					ItemStyleControllerBase(GuiListControl::IItemStyleProvider* _provider, int _styleId);
+					ItemStyleControllerBase(GuiListControl::IItemStyleProvider* _provider, vint _styleId);
 				public:
 					~ItemStyleControllerBase();
 					
 					GuiListControl::IItemStyleProvider*			GetStyleProvider()override;
-					int											GetItemStyleId()override;
+					vint											GetItemStyleId()override;
 					compositions::GuiBoundsComposition*			GetBoundsComposition()override;
 					bool										IsCacheable()override;
 					bool										IsInstalled()override;
@@ -17086,7 +15898,7 @@ Predefined ItemProvider
 				protected:
 					collections::List<GuiListControl::IItemProviderCallback*>	callbacks;
 
-					virtual void								InvokeOnItemModified(int start, int count, int newCount);
+					virtual void								InvokeOnItemModified(vint start, vint count, vint newCount);
 				public:
 					ItemProviderBase();
 					~ItemProviderBase();
@@ -17099,12 +15911,12 @@ Predefined ItemProvider
 				class ListProvider : public ItemProviderBase, public ItemsBase<T>
 				{
 				protected:
-					void NotifyUpdateInternal(int start, int count, int newCount)
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)
 					{
 						InvokeOnItemModified(start, count, newCount);
 					}
 				public:
-					int Count()override
+					vint Count()override
 					{
 						return items.Count();
 					}
@@ -17117,119 +15929,7 @@ Predefined ItemProvider
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\EXTENDEDCONTROLS\GUICONTAINERCONTROLS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI::Control System
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
-#define VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
-
-
-namespace vl
-{
-	namespace presentation
-	{
-		namespace controls
-		{
-/***********************************************************************
-Tab Control
-***********************************************************************/
-
-			class GuiTab;
-
-			class GuiTabPage : public Object, public Description<GuiTabPage>
-			{
-				friend class GuiTab;
-				friend class Ptr<GuiTabPage>;
-			protected:
-				GuiControl*										container;
-				GuiTab*											owner;
-				WString											text;
-				
-				GuiTabPage();
-				~GuiTabPage();
-
-				bool											AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController);
-				bool											DeassociateTab(GuiTab* _owner);
-			public:
-				compositions::GuiNotifyEvent					TextChanged;
-				compositions::GuiNotifyEvent					PageInstalled;
-				compositions::GuiNotifyEvent					PageUninstalled;
-				compositions::GuiNotifyEvent					PageContainerReady;
-
-				GuiControl*										GetContainer();
-				GuiTab*											GetOwnerTab();
-				const WString&									GetText();
-				void											SetText(const WString& param);
-				bool											GetSelected();
-			};
-
-			class GuiTab : public GuiControl, public Description<GuiTab>
-			{
-				friend class GuiTabPage;
-			public:
-				class ICommandExecutor : public virtual IDescriptable, public Description<ICommandExecutor>
-				{
-				public:
-					virtual void								ShowTab(int index)=0;
-				};
-				
-				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
-				{
-				public:
-					virtual void								SetCommandExecutor(ICommandExecutor* value)=0;
-					virtual void								InsertTab(int index)=0;
-					virtual void								SetTabText(int index, const WString& value)=0;
-					virtual void								RemoveTab(int index)=0;
-					virtual void								MoveTab(int oldIndex, int newIndex)=0;
-					virtual void								SetSelectedTab(int index)=0;
-					virtual GuiControl::IStyleController*		CreateTabPageStyleController()=0;
-				};
-			protected:
-				class CommandExecutor : public Object, public ICommandExecutor
-				{
-				protected:
-					GuiTab*										tab;
-				public:
-					CommandExecutor(GuiTab* _tab);
-					~CommandExecutor();
-
-					void										ShowTab(int index)override;
-				};
-
-				Ptr<CommandExecutor>							commandExecutor;
-				IStyleController*								styleController;
-				collections::List<GuiTabPage*>					tabPages;
-				GuiTabPage*										selectedPage;
-			public:
-				GuiTab(IStyleController* _styleController);
-				~GuiTab();
-
-				compositions::GuiNotifyEvent					SelectedPageChanged;
-
-				GuiTabPage*										CreatePage(int index=-1);
-				bool											CreatePage(GuiTabPage* page, int index=-1);
-				bool											RemovePage(GuiTabPage* value);
-				bool											MovePage(GuiTabPage* page, int newIndex);
-				const collections::IReadonlyList<GuiTabPage*>&	GetPages();
-
-				GuiTabPage*										GetSelectedPage();
-				bool											SetSelectedPage(GuiTabPage* value);
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\EXTENDEDCONTROLS\GUITEXTLISTCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\LISTCONTROLPACKAGE\GUITEXTLISTCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -17273,9 +15973,9 @@ TextList Style Provider
 					public:
 						static const wchar_t* const				Identifier;
 
-						virtual WString							GetText(int itemIndex)=0;
-						virtual bool							GetChecked(int itemIndex)=0;
-						virtual void							SetCheckedSilently(int itemIndex, bool value)=0;
+						virtual WString							GetText(vint itemIndex)=0;
+						virtual bool							GetChecked(vint itemIndex)=0;
+						virtual void							SetCheckedSilently(vint itemIndex, bool value)=0;
 					};
 
 					class TextItemStyleController : public ItemStyleControllerBase, public Description<TextItemStyleController>
@@ -17311,10 +16011,10 @@ TextList Style Provider
 
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
-					int											GetItemStyleId(int itemIndex)override;
-					GuiListControl::IItemStyleController*		CreateItemStyle(int styleId)override;
+					vint											GetItemStyleId(vint itemIndex)override;
+					GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
 					void										DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
-					void										Install(GuiListControl::IItemStyleController* style, int itemIndex)override;
+					void										Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
 					void										SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 
@@ -17345,17 +16045,17 @@ TextList Data Source
 				class TextItemProvider : public ListProvider<TextItem>, protected TextItemStyleProvider::ITextItemView, public Description<TextItemProvider>
 				{
 				protected:
-					bool										ContainsPrimaryText(int itemIndex)override;
-					WString										GetPrimaryTextViewText(int itemIndex)override;
-					WString										GetText(int itemIndex)override;
-					bool										GetChecked(int itemIndex)override;
-					void										SetCheckedSilently(int itemIndex, bool value)override;
+					bool										ContainsPrimaryText(vint itemIndex)override;
+					WString										GetPrimaryTextViewText(vint itemIndex)override;
+					WString										GetText(vint itemIndex)override;
+					bool										GetChecked(vint itemIndex)override;
+					void										SetCheckedSilently(vint itemIndex, bool value)override;
 				public:
 					TextItemProvider();
 					~TextItemProvider();
 					
-					void										SetText(int itemIndex, const WString& value);
-					void										SetChecked(int itemIndex, bool value);
+					void										SetText(vint itemIndex, const WString& value);
+					void										SetChecked(vint itemIndex, bool value);
 
 					IDescriptable*								RequestView(const WString& identifier)override;
 					void										ReleaseView(IDescriptable* view)override;
@@ -17393,7 +16093,7 @@ TextList Control
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\EXTENDEDCONTROLS\GUIMENUCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\TOOLSTRIPPACKAGE\GUIMENUCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -17556,7 +16256,7 @@ MenuButton
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\EXTENDEDCONTROLS\GUILISTVIEWCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\LISTCONTROLPACKAGE\GUILISTVIEWCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -17611,7 +16311,7 @@ ListView Base
 
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
-					int											GetItemStyleId(int itemIndex)override;
+					vint											GetItemStyleId(vint itemIndex)override;
 					void										SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 			}
@@ -17684,16 +16384,16 @@ ListView ItemStyleProvider
 					public:
 						static const wchar_t* const				Identifier;
 
-						virtual Ptr<GuiImageData>				GetSmallImage(int itemIndex)=0;
-						virtual Ptr<GuiImageData>				GetLargeImage(int itemIndex)=0;
-						virtual WString							GetText(int itemIndex)=0;
-						virtual WString							GetSubItem(int itemIndex, int index)=0;
+						virtual Ptr<GuiImageData>				GetSmallImage(vint itemIndex)=0;
+						virtual Ptr<GuiImageData>				GetLargeImage(vint itemIndex)=0;
+						virtual WString							GetText(vint itemIndex)=0;
+						virtual WString							GetSubItem(vint itemIndex, vint index)=0;
 
-						virtual int								GetDataColumnCount()=0;
-						virtual int								GetDataColumn(int index)=0;
+						virtual vint								GetDataColumnCount()=0;
+						virtual vint								GetDataColumn(vint index)=0;
 
-						virtual int								GetColumnCount()=0;
-						virtual WString							GetColumnText(int index)=0;
+						virtual vint								GetColumnCount()=0;
+						virtual WString							GetColumnText(vint index)=0;
 					};
 
 					class IListViewItemContent : public virtual IDescriptable, public Description<IListViewItemContent>
@@ -17701,7 +16401,7 @@ ListView ItemStyleProvider
 					public:
 						virtual compositions::GuiBoundsComposition*				GetContentComposition()=0;
 						virtual compositions::GuiBoundsComposition*				GetBackgroundDecorator()=0;
-						virtual void											Install(GuiListViewBase::IStyleProvider* styleProvider, IListViewItemView* view, int itemIndex)=0;
+						virtual void											Install(GuiListViewBase::IStyleProvider* styleProvider, IListViewItemView* view, vint itemIndex)=0;
 					};
 
 					class IListViewItemContentProvider : public virtual IDescriptable, public Description<IListViewItemContentProvider>
@@ -17724,13 +16424,12 @@ ListView ItemStyleProvider
 						~ListViewContentItemStyleController();
 
 						IListViewItemContent*					GetItemContent();
-						void									Install(IListViewItemView* view, int itemIndex);
+						void									Install(IListViewItemView* view, vint itemIndex);
 					};
 
 				protected:
 
 					typedef collections::List<GuiListControl::IItemStyleController*>				ItemStyleList;
-					typedef collections::IReadonlyList<GuiListControl::IItemStyleController*>		IItemStyleList;
 
 					IListViewItemView*							listViewItemView;
 					Ptr<IListViewItemContentProvider>			listViewItemContentProvider;
@@ -17741,11 +16440,11 @@ ListView ItemStyleProvider
 
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
-					GuiListControl::IItemStyleController*		CreateItemStyle(int styleId)override;
+					GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
 					void										DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
-					void										Install(GuiListControl::IItemStyleController* style, int itemIndex)override;
+					void										Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
 
-					const IItemStyleList&						GetCreatedItemStyles();
+					const ItemStyleList&						GetCreatedItemStyles();
 					bool										IsItemStyleAttachedToListView(GuiListControl::IItemStyleController* itemStyle);
 
 					template<typename T>
@@ -17787,7 +16486,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -17818,7 +16517,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -17849,7 +16548,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -17877,16 +16576,16 @@ ListView ItemContentProvider
 						compositions::GuiTableComposition*				textTable;
 						DataTextElementArray							dataTexts;
 
-						void											RemoveTextElement(int textRow);
-						elements::GuiSolidLabelElement*					CreateTextElement(int textRow, const FontProperties& font);
-						void											ResetTextTable(int textRows);
+						void											RemoveTextElement(vint textRow);
+						elements::GuiSolidLabelElement*					CreateTextElement(vint textRow, const FontProperties& font);
+						void											ResetTextTable(vint textRows);
 					public:
 						ItemContent(Size iconSize, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -17924,7 +16623,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -17948,7 +16647,7 @@ ListView ItemContentProvider(Detailed)
 					typedef collections::List<GuiListViewColumnHeader*>					ColumnHeaderButtonList;
 					typedef collections::List<compositions::GuiBoundsComposition*>		ColumnHeaderSplitterList;
 				public:
-					static const int							SplitterWidth=8;
+					static const vint							SplitterWidth=8;
 					
 					class IColumnItemViewCallback : public virtual IDescriptable, public Description<IColumnItemViewCallback>
 					{
@@ -17963,12 +16662,12 @@ ListView ItemContentProvider(Detailed)
 						
 						virtual bool											AttachCallback(IColumnItemViewCallback* value)=0;
 						virtual bool											DetachCallback(IColumnItemViewCallback* value)=0;
-						virtual int												GetColumnCount()=0;
-						virtual WString											GetColumnText(int index)=0;
-						virtual int												GetColumnSize(int index)=0;
-						virtual void											SetColumnSize(int index, int value)=0;
-						virtual GuiMenu*										GetDropdownPopup(int index)=0;
-						virtual GuiListViewColumnHeader::ColumnSortingState		GetSortingState(int index)=0;
+						virtual vint												GetColumnCount()=0;
+						virtual WString											GetColumnText(vint index)=0;
+						virtual vint												GetColumnSize(vint index)=0;
+						virtual void											SetColumnSize(vint index, vint value)=0;
+						virtual GuiMenu*										GetDropdownPopup(vint index)=0;
+						virtual GuiListViewColumnHeader::ColumnSortingState		GetSortingState(vint index)=0;
 					};
 				protected:
 					class ColumnItemViewCallback : public Object, public virtual IColumnItemViewCallback
@@ -17990,16 +16689,16 @@ ListView ItemContentProvider(Detailed)
 					ColumnHeaderButtonList						columnHeaderButtons;
 					ColumnHeaderSplitterList					columnHeaderSplitters;
 					bool										splitterDragging;
-					int											splitterLatestX;
+					vint											splitterLatestX;
 
-					void										ColumnClicked(int index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+					void										ColumnClicked(vint index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 					void										ColumnHeaderSplitterLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 					void										ColumnHeaderSplitterLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 					void										ColumnHeaderSplitterMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 
 					void										RearrangeItemBounds()override;
-					int											GetWidth()override;
-					int											GetYOffset()override;
+					vint											GetWidth()override;
+					vint											GetYOffset()override;
 					Size										OnCalculateTotalSize()override;
 					void										DeleteColumnButtons();
 					void										RebuildColumns();
@@ -18038,7 +16737,7 @@ ListView ItemContentProvider(Detailed)
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
 						void											UpdateSubItemSize();
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -18079,20 +16778,20 @@ ListView
 				{
 				public:
 					WString											text;
-					int												size;
+					vint												size;
 					GuiMenu*										dropdownPopup;
 					GuiListViewColumnHeader::ColumnSortingState		sortingState;
 
-					ListViewColumn(const WString& _text=L"", int _size=160);
+					ListViewColumn(const WString& _text=L"", vint _size=160);
 				};
 
-				class ListViewDataColumns : public ItemsBase<int>
+				class ListViewDataColumns : public ItemsBase<vint>
 				{
 					friend class ListViewItemProvider;
 				protected:
 					ListViewItemProvider*						itemProvider;
 
-					void NotifyUpdateInternal(int start, int count, int newCount)override;
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override;
 				public:
 					ListViewDataColumns();
 					~ListViewDataColumns();
@@ -18104,7 +16803,7 @@ ListView
 				protected:
 					ListViewItemProvider*						itemProvider;
 
-					void NotifyUpdateInternal(int start, int count, int newCount)override;
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override;
 				public:
 					ListViewColumns();
 					~ListViewColumns();
@@ -18124,23 +16823,23 @@ ListView
 					ListViewColumns										columns;
 					ColumnItemViewCallbackList							columnItemViewCallbacks;
 
-					bool												ContainsPrimaryText(int itemIndex)override;
-					WString												GetPrimaryTextViewText(int itemIndex)override;
-					Ptr<GuiImageData>									GetSmallImage(int itemIndex)override;
-					Ptr<GuiImageData>									GetLargeImage(int itemIndex)override;
-					WString												GetText(int itemIndex)override;
-					WString												GetSubItem(int itemIndex, int index)override;
-					int													GetDataColumnCount()override;
-					int													GetDataColumn(int index)override;
+					bool												ContainsPrimaryText(vint itemIndex)override;
+					WString												GetPrimaryTextViewText(vint itemIndex)override;
+					Ptr<GuiImageData>									GetSmallImage(vint itemIndex)override;
+					Ptr<GuiImageData>									GetLargeImage(vint itemIndex)override;
+					WString												GetText(vint itemIndex)override;
+					WString												GetSubItem(vint itemIndex, vint index)override;
+					vint													GetDataColumnCount()override;
+					vint													GetDataColumn(vint index)override;
 
 					bool												AttachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
 					bool												DetachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
-					int													GetColumnCount()override;
-					WString												GetColumnText(int index)override;
-					int													GetColumnSize(int index)override;
-					void												SetColumnSize(int index, int value)override;
-					GuiMenu*											GetDropdownPopup(int index)override;
-					GuiListViewColumnHeader::ColumnSortingState			GetSortingState(int index)override;
+					vint													GetColumnCount()override;
+					WString												GetColumnText(vint index)override;
+					vint													GetColumnSize(vint index)override;
+					void												SetColumnSize(vint index, vint value)override;
+					GuiMenu*											GetDropdownPopup(vint index)override;
+					GuiListViewColumnHeader::ColumnSortingState			GetSortingState(vint index)override;
 				public:
 					ListViewItemProvider();
 					~ListViewItemProvider();
@@ -18179,7 +16878,7 @@ ListView
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\EXTENDEDCONTROLS\GUITREEVIEWCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\LISTCONTROLPACKAGE\GUITREEVIEWCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -18217,8 +16916,8 @@ GuiVirtualTreeListControl NodeProvider
 				{
 				public:
 					virtual void					OnAttached(INodeRootProvider* provider)=0;
-					virtual void					OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)=0;
-					virtual void					OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)=0;
+					virtual void					OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)=0;
+					virtual void					OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)=0;
 					virtual void					OnItemExpanded(INodeProvider* node)=0;
 					virtual void					OnItemCollapsed(INodeProvider* node)=0;
 				};
@@ -18232,11 +16931,11 @@ GuiVirtualTreeListControl NodeProvider
 				public:
 					virtual bool					GetExpanding()=0;
 					virtual void					SetExpanding(bool value)=0;
-					virtual int						CalculateTotalVisibleNodes()=0;
+					virtual vint						CalculateTotalVisibleNodes()=0;
 
-					virtual int						GetChildCount()=0;
+					virtual vint						GetChildCount()=0;
 					virtual INodeProvider*			GetParent()=0;
-					virtual INodeProvider*			GetChild(int index)=0;
+					virtual INodeProvider*			GetChild(vint index)=0;
 					virtual void					Increase()=0;
 					virtual void					Release()=0;
 				};
@@ -18246,7 +16945,7 @@ GuiVirtualTreeListControl NodeProvider
 				public:
 					virtual INodeProvider*			GetRootNode()=0;
 					virtual bool					CanGetNodeByVisibleIndex()=0;
-					virtual INodeProvider*			GetNodeByVisibleIndex(int index)=0;
+					virtual INodeProvider*			GetNodeByVisibleIndex(vint index)=0;
 					virtual bool					AttachCallback(INodeProviderCallback* value)=0;
 					virtual bool					DetachCallback(INodeProviderCallback* value)=0;
 					virtual IDescriptable*			RequestView(const WString& identifier)=0;
@@ -18265,9 +16964,9 @@ GuiVirtualTreeListControl NodeProvider
 				public:
 					static const wchar_t* const		Identifier;
 
-					virtual INodeProvider*			RequestNode(int index)=0;
+					virtual INodeProvider*			RequestNode(vint index)=0;
 					virtual void					ReleaseNode(INodeProvider* node)=0;
-					virtual int						CalculateNodeVisibilityIndex(INodeProvider* node)=0;
+					virtual vint						CalculateNodeVisibilityIndex(INodeProvider* node)=0;
 				};
 
 				class INodeItemPrimaryTextView : public virtual IDescriptable, public Description<INodeItemPrimaryTextView>
@@ -18287,27 +16986,27 @@ GuiVirtualTreeListControl NodeProvider
 				protected:
 					Ptr<INodeRootProvider>			root;
 					INodeItemPrimaryTextView*		nodeItemPrimaryTextView;
-					int								offsetBeforeChildModified;
+					vint								offsetBeforeChildModified;
 
-					INodeProvider*					GetNodeByOffset(INodeProvider* provider, int offset);
+					INodeProvider*					GetNodeByOffset(INodeProvider* provider, vint offset);
 					void							OnAttached(INodeRootProvider* provider)override;
-					void							OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
-					void							OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
+					void							OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+					void							OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 					void							OnItemExpanded(INodeProvider* node)override;
 					void							OnItemCollapsed(INodeProvider* node)override;
-					int								CalculateNodeVisibilityIndexInternal(INodeProvider* node);
-					int								CalculateNodeVisibilityIndex(INodeProvider* node)override;
+					vint								CalculateNodeVisibilityIndexInternal(INodeProvider* node);
+					vint								CalculateNodeVisibilityIndex(INodeProvider* node)override;
 					
-					bool							ContainsPrimaryText(int itemIndex)override;
-					WString							GetPrimaryTextViewText(int itemIndex)override;
-					INodeProvider*					RequestNode(int index)override;
+					bool							ContainsPrimaryText(vint itemIndex)override;
+					WString							GetPrimaryTextViewText(vint itemIndex)override;
+					INodeProvider*					RequestNode(vint index)override;
 					void							ReleaseNode(INodeProvider* node)override;
 				public:
 					NodeItemProvider(INodeRootProvider* _root);
 					~NodeItemProvider();
 					
 					Ptr<INodeRootProvider>			GetRoot();
-					int								Count()override;
+					vint								Count()override;
 					IDescriptable*					RequestView(const WString& identifier)override;
 					void							ReleaseView(IDescriptable* view)override;
 				};
@@ -18331,8 +17030,8 @@ GuiVirtualTreeListControl NodeProvider
 					virtual GuiListControl::IItemStyleProvider*		GetBindedItemStyleProvider()=0;
 					virtual void									AttachListControl(GuiListControl* value)=0;
 					virtual void									DetachListControl()=0;
-					virtual int										GetItemStyleId(INodeProvider* node)=0;
-					virtual INodeItemStyleController*				CreateItemStyle(int styleId)=0;
+					virtual vint										GetItemStyleId(INodeProvider* node)=0;
+					virtual INodeItemStyleController*				CreateItemStyle(vint styleId)=0;
 					virtual void									DestroyItemStyle(INodeItemStyleController* style)=0;
 					virtual void									Install(INodeItemStyleController* style, INodeProvider* node)=0;
 					virtual void									SetStyleSelected(INodeItemStyleController* style, bool value)=0;
@@ -18350,10 +17049,10 @@ GuiVirtualTreeListControl NodeProvider
 
 					void											AttachListControl(GuiListControl* value)override;
 					void											DetachListControl()override;
-					int												GetItemStyleId(int itemIndex)override;
-					GuiListControl::IItemStyleController*			CreateItemStyle(int styleId)override;
+					vint												GetItemStyleId(vint itemIndex)override;
+					GuiListControl::IItemStyleController*			CreateItemStyle(vint styleId)override;
 					void											DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
-					void											Install(GuiListControl::IItemStyleController* style, int itemIndex)override;
+					void											Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
 					void											SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 			}
@@ -18367,43 +17066,38 @@ GuiVirtualTreeListControl Predefined NodeProvider
 				class MemoryNodeProvider
 					: public Object
 					, public virtual INodeProvider
-					, private collections::IList<Ptr<MemoryNodeProvider>>
 					, public Description<MemoryNodeProvider>
 				{
 					typedef collections::List<Ptr<MemoryNodeProvider>> ChildList;
-					typedef collections::IList<Ptr<MemoryNodeProvider>> IChildList;
 					typedef collections::IEnumerator<Ptr<MemoryNodeProvider>> ChildListEnumerator;
+
+				public:
+					class NodeCollection : public list::ItemsBase<Ptr<MemoryNodeProvider>>
+					{
+						friend class MemoryNodeProvider;
+					protected:
+						MemoryNodeProvider*			ownerProvider;
+
+						void						OnBeforeChildModified(vint start, vint count, vint newCount);
+						void						OnAfterChildModified(vint start, vint count, vint newCount);
+						bool						InsertInternal(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						bool						RemoveAtInternal(vint index, Ptr<MemoryNodeProvider> const& child)override;
+
+						NodeCollection();
+					public:
+					};
+
 				protected:
 					MemoryNodeProvider*				parent;
 					bool							expanding;
-					int								childCount;
-					int								totalVisibleNodeCount;
-					int								offsetBeforeChildModified;
+					vint								childCount;
+					vint								totalVisibleNodeCount;
+					vint								offsetBeforeChildModified;
 					Ptr<DescriptableObject>			data;
-					ChildList						children;
+					NodeCollection					children;
 
 					virtual INodeProviderCallback*	GetCallbackProxyInternal();
-					void							OnChildTotalVisibleNodesChanged(int offset);
-					void							OnBeforeChildModified(int start, int count, int newCount);
-					void							OnAfterChildModified(int start, int count, int newCount);
-					bool							OnRequestRemove(MemoryNodeProvider* child);
-					bool							OnRequestInsert(MemoryNodeProvider* child);
-				private:
-					
-					ChildListEnumerator*			CreateEnumerator()const;
-					bool							Contains(const KeyType<Ptr<MemoryNodeProvider>>::Type& item)const;
-					vint							Count()const;
-					vint							Count();
-					const							Ptr<MemoryNodeProvider>& Get(vint index)const;
-					const							Ptr<MemoryNodeProvider>& operator[](vint index)const;
-					vint							IndexOf(const KeyType<Ptr<MemoryNodeProvider>>::Type& item)const;
-					vint							Add(const Ptr<MemoryNodeProvider>& item);
-					bool							Remove(const KeyType<Ptr<MemoryNodeProvider>>::Type& item);
-					bool							RemoveAt(vint index);
-					bool							RemoveRange(vint index, vint count);
-					bool							Clear();
-					vint							Insert(vint index, const Ptr<MemoryNodeProvider>& item);
-					bool							Set(vint index, const Ptr<MemoryNodeProvider>& item);
+					void							OnChildTotalVisibleNodesChanged(vint offset);
 				public:
 					MemoryNodeProvider();
 					MemoryNodeProvider(const Ptr<DescriptableObject>& _data);
@@ -18412,15 +17106,15 @@ GuiVirtualTreeListControl Predefined NodeProvider
 					Ptr<DescriptableObject>			GetData();
 					void							SetData(const Ptr<DescriptableObject>& value);
 					void							NotifyDataModified();
-					IChildList&						Children();
+					NodeCollection&					Children();
 
 					bool							GetExpanding()override;
 					void							SetExpanding(bool value)override;
-					int								CalculateTotalVisibleNodes()override;
+					vint								CalculateTotalVisibleNodes()override;
 
-					int								GetChildCount()override;
+					vint								GetChildCount()override;
 					INodeProvider*					GetParent()override;
-					INodeProvider*					GetChild(int index)override;
+					INodeProvider*					GetChild(vint index)override;
 					void							Increase()override;
 					void							Release()override;
 				};
@@ -18430,8 +17124,8 @@ GuiVirtualTreeListControl Predefined NodeProvider
 					collections::List<INodeProviderCallback*>			callbacks;
 				protected:
 					void							OnAttached(INodeRootProvider* provider)override;
-					void							OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
-					void							OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
+					void							OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+					void							OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 					void							OnItemExpanded(INodeProvider* node)override;
 					void							OnItemCollapsed(INodeProvider* node)override;
 				public:
@@ -18439,7 +17133,7 @@ GuiVirtualTreeListControl Predefined NodeProvider
 					~NodeRootProviderBase();
 					
 					bool							CanGetNodeByVisibleIndex()override;
-					INodeProvider*					GetNodeByVisibleIndex(int index)override;
+					INodeProvider*					GetNodeByVisibleIndex(vint index)override;
 					bool							AttachCallback(INodeProviderCallback* value)override;
 					bool							DetachCallback(INodeProviderCallback* value)override;
 					IDescriptable*					RequestView(const WString& identifier)override;
@@ -18470,8 +17164,8 @@ GuiVirtualTreeListControl
 			{
 			private:
 				void								OnAttached(tree::INodeRootProvider* provider)override;
-				void								OnBeforeItemModified(tree::INodeProvider* parentNode, int start, int count, int newCount)override;
-				void								OnAfterItemModified(tree::INodeProvider* parentNode, int start, int count, int newCount)override;
+				void								OnBeforeItemModified(tree::INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+				void								OnAfterItemModified(tree::INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 				void								OnItemExpanded(tree::INodeProvider* node)override;
 				void								OnItemCollapsed(tree::INodeProvider* node)override;
 			protected:
@@ -18630,8 +17324,8 @@ TreeView
 					ItemController*							GetRelatedController(INodeProvider* node);
 					void									UpdateExpandingButton(INodeProvider* node);
 					void									OnAttached(INodeRootProvider* provider)override;
-					void									OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
-					void									OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
+					void									OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+					void									OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 					void									OnItemExpanded(INodeProvider* node)override;
 					void									OnItemCollapsed(INodeProvider* node)override;
 				public:
@@ -18642,8 +17336,8 @@ TreeView
 					GuiListControl::IItemStyleProvider*		GetBindedItemStyleProvider()override;
 					void									AttachListControl(GuiListControl* value)override;
 					void									DetachListControl()override;
-					int										GetItemStyleId(INodeProvider* node)override;
-					INodeItemStyleController*				CreateItemStyle(int styleId)override;
+					vint										GetItemStyleId(INodeProvider* node)override;
+					INodeItemStyleController*				CreateItemStyle(vint styleId)override;
 					void									DestroyItemStyle(INodeItemStyleController* style)override;
 					void									Install(INodeItemStyleController* style, INodeProvider* node)override;
 					void									SetStyleSelected(INodeItemStyleController* style, bool value)override;
@@ -18651,12 +17345,25 @@ TreeView
 			}
 		}
 	}
+
+	namespace collections
+	{
+		namespace randomaccess_internal
+		{
+			template<>
+			struct RandomAccessable<presentation::controls::tree::MemoryNodeProvider>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		}
+	}
 }
 
 #endif
 
 /***********************************************************************
-LIBRARIES\GACUI\SOURCE\CONTROLS\EXTENDEDCONTROLS\GUICOMBOCONTROLS.H
+LIBRARIES\GACUI\SOURCE\CONTROLS\LISTCONTROLPACKAGE\GUICOMBOCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -18747,7 +17454,7 @@ ComboBox with GuiListControl
 				GuiSelectableListControl*					containedListControl;
 				GuiListControl::IItemPrimaryTextView*		primaryTextView;
 
-				virtual void								DisplaySelectedContent(int itemIndex);
+				virtual void								DisplaySelectedContent(vint itemIndex);
 				void										OnListControlSelectionChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 			public:
 				GuiComboBoxListControl(IStyleController* _styleController, GuiSelectableListControl* _containedListControl);
@@ -18758,8 +17465,8 @@ ComboBox with GuiListControl
 				void										SetFont(const FontProperties& value)override;
 				GuiSelectableListControl*					GetContainedListControl();
 				
-				int											GetSelectedIndex();
-				void										SetSelectedIndex(int value);
+				vint											GetSelectedIndex();
+				void										SetSelectedIndex(vint value);
 				GuiListControl::IItemProvider*				GetItemProvider();
 			};
 		}
@@ -18854,7 +17561,7 @@ namespace vl
 Toolstrip Item Collection
 ***********************************************************************/
 
-			class GuiToolstripCollection : public Object, public collections::IList<GuiControl*>
+			class GuiToolstripCollection : public list::ItemsBase<GuiControl*>
 			{
 			public:
 				class IContentCallback : public Interface
@@ -18866,29 +17573,14 @@ Toolstrip Item Collection
 				IContentCallback*							contentCallback;
 				compositions::GuiStackComposition*			stackComposition;
 				Ptr<compositions::GuiSubComponentMeasurer>	subComponentMeasurer;
-				collections::List<GuiControl*>				items;
 
 				void										InvokeUpdateLayout();
 				void										OnInterestingMenuButtonPropertyChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void										RemoveAtInternal(vint index);
-				void										InsertInternal(vint index, GuiControl* control);
+				bool										RemoveAtInternal(vint index, GuiControl* const& control)override;
+				bool										InsertInternal(vint index, GuiControl* const& control)override;
 			public:
 				GuiToolstripCollection(IContentCallback* _contentCallback, compositions::GuiStackComposition* _stackComposition, Ptr<compositions::GuiSubComponentMeasurer> _subComponentMeasurer);
 				~GuiToolstripCollection();
-
-				collections::IEnumerator<GuiControl*>*		CreateEnumerator()const override;
-				bool										Contains(GuiControl* const& item)const override;
-				vint										Count()const override;
-				GuiControl* const&							Get(vint index)const override;
-				GuiControl* const&							operator[](vint index)const override;
-				vint										IndexOf(GuiControl* const& item)const override;
-				vint										Add(GuiControl* const& item)override;
-				bool										Remove(GuiControl* const& item)override;
-				bool										RemoveAt(vint index)override;
-				bool										RemoveRange(vint index, vint count)override;
-				bool										Clear()override;
-				vint										Insert(vint index, GuiControl* const& item)override;
-				bool										Set(vint index, GuiControl* const& item)override;
 			};
 
 /***********************************************************************
@@ -19008,6 +17700,19 @@ Toolstrip Component
 			};
 		}
 	}
+
+	namespace collections
+	{
+		namespace randomaccess_internal
+		{
+			template<>
+			struct RandomAccessable<presentation::controls::GuiToolstripCollection>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		}
+	}
 }
 
 #endif
@@ -19025,6 +17730,9 @@ Interfaces:
 
 #ifndef VCZH_PRESENTATION_CONTROLS_GUITHEMESTYLEFACTORY
 #define VCZH_PRESENTATION_CONTROLS_GUITHEMESTYLEFACTORY
+
+
+
 
 
 namespace vl
@@ -19069,8 +17777,8 @@ namespace vl
 				virtual controls::GuiScroll::IStyleController*								CreateHTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateVTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateProgressBarStyle()=0;
-				virtual int																	GetScrollDefaultSize()=0;
-				virtual int																	GetTrackerDefaultSize()=0;
+				virtual vint																	GetScrollDefaultSize()=0;
+				virtual vint																	GetTrackerDefaultSize()=0;
 				
 				virtual controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()=0;
 				virtual controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()=0;
@@ -19195,8 +17903,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				int																	GetScrollDefaultSize()override;
-				int																	GetTrackerDefaultSize()override;
+				vint																	GetScrollDefaultSize()override;
+				vint																	GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
@@ -19274,8 +17982,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				int																	GetScrollDefaultSize()override;
-				int																	GetTrackerDefaultSize()override;
+				vint																	GetScrollDefaultSize()override;
+				vint																	GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;

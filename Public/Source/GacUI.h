@@ -63,20 +63,20 @@ TextPos
 		
 		struct TextPos
 		{
-			int			row;
-			int			column;
+			vint			row;
+			vint			column;
 
 			TextPos()
 				:row(0) ,column(0)
 			{
 			}
 
-			TextPos(int _row, int _column)
+			TextPos(vint _row, vint _column)
 				:row(_row) ,column(_column)
 			{
 			}
 
-			int Compare(const TextPos& value)const
+			vint Compare(const TextPos& value)const
 			{
 				if(row<value.row) return -1;
 				if(row>value.row) return 1;
@@ -99,15 +99,15 @@ Point
 		
 		struct Point
 		{
-			int			x;
-			int			y;
+			vint			x;
+			vint			y;
 
 			Point()
 				:x(0) ,y(0)
 			{
 			}
 
-			Point(int _x, int _y)
+			Point(vint _x, vint _y)
 				:x(_x) ,y(_y)
 			{
 			}
@@ -129,15 +129,15 @@ Size
 		
 		struct Size
 		{
-			int			x;
-			int			y;
+			vint			x;
+			vint			y;
 
 			Size()
 				:x(0) ,y(0)
 			{
 			}
 
-			Size(int _x, int _y)
+			Size(vint _x, vint _y)
 				:x(_x) ,y(_y)
 			{
 			}
@@ -159,17 +159,17 @@ Rectangle
 		
 		struct Rect
 		{
-			int		x1;
-			int		y1;
-			int		x2;
-			int		y2;
+			vint		x1;
+			vint		y1;
+			vint		x2;
+			vint		y2;
 
 			Rect()
 				:x1(0), y1(0), x2(0), y2(0)
 			{
 			}
 
-			Rect(int _x1, int _y1, int _x2, int _y2)
+			Rect(vint _x1, vint _y1, vint _x2, vint _y2)
 				:x1(_x1), y1(_y1), x2(_x2), y2(_y2)
 			{
 			}
@@ -204,37 +204,37 @@ Rectangle
 				return Size(x2-x1, y2-y1);
 			}
 
-			int Left()const
+			vint Left()const
 			{
 				return x1;
 			}
 
-			int Right()const
+			vint Right()const
 			{
 				return x2;
 			}
 
-			int Width()const
+			vint Width()const
 			{
 				return x2-x1;
 			}
 
-			int Top()const
+			vint Top()const
 			{
 				return y1;
 			}
 
-			int Bottom()const
+			vint Bottom()const
 			{
 				return y2;
 			}
 
-			int Height()const
+			vint Height()const
 			{
 				return y2-y1;
 			}
 
-			void Expand(int x, int y)
+			void Expand(vint x, vint y)
 			{
 				x1-=x;
 				y1-=y;
@@ -250,7 +250,7 @@ Rectangle
 				y2+=s.y;
 			}
 
-			void Move(int x, int y)
+			void Move(vint x, vint y)
 			{
 				x1+=x;
 				y1+=y;
@@ -306,12 +306,12 @@ Rectangle
 			return Size(s1.x-s2.x, s1.y-s2.y);
 		}
 
-		inline Size operator*(Size s, int i)
+		inline Size operator*(Size s, vint i)
 		{
 			return Size(s.x*i, s.y*i);
 		}
 
-		inline Size operator/(Size s, int i)
+		inline Size operator/(Size s, vint i)
 		{
 			return Size(s.x/i, s.y/i);
 		}
@@ -372,7 +372,7 @@ Color
 			{
 			}
 
-			int Compare(Color color)const
+			vint Compare(Color color)const
 			{
 				return value-color.value;
 			}
@@ -391,17 +391,17 @@ Margin
 		
 		struct Margin
 		{
-			int		left;
-			int		top;
-			int		right;
-			int		bottom;
+			vint		left;
+			vint		top;
+			vint		right;
+			vint		bottom;
 
 			Margin()
 				:left(0), top(0), right(0), bottom(0)
 			{
 			}
 
-			Margin(int _left, int _top, int _right, int _bottom)
+			Margin(vint _left, vint _top, vint _right, vint _bottom)
 				:left(_left), top(_top), right(_right), bottom(_bottom)
 			{
 			}
@@ -424,7 +424,7 @@ Resources
 		struct FontProperties
 		{
 			WString				fontFamily;
-			int					size;
+			vint					size;
 			bool				bold;
 			bool				italic;
 			bool				underline;
@@ -443,9 +443,9 @@ Resources
 			{
 			}
 			
-			int Compare(const FontProperties& value)const
+			vint Compare(const FontProperties& value)const
 			{
-				int result=0;
+				vint result=0;
 				
 				result=WString::Compare(fontFamily, value.fontFamily);
 				if(result!=0) return result;
@@ -453,19 +453,19 @@ Resources
 				result=size-value.size;
 				if(result!=0) return result;
 
-				result=(int)bold-(int)value.bold;
+				result=(vint)bold-(vint)value.bold;
 				if(result!=0) return result;
 
-				result=(int)italic-(int)value.italic;
+				result=(vint)italic-(vint)value.italic;
 				if(result!=0) return result;
 
-				result=(int)underline-(int)value.underline;
+				result=(vint)underline-(vint)value.underline;
 				if(result!=0) return result;
 
-				result=(int)strikeline-(int)value.strikeline;
+				result=(vint)strikeline-(vint)value.strikeline;
 				if(result!=0) return result;
 
-				result=(int)antialias-(int)value.antialias;
+				result=(vint)antialias-(vint)value.antialias;
 				if(result!=0) return result;
 
 				return 0;
@@ -617,7 +617,7 @@ Layout Engine
 				struct InlineObjectProperties
 				{
 					Size					size;
-					int						baseline;
+					vint						baseline;
 					BreakCondition			breakCondition;
 
 					InlineObjectProperties()
@@ -630,17 +630,17 @@ Layout Engine
 				virtual IGuiGraphicsRenderTarget*			GetRenderTarget()=0;
 				virtual bool								GetWrapLine()=0;
 				virtual void								SetWrapLine(bool value)=0;
-				virtual int									GetMaxWidth()=0;
-				virtual void								SetMaxWidth(int value)=0;
+				virtual vint									GetMaxWidth()=0;
+				virtual void								SetMaxWidth(vint value)=0;
 
-				virtual bool								SetFont(int start, int length, const WString& value)=0;
-				virtual bool								SetSize(int start, int length, int value)=0;
-				virtual bool								SetStyle(int start, int length, TextStyle value)=0;
-				virtual bool								SetColor(int start, int length, Color value)=0;
-				virtual bool								SetInlineObject(int start, int length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
-				virtual bool								ResetInlineObject(int start, int length)=0;
+				virtual bool								SetFont(vint start, vint length, const WString& value)=0;
+				virtual bool								SetSize(vint start, vint length, vint value)=0;
+				virtual bool								SetStyle(vint start, vint length, TextStyle value)=0;
+				virtual bool								SetColor(vint start, vint length, Color value)=0;
+				virtual bool								SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
+				virtual bool								ResetInlineObject(vint start, vint length)=0;
 
-				virtual int									GetHeight()=0;
+				virtual vint									GetHeight()=0;
 				virtual void								Render(Rect bounds)=0;
 			};
 
@@ -720,7 +720,7 @@ System Object
 				LastSystemCursor=SizeWE,
 			};
 
-			static const int			SystemCursorCount=LastSystemCursor+1;
+			static const vint			SystemCursorCount=LastSystemCursor+1;
 		public:
 			virtual bool				IsSystemCursor()=0;
 			virtual SystemCursorType	GetSystemCursorType()=0;
@@ -769,8 +769,8 @@ Image Object
 			
 			virtual INativeImageService*		GetImageService()=0;
 			virtual FormatType					GetFormat()=0;
-			virtual int							GetFrameCount()=0;
-			virtual INativeImageFrame*			GetFrame(int index)=0;
+			virtual vint							GetFrameCount()=0;
+			virtual INativeImageFrame*			GetFrame(vint index)=0;
 		};
 		
 		class INativeImageService : public Interface
@@ -778,7 +778,7 @@ Image Object
 		public:
 			virtual Ptr<INativeImage>			CreateImageFromFile(const WString& path)=0;
 
-			virtual Ptr<INativeImage>			CreateImageFromMemory(void* buffer, int length)=0;
+			virtual Ptr<INativeImage>			CreateImageFromMemory(void* buffer, vint length)=0;
 
 			virtual Ptr<INativeImage>			CreateImageFromStream(stream::IStream& stream)=0;
 		};
@@ -876,14 +876,14 @@ Native Window
 			bool						left;
 			bool						middle;
 			bool						right;
-			int							x;
-			int							y;
-			int							wheel;
+			vint							x;
+			vint							y;
+			vint							wheel;
 		};
 		
 		struct NativeWindowKeyInfo
 		{
-			int							code;
+			vint							code;
 			bool						ctrl;
 			bool						shift;
 			bool						alt;
@@ -982,7 +982,7 @@ Native Window Services
 			virtual bool					IsInMainThread()=0;
 			virtual void					InvokeAsync(AsyncTaskProc* proc, void* argument)=0;
 			virtual void					InvokeInMainThread(AsyncTaskProc* proc, void* argument)=0;
-			virtual bool					InvokeInMainThreadAndWait(AsyncTaskProc* proc, void* argument, int milliseconds=-1)=0;
+			virtual bool					InvokeInMainThreadAndWait(AsyncTaskProc* proc, void* argument, vint milliseconds=-1)=0;
 		};
 		
 		class INativeClipboardService : public virtual Interface
@@ -996,8 +996,8 @@ Native Window Services
 		class INativeScreenService : public virtual Interface
 		{
 		public:
-			virtual int						GetScreenCount()=0;
-			virtual INativeScreen*			GetScreen(int index)=0;
+			virtual vint						GetScreenCount()=0;
+			virtual INativeScreen*			GetScreen(vint index)=0;
 			virtual INativeScreen*			GetScreen(INativeWindow* window)=0;
 		};
 		
@@ -1022,10 +1022,10 @@ Native Window Services
 			virtual void					StopTimer()=0;
 			virtual bool					IsTimerEnabled()=0;
 			
-			virtual bool					IsKeyPressing(int code)=0;
-			virtual bool					IsKeyToggled(int code)=0;
+			virtual bool					IsKeyPressing(vint code)=0;
+			virtual bool					IsKeyToggled(vint code)=0;
 
-			virtual WString					GetKeyName(int code)=0;
+			virtual WString					GetKeyName(vint code)=0;
 		};
 		
 		class INativeCallbackService : public virtual Interface
@@ -1120,7 +1120,7 @@ Native Window Services
 				FileDialogAddToRecent = 256,
 			};
 
-			virtual bool							ShowFileDialog(INativeWindow* window, collections::List<WString>& selectionFileNames, int& selectionFilterIndex, FileDialogTypes dialogType, const WString& title, const WString& initialFileName, const WString& initialDirectory, const WString& defaultExtension, const WString& filter, FileDialogOptions options)=0;
+			virtual bool							ShowFileDialog(INativeWindow* window, collections::List<WString>& selectionFileNames, vint& selectionFilterIndex, FileDialogTypes dialogType, const WString& title, const WString& initialFileName, const WString& initialDirectory, const WString& defaultExtension, const WString& filter, FileDialogOptions options)=0;
 		};
 
 /***********************************************************************
@@ -1140,6 +1140,7 @@ Native Window Controller
 			virtual INativeInputService*			InputService()=0;
 			virtual INativeDialogService*			DialogService()=0;
 			virtual WString							GetOSVersion()=0;
+			virtual WString							GetExecutablePath()=0;
 		};
 		
 		class INativeControllerListener : public Interface
@@ -1564,11 +1565,11 @@ Helpers
 
 #define DEFINE_CACHED_RESOURCE_ALLOCATOR(TKEY, TVALUE)\
 			public:\
-				static const int DeadPackageMax=32;\
+				static const vint DeadPackageMax=32;\
 				struct Package\
 				{\
 					TVALUE							resource;\
-					int								counter;\
+					vint								counter;\
 					bool operator==(const Package& package)const{return false;}\
 					bool operator!=(const Package& package)const{return true;}\
 				};\
@@ -1584,16 +1585,16 @@ Helpers
 			public:\
 				TVALUE Create(const TKEY& key)\
 				{\
-					int index=aliveResources.Keys().IndexOf(key);\
+					vint index=aliveResources.Keys().IndexOf(key);\
 					if(index!=-1)\
 					{\
-						Package package=aliveResources.Values()[index];\
+						Package package=aliveResources.Values().Get(index);\
 						package.counter++;\
 						aliveResources.Set(key, package);\
 						return package.resource;\
 					}\
 					TVALUE resource;\
-					for(int i=0;i<deadResources.Count();i++)\
+					for(vint i=0;i<deadResources.Count();i++)\
 					{\
 						if(deadResources[i].key==key)\
 						{\
@@ -1615,10 +1616,10 @@ Helpers
 				}\
 				void Destroy(const TKEY& key)\
 				{\
-					int index=aliveResources.Keys().IndexOf(key);\
+					vint index=aliveResources.Keys().IndexOf(key);\
 					if(index!=-1)\
 					{\
-						Package package=aliveResources.Values()[index];\
+						Package package=aliveResources.Values().Get(index);\
 						package.counter--;\
 						if(package.counter==0)\
 						{\
@@ -1701,7 +1702,7 @@ Elements
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiRoundBorderElement, L"RoundBorder")
 			protected:
 				Color					color;
-				int						radius;
+				vint						radius;
 
 				GuiRoundBorderElement();
 			public:
@@ -1710,8 +1711,8 @@ Elements
 				Color					GetColor();
 				void					SetColor(Color value);
 				
-				int						GetRadius();
-				void					SetRadius(int value);
+				vint						GetRadius();
+				void					SetRadius(vint value);
 			};
 			
 			class Gui3DBorderElement : public Object, public IGuiGraphicsElement, public Description<Gui3DBorderElement>
@@ -1852,7 +1853,7 @@ Elements
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiImageFrameElement, L"ImageFrame");
 			protected:
 				Ptr<INativeImage>		image;
-				int						frameIndex;
+				vint						frameIndex;
 				Alignment::Type			hAlignment;
 				Alignment::Type			vAlignment;
 				bool					stretch;
@@ -1863,8 +1864,8 @@ Elements
 				~GuiImageFrameElement();
 
 				Ptr<INativeImage>		GetImage();
-				int						GetFrameIndex();
-				void					SetImage(Ptr<INativeImage> _image, int _frameIndex=0);
+				vint						GetFrameIndex();
+				void					SetImage(Ptr<INativeImage> _image, vint _frameIndex=0);
 				
 				Alignment::Type			GetHorizontalAlignment();
 				Alignment::Type			GetVerticalAlignment();
@@ -1893,9 +1894,9 @@ Elements
 				Size					GetSize();
 				void					SetSize(Size value);
 
-				const Point&			GetPoint(int index);
-				int						GetPointCount();
-				void					SetPoints(const Point* p, int count);
+				const Point&			GetPoint(vint index);
+				vint						GetPointCount();
+				void					SetPoints(const Point* p, vint count);
 				
 				Color					GetBorderColor();
 				void					SetBorderColor(Color value);
@@ -1944,29 +1945,29 @@ Colorized Plain Text (model)
 				
 				struct TextLine
 				{
-					static const int				BlockSize=32;
-					static const int				MaxWidth=0xFFFF;
+					static const vint				BlockSize=32;
+					static const vint				MaxWidth=0xFFFF;
 					
 					wchar_t*						text;
 					CharAtt*						att;
-					int								availableOffsetCount;
-					int								bufferLength;
-					int								dataLength;
-					int								lexerFinalState;
-					int								contextFinalState;
+					vint								availableOffsetCount;
+					vint								bufferLength;
+					vint								dataLength;
+					vint								lexerFinalState;
+					vint								contextFinalState;
 
 					TextLine();
 					~TextLine();
 
-					static int						CalculateBufferLength(int dataLength);
+					static vint						CalculateBufferLength(vint dataLength);
 					bool							operator==(const TextLine& value)const{return false;}
 					bool							operator!=(const TextLine& value)const{return true;}
 
 					void							Initialize();
 					void							Finalize();
 					bool							IsReady();
-					bool							Modify(int start, int count, const wchar_t* input, int inputCount);
-					TextLine						Split(int index);
+					bool							Modify(vint start, vint count, const wchar_t* input, vint inputCount);
+					TextLine						Split(vint index);
 					void							AppendAndFinalize(TextLine& line);
 				};
 
@@ -1974,19 +1975,19 @@ Colorized Plain Text (model)
 				{
 				protected:
 					IGuiGraphicsRenderTarget*		oldRenderTarget;
-					int								rowHeight;
-					int								widths[65536];
+					vint								rowHeight;
+					vint								widths[65536];
 					
-					virtual int						MeasureWidthInternal(wchar_t character, IGuiGraphicsRenderTarget* renderTarget)=0;
-					virtual int						GetRowHeightInternal(IGuiGraphicsRenderTarget* renderTarget)=0;
+					virtual vint						MeasureWidthInternal(wchar_t character, IGuiGraphicsRenderTarget* renderTarget)=0;
+					virtual vint						GetRowHeightInternal(IGuiGraphicsRenderTarget* renderTarget)=0;
 				public:
 
-					CharMeasurer(int _rowHeight);
+					CharMeasurer(vint _rowHeight);
 					~CharMeasurer();
 
 					void							SetRenderTarget(IGuiGraphicsRenderTarget* value);
-					int								MeasureWidth(wchar_t character);
-					int								GetRowHeight();
+					vint								MeasureWidth(wchar_t character);
+					vint								GetRowHeight();
 				};
 
 				struct TextLines
@@ -1996,18 +1997,18 @@ Colorized Plain Text (model)
 					TextLineList					lines;
 					CharMeasurer*					charMeasurer;
 					IGuiGraphicsRenderTarget*		renderTarget;
-					int								tabWidth;
-					int								tabSpaceCount;
-					int								availableColorizedLines;
+					vint								tabWidth;
+					vint								tabSpaceCount;
+					vint								availableColorizedLines;
 					wchar_t							passwordChar;
 				public:
 					TextLines();
 					~TextLines();
 
-					int								GetCount();
-					TextLine&						GetLine(int row);
-					int								GetAvailableColorizedLines();
-					void							SetAvailableColorizedLines(int value);
+					vint								GetCount();
+					TextLine&						GetLine(vint row);
+					vint								GetAvailableColorizedLines();
+					void							SetAvailableColorizedLines(vint value);
 					CharMeasurer*					GetCharMeasurer();
 					void							SetCharMeasurer(CharMeasurer* value);
 					IGuiGraphicsRenderTarget*		GetRenderTarget();
@@ -2016,23 +2017,23 @@ Colorized Plain Text (model)
 					WString							GetText();
 					void							SetText(const WString& value);
 					
-					bool							RemoveLines(int start, int count);
+					bool							RemoveLines(vint start, vint count);
 					bool							IsAvailable(TextPos pos);
 					TextPos							Normalize(TextPos pos);
-					TextPos							Modify(TextPos start, TextPos end, const wchar_t** inputs, int* inputCounts, int rows);
-					TextPos							Modify(TextPos start, TextPos end, const wchar_t* input, int inputCount);
+					TextPos							Modify(TextPos start, TextPos end, const wchar_t** inputs, vint* inputCounts, vint rows);
+					TextPos							Modify(TextPos start, TextPos end, const wchar_t* input, vint inputCount);
 					TextPos							Modify(TextPos start, TextPos end, const wchar_t* input);
 					TextPos							Modify(TextPos start, TextPos end, const WString& input);
 					void							Clear();
 					
 					void							ClearMeasurement();
-					int								GetTabSpaceCount();
-					void							SetTabSpaceCount(int value);
-					void							MeasureRow(int row);
-					int								GetRowWidth(int row);
-					int								GetRowHeight();
-					int								GetMaxWidth();
-					int								GetMaxHeight();
+					vint								GetTabSpaceCount();
+					void							SetTabSpaceCount(vint value);
+					void							MeasureRow(vint row);
+					vint								GetRowWidth(vint row);
+					vint								GetRowHeight();
+					vint								GetMaxWidth();
+					vint								GetMaxHeight();
 					TextPos							GetTextPosFromPoint(Point point);
 					Point							GetPointFromTextPos(TextPos pos);
 					Rect							GetRectFromTextPos(TextPos pos);
@@ -2066,7 +2067,6 @@ Colorized Plain Text (element)
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiColorizedTextElement, L"ColorizedText");
 
 				typedef collections::Array<text::ColorEntry>			ColorArray;
-				typedef collections::IReadonlyList<text::ColorEntry>	IColorArray;
 			public:
 				class ICallback : public virtual IDescriptable, public Description<ICallback>
 				{
@@ -2097,7 +2097,7 @@ Colorized Plain Text (element)
 				ICallback*							GetCallback();
 				void								SetCallback(ICallback* value);
 				
-				const IColorArray&					GetColors();
+				const ColorArray&					GetColors();
 				void								SetColors(const ColorArray& value);
 				const FontProperties&				GetFont();
 				void								SetFont(const FontProperties& value);
@@ -2160,7 +2160,7 @@ Rich Content Document (model)
 				{
 				public:
 					Size							size;
-					int								baseline;
+					vint								baseline;
 
 					DocumentInlineObjectRun():baseline(-1){}
 				};
@@ -2169,7 +2169,7 @@ Rich Content Document (model)
 				{
 				public:
 					Ptr<INativeImage>				image;
-					int								frameIndex;
+					vint								frameIndex;
 
 					DocumentImageRun():frameIndex(0){}
 
@@ -2221,12 +2221,12 @@ Rich Content Document (element)
 
 					typedef collections::Array<Ptr<text::ParagraphCache>>		ParagraphCacheArray;
 				protected:
-					int									paragraphDistance;
-					int									lastMaxWidth;
-					int									cachedTotalHeight;
+					vint									paragraphDistance;
+					vint									lastMaxWidth;
+					vint									cachedTotalHeight;
 					IGuiGraphicsLayoutProvider*			layoutProvider;
 					ParagraphCacheArray					paragraphCaches;
-					collections::Array<int>				paragraphHeights;
+					collections::Array<vint>				paragraphHeights;
 
 					void					InitializeInternal();
 					void					FinalizeInternal();
@@ -2237,7 +2237,7 @@ Rich Content Document (element)
 					void					Render(Rect bounds)override;
 					void					OnElementStateChanged()override;
 
-					void					NotifyParagraphUpdated(int index);
+					void					NotifyParagraphUpdated(vint index);
 				};
 
 			protected:
@@ -2249,7 +2249,7 @@ Rich Content Document (element)
 				
 				Ptr<text::DocumentModel>	GetDocument();
 				void						SetDocument(Ptr<text::DocumentModel> value);
-				void						NotifyParagraphUpdated(int index);
+				void						NotifyParagraphUpdated(vint index);
 			};
 		}
 	}
@@ -2546,7 +2546,7 @@ Predefined Item Events
 			
 			struct GuiItemEventArgs : public GuiEventArgs
 			{
-				int			itemIndex;
+				vint			itemIndex;
 
 				GuiItemEventArgs()
 					:itemIndex(-1)
@@ -2562,7 +2562,7 @@ Predefined Item Events
 			
 			struct GuiItemMouseEventArgs : public GuiMouseEventArgs
 			{
-				int			itemIndex;
+				vint			itemIndex;
 
 				GuiItemMouseEventArgs()
 					:itemIndex(-1)
@@ -2699,7 +2699,6 @@ Basic Construction
 
 			class GuiGraphicsComposition : public Object, public Description<GuiGraphicsComposition>
 			{
-				typedef collections::IReadonlyList<GuiGraphicsComposition*> ICompositionList;
 				typedef collections::List<GuiGraphicsComposition*> CompositionList;
 
 				friend class controls::GuiControl;
@@ -2742,11 +2741,11 @@ Basic Construction
 				~GuiGraphicsComposition();
 
 				GuiGraphicsComposition*						GetParent();
-				const ICompositionList&						Children();
+				const CompositionList&						Children();
 				bool										AddChild(GuiGraphicsComposition* child);
-				bool										InsertChild(int index, GuiGraphicsComposition* child);
+				bool										InsertChild(vint index, GuiGraphicsComposition* child);
 				bool										RemoveChild(GuiGraphicsComposition* child);
-				bool										MoveChild(GuiGraphicsComposition* child, int newIndex);
+				bool										MoveChild(GuiGraphicsComposition* child, vint newIndex);
 
 				Ptr<elements::IGuiGraphicsElement>			GetOwnedElement();
 				void										SetOwnedElement(Ptr<elements::IGuiGraphicsElement> element);
@@ -2917,7 +2916,7 @@ Table Compositions
 				};
 
 				ComposeType		composeType;
-				int				absolute;
+				vint				absolute;
 				double			percentage;
 
 				GuiCellOption()
@@ -2930,7 +2929,7 @@ Table Compositions
 				bool operator==(const GuiCellOption& value){return false;}
 				bool operator!=(const GuiCellOption& value){return true;}
 
-				static GuiCellOption AbsoluteOption(int value)
+				static GuiCellOption AbsoluteOption(vint value)
 				{
 					GuiCellOption option;
 					option.composeType=Absolute;
@@ -2958,11 +2957,11 @@ Table Compositions
 			{
 				friend class GuiCellComposition;
 			protected:
-				int											rows;
-				int											columns;
-				int											cellPadding;
-				int											rowExtending;
-				int											columnExtending;
+				vint											rows;
+				vint											columns;
+				vint											cellPadding;
+				vint											rowExtending;
+				vint											columnExtending;
 				collections::Array<GuiCellOption>			rowOptions;
 				collections::Array<GuiCellOption>			columnOptions;
 				collections::Array<GuiCellComposition*>		cellCompositions;
@@ -2971,34 +2970,34 @@ Table Compositions
 				Size										previousContentMinSize;
 				Size										tableContentMinSize;
 
-				int									GetSiteIndex(int _rows, int _columns, int _row, int _column);
-				void								SetSitedCell(int _row, int _column, GuiCellComposition* cell);
+				vint									GetSiteIndex(vint _rows, vint _columns, vint _row, vint _column);
+				void								SetSitedCell(vint _row, vint _column, GuiCellComposition* cell);
 
 				void								UpdateCellBoundsInternal(
-														collections::Array<int>& dimSizes,
-														int& dimSize, 
-														int& dimSizeWithPercentage,
+														collections::Array<vint>& dimSizes,
+														vint& dimSize, 
+														vint& dimSizeWithPercentage,
 														collections::Array<GuiCellOption>& dimOptions,
-														int GuiTableComposition::* dim1,
-														int GuiTableComposition::* dim2,
-														int (*getSize)(Size),
-														int (*getLocation)(GuiCellComposition*),
-														int (*getSpan)(GuiCellComposition*),
-														int (*getRow)(int, int),
-														int (*getCol)(int, int),
-														int maxPass
+														vint GuiTableComposition::* dim1,
+														vint GuiTableComposition::* dim2,
+														vint (*getSize)(Size),
+														vint (*getLocation)(GuiCellComposition*),
+														vint (*getSpan)(GuiCellComposition*),
+														vint (*getRow)(vint, vint),
+														vint (*getCol)(vint, vint),
+														vint maxPass
 														);
 				void								UpdateCellBoundsPercentages(
-														collections::Array<int>& dimSizes,
-														int dimSize,
-														int maxDimSize,
+														collections::Array<vint>& dimSizes,
+														vint dimSize,
+														vint maxDimSize,
 														collections::Array<GuiCellOption>& dimOptions
 														);
-				int									UpdateCellBoundsOffsets(
-														collections::Array<int>& offsets,
-														collections::Array<int>& sizes,
-														int start,
-														int max
+				vint									UpdateCellBoundsOffsets(
+														collections::Array<vint>& offsets,
+														collections::Array<vint>& sizes,
+														vint start,
+														vint max
 														);
 				
 				void								UpdateCellBoundsInternal();
@@ -3008,18 +3007,18 @@ Table Compositions
 				GuiTableComposition();
 				~GuiTableComposition();
 
-				int									GetRows();
-				int									GetColumns();
-				bool								SetRowsAndColumns(int _rows, int _columns);
-				GuiCellComposition*					GetSitedCell(int _row, int _column);
+				vint									GetRows();
+				vint									GetColumns();
+				bool								SetRowsAndColumns(vint _rows, vint _columns);
+				GuiCellComposition*					GetSitedCell(vint _row, vint _column);
 
-				GuiCellOption						GetRowOption(int _row);
-				void								SetRowOption(int _row, GuiCellOption option);
-				GuiCellOption						GetColumnOption(int _column);
-				void								SetColumnOption(int _column, GuiCellOption option);
+				GuiCellOption						GetRowOption(vint _row);
+				void								SetRowOption(vint _row, GuiCellOption option);
+				GuiCellOption						GetColumnOption(vint _column);
+				void								SetColumnOption(vint _column, GuiCellOption option);
 
-				int									GetCellPadding();
-				void								SetCellPadding(int value);
+				vint									GetCellPadding();
+				void								SetCellPadding(vint value);
 				Rect								GetCellArea();
 				void								UpdateCellBounds();
 				
@@ -3032,17 +3031,17 @@ Table Compositions
 			{
 				friend class GuiTableComposition;
 			protected:
-				int									row;
-				int									rowSpan;
-				int									column;
-				int									columnSpan;
+				vint									row;
+				vint									rowSpan;
+				vint									column;
+				vint									columnSpan;
 				GuiTableComposition*				tableParent;
 				Size								lastPreferredSize;
 				
 				void								ClearSitedCells(GuiTableComposition* table);
 				void								SetSitedCells(GuiTableComposition* table);
 				void								ResetSiteInternal();
-				bool								SetSiteInternal(int _row, int _column, int _rowSpan, int _columnSpan);
+				bool								SetSiteInternal(vint _row, vint _column, vint _rowSpan, vint _columnSpan);
 				void								OnParentChanged(GuiGraphicsComposition* oldParent, GuiGraphicsComposition* newParent)override;
 				void								OnTableRowsAndColumnsChanged();
 			public:
@@ -3051,11 +3050,11 @@ Table Compositions
 
 				GuiTableComposition*				GetTableParent();
 
-				int									GetRow();
-				int									GetRowSpan();
-				int									GetColumn();
-				int									GetColumnSpan();
-				bool								SetSite(int _row, int _column, int _rowSpan, int _columnSpan);
+				vint									GetRow();
+				vint									GetRowSpan();
+				vint									GetColumn();
+				vint									GetColumnSpan();
+				bool								SetSite(vint _row, vint _column, vint _rowSpan, vint _columnSpan);
 
 				Rect								GetBounds()override;
 			};
@@ -3099,7 +3098,6 @@ Stack Compositions
 				friend class GuiStackItemComposition;
 
 				typedef collections::List<GuiStackItemComposition*>				ItemCompositionList;
-				typedef collections::IReadonlyList<GuiStackItemComposition*>	IItemCompositionList;
 			public:
 				enum Direction
 				{
@@ -3111,7 +3109,7 @@ Stack Compositions
 				ItemCompositionList					stackItems;
 				collections::Array<Rect>			stackItemBounds;
 				Size								stackItemTotalSize;
-				int									padding;
+				vint									padding;
 				Rect								previousBounds;
 				Margin								extraMargin;
 
@@ -3123,13 +3121,13 @@ Stack Compositions
 				GuiStackComposition();
 				~GuiStackComposition();
 
-				const IItemCompositionList&			GetStackItems();
-				bool								InsertStackItem(int index, GuiStackItemComposition* item);
+				const ItemCompositionList&			GetStackItems();
+				bool								InsertStackItem(vint index, GuiStackItemComposition* item);
 				
 				Direction							GetDirection();
 				void								SetDirection(Direction value);
-				int									GetPadding();
-				void								SetPadding(int value);
+				vint									GetPadding();
+				void								SetPadding(vint value);
 
 				Size								GetMinPreferredClientSize()override;
 				Rect								GetBounds()override;
@@ -3204,7 +3202,7 @@ Specialized Compositions
 				};
 			protected:
 				Direction							direction;
-				int									maxLength;
+				vint									maxLength;
 				double								maxRatio;
 			public:
 				GuiSideAlignedComposition();
@@ -3212,8 +3210,8 @@ Specialized Compositions
 				
 				Direction							GetDirection();
 				void								SetDirection(Direction value);
-				int									GetMaxLength();
-				void								SetMaxLength(int value);
+				vint									GetMaxLength();
+				void								SetMaxLength(vint value);
 				double								GetMaxRatio();
 				void								SetMaxRatio(double value);
 				
@@ -3282,9 +3280,9 @@ namespace vl
 					virtual void						DetachMeasurer(GuiSubComponentMeasurer* value)=0;
 					virtual GuiSubComponentMeasurer*	GetAttachedMeasurer()=0;
 					virtual WString						GetMeasuringCategory()=0;
-					virtual int							GetSubComponentCount()=0;
-					virtual WString						GetSubComponentName(int index)=0;
-					virtual GuiGraphicsComposition*		GetSubComponentComposition(int index)=0;
+					virtual vint							GetSubComponentCount()=0;
+					virtual WString						GetSubComponentName(vint index)=0;
+					virtual GuiGraphicsComposition*		GetSubComponentComposition(vint index)=0;
 					virtual GuiGraphicsComposition*		GetSubComponentComposition(const WString& name)=0;
 					virtual GuiGraphicsComposition*		GetMainComposition()=0;
 					virtual void						SubComponentPreferredMinSizeUpdated()=0;
@@ -3314,9 +3312,9 @@ namespace vl
 					void								DetachMeasurer(GuiSubComponentMeasurer* value)override;
 					GuiSubComponentMeasurer*			GetAttachedMeasurer()override;
 					WString								GetMeasuringCategory()override;
-					int									GetSubComponentCount()override;
-					WString								GetSubComponentName(int index)override;
-					GuiGraphicsComposition*				GetSubComponentComposition(int index)override;
+					vint									GetSubComponentCount()override;
+					WString								GetSubComponentName(vint index)override;
+					GuiGraphicsComposition*				GetSubComponentComposition(vint index)override;
 					GuiGraphicsComposition*				GetSubComponentComposition(const WString& name)override;
 					GuiGraphicsComposition*				GetMainComposition()override;
 					void								SubComponentPreferredMinSizeUpdated()override;
@@ -3368,9 +3366,9 @@ Animation
 			class IGuiGraphicsAnimation : public virtual IDescriptable, public Description<IGuiGraphicsAnimation>
 			{
 			public:
-				virtual int						GetTotalLength()=0;
-				virtual int						GetCurrentPosition()=0;
-				virtual void					Play(int currentPosition, int totalLength)=0;
+				virtual vint						GetTotalLength()=0;
+				virtual vint						GetCurrentPosition()=0;
+				virtual void					Play(vint currentPosition, vint totalLength)=0;
 				virtual void					Stop()=0;
 			};
 
@@ -3406,8 +3404,8 @@ Shortcut Key Manager
 			class IGuiShortcutKeyManager : public Interface, public Description<IGuiShortcutKeyManager>
 			{
 			public:
-				virtual int								GetItemCount()=0;
-				virtual IGuiShortcutKeyItem*			GetItem(int index)=0;
+				virtual vint								GetItemCount()=0;
+				virtual IGuiShortcutKeyItem*			GetItem(vint index)=0;
 				virtual bool							Execute(const NativeWindowKeyInfo& info)=0;
 			};
 
@@ -3498,14 +3496,14 @@ Animation Helpers
 			{
 			protected:
 				unsigned __int64				startTime;
-				int								length;
+				vint								length;
 			public:
-				GuiTimeBasedAnimation(int totalMilliseconds);
+				GuiTimeBasedAnimation(vint totalMilliseconds);
 				~GuiTimeBasedAnimation();
 
-				void							Restart(int totalMilliseconds=-1);
-				int								GetTotalLength()override;
-				int								GetCurrentPosition()override;
+				void							Restart(vint totalMilliseconds=-1);
+				vint								GetTotalLength()override;
+				vint								GetCurrentPosition()override;
 			};
 
 /***********************************************************************
@@ -3521,18 +3519,18 @@ Shortcut Key Manager Helpers
 				bool							ctrl;
 				bool							shift;
 				bool							alt;
-				int								key;
+				vint								key;
 
 				void							AttachManager(GuiShortcutKeyManager* manager);
 				void							DetachManager(GuiShortcutKeyManager* manager);
 			public:
-				GuiShortcutKeyItem(GuiShortcutKeyManager* _shortcutKeyManager, bool _ctrl, bool _shift, bool _alt, int _key);
+				GuiShortcutKeyItem(GuiShortcutKeyManager* _shortcutKeyManager, bool _ctrl, bool _shift, bool _alt, vint _key);
 				~GuiShortcutKeyItem();
 
 				IGuiShortcutKeyManager*			GetManager()override;
 				WString							GetName()override;
 				bool							CanActivate(const NativeWindowKeyInfo& info);
-				bool							CanActivate(bool _ctrl, bool _shift, bool _alt, int _key);
+				bool							CanActivate(bool _ctrl, bool _shift, bool _alt, vint _key);
 			};
 
 			class GuiShortcutKeyManager : public Object, public IGuiShortcutKeyManager, public Description<GuiShortcutKeyManager>
@@ -3545,13 +3543,13 @@ Shortcut Key Manager Helpers
 				GuiShortcutKeyManager();
 				~GuiShortcutKeyManager();
 
-				int								GetItemCount()override;
-				IGuiShortcutKeyItem*			GetItem(int index)override;
+				vint								GetItemCount()override;
+				IGuiShortcutKeyItem*			GetItem(vint index)override;
 				bool							Execute(const NativeWindowKeyInfo& info)override;
 
-				IGuiShortcutKeyItem*			CreateShortcut(bool ctrl, bool shift, bool alt, int key);
-				bool							DestroyShortcut(bool ctrl, bool shift, bool alt, int key);
-				IGuiShortcutKeyItem*			TryGetShortcut(bool ctrl, bool shift, bool alt, int key);
+				IGuiShortcutKeyItem*			CreateShortcut(bool ctrl, bool shift, bool alt, vint key);
+				bool							DestroyShortcut(bool ctrl, bool shift, bool alt, vint key);
+				IGuiShortcutKeyItem*			TryGetShortcut(bool ctrl, bool shift, bool alt, vint key);
 			};
 		}
 	}
@@ -3667,8 +3665,8 @@ Basic Construction
 				compositions::GuiGraphicsComposition*	GetFocusableComposition();
 				compositions::GuiGraphicsEventReceiver*	GetEventReceiver();
 				GuiControl*								GetParent();
-				int										GetChildrenCount();
-				GuiControl*								GetChild(int index);
+				vint										GetChildrenCount();
+				GuiControl*								GetChild(vint index);
 				bool									AddChild(GuiControl* control);
 				
 				virtual GuiControlHost*					GetRelatedControlHost();
@@ -3718,19 +3716,19 @@ Basic Construction
 				}
 			};
 			
-			class GuiImageData
+			class GuiImageData : public Object
 			{
 			protected:
 				Ptr<INativeImage>				image;
-				int								frameIndex;
+				vint								frameIndex;
 
 			public:
 				GuiImageData();
-				GuiImageData(Ptr<INativeImage> _image, int _frameIndex);
+				GuiImageData(Ptr<INativeImage> _image, vint _frameIndex);
 				~GuiImageData();
 
 				Ptr<INativeImage>				GetImage();
-				int								GetFrameIndex();
+				vint								GetFrameIndex();
 			};
 
 /***********************************************************************
@@ -3872,18 +3870,18 @@ Scrolls
 					virtual void						BigDecrease()=0;
 					virtual void						BigIncrease()=0;
 
-					virtual void						SetTotalSize(int value)=0;
-					virtual void						SetPageSize(int value)=0;
-					virtual void						SetPosition(int value)=0;
+					virtual void						SetTotalSize(vint value)=0;
+					virtual void						SetPageSize(vint value)=0;
+					virtual void						SetPosition(vint value)=0;
 				};
 				
 				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
 				{
 				public:
 					virtual void						SetCommandExecutor(ICommandExecutor* value)=0;
-					virtual void						SetTotalSize(int value)=0;
-					virtual void						SetPageSize(int value)=0;
-					virtual void						SetPosition(int value)=0;
+					virtual void						SetTotalSize(vint value)=0;
+					virtual void						SetPageSize(vint value)=0;
+					virtual void						SetPosition(vint value)=0;
 				};
 			protected:
 				class CommandExecutor : public Object, public ICommandExecutor
@@ -3899,18 +3897,18 @@ Scrolls
 					void								BigDecrease()override;
 					void								BigIncrease()override;
 
-					void								SetTotalSize(int value)override;
-					void								SetPageSize(int value)override;
-					void								SetPosition(int value)override;
+					void								SetTotalSize(vint value)override;
+					void								SetPageSize(vint value)override;
+					void								SetPosition(vint value)override;
 				};
 
 				IStyleController*						styleController;
 				Ptr<CommandExecutor>					commandExecutor;
-				int										totalSize;
-				int										pageSize;
-				int										position;
-				int										smallMove;
-				int										bigMove;
+				vint										totalSize;
+				vint										pageSize;
+				vint										position;
+				vint										smallMove;
+				vint										bigMove;
 			public:
 				GuiScroll(IStyleController* _styleController);
 				~GuiScroll();
@@ -3921,135 +3919,19 @@ Scrolls
 				compositions::GuiNotifyEvent			SmallMoveChanged;
 				compositions::GuiNotifyEvent			BigMoveChanged;
 				
-				virtual int								GetTotalSize();
-				virtual void							SetTotalSize(int value);
-				virtual int								GetPageSize();
-				virtual void							SetPageSize(int value);
-				virtual int								GetPosition();
-				virtual void							SetPosition(int value);
-				virtual int								GetSmallMove();
-				virtual void							SetSmallMove(int value);
-				virtual int								GetBigMove();
-				virtual void							SetBigMove(int value);
+				virtual vint								GetTotalSize();
+				virtual void							SetTotalSize(vint value);
+				virtual vint								GetPageSize();
+				virtual void							SetPageSize(vint value);
+				virtual vint								GetPosition();
+				virtual void							SetPosition(vint value);
+				virtual vint								GetSmallMove();
+				virtual void							SetSmallMove(vint value);
+				virtual vint								GetBigMove();
+				virtual void							SetBigMove(vint value);
 				
-				int										GetMinPosition();
-				int										GetMaxPosition();
-			};
-
-			class GuiScrollView : public GuiControl, public Description<GuiScrollView>
-			{
-			public:
-				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
-				{
-				public:
-					virtual GuiScroll::IStyleController*			CreateHorizontalScrollStyle()=0;
-					virtual GuiScroll::IStyleController*			CreateVerticalScrollStyle()=0;
-					virtual int										GetDefaultScrollSize()=0;
-					virtual compositions::GuiGraphicsComposition*	InstallBackground(compositions::GuiBoundsComposition* boundsComposition)=0;
-				};
-				
-				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
-				{
-				protected:
-					Ptr<IStyleProvider>						styleProvider;
-					GuiScrollView*							scrollView;
-					GuiScroll*								horizontalScroll;
-					GuiScroll*								verticalScroll;
-					compositions::GuiBoundsComposition*		boundsComposition;
-					compositions::GuiTableComposition*		tableComposition;
-					compositions::GuiCellComposition*		containerCellComposition;
-					compositions::GuiBoundsComposition*		containerComposition;
-					bool									horizontalAlwaysVisible;
-					bool									verticalAlwaysVisible;
-
-					void									UpdateTable();
-				public:
-					StyleController(IStyleProvider* _styleProvider);
-					~StyleController();
-
-					void									SetScrollView(GuiScrollView* _scrollView);
-					void									AdjustView(Size fullSize);
-					IStyleProvider*							GetStyleProvider();
-
-					GuiScroll*								GetHorizontalScroll();
-					GuiScroll*								GetVerticalScroll();
-					compositions::GuiTableComposition*		GetInternalTableComposition();
-					compositions::GuiBoundsComposition*		GetInternalContainerComposition();
-
-					bool									GetHorizontalAlwaysVisible();
-					void									SetHorizontalAlwaysVisible(bool value);
-					bool									GetVerticalAlwaysVisible();
-					void									SetVerticalAlwaysVisible(bool value);
-
-					compositions::GuiBoundsComposition*		GetBoundsComposition()override;
-					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
-					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
-					void									SetText(const WString& value)override;
-					void									SetFont(const FontProperties& value)override;
-					void									SetVisuallyEnabled(bool value)override;
-				};
-			protected:
-
-				StyleController*						styleController;
-				bool									supressScrolling;
-
-				void									OnContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnHorizontalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									OnVerticalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void									CallUpdateView();
-				void									Initialize();
-
-				virtual Size							QueryFullSize()=0;
-				virtual void							UpdateView(Rect viewBounds)=0;
-				
-				GuiScrollView(StyleController* _styleController);
-			public:
-				GuiScrollView(IStyleProvider* styleProvider);
-				~GuiScrollView();
-
-				void									CalculateView();
-				Size									GetViewSize();
-				Rect									GetViewBounds();
-				
-				GuiScroll*								GetHorizontalScroll();
-				GuiScroll*								GetVerticalScroll();
-				bool									GetHorizontalAlwaysVisible();
-				void									SetHorizontalAlwaysVisible(bool value);
-				bool									GetVerticalAlwaysVisible();
-				void									SetVerticalAlwaysVisible(bool value);
-			};
-			
-			class GuiScrollContainer : public GuiScrollView, public Description<GuiScrollContainer>
-			{
-			public:
-				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
-				{
-				protected:
-					compositions::GuiBoundsComposition*		controlContainerComposition;
-					bool									extendToFullWidth;
-				public:
-					StyleController(GuiScrollView::IStyleProvider* styleProvider);
-					~StyleController();
-
-					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
-					void									MoveContainer(Point leftTop);
-
-					bool									GetExtendToFullWidth();
-					void									SetExtendToFullWidth(bool value);
-				};
-
-			protected:
-				StyleController*						styleController;
-
-				void									OnControlContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				Size									QueryFullSize()override;
-				void									UpdateView(Rect viewBounds)override;
-			public:
-				GuiScrollContainer(GuiScrollContainer::IStyleProvider* styleProvider);
-				~GuiScrollContainer();
-				
-				bool									GetExtendToFullWidth();
-				void									SetExtendToFullWidth(bool value);
+				vint										GetMinPosition();
+				vint										GetMaxPosition();
 			};
 			
 			namespace list
@@ -4059,12 +3941,26 @@ List interface common implementation
 ***********************************************************************/
 
 				template<typename T, typename K=typename KeyType<T>::Type>
-				class ItemsBase : public Object, public collections::IList<T, K>
+				class ItemsBase : public Object, public virtual collections::IEnumerable<T>
 				{
 				protected:
 					collections::List<T, K>					items;
 
-					virtual void							NotifyUpdateInternal(int start, int count, int newCount)=0;
+					virtual void NotifyUpdateInternal(vint start, vint count, vint newCount)
+					{
+					}
+
+					virtual bool InsertInternal(vint index, const T& value)
+					{
+						items.Insert(index, value);
+						return true;
+					}
+
+					virtual bool RemoveAtInternal(vint index, const T& value)
+					{
+						items.RemoveAt(index);
+						return true;
+					}
 					
 				public:
 					ItemsBase()
@@ -4075,7 +3971,12 @@ List interface common implementation
 					{
 					}
 
-					bool NotifyUpdate(int start, int count=1)
+					collections::IEnumerator<T>* CreateEnumerator()const
+					{
+						return items.CreateEnumerator();
+					}
+
+					bool NotifyUpdate(vint start, vint count=1)
 					{
 						if(start<0 || start>=items.Count() || count<=0 || start+count>items.Count())
 						{
@@ -4086,11 +3987,6 @@ List interface common implementation
 							NotifyUpdateInternal(start, count, count);
 							return true;
 						}
-					}
-
-					collections::IEnumerator<T>* CreateEnumerator()const
-					{
-						return items.Wrap().CreateEnumerator();
 					}
 
 					bool Contains(const K& item)const
@@ -4137,7 +4033,7 @@ List interface common implementation
 
 					bool RemoveAt(vint index)
 					{
-						if(items.RemoveAt(index))
+						if(RemoveAtInternal(index, items[index]))
 						{
 							NotifyUpdateInternal(index, 1, 0);
 							return true;
@@ -4150,9 +4046,13 @@ List interface common implementation
 
 					bool RemoveRange(vint index, vint count)
 					{
-						if(items.RemoveRange(index, count))
+						if(count<=0) return false;
+						if(0<=index && index<items.Count() && index+count<=items.Count())
 						{
-							NotifyUpdateInternal(index, count, 0);
+							while(count-->0)
+							{
+								RemoveAt(index+count);
+							}
 							return true;
 						}
 						else
@@ -4163,31 +4063,31 @@ List interface common implementation
 
 					bool Clear()
 					{
-						vint count=items.Count();
-						if(items.Clear())
+						while(items.Count()>0)
 						{
-							NotifyUpdateInternal(0, count, 0);
-							return true;
+							RemoveAt(items.Count()-1);
 						}
-						else
-						{
-							return false;
-						}
+						return true;
 					}
 
 					vint Insert(vint index, const T& item)
 					{
-						vint result=items.Insert(index, item);
-						NotifyUpdateInternal(index, 0, 1);
-						return result;
+						if(InsertInternal(index, item))
+						{
+							NotifyUpdateInternal(index, 0, 1);
+							return index;
+						}
+						else
+						{
+							return -1;
+						}
 					}
 
 					bool Set(vint index, const T& item)
 					{
-						if(items.Set(index, item))
+						if(Insert(index, item))
 						{
-							NotifyUpdateInternal(index, 1, 1);
-							return true;
+							return RemoveAt(index+1);
 						}
 						else
 						{
@@ -4196,6 +4096,19 @@ List interface common implementation
 					}
 				};
 			}
+		}
+	}
+
+	namespace collections
+	{
+		namespace randomaccess_internal
+		{
+			template<typename T>
+			struct RandomAccessable<presentation::controls::list::ItemsBase<T>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
 		}
 	}
 }
@@ -4407,7 +4320,900 @@ Window
 #endif
 
 /***********************************************************************
-CONTROLS\GUILISTCONTROLS.H
+CONTROLS\GUIAPPLICATION.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Application Framework
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIAPPLICATION
+#define VCZH_PRESENTATION_CONTROLS_GUIAPPLICATION
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			class GuiApplication : public Object, private INativeControllerListener
+			{
+				friend void GuiApplicationInitialize();
+				friend class GuiWindow;
+				friend class GuiPopup;
+				friend class Ptr<GuiApplication>;
+			private:
+				void											LeftButtonDown(Point position)override;
+				void											LeftButtonUp(Point position)override;
+				void											RightButtonDown(Point position)override;
+				void											RightButtonUp(Point position)override;
+				void											ClipboardUpdated()override;
+			protected:
+				GuiWindow*										mainWindow;
+				collections::List<GuiWindow*>					windows;
+				collections::SortedList<GuiPopup*>				openingPopups;
+
+				GuiApplication();
+				~GuiApplication();
+
+				void											RegisterWindow(GuiWindow* window);
+				void											UnregisterWindow(GuiWindow* window);
+				void											RegisterPopupOpened(GuiPopup* popup);
+				void											RegisterPopupClosed(GuiPopup* popup);
+				void											OnMouseDown(Point location);
+			public:
+				void											Run(GuiWindow* _mainWindow);
+				const collections::List<GuiWindow*>&			GetWindows();
+				GuiWindow*										GetWindow(Point location);
+				WString											GetExecutablePath();
+				WString											GetExecutableFolder();
+
+				bool											IsInMainThread();
+				void											InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument);
+				void											InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument);
+				bool											InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds=-1);
+				void											InvokeAsync(const Func<void()>& proc);
+				void											InvokeInMainThread(const Func<void()>& proc);
+				bool											InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds=-1);
+
+				template<typename T>
+				void InvokeLambdaInMainThread(const T& proc)
+				{
+					InvokeInMainThread(Func<void()>(proc));
+				}
+				
+				template<typename T>
+				bool InvokeLambdaInMainThreadAndWait(const T& proc, vint milliseconds=-1)
+				{
+					return InvokeInMainThreadAndWait(Func<void()>(proc), milliseconds);
+				}
+			};
+
+			extern GuiApplication*								GetApplication();
+		}
+	}
+}
+
+extern void GuiApplicationMain();
+
+#endif
+
+/***********************************************************************
+CONTROLS\GUICONTAINERCONTROLS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
+#define VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+/***********************************************************************
+Tab Control
+***********************************************************************/
+
+			class GuiTab;
+
+			class GuiTabPage : public Object, public Description<GuiTabPage>
+			{
+				friend class GuiTab;
+				friend class Ptr<GuiTabPage>;
+			protected:
+				GuiControl*										container;
+				GuiTab*											owner;
+				WString											text;
+				
+				GuiTabPage();
+				~GuiTabPage();
+
+				bool											AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController);
+				bool											DeassociateTab(GuiTab* _owner);
+			public:
+				compositions::GuiNotifyEvent					TextChanged;
+				compositions::GuiNotifyEvent					PageInstalled;
+				compositions::GuiNotifyEvent					PageUninstalled;
+				compositions::GuiNotifyEvent					PageContainerReady;
+
+				GuiControl*										GetContainer();
+				GuiTab*											GetOwnerTab();
+				const WString&									GetText();
+				void											SetText(const WString& param);
+				bool											GetSelected();
+			};
+
+			class GuiTab : public GuiControl, public Description<GuiTab>
+			{
+				friend class GuiTabPage;
+			public:
+				class ICommandExecutor : public virtual IDescriptable, public Description<ICommandExecutor>
+				{
+				public:
+					virtual void								ShowTab(vint index)=0;
+				};
+				
+				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
+				{
+				public:
+					virtual void								SetCommandExecutor(ICommandExecutor* value)=0;
+					virtual void								InsertTab(vint index)=0;
+					virtual void								SetTabText(vint index, const WString& value)=0;
+					virtual void								RemoveTab(vint index)=0;
+					virtual void								MoveTab(vint oldIndex, vint newIndex)=0;
+					virtual void								SetSelectedTab(vint index)=0;
+					virtual GuiControl::IStyleController*		CreateTabPageStyleController()=0;
+				};
+			protected:
+				class CommandExecutor : public Object, public ICommandExecutor
+				{
+				protected:
+					GuiTab*										tab;
+				public:
+					CommandExecutor(GuiTab* _tab);
+					~CommandExecutor();
+
+					void										ShowTab(vint index)override;
+				};
+
+				Ptr<CommandExecutor>							commandExecutor;
+				IStyleController*								styleController;
+				collections::List<GuiTabPage*>					tabPages;
+				GuiTabPage*										selectedPage;
+			public:
+				GuiTab(IStyleController* _styleController);
+				~GuiTab();
+
+				compositions::GuiNotifyEvent					SelectedPageChanged;
+
+				GuiTabPage*										CreatePage(vint index=-1);
+				bool											CreatePage(GuiTabPage* page, vint index=-1);
+				bool											RemovePage(GuiTabPage* value);
+				bool											MovePage(GuiTabPage* page, vint newIndex);
+				const collections::List<GuiTabPage*>&			GetPages();
+
+				GuiTabPage*										GetSelectedPage();
+				bool											SetSelectedPage(GuiTabPage* value);
+			};
+
+/***********************************************************************
+Scroll View
+***********************************************************************/
+
+			class GuiScrollView : public GuiControl, public Description<GuiScrollView>
+			{
+			public:
+				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
+				{
+				public:
+					virtual GuiScroll::IStyleController*			CreateHorizontalScrollStyle()=0;
+					virtual GuiScroll::IStyleController*			CreateVerticalScrollStyle()=0;
+					virtual vint										GetDefaultScrollSize()=0;
+					virtual compositions::GuiGraphicsComposition*	InstallBackground(compositions::GuiBoundsComposition* boundsComposition)=0;
+				};
+				
+				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
+				{
+				protected:
+					Ptr<IStyleProvider>						styleProvider;
+					GuiScrollView*							scrollView;
+					GuiScroll*								horizontalScroll;
+					GuiScroll*								verticalScroll;
+					compositions::GuiBoundsComposition*		boundsComposition;
+					compositions::GuiTableComposition*		tableComposition;
+					compositions::GuiCellComposition*		containerCellComposition;
+					compositions::GuiBoundsComposition*		containerComposition;
+					bool									horizontalAlwaysVisible;
+					bool									verticalAlwaysVisible;
+
+					void									UpdateTable();
+				public:
+					StyleController(IStyleProvider* _styleProvider);
+					~StyleController();
+
+					void									SetScrollView(GuiScrollView* _scrollView);
+					void									AdjustView(Size fullSize);
+					IStyleProvider*							GetStyleProvider();
+
+					GuiScroll*								GetHorizontalScroll();
+					GuiScroll*								GetVerticalScroll();
+					compositions::GuiTableComposition*		GetInternalTableComposition();
+					compositions::GuiBoundsComposition*		GetInternalContainerComposition();
+
+					bool									GetHorizontalAlwaysVisible();
+					void									SetHorizontalAlwaysVisible(bool value);
+					bool									GetVerticalAlwaysVisible();
+					void									SetVerticalAlwaysVisible(bool value);
+
+					compositions::GuiBoundsComposition*		GetBoundsComposition()override;
+					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
+					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+					void									SetText(const WString& value)override;
+					void									SetFont(const FontProperties& value)override;
+					void									SetVisuallyEnabled(bool value)override;
+				};
+			protected:
+
+				StyleController*						styleController;
+				bool									supressScrolling;
+
+				void									OnContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnHorizontalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnVerticalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									CallUpdateView();
+				void									Initialize();
+
+				virtual Size							QueryFullSize()=0;
+				virtual void							UpdateView(Rect viewBounds)=0;
+				
+				GuiScrollView(StyleController* _styleController);
+			public:
+				GuiScrollView(IStyleProvider* styleProvider);
+				~GuiScrollView();
+
+				void									CalculateView();
+				Size									GetViewSize();
+				Rect									GetViewBounds();
+				
+				GuiScroll*								GetHorizontalScroll();
+				GuiScroll*								GetVerticalScroll();
+				bool									GetHorizontalAlwaysVisible();
+				void									SetHorizontalAlwaysVisible(bool value);
+				bool									GetVerticalAlwaysVisible();
+				void									SetVerticalAlwaysVisible(bool value);
+			};
+			
+			class GuiScrollContainer : public GuiScrollView, public Description<GuiScrollContainer>
+			{
+			public:
+				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
+				{
+				protected:
+					compositions::GuiBoundsComposition*		controlContainerComposition;
+					bool									extendToFullWidth;
+				public:
+					StyleController(GuiScrollView::IStyleProvider* styleProvider);
+					~StyleController();
+
+					compositions::GuiGraphicsComposition*	GetContainerComposition()override;
+					void									MoveContainer(Point leftTop);
+
+					bool									GetExtendToFullWidth();
+					void									SetExtendToFullWidth(bool value);
+				};
+
+			protected:
+				StyleController*						styleController;
+
+				void									OnControlContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				Size									QueryFullSize()override;
+				void									UpdateView(Rect viewBounds)override;
+			public:
+				GuiScrollContainer(GuiScrollContainer::IStyleProvider* styleProvider);
+				~GuiScrollContainer();
+				
+				bool									GetExtendToFullWidth();
+				void									SetExtendToFullWidth(bool value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEXTEDITORPACKAGE\GUITEXTGENERALOPERATIONS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTELEMENTOPERATOR
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTELEMENTOPERATOR
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+Common Operations
+***********************************************************************/
+
+			class ICommonTextEditCallback : public virtual IDescriptable, public Description<ICommonTextEditCallback>
+			{
+			public:
+				virtual void							Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)=0;
+				virtual void							Detach()=0;
+				virtual void							TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEXTEDITORPACKAGE\GUITEXTCOLORIZER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCOLORIZER
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTCOLORIZER
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+Colorizer
+***********************************************************************/
+			
+			class GuiTextBoxColorizerBase : public Object, public ICommonTextEditCallback
+			{
+			public:
+				typedef collections::Array<elements::text::ColorEntry>			ColorArray;
+			protected:
+				elements::GuiColorizedTextElement*			element;
+				SpinLock*									elementModifyLock;
+				volatile vint								colorizedLineCount;
+				volatile bool								isColorizerRunning;
+				volatile bool								isFinalizing;
+				SpinLock									colorizerRunningEvent;
+
+				static void									ColorizerThreadProc(void* argument);
+
+				void										StartColorizer();
+				void										StopColorizer();
+			public:
+				GuiTextBoxColorizerBase();
+				~GuiTextBoxColorizerBase();
+
+				void										Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)override;
+				void										Detach()override;
+				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
+				void										RestartColorizer();
+
+				virtual vint								GetLexerStartState()=0;
+				virtual vint								GetContextStartState()=0;
+				virtual void								ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)=0;
+				virtual const ColorArray&					GetColors()=0;
+			};
+
+			class GuiTextBoxRegexColorizer : public GuiTextBoxColorizerBase
+			{
+			protected:
+				Ptr<regex::RegexLexer>										lexer;
+				Ptr<regex::RegexLexerColorizer>								colorizer;
+				ColorArray													colors;
+
+				elements::text::ColorEntry									defaultColor;
+				collections::List<WString>									tokenRegexes;
+				collections::List<elements::text::ColorEntry>				tokenColors;
+				collections::List<elements::text::ColorEntry>				extraTokenColors;
+
+				static void													ColorizerProc(void* argument, vint start, vint length, vint token);
+			public:
+				GuiTextBoxRegexColorizer();
+				~GuiTextBoxRegexColorizer();
+
+				elements::text::ColorEntry									GetDefaultColor();
+				collections::List<WString>&									GetTokenRegexes();
+				collections::List<elements::text::ColorEntry>&				GetTokenColors();
+				collections::List<elements::text::ColorEntry>&				GetExtraTokenColors();
+				vint														GetExtraTokenIndexStart();
+				
+				bool														SetDefaultColor(elements::text::ColorEntry value);
+				vint														AddToken(const WString& regex, elements::text::ColorEntry color);
+				vint														AddExtraToken(elements::text::ColorEntry color);
+				bool														Setup();
+				virtual void												ColorizeTokenContextSensitive(vint lineIndex, const wchar_t* text, vint start, vint length, vint& token, vint& contextState);
+
+				vint														GetLexerStartState()override;
+				vint														GetContextStartState()override;
+				void														ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)override;
+				const ColorArray&											GetColors()override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEXTEDITORPACKAGE\GUITEXTUNDOREDO.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTUNDOREDO
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTUNDOREDO
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+			class GuiTextBoxCommonInterface;
+
+/***********************************************************************
+Undo Redo
+***********************************************************************/
+
+			class GuiGeneralUndoRedoProcessor : public Object
+			{
+			protected:
+				class IEditStep : public Interface
+				{
+				public:
+					virtual void							Undo()=0;
+					virtual void							Redo()=0;
+				};
+				friend class collections::ArrayBase<Ptr<IEditStep>>;
+
+			protected:
+				collections::List<Ptr<IEditStep>>			steps;
+				vint										firstFutureStep;
+				vint										savedStep;
+				bool										performingUndoRedo;
+
+				void										PushStep(Ptr<IEditStep> step);
+			public:
+				GuiGeneralUndoRedoProcessor();
+				~GuiGeneralUndoRedoProcessor();
+
+				bool										CanUndo();
+				bool										CanRedo();
+				void										ClearUndoRedo();
+				bool										GetModified();
+				void										NotifyModificationSaved();
+				bool										Undo();
+				bool										Redo();
+			};
+
+			class GuiTextBoxUndoRedoProcessor : public GuiGeneralUndoRedoProcessor, public ICommonTextEditCallback
+			{
+			protected:
+				class EditStep : public Object, public IEditStep
+				{
+				public:
+					GuiTextBoxUndoRedoProcessor*			processor;
+					TextPos									originalStart;
+					TextPos									originalEnd;
+					WString									originalText;
+					TextPos									inputStart;
+					TextPos									inputEnd;
+					WString									inputText;
+					
+					void									Undo();
+					void									Redo();
+				};
+
+				GuiTextBoxCommonInterface*					textBoxCommonInterface;
+			public:
+				GuiTextBoxUndoRedoProcessor(GuiTextBoxCommonInterface* _textBoxCommonInterface);
+				~GuiTextBoxUndoRedoProcessor();
+
+				void										Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock);
+				void										Detach();
+				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEXTEDITORPACKAGE\GUITEXTCOMMONINTERFACE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCOMMONINTERFACE
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTCOMMONINTERFACE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+Common Interface
+***********************************************************************/
+
+			class GuiTextBoxCommonInterface : public Description<GuiTextBoxCommonInterface>
+			{
+			protected:
+				class ICallback : public virtual IDescriptable, public Description<ICallback>
+				{
+				public:
+					virtual TextPos									GetLeftWord(TextPos pos)=0;
+					virtual TextPos									GetRightWord(TextPos pos)=0;
+					virtual void									GetWord(TextPos pos, TextPos& begin, TextPos& end)=0;
+					virtual vint									GetPageRows()=0;
+					virtual bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)=0;
+					virtual void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
+					virtual void									ScrollToView(Point point)=0;
+					virtual vint									GetTextMargin()=0;
+				};
+
+				class DefaultCallback : public Object, public ICallback, public Description<DefaultCallback>
+				{
+				protected:
+					elements::GuiColorizedTextElement*				textElement;
+					compositions::GuiGraphicsComposition*			textComposition;
+					bool											readonly;
+				public:
+					DefaultCallback(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition);
+					~DefaultCallback();
+
+					TextPos											GetLeftWord(TextPos pos)override;
+					TextPos											GetRightWord(TextPos pos)override;
+					void											GetWord(TextPos pos, TextPos& begin, TextPos& end)override;
+					vint											GetPageRows()override;
+					bool											BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
+				};
+
+			public:
+				class ShortcutCommand
+				{
+				protected:
+					bool											ctrl;
+					bool											shift;
+					vint											key;
+					Func<void()>									action;
+				public:
+					ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<void()> _action);
+					ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<bool()> _action);
+					~ShortcutCommand();
+
+					bool											IsTheRightKey(bool _ctrl, bool _shift, vint _key);
+					void											Execute();
+				};
+
+			private:
+				elements::GuiColorizedTextElement*					textElement;
+				compositions::GuiGraphicsComposition*				textComposition;
+				GuiControl*											textControl;
+				ICallback*											callback;
+				bool												dragging;
+				bool												readonly;
+				Ptr<GuiTextBoxColorizerBase>						colorizer;
+				Ptr<GuiTextBoxUndoRedoProcessor>					undoRedoProcessor;
+
+				SpinLock											elementModifyLock;
+				collections::List<Ptr<ICommonTextEditCallback>>		textEditCallbacks;
+				collections::List<Ptr<ShortcutCommand>>				shortcutCommands;
+
+				void												UpdateCaretPoint();
+				void												Move(TextPos pos, bool shift);
+				void												Modify(TextPos start, TextPos end, const WString& input);
+				bool												ProcessKey(vint code, bool shift, bool ctrl);
+					
+				void												OnGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void												OnLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void												OnCaretNotify(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+
+				void												OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void												OnLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void												OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void												OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
+				void												OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments);
+
+			protected:
+
+				void												Install(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition, GuiControl* _textControl);
+				ICallback*											GetCallback();
+				void												SetCallback(ICallback* value);
+				bool												AttachTextEditCallback(Ptr<ICommonTextEditCallback> value);
+				bool												DetachTextEditCallback(Ptr<ICommonTextEditCallback> value);
+				void												AddShortcutCommand(Ptr<ShortcutCommand> shortcutCommand);
+				elements::GuiColorizedTextElement*					GetTextElement();
+				void												UnsafeSetText(const WString& value);
+
+			public:
+				GuiTextBoxCommonInterface();
+				~GuiTextBoxCommonInterface();
+
+				compositions::GuiNotifyEvent						SelectionChanged;
+
+				//================ clipboard operations
+
+				bool												CanCut();
+				bool												CanCopy();
+				bool												CanPaste();
+				bool												Cut();
+				bool												Copy();
+				bool												Paste();
+
+				//================ editing control
+
+				bool												GetReadonly();
+				void												SetReadonly(bool value);
+
+				//================ text operations
+
+				void												SelectAll();
+				void												Select(TextPos begin, TextPos end);
+				WString												GetSelectionText();
+				void												SetSelectionText(const WString& value);
+				
+				WString												GetRowText(vint row);
+				WString												GetFragmentText(TextPos start, TextPos end);
+
+				TextPos												GetCaretBegin();
+				TextPos												GetCaretEnd();
+				TextPos												GetCaretSmall();
+				TextPos												GetCaretLarge();
+
+				//================ position query
+
+				vint												GetRowWidth(vint row);
+				vint												GetRowHeight();
+				vint												GetMaxWidth();
+				vint												GetMaxHeight();
+				TextPos												GetTextPosFromPoint(Point point);
+				Point												GetPointFromTextPos(TextPos pos);
+				Rect												GetRectFromTextPos(TextPos pos);
+				TextPos												GetNearestTextPos(Point point);
+
+				//================ colorizing
+
+				Ptr<GuiTextBoxColorizerBase>						GetColorizer();
+				void												SetColorizer(Ptr<GuiTextBoxColorizerBase> value);
+
+				//================ undo redo control
+
+				bool												CanUndo();
+				bool												CanRedo();
+				void												ClearUndoRedo();
+				bool												GetModified();
+				void												NotifyModificationSaved();
+				bool												Undo();
+				bool												Redo();
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEXTEDITORPACKAGE\GUITEXTCONTROLS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
+#define VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+MultilineTextBox
+***********************************************************************/
+
+			class GuiMultilineTextBox : public GuiScrollView, public GuiTextBoxCommonInterface, public Description<GuiMultilineTextBox>
+			{
+			public:
+				static const vint							TextMargin=3;
+
+				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
+				{
+				protected:
+					elements::GuiColorizedTextElement*			textElement;
+					compositions::GuiBoundsComposition*			textComposition;
+					GuiMultilineTextBox*						textBox;
+					Ptr<GuiTextBoxCommonInterface::ICallback>	defaultCallback;
+
+				public:
+					StyleController(GuiScrollView::IStyleProvider* styleProvider);
+					~StyleController();
+
+					void									Initialize(GuiMultilineTextBox* control);
+					elements::GuiColorizedTextElement*		GetTextElement();
+					compositions::GuiGraphicsComposition*	GetTextComposition();
+					void									SetViewPosition(Point value);
+					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+
+					WString									GetText();
+					void									SetText(const WString& value)override;
+					void									SetFont(const FontProperties& value)override;
+					void									SetVisuallyEnabled(bool value)override;
+				};
+
+				class TextElementOperatorCallback : public GuiTextBoxCommonInterface::DefaultCallback, public Description<TextElementOperatorCallback>
+				{
+				protected:
+					GuiMultilineTextBox*					textControl;
+					StyleController*						textController;
+				public:
+					TextElementOperatorCallback(GuiMultilineTextBox* _textControl);
+
+					void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
+					void									ScrollToView(Point point)override;
+					vint									GetTextMargin()override;
+				};
+
+			protected:
+				StyleController*							styleController;
+
+				void										CalculateViewAndSetScroll();
+				void										OnRenderTargetChanged(elements::IGuiGraphicsRenderTarget* renderTarget)override;
+				Size										QueryFullSize()override;
+				void										UpdateView(Rect viewBounds)override;
+				void										OnBoundsMouseButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+			public:
+				GuiMultilineTextBox(GuiMultilineTextBox::IStyleProvider* styleProvider);
+				~GuiMultilineTextBox();
+
+				const WString&								GetText()override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+			};
+
+/***********************************************************************
+SinglelineTextBox
+***********************************************************************/
+			
+			class GuiSinglelineTextBox : public GuiControl, public GuiTextBoxCommonInterface, public Description<GuiSinglelineTextBox>
+			{
+			public:
+				static const vint							TextMargin=3;
+
+				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
+				{
+				public:
+					virtual compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* background)=0;
+				};
+
+				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
+				{
+				protected:
+					Ptr<IStyleProvider>							styleProvider;
+					compositions::GuiBoundsComposition*			boundsComposition;
+					compositions::GuiGraphicsComposition*		containerComposition;
+
+					GuiSinglelineTextBox*						textBox;
+					elements::GuiColorizedTextElement*			textElement;
+					compositions::GuiTableComposition*			textCompositionTable;
+					compositions::GuiCellComposition*			textComposition;
+					Ptr<GuiTextBoxCommonInterface::ICallback>	defaultCallback;
+
+				public:
+					StyleController(IStyleProvider* _styleProvider);
+					~StyleController();
+
+					void									SetTextBox(GuiSinglelineTextBox* control);
+					void									RearrangeTextElement();
+					compositions::GuiBoundsComposition*		GetBoundsComposition();
+					compositions::GuiGraphicsComposition*	GetContainerComposition();
+					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value);
+
+					WString									GetText();
+					void									SetText(const WString& value);
+					void									SetFont(const FontProperties& value);
+					void									SetVisuallyEnabled(bool value);
+
+					elements::GuiColorizedTextElement*		GetTextElement();
+					compositions::GuiGraphicsComposition*	GetTextComposition();
+					void									SetViewPosition(Point value);
+				};
+
+				class TextElementOperatorCallback : public GuiTextBoxCommonInterface::DefaultCallback, public Description<TextElementOperatorCallback>
+				{
+				protected:
+					GuiSinglelineTextBox*					textControl;
+					StyleController*						textController;
+				public:
+					TextElementOperatorCallback(GuiSinglelineTextBox* _textControl);
+
+					bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
+					void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
+					void									ScrollToView(Point point)override;
+					vint									GetTextMargin()override;
+				};
+			protected:
+				StyleController*							styleController;
+				
+				void										OnRenderTargetChanged(elements::IGuiGraphicsRenderTarget* renderTarget)override;
+				void										OnBoundsMouseButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+			public:
+				GuiSinglelineTextBox(GuiSinglelineTextBox::IStyleProvider* styleProvider);
+				~GuiSinglelineTextBox();
+
+				const WString&								GetText()override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				wchar_t										GetPasswordChar();
+				void										SetPasswordChar(wchar_t value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\LISTCONTROLPACKAGE\GUILISTCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -4447,13 +5253,13 @@ List Control
 				{
 				public:
 					virtual void								OnAttached(IItemProvider* provider)=0;
-					virtual void								OnItemModified(int start, int count, int newCount)=0;
+					virtual void								OnItemModified(vint start, vint count, vint newCount)=0;
 				};
 
 				class IItemArrangerCallback : public virtual IDescriptable, public Description<IItemArrangerCallback>
 				{
 				public:
-					virtual IItemStyleController*					RequestItem(int itemIndex)=0;
+					virtual IItemStyleController*					RequestItem(vint itemIndex)=0;
 					virtual void									ReleaseItem(IItemStyleController* style)=0;
 					virtual void									SetViewLocation(Point value)=0;
 					virtual Size									GetStylePreferredSize(IItemStyleController* style)=0;
@@ -4473,8 +5279,8 @@ List Control
 				public:
 					static const wchar_t* const					Identifier;
 
-					virtual WString								GetPrimaryTextViewText(int itemIndex)=0;
-					virtual bool								ContainsPrimaryText(int itemIndex)=0;
+					virtual WString								GetPrimaryTextViewText(vint itemIndex)=0;
+					virtual bool								ContainsPrimaryText(vint itemIndex)=0;
 				};
 
 				//-----------------------------------------------------------
@@ -4500,7 +5306,7 @@ List Control
 				public:
 					virtual bool								AttachCallback(IItemProviderCallback* value)=0;
 					virtual bool								DetachCallback(IItemProviderCallback* value)=0;
-					virtual int									Count()=0;
+					virtual vint									Count()=0;
 					virtual IDescriptable*						RequestView(const WString& identifier)=0;
 					virtual void								ReleaseView(IDescriptable* view)=0;
 				};
@@ -4509,7 +5315,7 @@ List Control
 				{
 				public:
 					virtual IItemStyleProvider*					GetStyleProvider()=0;
-					virtual int									GetItemStyleId()=0;
+					virtual vint									GetItemStyleId()=0;
 					virtual compositions::GuiBoundsComposition*	GetBoundsComposition()=0;
 					virtual bool								IsCacheable()=0;
 					virtual bool								IsInstalled()=0;
@@ -4522,10 +5328,10 @@ List Control
 				public:
 					virtual void								AttachListControl(GuiListControl* value)=0;
 					virtual void								DetachListControl()=0;
-					virtual int									GetItemStyleId(int itemIndex)=0;
-					virtual IItemStyleController*				CreateItemStyle(int styleId)=0;
+					virtual vint									GetItemStyleId(vint itemIndex)=0;
+					virtual IItemStyleController*				CreateItemStyle(vint styleId)=0;
 					virtual void								DestroyItemStyle(IItemStyleController* style)=0;
-					virtual void								Install(IItemStyleController* style, int itemIndex)=0;
+					virtual void								Install(IItemStyleController* style, vint itemIndex)=0;
 				};
 				
 				class IItemArranger : public virtual IItemProviderCallback, public Description<IItemArranger>
@@ -4536,11 +5342,11 @@ List Control
 					virtual IItemArrangerCallback*				GetCallback()=0;
 					virtual void								SetCallback(IItemArrangerCallback* value)=0;
 					virtual Size								GetTotalSize()=0;
-					virtual IItemStyleController*				GetVisibleStyle(int itemIndex)=0;
-					virtual int									GetVisibleIndex(IItemStyleController* style)=0;
+					virtual IItemStyleController*				GetVisibleStyle(vint itemIndex)=0;
+					virtual vint									GetVisibleIndex(IItemStyleController* style)=0;
 					virtual void								OnViewChanged(Rect bounds)=0;
-					virtual int									FindItem(int itemIndex, KeyDirection key)=0;
-					virtual bool								EnsureItemVisible(int itemIndex)=0;
+					virtual vint									FindItem(vint itemIndex, KeyDirection key)=0;
+					virtual bool								EnsureItemVisible(vint itemIndex)=0;
 				};
 				
 				class IItemCoordinateTransformer : public virtual IDescriptable, public Description<IItemCoordinateTransformer>
@@ -4579,8 +5385,8 @@ List Control
 					void										ClearCache();
 
 					void										OnAttached(IItemProvider* provider)override;
-					void										OnItemModified(int start, int count, int newCount)override;
-					IItemStyleController*						RequestItem(int itemIndex)override;
+					void										OnItemModified(vint start, vint count, vint newCount)override;
+					IItemStyleController*						RequestItem(vint itemIndex)override;
 					void										ReleaseItem(IItemStyleController* style)override;
 					void										SetViewLocation(Point value)override;
 					Size										GetStylePreferredSize(IItemStyleController* style)override;
@@ -4602,8 +5408,8 @@ List Control
 				Ptr<IItemCoordinateTransformer>					itemCoordinateTransformer;
 				Size											fullSize;
 
-				virtual void									OnItemModified(int start, int count, int newCount);
-				virtual void									OnStyleInstalled(int itemIndex, IItemStyleController* style);
+				virtual void									OnItemModified(vint start, vint count, vint newCount);
+				virtual void									OnStyleInstalled(vint itemIndex, IItemStyleController* style);
 				virtual void									OnStyleUninstalled(IItemStyleController* style);
 				
 				void											OnRenderTargetChanged(elements::IGuiGraphicsRenderTarget* renderTarget)override;
@@ -4635,7 +5441,7 @@ List Control
 					Ptr<compositions::GuiNotifyEvent::IHandler>		mouseLeaveHandler;
 				};
 				
-				friend class collections::ReadonlyListEnumerator<Ptr<VisibleStyleHelper>>;
+				friend class collections::ArrayBase<Ptr<VisibleStyleHelper>>;
 				collections::Dictionary<IItemStyleController*, Ptr<VisibleStyleHelper>>		visibleStyles;
 
 				void											OnItemMouseEvent(compositions::GuiItemMouseEvent& itemEvent, IItemStyleController* style, compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
@@ -4670,7 +5476,7 @@ List Control
 				virtual Ptr<IItemArranger>						SetArranger(Ptr<IItemArranger> value);
 				virtual IItemCoordinateTransformer*				GetCoordinateTransformer();
 				virtual Ptr<IItemCoordinateTransformer>			SetCoordinateTransformer(Ptr<IItemCoordinateTransformer> value);
-				virtual bool									EnsureItemVisible(int itemIndex);
+				virtual bool									EnsureItemVisible(vint itemIndex);
 			};
 
 /***********************************************************************
@@ -4688,20 +5494,20 @@ Selectable List Control
 			protected:
 
 				Ptr<IItemStyleProvider>							selectableStyleProvider;
-				collections::SortedList<int>					selectedItems;
+				collections::SortedList<vint>					selectedItems;
 				bool											multiSelect;
-				int												selectedItemIndexStart;
-				int												selectedItemIndexEnd;
+				vint												selectedItemIndexStart;
+				vint												selectedItemIndexEnd;
 
-				void											OnItemModified(int start, int count, int newCount)override;
-				void											OnStyleInstalled(int itemIndex, IItemStyleController* style)override;
+				void											OnItemModified(vint start, vint count, vint newCount)override;
+				void											OnStyleInstalled(vint itemIndex, IItemStyleController* style)override;
 				void											OnStyleUninstalled(IItemStyleController* style)override;
-				virtual void									OnItemSelectionChanged(int itemIndex, bool value);
+				virtual void									OnItemSelectionChanged(vint itemIndex, bool value);
 				virtual void									OnItemSelectionCleared();
 				void											OnItemLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiItemMouseEventArgs& arguments);
 
 				void											NormalizeSelectedItemIndexStartEnd();
-				void											SetMultipleItemsSelectedSilently(int start, int end, bool selected);
+				void											SetMultipleItemsSelectedSilently(vint start, vint end, bool selected);
 				void											OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
 			public:
 				GuiSelectableListControl(IStyleProvider* _styleProvider, IItemProvider* _itemProvider);
@@ -4714,11 +5520,11 @@ Selectable List Control
 				bool											GetMultiSelect();
 				void											SetMultiSelect(bool value);
 				
-				const collections::IReadonlyList<int>&			GetSelectedItems();
-				bool											GetSelected(int itemIndex);
-				void											SetSelected(int itemIndex, bool value);
-				bool											SelectItemsByClick(int itemIndex, bool ctrl, bool shift);
-				bool											SelectItemsByKey(int code, bool ctrl, bool shift);
+				const collections::SortedList<vint>&				GetSelectedItems();
+				bool											GetSelected(vint itemIndex);
+				void											SetSelected(vint itemIndex, bool value);
+				bool											SelectItemsByClick(vint itemIndex, bool ctrl, bool shift);
+				bool											SelectItemsByKey(vint code, bool ctrl, bool shift);
 				void											ClearSelection();
 			};
 
@@ -4792,7 +5598,7 @@ Predefined ItemArranger
 					GuiListControl::IItemArrangerCallback*		callback;
 					GuiListControl::IItemProvider*				itemProvider;
 					Rect										viewBounds;
-					int											startIndex;
+					vint											startIndex;
 					StyleList									visibleStyles;
 
 					virtual void								ClearStyles();
@@ -4804,26 +5610,26 @@ Predefined ItemArranger
 					~RangedItemArrangerBase();
 
 					void										OnAttached(GuiListControl::IItemProvider* provider)override;
-					void										OnItemModified(int start, int count, int newCount)override;
+					void										OnItemModified(vint start, vint count, vint newCount)override;
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
 					GuiListControl::IItemArrangerCallback*		GetCallback()override;
 					void										SetCallback(GuiListControl::IItemArrangerCallback* value)override;
 					Size										GetTotalSize()override;
-					GuiListControl::IItemStyleController*		GetVisibleStyle(int itemIndex)override;
-					int											GetVisibleIndex(GuiListControl::IItemStyleController* style)override;
+					GuiListControl::IItemStyleController*		GetVisibleStyle(vint itemIndex)override;
+					vint											GetVisibleIndex(GuiListControl::IItemStyleController* style)override;
 					void										OnViewChanged(Rect bounds)override;
 				};
 				
 				class FixedHeightItemArranger : public RangedItemArrangerBase, public Description<FixedHeightItemArranger>
 				{
 				protected:
-					int											rowHeight;
+					vint											rowHeight;
 					bool										suppressOnViewChanged;
 
 					virtual void								RearrangeItemBounds();
-					virtual int									GetWidth();
-					virtual int									GetYOffset();
+					virtual vint									GetWidth();
+					virtual vint									GetYOffset();
 					void										OnStylesCleared()override;
 					Size										OnCalculateTotalSize()override;
 					void										OnViewChangedInternal(Rect oldBounds, Rect newBounds)override;
@@ -4831,8 +5637,8 @@ Predefined ItemArranger
 					FixedHeightItemArranger();
 					~FixedHeightItemArranger();
 
-					int											FindItem(int itemIndex, GuiListControl::KeyDirection key)override;
-					bool										EnsureItemVisible(int itemIndex)override;
+					vint											FindItem(vint itemIndex, GuiListControl::KeyDirection key)override;
+					bool										EnsureItemVisible(vint itemIndex)override;
 				};
 
 				class FixedSizeMultiColumnItemArranger : public RangedItemArrangerBase, public Description<FixedSizeMultiColumnItemArranger>
@@ -4842,7 +5648,7 @@ Predefined ItemArranger
 					bool										suppressOnViewChanged;
 
 					virtual void								RearrangeItemBounds();
-					void										CalculateRange(Size itemSize, Rect bounds, int count, int& start, int& end);
+					void										CalculateRange(Size itemSize, Rect bounds, vint count, vint& start, vint& end);
 					void										OnStylesCleared()override;
 					Size										OnCalculateTotalSize()override;
 					void										OnViewChangedInternal(Rect oldBounds, Rect newBounds)override;
@@ -4850,18 +5656,18 @@ Predefined ItemArranger
 					FixedSizeMultiColumnItemArranger();
 					~FixedSizeMultiColumnItemArranger();
 
-					int											FindItem(int itemIndex, GuiListControl::KeyDirection key)override;
-					bool										EnsureItemVisible(int itemIndex)override;
+					vint											FindItem(vint itemIndex, GuiListControl::KeyDirection key)override;
+					bool										EnsureItemVisible(vint itemIndex)override;
 				};
 				
 				class FixedHeightMultiColumnItemArranger : public RangedItemArrangerBase, public Description<FixedHeightMultiColumnItemArranger>
 				{
 				protected:
-					int											itemHeight;
+					vint											itemHeight;
 					bool										suppressOnViewChanged;
 
 					virtual void								RearrangeItemBounds();
-					void										CalculateRange(int itemHeight, Rect bounds, int& rows, int& startColumn);
+					void										CalculateRange(vint itemHeight, Rect bounds, vint& rows, vint& startColumn);
 					void										OnStylesCleared()override;
 					Size										OnCalculateTotalSize()override;
 					void										OnViewChangedInternal(Rect oldBounds, Rect newBounds)override;
@@ -4869,8 +5675,8 @@ Predefined ItemArranger
 					FixedHeightMultiColumnItemArranger();
 					~FixedHeightMultiColumnItemArranger();
 
-					int											FindItem(int itemIndex, GuiListControl::KeyDirection key)override;
-					bool										EnsureItemVisible(int itemIndex)override;
+					vint											FindItem(vint itemIndex, GuiListControl::KeyDirection key)override;
+					bool										EnsureItemVisible(vint itemIndex)override;
 				};
 			}
 
@@ -4884,7 +5690,7 @@ Predefined ItemStyleController
 				{
 				protected:
 					GuiListControl::IItemStyleProvider*			provider;
-					int											styleId;
+					vint											styleId;
 					compositions::GuiBoundsComposition*			boundsComposition;
 					GuiControl*									associatedControl;
 					bool										isInstalled;
@@ -4892,12 +5698,12 @@ Predefined ItemStyleController
 					void										Initialize(compositions::GuiBoundsComposition* _boundsComposition, GuiControl* _associatedControl);
 					void										Finalize();
 
-					ItemStyleControllerBase(GuiListControl::IItemStyleProvider* _provider, int _styleId);
+					ItemStyleControllerBase(GuiListControl::IItemStyleProvider* _provider, vint _styleId);
 				public:
 					~ItemStyleControllerBase();
 					
 					GuiListControl::IItemStyleProvider*			GetStyleProvider()override;
-					int											GetItemStyleId()override;
+					vint											GetItemStyleId()override;
 					compositions::GuiBoundsComposition*			GetBoundsComposition()override;
 					bool										IsCacheable()override;
 					bool										IsInstalled()override;
@@ -4917,7 +5723,7 @@ Predefined ItemProvider
 				protected:
 					collections::List<GuiListControl::IItemProviderCallback*>	callbacks;
 
-					virtual void								InvokeOnItemModified(int start, int count, int newCount);
+					virtual void								InvokeOnItemModified(vint start, vint count, vint newCount);
 				public:
 					ItemProviderBase();
 					~ItemProviderBase();
@@ -4930,12 +5736,12 @@ Predefined ItemProvider
 				class ListProvider : public ItemProviderBase, public ItemsBase<T>
 				{
 				protected:
-					void NotifyUpdateInternal(int start, int count, int newCount)
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)
 					{
 						InvokeOnItemModified(start, count, newCount);
 					}
 				public:
-					int Count()override
+					vint Count()override
 					{
 						return items.Count();
 					}
@@ -4948,7 +5754,7 @@ Predefined ItemProvider
 #endif
 
 /***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUITEXTLISTCONTROLS.H
+CONTROLS\LISTCONTROLPACKAGE\GUITEXTLISTCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -4992,9 +5798,9 @@ TextList Style Provider
 					public:
 						static const wchar_t* const				Identifier;
 
-						virtual WString							GetText(int itemIndex)=0;
-						virtual bool							GetChecked(int itemIndex)=0;
-						virtual void							SetCheckedSilently(int itemIndex, bool value)=0;
+						virtual WString							GetText(vint itemIndex)=0;
+						virtual bool							GetChecked(vint itemIndex)=0;
+						virtual void							SetCheckedSilently(vint itemIndex, bool value)=0;
 					};
 
 					class TextItemStyleController : public ItemStyleControllerBase, public Description<TextItemStyleController>
@@ -5030,10 +5836,10 @@ TextList Style Provider
 
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
-					int											GetItemStyleId(int itemIndex)override;
-					GuiListControl::IItemStyleController*		CreateItemStyle(int styleId)override;
+					vint											GetItemStyleId(vint itemIndex)override;
+					GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
 					void										DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
-					void										Install(GuiListControl::IItemStyleController* style, int itemIndex)override;
+					void										Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
 					void										SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 
@@ -5064,17 +5870,17 @@ TextList Data Source
 				class TextItemProvider : public ListProvider<TextItem>, protected TextItemStyleProvider::ITextItemView, public Description<TextItemProvider>
 				{
 				protected:
-					bool										ContainsPrimaryText(int itemIndex)override;
-					WString										GetPrimaryTextViewText(int itemIndex)override;
-					WString										GetText(int itemIndex)override;
-					bool										GetChecked(int itemIndex)override;
-					void										SetCheckedSilently(int itemIndex, bool value)override;
+					bool										ContainsPrimaryText(vint itemIndex)override;
+					WString										GetPrimaryTextViewText(vint itemIndex)override;
+					WString										GetText(vint itemIndex)override;
+					bool										GetChecked(vint itemIndex)override;
+					void										SetCheckedSilently(vint itemIndex, bool value)override;
 				public:
 					TextItemProvider();
 					~TextItemProvider();
 					
-					void										SetText(int itemIndex, const WString& value);
-					void										SetChecked(int itemIndex, bool value);
+					void										SetText(vint itemIndex, const WString& value);
+					void										SetChecked(vint itemIndex, bool value);
 
 					IDescriptable*								RequestView(const WString& identifier)override;
 					void										ReleaseView(IDescriptable* view)override;
@@ -5112,7 +5918,7 @@ TextList Control
 #endif
 
 /***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUIMENUCONTROLS.H
+CONTROLS\TOOLSTRIPPACKAGE\GUIMENUCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -5275,7 +6081,7 @@ MenuButton
 #endif
 
 /***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUILISTVIEWCONTROLS.H
+CONTROLS\LISTCONTROLPACKAGE\GUILISTVIEWCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -5330,7 +6136,7 @@ ListView Base
 
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
-					int											GetItemStyleId(int itemIndex)override;
+					vint											GetItemStyleId(vint itemIndex)override;
 					void										SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 			}
@@ -5403,16 +6209,16 @@ ListView ItemStyleProvider
 					public:
 						static const wchar_t* const				Identifier;
 
-						virtual Ptr<GuiImageData>				GetSmallImage(int itemIndex)=0;
-						virtual Ptr<GuiImageData>				GetLargeImage(int itemIndex)=0;
-						virtual WString							GetText(int itemIndex)=0;
-						virtual WString							GetSubItem(int itemIndex, int index)=0;
+						virtual Ptr<GuiImageData>				GetSmallImage(vint itemIndex)=0;
+						virtual Ptr<GuiImageData>				GetLargeImage(vint itemIndex)=0;
+						virtual WString							GetText(vint itemIndex)=0;
+						virtual WString							GetSubItem(vint itemIndex, vint index)=0;
 
-						virtual int								GetDataColumnCount()=0;
-						virtual int								GetDataColumn(int index)=0;
+						virtual vint								GetDataColumnCount()=0;
+						virtual vint								GetDataColumn(vint index)=0;
 
-						virtual int								GetColumnCount()=0;
-						virtual WString							GetColumnText(int index)=0;
+						virtual vint								GetColumnCount()=0;
+						virtual WString							GetColumnText(vint index)=0;
 					};
 
 					class IListViewItemContent : public virtual IDescriptable, public Description<IListViewItemContent>
@@ -5420,7 +6226,7 @@ ListView ItemStyleProvider
 					public:
 						virtual compositions::GuiBoundsComposition*				GetContentComposition()=0;
 						virtual compositions::GuiBoundsComposition*				GetBackgroundDecorator()=0;
-						virtual void											Install(GuiListViewBase::IStyleProvider* styleProvider, IListViewItemView* view, int itemIndex)=0;
+						virtual void											Install(GuiListViewBase::IStyleProvider* styleProvider, IListViewItemView* view, vint itemIndex)=0;
 					};
 
 					class IListViewItemContentProvider : public virtual IDescriptable, public Description<IListViewItemContentProvider>
@@ -5443,13 +6249,12 @@ ListView ItemStyleProvider
 						~ListViewContentItemStyleController();
 
 						IListViewItemContent*					GetItemContent();
-						void									Install(IListViewItemView* view, int itemIndex);
+						void									Install(IListViewItemView* view, vint itemIndex);
 					};
 
 				protected:
 
 					typedef collections::List<GuiListControl::IItemStyleController*>				ItemStyleList;
-					typedef collections::IReadonlyList<GuiListControl::IItemStyleController*>		IItemStyleList;
 
 					IListViewItemView*							listViewItemView;
 					Ptr<IListViewItemContentProvider>			listViewItemContentProvider;
@@ -5460,11 +6265,11 @@ ListView ItemStyleProvider
 
 					void										AttachListControl(GuiListControl* value)override;
 					void										DetachListControl()override;
-					GuiListControl::IItemStyleController*		CreateItemStyle(int styleId)override;
+					GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
 					void										DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
-					void										Install(GuiListControl::IItemStyleController* style, int itemIndex)override;
+					void										Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
 
-					const IItemStyleList&						GetCreatedItemStyles();
+					const ItemStyleList&						GetCreatedItemStyles();
 					bool										IsItemStyleAttachedToListView(GuiListControl::IItemStyleController* itemStyle);
 
 					template<typename T>
@@ -5506,7 +6311,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -5537,7 +6342,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -5568,7 +6373,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -5596,16 +6401,16 @@ ListView ItemContentProvider
 						compositions::GuiTableComposition*				textTable;
 						DataTextElementArray							dataTexts;
 
-						void											RemoveTextElement(int textRow);
-						elements::GuiSolidLabelElement*					CreateTextElement(int textRow, const FontProperties& font);
-						void											ResetTextTable(int textRows);
+						void											RemoveTextElement(vint textRow);
+						elements::GuiSolidLabelElement*					CreateTextElement(vint textRow, const FontProperties& font);
+						void											ResetTextTable(vint textRows);
 					public:
 						ItemContent(Size iconSize, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -5643,7 +6448,7 @@ ListView ItemContentProvider
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -5667,7 +6472,7 @@ ListView ItemContentProvider(Detailed)
 					typedef collections::List<GuiListViewColumnHeader*>					ColumnHeaderButtonList;
 					typedef collections::List<compositions::GuiBoundsComposition*>		ColumnHeaderSplitterList;
 				public:
-					static const int							SplitterWidth=8;
+					static const vint							SplitterWidth=8;
 					
 					class IColumnItemViewCallback : public virtual IDescriptable, public Description<IColumnItemViewCallback>
 					{
@@ -5682,12 +6487,12 @@ ListView ItemContentProvider(Detailed)
 						
 						virtual bool											AttachCallback(IColumnItemViewCallback* value)=0;
 						virtual bool											DetachCallback(IColumnItemViewCallback* value)=0;
-						virtual int												GetColumnCount()=0;
-						virtual WString											GetColumnText(int index)=0;
-						virtual int												GetColumnSize(int index)=0;
-						virtual void											SetColumnSize(int index, int value)=0;
-						virtual GuiMenu*										GetDropdownPopup(int index)=0;
-						virtual GuiListViewColumnHeader::ColumnSortingState		GetSortingState(int index)=0;
+						virtual vint												GetColumnCount()=0;
+						virtual WString											GetColumnText(vint index)=0;
+						virtual vint												GetColumnSize(vint index)=0;
+						virtual void											SetColumnSize(vint index, vint value)=0;
+						virtual GuiMenu*										GetDropdownPopup(vint index)=0;
+						virtual GuiListViewColumnHeader::ColumnSortingState		GetSortingState(vint index)=0;
 					};
 				protected:
 					class ColumnItemViewCallback : public Object, public virtual IColumnItemViewCallback
@@ -5709,16 +6514,16 @@ ListView ItemContentProvider(Detailed)
 					ColumnHeaderButtonList						columnHeaderButtons;
 					ColumnHeaderSplitterList					columnHeaderSplitters;
 					bool										splitterDragging;
-					int											splitterLatestX;
+					vint											splitterLatestX;
 
-					void										ColumnClicked(int index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+					void										ColumnClicked(vint index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 					void										ColumnHeaderSplitterLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 					void										ColumnHeaderSplitterLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 					void										ColumnHeaderSplitterMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 
 					void										RearrangeItemBounds()override;
-					int											GetWidth()override;
-					int											GetYOffset()override;
+					vint											GetWidth()override;
+					vint											GetYOffset()override;
 					Size										OnCalculateTotalSize()override;
 					void										DeleteColumnButtons();
 					void										RebuildColumns();
@@ -5757,7 +6562,7 @@ ListView ItemContentProvider(Detailed)
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
 						compositions::GuiBoundsComposition*				GetBackgroundDecorator()override;
 						void											UpdateSubItemSize();
-						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, int itemIndex)override;
+						void											Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override;
 					};
 
 					Size												iconSize;
@@ -5798,20 +6603,20 @@ ListView
 				{
 				public:
 					WString											text;
-					int												size;
+					vint												size;
 					GuiMenu*										dropdownPopup;
 					GuiListViewColumnHeader::ColumnSortingState		sortingState;
 
-					ListViewColumn(const WString& _text=L"", int _size=160);
+					ListViewColumn(const WString& _text=L"", vint _size=160);
 				};
 
-				class ListViewDataColumns : public ItemsBase<int>
+				class ListViewDataColumns : public ItemsBase<vint>
 				{
 					friend class ListViewItemProvider;
 				protected:
 					ListViewItemProvider*						itemProvider;
 
-					void NotifyUpdateInternal(int start, int count, int newCount)override;
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override;
 				public:
 					ListViewDataColumns();
 					~ListViewDataColumns();
@@ -5823,7 +6628,7 @@ ListView
 				protected:
 					ListViewItemProvider*						itemProvider;
 
-					void NotifyUpdateInternal(int start, int count, int newCount)override;
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override;
 				public:
 					ListViewColumns();
 					~ListViewColumns();
@@ -5843,23 +6648,23 @@ ListView
 					ListViewColumns										columns;
 					ColumnItemViewCallbackList							columnItemViewCallbacks;
 
-					bool												ContainsPrimaryText(int itemIndex)override;
-					WString												GetPrimaryTextViewText(int itemIndex)override;
-					Ptr<GuiImageData>									GetSmallImage(int itemIndex)override;
-					Ptr<GuiImageData>									GetLargeImage(int itemIndex)override;
-					WString												GetText(int itemIndex)override;
-					WString												GetSubItem(int itemIndex, int index)override;
-					int													GetDataColumnCount()override;
-					int													GetDataColumn(int index)override;
+					bool												ContainsPrimaryText(vint itemIndex)override;
+					WString												GetPrimaryTextViewText(vint itemIndex)override;
+					Ptr<GuiImageData>									GetSmallImage(vint itemIndex)override;
+					Ptr<GuiImageData>									GetLargeImage(vint itemIndex)override;
+					WString												GetText(vint itemIndex)override;
+					WString												GetSubItem(vint itemIndex, vint index)override;
+					vint													GetDataColumnCount()override;
+					vint													GetDataColumn(vint index)override;
 
 					bool												AttachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
 					bool												DetachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
-					int													GetColumnCount()override;
-					WString												GetColumnText(int index)override;
-					int													GetColumnSize(int index)override;
-					void												SetColumnSize(int index, int value)override;
-					GuiMenu*											GetDropdownPopup(int index)override;
-					GuiListViewColumnHeader::ColumnSortingState			GetSortingState(int index)override;
+					vint													GetColumnCount()override;
+					WString												GetColumnText(vint index)override;
+					vint													GetColumnSize(vint index)override;
+					void												SetColumnSize(vint index, vint value)override;
+					GuiMenu*											GetDropdownPopup(vint index)override;
+					GuiListViewColumnHeader::ColumnSortingState			GetSortingState(vint index)override;
 				public:
 					ListViewItemProvider();
 					~ListViewItemProvider();
@@ -5898,7 +6703,7 @@ ListView
 #endif
 
 /***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUITREEVIEWCONTROLS.H
+CONTROLS\LISTCONTROLPACKAGE\GUITREEVIEWCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -5936,8 +6741,8 @@ GuiVirtualTreeListControl NodeProvider
 				{
 				public:
 					virtual void					OnAttached(INodeRootProvider* provider)=0;
-					virtual void					OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)=0;
-					virtual void					OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)=0;
+					virtual void					OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)=0;
+					virtual void					OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)=0;
 					virtual void					OnItemExpanded(INodeProvider* node)=0;
 					virtual void					OnItemCollapsed(INodeProvider* node)=0;
 				};
@@ -5951,11 +6756,11 @@ GuiVirtualTreeListControl NodeProvider
 				public:
 					virtual bool					GetExpanding()=0;
 					virtual void					SetExpanding(bool value)=0;
-					virtual int						CalculateTotalVisibleNodes()=0;
+					virtual vint						CalculateTotalVisibleNodes()=0;
 
-					virtual int						GetChildCount()=0;
+					virtual vint						GetChildCount()=0;
 					virtual INodeProvider*			GetParent()=0;
-					virtual INodeProvider*			GetChild(int index)=0;
+					virtual INodeProvider*			GetChild(vint index)=0;
 					virtual void					Increase()=0;
 					virtual void					Release()=0;
 				};
@@ -5965,7 +6770,7 @@ GuiVirtualTreeListControl NodeProvider
 				public:
 					virtual INodeProvider*			GetRootNode()=0;
 					virtual bool					CanGetNodeByVisibleIndex()=0;
-					virtual INodeProvider*			GetNodeByVisibleIndex(int index)=0;
+					virtual INodeProvider*			GetNodeByVisibleIndex(vint index)=0;
 					virtual bool					AttachCallback(INodeProviderCallback* value)=0;
 					virtual bool					DetachCallback(INodeProviderCallback* value)=0;
 					virtual IDescriptable*			RequestView(const WString& identifier)=0;
@@ -5984,9 +6789,9 @@ GuiVirtualTreeListControl NodeProvider
 				public:
 					static const wchar_t* const		Identifier;
 
-					virtual INodeProvider*			RequestNode(int index)=0;
+					virtual INodeProvider*			RequestNode(vint index)=0;
 					virtual void					ReleaseNode(INodeProvider* node)=0;
-					virtual int						CalculateNodeVisibilityIndex(INodeProvider* node)=0;
+					virtual vint						CalculateNodeVisibilityIndex(INodeProvider* node)=0;
 				};
 
 				class INodeItemPrimaryTextView : public virtual IDescriptable, public Description<INodeItemPrimaryTextView>
@@ -6006,27 +6811,27 @@ GuiVirtualTreeListControl NodeProvider
 				protected:
 					Ptr<INodeRootProvider>			root;
 					INodeItemPrimaryTextView*		nodeItemPrimaryTextView;
-					int								offsetBeforeChildModified;
+					vint								offsetBeforeChildModified;
 
-					INodeProvider*					GetNodeByOffset(INodeProvider* provider, int offset);
+					INodeProvider*					GetNodeByOffset(INodeProvider* provider, vint offset);
 					void							OnAttached(INodeRootProvider* provider)override;
-					void							OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
-					void							OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
+					void							OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+					void							OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 					void							OnItemExpanded(INodeProvider* node)override;
 					void							OnItemCollapsed(INodeProvider* node)override;
-					int								CalculateNodeVisibilityIndexInternal(INodeProvider* node);
-					int								CalculateNodeVisibilityIndex(INodeProvider* node)override;
+					vint								CalculateNodeVisibilityIndexInternal(INodeProvider* node);
+					vint								CalculateNodeVisibilityIndex(INodeProvider* node)override;
 					
-					bool							ContainsPrimaryText(int itemIndex)override;
-					WString							GetPrimaryTextViewText(int itemIndex)override;
-					INodeProvider*					RequestNode(int index)override;
+					bool							ContainsPrimaryText(vint itemIndex)override;
+					WString							GetPrimaryTextViewText(vint itemIndex)override;
+					INodeProvider*					RequestNode(vint index)override;
 					void							ReleaseNode(INodeProvider* node)override;
 				public:
 					NodeItemProvider(INodeRootProvider* _root);
 					~NodeItemProvider();
 					
 					Ptr<INodeRootProvider>			GetRoot();
-					int								Count()override;
+					vint								Count()override;
 					IDescriptable*					RequestView(const WString& identifier)override;
 					void							ReleaseView(IDescriptable* view)override;
 				};
@@ -6050,8 +6855,8 @@ GuiVirtualTreeListControl NodeProvider
 					virtual GuiListControl::IItemStyleProvider*		GetBindedItemStyleProvider()=0;
 					virtual void									AttachListControl(GuiListControl* value)=0;
 					virtual void									DetachListControl()=0;
-					virtual int										GetItemStyleId(INodeProvider* node)=0;
-					virtual INodeItemStyleController*				CreateItemStyle(int styleId)=0;
+					virtual vint										GetItemStyleId(INodeProvider* node)=0;
+					virtual INodeItemStyleController*				CreateItemStyle(vint styleId)=0;
 					virtual void									DestroyItemStyle(INodeItemStyleController* style)=0;
 					virtual void									Install(INodeItemStyleController* style, INodeProvider* node)=0;
 					virtual void									SetStyleSelected(INodeItemStyleController* style, bool value)=0;
@@ -6069,10 +6874,10 @@ GuiVirtualTreeListControl NodeProvider
 
 					void											AttachListControl(GuiListControl* value)override;
 					void											DetachListControl()override;
-					int												GetItemStyleId(int itemIndex)override;
-					GuiListControl::IItemStyleController*			CreateItemStyle(int styleId)override;
+					vint												GetItemStyleId(vint itemIndex)override;
+					GuiListControl::IItemStyleController*			CreateItemStyle(vint styleId)override;
 					void											DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
-					void											Install(GuiListControl::IItemStyleController* style, int itemIndex)override;
+					void											Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
 					void											SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 			}
@@ -6086,43 +6891,38 @@ GuiVirtualTreeListControl Predefined NodeProvider
 				class MemoryNodeProvider
 					: public Object
 					, public virtual INodeProvider
-					, private collections::IList<Ptr<MemoryNodeProvider>>
 					, public Description<MemoryNodeProvider>
 				{
 					typedef collections::List<Ptr<MemoryNodeProvider>> ChildList;
-					typedef collections::IList<Ptr<MemoryNodeProvider>> IChildList;
 					typedef collections::IEnumerator<Ptr<MemoryNodeProvider>> ChildListEnumerator;
+
+				public:
+					class NodeCollection : public list::ItemsBase<Ptr<MemoryNodeProvider>>
+					{
+						friend class MemoryNodeProvider;
+					protected:
+						MemoryNodeProvider*			ownerProvider;
+
+						void						OnBeforeChildModified(vint start, vint count, vint newCount);
+						void						OnAfterChildModified(vint start, vint count, vint newCount);
+						bool						InsertInternal(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						bool						RemoveAtInternal(vint index, Ptr<MemoryNodeProvider> const& child)override;
+
+						NodeCollection();
+					public:
+					};
+
 				protected:
 					MemoryNodeProvider*				parent;
 					bool							expanding;
-					int								childCount;
-					int								totalVisibleNodeCount;
-					int								offsetBeforeChildModified;
+					vint								childCount;
+					vint								totalVisibleNodeCount;
+					vint								offsetBeforeChildModified;
 					Ptr<DescriptableObject>			data;
-					ChildList						children;
+					NodeCollection					children;
 
 					virtual INodeProviderCallback*	GetCallbackProxyInternal();
-					void							OnChildTotalVisibleNodesChanged(int offset);
-					void							OnBeforeChildModified(int start, int count, int newCount);
-					void							OnAfterChildModified(int start, int count, int newCount);
-					bool							OnRequestRemove(MemoryNodeProvider* child);
-					bool							OnRequestInsert(MemoryNodeProvider* child);
-				private:
-					
-					ChildListEnumerator*			CreateEnumerator()const;
-					bool							Contains(const KeyType<Ptr<MemoryNodeProvider>>::Type& item)const;
-					vint							Count()const;
-					vint							Count();
-					const							Ptr<MemoryNodeProvider>& Get(vint index)const;
-					const							Ptr<MemoryNodeProvider>& operator[](vint index)const;
-					vint							IndexOf(const KeyType<Ptr<MemoryNodeProvider>>::Type& item)const;
-					vint							Add(const Ptr<MemoryNodeProvider>& item);
-					bool							Remove(const KeyType<Ptr<MemoryNodeProvider>>::Type& item);
-					bool							RemoveAt(vint index);
-					bool							RemoveRange(vint index, vint count);
-					bool							Clear();
-					vint							Insert(vint index, const Ptr<MemoryNodeProvider>& item);
-					bool							Set(vint index, const Ptr<MemoryNodeProvider>& item);
+					void							OnChildTotalVisibleNodesChanged(vint offset);
 				public:
 					MemoryNodeProvider();
 					MemoryNodeProvider(const Ptr<DescriptableObject>& _data);
@@ -6131,15 +6931,15 @@ GuiVirtualTreeListControl Predefined NodeProvider
 					Ptr<DescriptableObject>			GetData();
 					void							SetData(const Ptr<DescriptableObject>& value);
 					void							NotifyDataModified();
-					IChildList&						Children();
+					NodeCollection&					Children();
 
 					bool							GetExpanding()override;
 					void							SetExpanding(bool value)override;
-					int								CalculateTotalVisibleNodes()override;
+					vint								CalculateTotalVisibleNodes()override;
 
-					int								GetChildCount()override;
+					vint								GetChildCount()override;
 					INodeProvider*					GetParent()override;
-					INodeProvider*					GetChild(int index)override;
+					INodeProvider*					GetChild(vint index)override;
 					void							Increase()override;
 					void							Release()override;
 				};
@@ -6149,8 +6949,8 @@ GuiVirtualTreeListControl Predefined NodeProvider
 					collections::List<INodeProviderCallback*>			callbacks;
 				protected:
 					void							OnAttached(INodeRootProvider* provider)override;
-					void							OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
-					void							OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
+					void							OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+					void							OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 					void							OnItemExpanded(INodeProvider* node)override;
 					void							OnItemCollapsed(INodeProvider* node)override;
 				public:
@@ -6158,7 +6958,7 @@ GuiVirtualTreeListControl Predefined NodeProvider
 					~NodeRootProviderBase();
 					
 					bool							CanGetNodeByVisibleIndex()override;
-					INodeProvider*					GetNodeByVisibleIndex(int index)override;
+					INodeProvider*					GetNodeByVisibleIndex(vint index)override;
 					bool							AttachCallback(INodeProviderCallback* value)override;
 					bool							DetachCallback(INodeProviderCallback* value)override;
 					IDescriptable*					RequestView(const WString& identifier)override;
@@ -6189,8 +6989,8 @@ GuiVirtualTreeListControl
 			{
 			private:
 				void								OnAttached(tree::INodeRootProvider* provider)override;
-				void								OnBeforeItemModified(tree::INodeProvider* parentNode, int start, int count, int newCount)override;
-				void								OnAfterItemModified(tree::INodeProvider* parentNode, int start, int count, int newCount)override;
+				void								OnBeforeItemModified(tree::INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+				void								OnAfterItemModified(tree::INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 				void								OnItemExpanded(tree::INodeProvider* node)override;
 				void								OnItemCollapsed(tree::INodeProvider* node)override;
 			protected:
@@ -6349,8 +7149,8 @@ TreeView
 					ItemController*							GetRelatedController(INodeProvider* node);
 					void									UpdateExpandingButton(INodeProvider* node);
 					void									OnAttached(INodeRootProvider* provider)override;
-					void									OnBeforeItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
-					void									OnAfterItemModified(INodeProvider* parentNode, int start, int count, int newCount)override;
+					void									OnBeforeItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
+					void									OnAfterItemModified(INodeProvider* parentNode, vint start, vint count, vint newCount)override;
 					void									OnItemExpanded(INodeProvider* node)override;
 					void									OnItemCollapsed(INodeProvider* node)override;
 				public:
@@ -6361,8 +7161,8 @@ TreeView
 					GuiListControl::IItemStyleProvider*		GetBindedItemStyleProvider()override;
 					void									AttachListControl(GuiListControl* value)override;
 					void									DetachListControl()override;
-					int										GetItemStyleId(INodeProvider* node)override;
-					INodeItemStyleController*				CreateItemStyle(int styleId)override;
+					vint										GetItemStyleId(INodeProvider* node)override;
+					INodeItemStyleController*				CreateItemStyle(vint styleId)override;
 					void									DestroyItemStyle(INodeItemStyleController* style)override;
 					void									Install(INodeItemStyleController* style, INodeProvider* node)override;
 					void									SetStyleSelected(INodeItemStyleController* style, bool value)override;
@@ -6370,12 +7170,25 @@ TreeView
 			}
 		}
 	}
+
+	namespace collections
+	{
+		namespace randomaccess_internal
+		{
+			template<>
+			struct RandomAccessable<presentation::controls::tree::MemoryNodeProvider>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		}
+	}
 }
 
 #endif
 
 /***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUICOMBOCONTROLS.H
+CONTROLS\LISTCONTROLPACKAGE\GUICOMBOCONTROLS.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -6466,7 +7279,7 @@ ComboBox with GuiListControl
 				GuiSelectableListControl*					containedListControl;
 				GuiListControl::IItemPrimaryTextView*		primaryTextView;
 
-				virtual void								DisplaySelectedContent(int itemIndex);
+				virtual void								DisplaySelectedContent(vint itemIndex);
 				void										OnListControlSelectionChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 			public:
 				GuiComboBoxListControl(IStyleController* _styleController, GuiSelectableListControl* _containedListControl);
@@ -6477,692 +7290,9 @@ ComboBox with GuiListControl
 				void										SetFont(const FontProperties& value)override;
 				GuiSelectableListControl*					GetContainedListControl();
 				
-				int											GetSelectedIndex();
-				void										SetSelectedIndex(int value);
+				vint											GetSelectedIndex();
+				void										SetSelectedIndex(vint value);
 				GuiListControl::IItemProvider*				GetItemProvider();
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-CONTROLS\EXTENDEDCONTROLS\GUICONTAINERCONTROLS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI::Control System
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
-#define VCZH_PRESENTATION_CONTROLS_GUICONTAINERCONTROLS
-
-
-namespace vl
-{
-	namespace presentation
-	{
-		namespace controls
-		{
-/***********************************************************************
-Tab Control
-***********************************************************************/
-
-			class GuiTab;
-
-			class GuiTabPage : public Object, public Description<GuiTabPage>
-			{
-				friend class GuiTab;
-				friend class Ptr<GuiTabPage>;
-			protected:
-				GuiControl*										container;
-				GuiTab*											owner;
-				WString											text;
-				
-				GuiTabPage();
-				~GuiTabPage();
-
-				bool											AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController);
-				bool											DeassociateTab(GuiTab* _owner);
-			public:
-				compositions::GuiNotifyEvent					TextChanged;
-				compositions::GuiNotifyEvent					PageInstalled;
-				compositions::GuiNotifyEvent					PageUninstalled;
-				compositions::GuiNotifyEvent					PageContainerReady;
-
-				GuiControl*										GetContainer();
-				GuiTab*											GetOwnerTab();
-				const WString&									GetText();
-				void											SetText(const WString& param);
-				bool											GetSelected();
-			};
-
-			class GuiTab : public GuiControl, public Description<GuiTab>
-			{
-				friend class GuiTabPage;
-			public:
-				class ICommandExecutor : public virtual IDescriptable, public Description<ICommandExecutor>
-				{
-				public:
-					virtual void								ShowTab(int index)=0;
-				};
-				
-				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
-				{
-				public:
-					virtual void								SetCommandExecutor(ICommandExecutor* value)=0;
-					virtual void								InsertTab(int index)=0;
-					virtual void								SetTabText(int index, const WString& value)=0;
-					virtual void								RemoveTab(int index)=0;
-					virtual void								MoveTab(int oldIndex, int newIndex)=0;
-					virtual void								SetSelectedTab(int index)=0;
-					virtual GuiControl::IStyleController*		CreateTabPageStyleController()=0;
-				};
-			protected:
-				class CommandExecutor : public Object, public ICommandExecutor
-				{
-				protected:
-					GuiTab*										tab;
-				public:
-					CommandExecutor(GuiTab* _tab);
-					~CommandExecutor();
-
-					void										ShowTab(int index)override;
-				};
-
-				Ptr<CommandExecutor>							commandExecutor;
-				IStyleController*								styleController;
-				collections::List<GuiTabPage*>					tabPages;
-				GuiTabPage*										selectedPage;
-			public:
-				GuiTab(IStyleController* _styleController);
-				~GuiTab();
-
-				compositions::GuiNotifyEvent					SelectedPageChanged;
-
-				GuiTabPage*										CreatePage(int index=-1);
-				bool											CreatePage(GuiTabPage* page, int index=-1);
-				bool											RemovePage(GuiTabPage* value);
-				bool											MovePage(GuiTabPage* page, int newIndex);
-				const collections::IReadonlyList<GuiTabPage*>&	GetPages();
-
-				GuiTabPage*										GetSelectedPage();
-				bool											SetSelectedPage(GuiTabPage* value);
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-CONTROLS\GUIAPPLICATION.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI::Application Framework
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_CONTROLS_GUIAPPLICATION
-#define VCZH_PRESENTATION_CONTROLS_GUIAPPLICATION
-
-
-namespace vl
-{
-	namespace presentation
-	{
-		namespace controls
-		{
-			class GuiApplication : public Object, private INativeControllerListener
-			{
-				friend void GuiApplicationInitialize();
-				friend class GuiWindow;
-				friend class GuiPopup;
-				friend class Ptr<GuiApplication>;
-			private:
-				void											LeftButtonDown(Point position)override;
-				void											LeftButtonUp(Point position)override;
-				void											RightButtonDown(Point position)override;
-				void											RightButtonUp(Point position)override;
-				void											ClipboardUpdated()override;
-			protected:
-				GuiWindow*										mainWindow;
-				collections::List<GuiWindow*>					windows;
-				collections::SortedList<GuiPopup*>				openingPopups;
-
-				GuiApplication();
-				~GuiApplication();
-
-				void											RegisterWindow(GuiWindow* window);
-				void											UnregisterWindow(GuiWindow* window);
-				void											RegisterPopupOpened(GuiPopup* popup);
-				void											RegisterPopupClosed(GuiPopup* popup);
-				void											OnMouseDown(Point location);
-			public:
-				void											Run(GuiWindow* _mainWindow);
-				const collections::IReadonlyList<GuiWindow*>&	GetWindows();
-				GuiWindow*										GetWindow(Point location);
-
-				bool											IsInMainThread();
-				void											InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				void											InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				bool											InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, int milliseconds=-1);
-				void											InvokeAsync(const Func<void()>& proc);
-				void											InvokeInMainThread(const Func<void()>& proc);
-				bool											InvokeInMainThreadAndWait(const Func<void()>& proc, int milliseconds=-1);
-
-				template<typename T>
-				void InvokeLambdaInMainThread(const T& proc)
-				{
-					InvokeInMainThread(Func<void()>(proc));
-				}
-				
-				template<typename T>
-				bool InvokeLambdaInMainThreadAndWait(const T& proc, int milliseconds=-1)
-				{
-					return InvokeInMainThreadAndWait(Func<void()>(proc), milliseconds);
-				}
-			};
-
-			extern GuiApplication*								GetApplication();
-		}
-	}
-}
-
-extern void GuiApplicationMain();
-
-#endif
-
-/***********************************************************************
-CONTROLS\GUITEXTCONTROLS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI::Control System
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
-#define VCZH_PRESENTATION_CONTROLS_GUITEXTCONTROLS
-
-
-namespace vl
-{
-	namespace presentation
-	{
-		namespace controls
-		{
-
-/***********************************************************************
-Common Operations
-***********************************************************************/
-
-			class GuiTextBoxCommonInterface;
-
-			class GuiTextElementOperator : public Object, public Description<GuiTextElementOperator>
-			{
-			public:
-				class ICallback : public virtual IDescriptable, public Description<ICallback>
-				{
-				public:
-					virtual TextPos							GetLeftWord(TextPos pos)=0;
-					virtual TextPos							GetRightWord(TextPos pos)=0;
-					virtual void							GetWord(TextPos pos, TextPos& begin, TextPos& end)=0;
-					virtual int								GetPageRows()=0;
-					virtual bool							BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)=0;
-					virtual void							AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
-					virtual void							ScrollToView(Point point)=0;
-					virtual int								GetTextMargin()=0;
-				};
-
-				class DefaultCallback : public Object, public ICallback, public Description<DefaultCallback>
-				{
-				protected:
-					elements::GuiColorizedTextElement*		textElement;
-					compositions::GuiGraphicsComposition*	textComposition;
-					bool									readonly;
-				public:
-					DefaultCallback(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition);
-					~DefaultCallback();
-
-					TextPos									GetLeftWord(TextPos pos)override;
-					TextPos									GetRightWord(TextPos pos)override;
-					void									GetWord(TextPos pos, TextPos& begin, TextPos& end)override;
-					int										GetPageRows()override;
-					bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
-				};
-
-				class ITextEditCallback : public virtual IDescriptable, public Description<ITextEditCallback>
-				{
-				public:
-					virtual void							Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)=0;
-					virtual void							Detach()=0;
-					virtual void							TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
-				};
-
-				class ShortcutCommand
-				{
-				protected:
-					bool									ctrl;
-					bool									shift;
-					int										key;
-					Func<void()>							action;
-				public:
-					ShortcutCommand(bool _ctrl, bool _shift, int _key, const Func<void()> _action);
-					~ShortcutCommand();
-
-					bool									IsTheRightKey(bool _ctrl, bool _shift, int _key);
-					void									Execute();
-				};
-
-			protected:
-				elements::GuiColorizedTextElement*			textElement;
-				compositions::GuiGraphicsComposition*		textComposition;
-				GuiControl*									textControl;
-				GuiTextBoxCommonInterface*					textBoxCommonInterface;
-				ICallback*									callback;
-				bool										dragging;
-				bool										readonly;
-
-				SpinLock									elementModifyLock;
-				collections::List<Ptr<ITextEditCallback>>	textEditCallbacks;
-				collections::List<Ptr<ShortcutCommand>>		shortcutCommands;
-
-				void										UpdateCaretPoint();
-				void										Move(TextPos pos, bool shift);
-				void										Modify(TextPos start, TextPos end, const WString& input);
-				bool										ProcessKey(int code, bool shift, bool ctrl);
-					
-				void										OnGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void										OnLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void										OnCaretNotify(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-
-				void										OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void										OnLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void										OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-				void										OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
-				void										OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments);
-			public:
-				GuiTextElementOperator();
-				~GuiTextElementOperator();
-
-				void										Install(elements::GuiColorizedTextElement* _textElement, compositions::GuiGraphicsComposition* _textComposition, GuiControl* _textControl);
-				ICallback*									GetCallback();
-				void										SetCallback(ICallback* value);
-				bool										AttachTextEditCallback(Ptr<ITextEditCallback> value);
-				bool										DetachTextEditCallback(Ptr<ITextEditCallback> value);
-				GuiTextBoxCommonInterface*					GetTextBoxCommonInterface();
-				void										SetTextBoxCommonInterface(GuiTextBoxCommonInterface* value);
-				void										AddShortcutCommand(Ptr<ShortcutCommand> shortcutCommand);
-
-				elements::GuiColorizedTextElement*			GetTextElement();
-				compositions::GuiGraphicsComposition*		GetTextComposition();
-				TextPos										GetNearestTextPos(Point point);
-				void										Select(TextPos begin, TextPos end);
-				WString										GetSelectionText();
-				void										SetSelectionText(const WString& value);
-				void										SetText(const WString& value);
-
-				bool										CanCut();
-				bool										CanCopy();
-				bool										CanPaste();
-				void										SelectAll();
-				bool										Cut();
-				bool										Copy();
-				bool										Paste();
-
-				bool										GetReadonly();
-				void										SetReadonly(bool value);
-			};
-
-/***********************************************************************
-Colorizer
-***********************************************************************/
-			
-			class GuiTextBoxColorizerBase : public Object, public GuiTextElementOperator::ITextEditCallback
-			{
-			public:
-				typedef collections::Array<elements::text::ColorEntry>			ColorArray;
-			protected:
-				elements::GuiColorizedTextElement*			element;
-				SpinLock*									elementModifyLock;
-				volatile int								colorizedLineCount;
-				volatile bool								isColorizerRunning;
-				volatile bool								isFinalizing;
-				SpinLock									colorizerRunningEvent;
-
-				static void									ColorizerThreadProc(void* argument);
-
-				void										StartColorizer();
-				void										StopColorizer();
-			public:
-				GuiTextBoxColorizerBase();
-				~GuiTextBoxColorizerBase();
-
-				void										Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)override;
-				void										Detach()override;
-				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
-
-				virtual int									GetLexerStartState()=0;
-				virtual int									GetContextStartState()=0;
-				virtual void								ColorizeLineWithCRLF(const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)=0;
-				virtual const ColorArray&					GetColors()=0;
-			};
-
-			class GuiTextBoxRegexColorizer : public GuiTextBoxColorizerBase
-			{
-			protected:
-				Ptr<regex::RegexLexer>										lexer;
-				Ptr<regex::RegexLexerColorizer>								colorizer;
-				ColorArray													colors;
-
-				elements::text::ColorEntry									defaultColor;
-				collections::List<WString>									tokenRegexes;
-				collections::List<elements::text::ColorEntry>				tokenColors;
-				collections::List<elements::text::ColorEntry>				extraTokenColors;
-
-				static void													ColorizerProc(void* argument, vint start, vint length, vint token);
-			public:
-				GuiTextBoxRegexColorizer();
-				~GuiTextBoxRegexColorizer();
-
-				elements::text::ColorEntry									GetDefaultColor();
-				collections::IReadonlyList<WString>&						GetTokenRegexes();
-				collections::IReadonlyList<elements::text::ColorEntry>&		GetTokenColors();
-				collections::IReadonlyList<elements::text::ColorEntry>&		GetExtraTokenColors();
-				int															GetExtraTokenIndexStart();
-				
-				bool														SetDefaultColor(elements::text::ColorEntry value);
-				int															AddToken(const WString& regex, elements::text::ColorEntry color);
-				int															AddExtraToken(elements::text::ColorEntry color);
-				bool														Setup();
-				virtual void												ColorizeTokenContextSensitive(const wchar_t* text, vint start, vint length, vint& token, int& contextState);
-
-				int															GetLexerStartState()override;
-				int															GetContextStartState()override;
-				void														ColorizeLineWithCRLF(const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)override;
-				const ColorArray&											GetColors()override;
-			};
-
-/***********************************************************************
-Undo Redo
-***********************************************************************/
-
-			class GuiGeneralUndoRedoProcessor : public Object
-			{
-			protected:
-				class IEditStep : public Interface
-				{
-				public:
-					virtual void							Undo()=0;
-					virtual void							Redo()=0;
-				};
-				friend class collections::ReadonlyListEnumerator<Ptr<IEditStep>>;
-
-			protected:
-				collections::List<Ptr<IEditStep>>			steps;
-				int											firstFutureStep;
-				int											savedStep;
-				bool										performingUndoRedo;
-
-				void										PushStep(Ptr<IEditStep> step);
-			public:
-				GuiGeneralUndoRedoProcessor();
-				~GuiGeneralUndoRedoProcessor();
-
-				bool										CanUndo();
-				bool										CanRedo();
-				void										ClearUndoRedo();
-				bool										GetModified();
-				void										NotifyModificationSaved();
-				bool										Undo();
-				bool										Redo();
-			};
-
-			class GuiTextBoxUndoRedoProcessor : public GuiGeneralUndoRedoProcessor, public GuiTextElementOperator::ITextEditCallback
-			{
-			protected:
-				class EditStep : public Object, public IEditStep
-				{
-				public:
-					GuiTextBoxUndoRedoProcessor*			processor;
-					TextPos									originalStart;
-					TextPos									originalEnd;
-					WString									originalText;
-					TextPos									inputStart;
-					TextPos									inputEnd;
-					WString									inputText;
-					
-					void									Undo();
-					void									Redo();
-				};
-
-				GuiTextElementOperator*						textElementOperator;
-			public:
-				GuiTextBoxUndoRedoProcessor(GuiTextElementOperator* _textElementOperator);
-				~GuiTextBoxUndoRedoProcessor();
-
-				void										Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock);
-				void										Detach();
-				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText);
-			};
-
-/***********************************************************************
-Common Interface
-***********************************************************************/
-
-			class GuiTextBoxCommonInterface : public Description<GuiTextBoxCommonInterface>
-			{
-				friend class GuiTextElementOperator;
-			protected:
-				GuiTextElementOperator*						textElementOperator;
-				GuiControl*									textControl;
-				Ptr<GuiTextBoxColorizerBase>				colorizer;
-				Ptr<GuiTextBoxUndoRedoProcessor>			undoRedoProcessor;
-
-				void										RaiseTextChanged();
-				void										RaiseSelectionChanged();
-				void										InitializeCommonInterface(GuiControl* _textControl, GuiTextElementOperator* _textElementOperator);
-			public:
-				GuiTextBoxCommonInterface();
-				~GuiTextBoxCommonInterface();
-
-				compositions::GuiNotifyEvent				SelectionChanged;
-
-				compositions::GuiGraphicsComposition*		GetTextComposition();
-
-				Ptr<GuiTextBoxColorizerBase>				GetColorizer();
-				void										SetColorizer(Ptr<GuiTextBoxColorizerBase> value);
-
-				bool										CanUndo();
-				bool										CanRedo();
-				void										ClearUndoRedo();
-				bool										GetModified();
-				void										NotifyModificationSaved();
-				bool										Undo();
-				bool										Redo();
-				
-				bool										CanCut();
-				bool										CanCopy();
-				bool										CanPaste();
-				void										SelectAll();
-				bool										Cut();
-				bool										Copy();
-				bool										Paste();
-				
-				WString										GetRowText(int row);
-				WString										GetFragmentText(TextPos start, TextPos end);
-				int											GetRowWidth(int row);
-				int											GetRowHeight();
-				int											GetMaxWidth();
-				int											GetMaxHeight();
-				TextPos										GetTextPosFromPoint(Point point);
-				Point										GetPointFromTextPos(TextPos pos);
-				Rect										GetRectFromTextPos(TextPos pos);
-				TextPos										GetNearestTextPos(Point point);
-
-				TextPos										GetCaretBegin();
-				TextPos										GetCaretEnd();
-				TextPos										GetCaretSmall();
-				TextPos										GetCaretLarge();
-				void										Select(TextPos begin, TextPos end);
-				
-				WString										GetSelectionText();
-				void										SetSelectionText(const WString& value);
-
-				bool										GetReadonly();
-				void										SetReadonly(bool value);
-			};
-
-/***********************************************************************
-MultilineTextBox
-***********************************************************************/
-
-			class GuiMultilineTextBox : public GuiScrollView, public GuiTextBoxCommonInterface, public Description<GuiMultilineTextBox>
-			{
-			public:
-				static const int							TextMargin=3;
-
-				class StyleController : public GuiScrollView::StyleController, public Description<StyleController>
-				{
-				protected:
-					elements::GuiColorizedTextElement*		textElement;
-					compositions::GuiBoundsComposition*		textComposition;
-					GuiTextElementOperator					textElementOperator;
-					Ptr<GuiTextElementOperator::ICallback>	defaultCallback;
-
-				public:
-					StyleController(GuiScrollView::IStyleProvider* styleProvider);
-					~StyleController();
-
-					elements::GuiColorizedTextElement*		GetTextElement();
-					compositions::GuiGraphicsComposition*	GetTextComposition();
-					GuiTextElementOperator*					GetTextElementOperator();
-					void									SetViewPosition(Point value);
-					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
-
-					WString									GetText();
-					void									SetText(const WString& value)override;
-					void									SetFont(const FontProperties& value)override;
-					void									SetVisuallyEnabled(bool value)override;
-				};
-
-				class TextElementOperatorCallback : public GuiTextElementOperator::DefaultCallback, public Description<TextElementOperatorCallback>
-				{
-				protected:
-					GuiMultilineTextBox*					textControl;
-					StyleController*						textController;
-				public:
-					TextElementOperatorCallback(GuiMultilineTextBox* _textControl);
-
-					void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
-					void									ScrollToView(Point point)override;
-					int										GetTextMargin()override;
-				};
-
-			protected:
-				StyleController*							styleController;
-
-				void										CalculateViewAndSetScroll();
-				void										OnRenderTargetChanged(elements::IGuiGraphicsRenderTarget* renderTarget)override;
-				Size										QueryFullSize()override;
-				void										UpdateView(Rect viewBounds)override;
-				void										OnBoundsMouseButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-			public:
-				GuiMultilineTextBox(GuiMultilineTextBox::IStyleProvider* styleProvider);
-				~GuiMultilineTextBox();
-
-				const WString&								GetText()override;
-				void										SetText(const WString& value)override;
-				void										SetFont(const FontProperties& value)override;
-			};
-
-/***********************************************************************
-SinglelineTextBox
-***********************************************************************/
-			
-			class GuiSinglelineTextBox : public GuiControl, public GuiTextBoxCommonInterface, public Description<GuiSinglelineTextBox>
-			{
-			public:
-				static const int							TextMargin=3;
-
-				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
-				{
-				public:
-					virtual compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* background)=0;
-				};
-
-				class StyleController : public Object, public GuiControl::IStyleController, public Description<StyleController>
-				{
-				protected:
-					Ptr<IStyleProvider>						styleProvider;
-					compositions::GuiBoundsComposition*		boundsComposition;
-					compositions::GuiGraphicsComposition*	containerComposition;
-
-					GuiSinglelineTextBox*					textBox;
-					elements::GuiColorizedTextElement*		textElement;
-					compositions::GuiTableComposition*		textCompositionTable;
-					compositions::GuiCellComposition*		textComposition;
-					GuiTextElementOperator					textElementOperator;
-					Ptr<GuiTextElementOperator::ICallback>	defaultCallback;
-
-				public:
-					StyleController(IStyleProvider* _styleProvider);
-					~StyleController();
-
-					void									SetTextBox(GuiSinglelineTextBox* value);
-					void									RearrangeTextElement();
-					compositions::GuiBoundsComposition*		GetBoundsComposition();
-					compositions::GuiGraphicsComposition*	GetContainerComposition();
-					void									SetFocusableComposition(compositions::GuiGraphicsComposition* value);
-
-					WString									GetText();
-					void									SetText(const WString& value);
-					void									SetFont(const FontProperties& value);
-					void									SetVisuallyEnabled(bool value);
-
-					elements::GuiColorizedTextElement*		GetTextElement();
-					compositions::GuiGraphicsComposition*	GetTextComposition();
-					GuiTextElementOperator*					GetTextElementOperator();
-					void									SetViewPosition(Point value);
-				};
-
-				class TextElementOperatorCallback : public GuiTextElementOperator::DefaultCallback, public Description<TextElementOperatorCallback>
-				{
-				protected:
-					GuiSinglelineTextBox*					textControl;
-					StyleController*						textController;
-				public:
-					TextElementOperatorCallback(GuiSinglelineTextBox* _textControl);
-
-					bool									BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
-					void									AfterModify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
-					void									ScrollToView(Point point)override;
-					int										GetTextMargin()override;
-				};
-			protected:
-				StyleController*							styleController;
-				
-				void										OnRenderTargetChanged(elements::IGuiGraphicsRenderTarget* renderTarget)override;
-				void										OnBoundsMouseButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
-			public:
-				GuiSinglelineTextBox(GuiSinglelineTextBox::IStyleProvider* styleProvider);
-				~GuiSinglelineTextBox();
-
-				const WString&								GetText()override;
-				void										SetText(const WString& value)override;
-				void										SetFont(const FontProperties& value)override;
-				wchar_t										GetPasswordChar();
-				void										SetPasswordChar(wchar_t value);
 			};
 		}
 	}
@@ -7256,7 +7386,7 @@ namespace vl
 Toolstrip Item Collection
 ***********************************************************************/
 
-			class GuiToolstripCollection : public Object, public collections::IList<GuiControl*>
+			class GuiToolstripCollection : public list::ItemsBase<GuiControl*>
 			{
 			public:
 				class IContentCallback : public Interface
@@ -7268,29 +7398,14 @@ Toolstrip Item Collection
 				IContentCallback*							contentCallback;
 				compositions::GuiStackComposition*			stackComposition;
 				Ptr<compositions::GuiSubComponentMeasurer>	subComponentMeasurer;
-				collections::List<GuiControl*>				items;
 
 				void										InvokeUpdateLayout();
 				void										OnInterestingMenuButtonPropertyChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				void										RemoveAtInternal(vint index);
-				void										InsertInternal(vint index, GuiControl* control);
+				bool										RemoveAtInternal(vint index, GuiControl* const& control)override;
+				bool										InsertInternal(vint index, GuiControl* const& control)override;
 			public:
 				GuiToolstripCollection(IContentCallback* _contentCallback, compositions::GuiStackComposition* _stackComposition, Ptr<compositions::GuiSubComponentMeasurer> _subComponentMeasurer);
 				~GuiToolstripCollection();
-
-				collections::IEnumerator<GuiControl*>*		CreateEnumerator()const override;
-				bool										Contains(GuiControl* const& item)const override;
-				vint										Count()const override;
-				GuiControl* const&							Get(vint index)const override;
-				GuiControl* const&							operator[](vint index)const override;
-				vint										IndexOf(GuiControl* const& item)const override;
-				vint										Add(GuiControl* const& item)override;
-				bool										Remove(GuiControl* const& item)override;
-				bool										RemoveAt(vint index)override;
-				bool										RemoveRange(vint index, vint count)override;
-				bool										Clear()override;
-				vint										Insert(vint index, GuiControl* const& item)override;
-				bool										Set(vint index, GuiControl* const& item)override;
 			};
 
 /***********************************************************************
@@ -7410,6 +7525,19 @@ Toolstrip Component
 			};
 		}
 	}
+
+	namespace collections
+	{
+		namespace randomaccess_internal
+		{
+			template<>
+			struct RandomAccessable<presentation::controls::GuiToolstripCollection>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		}
+	}
 }
 
 #endif
@@ -7427,6 +7555,9 @@ Interfaces:
 
 #ifndef VCZH_PRESENTATION_CONTROLS_GUITHEMESTYLEFACTORY
 #define VCZH_PRESENTATION_CONTROLS_GUITHEMESTYLEFACTORY
+
+
+
 
 
 namespace vl
@@ -7471,8 +7602,8 @@ namespace vl
 				virtual controls::GuiScroll::IStyleController*								CreateHTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateVTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateProgressBarStyle()=0;
-				virtual int																	GetScrollDefaultSize()=0;
-				virtual int																	GetTrackerDefaultSize()=0;
+				virtual vint																	GetScrollDefaultSize()=0;
+				virtual vint																	GetTrackerDefaultSize()=0;
 				
 				virtual controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()=0;
 				virtual controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()=0;
@@ -7597,8 +7728,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				int																	GetScrollDefaultSize()override;
-				int																	GetTrackerDefaultSize()override;
+				vint																	GetScrollDefaultSize()override;
+				vint																	GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
@@ -7676,8 +7807,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				int																	GetScrollDefaultSize()override;
-				int																	GetTrackerDefaultSize()override;
+				vint																	GetScrollDefaultSize()override;
+				vint																	GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
@@ -7734,9 +7865,9 @@ Scrolls
 				compositions::GuiBoundsComposition*					boundsComposition;
 				compositions::GuiBoundsComposition*					containerComposition;
 
-				int													totalSize;
-				int													pageSize;
-				int													position;
+				vint													totalSize;
+				vint													pageSize;
+				vint													position;
 				Point												draggingStartLocation;
 				bool												draggingHandle;
 
@@ -7752,7 +7883,7 @@ Scrolls
 				virtual controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction)=0;
 				virtual controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)=0;
 				virtual compositions::GuiBoundsComposition*			InstallBackground(compositions::GuiBoundsComposition* boundsComposition, Direction direction)=0;
-				void												BuildStyle(int defaultSize, int arrowSize);
+				void												BuildStyle(vint defaultSize, vint arrowSize);
 			public:
 				CommonScrollStyle(Direction _direction);
 				~CommonScrollStyle();
@@ -7764,9 +7895,9 @@ Scrolls
 				void												SetFont(const FontProperties& value)override;
 				void												SetVisuallyEnabled(bool value)override;
 				void												SetCommandExecutor(controls::GuiScroll::ICommandExecutor* value)override;
-				void												SetTotalSize(int value)override;
-				void												SetPageSize(int value)override;
-				void												SetPosition(int value)override;
+				void												SetTotalSize(vint value)override;
+				void												SetPageSize(vint value)override;
+				void												SetPosition(vint value)override;
 			};
 			
 			class CommonTrackStyle : public Object, public virtual controls::GuiScroll::IStyleController, public Description<CommonTrackStyle>
@@ -7784,9 +7915,9 @@ Scrolls
 				controls::GuiButton*								handleButton;
 				compositions::GuiTableComposition*					handleComposition;
 
-				int													totalSize;
-				int													pageSize;
-				int													position;
+				vint													totalSize;
+				vint													pageSize;
+				vint													position;
 				Point												draggingStartLocation;
 				bool												draggingHandle;
 
@@ -7798,7 +7929,7 @@ Scrolls
 				virtual controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)=0;
 				virtual void										InstallBackground(compositions::GuiGraphicsComposition* boundsComposition, Direction direction)=0;
 				virtual void										InstallTrack(compositions::GuiGraphicsComposition* trackComposition, Direction direction)=0;
-				void												BuildStyle(int trackThickness, int trackPadding, int handleLong, int handleShort);
+				void												BuildStyle(vint trackThickness, vint trackPadding, vint handleLong, vint handleShort);
 			public:
 				CommonTrackStyle(Direction _direction);
 				~CommonTrackStyle();
@@ -7810,9 +7941,9 @@ Scrolls
 				void												SetFont(const FontProperties& value)override;
 				void												SetVisuallyEnabled(bool value)override;
 				void												SetCommandExecutor(controls::GuiScroll::ICommandExecutor* value)override;
-				void												SetTotalSize(int value)override;
-				void												SetPageSize(int value)override;
-				void												SetPosition(int value)override;
+				void												SetTotalSize(vint value)override;
+				void												SetPageSize(vint value)override;
+				void												SetPosition(vint value)override;
 			};
 
 			class CommonFragmentBuilder
@@ -7841,8 +7972,8 @@ Scrolls
 Helper Functions
 ***********************************************************************/
 			
-		extern unsigned char							IntToColor(int color);
-		extern Color									BlendColor(Color c1, Color c2, int currentPosition, int totalLength);
+		extern unsigned char							IntToColor(vint color);
+		extern Color									BlendColor(Color c1, Color c2, vint currentPosition, vint totalLength);
 
 /***********************************************************************
 Animation
@@ -7859,11 +7990,11 @@ Animation
 					bool									stopped;\
 					bool									disabled;\
 					bool									enableAnimation;\
-					void									PlayInternal(int currentPosition, int totalLength);\
+					void									PlayInternal(vint currentPosition, vint totalLength);\
 				public:\
 					TransferringAnimation(TSTYLECONTROLLER* _style, const TSTATE& begin);\
 					void									Disable();\
-					void									Play(int currentPosition, int totalLength)override;\
+					void									Play(vint currentPosition, vint totalLength)override;\
 					void									Stop()override;\
 					bool									GetEnableAnimation();\
 					void									SetEnableAnimation(bool value);\
@@ -7892,7 +8023,7 @@ Animation Implementation
 			{\
 				disabled=true;\
 			}\
-			void TSTYLECONTROLLER::TransferringAnimation::Play(int currentPosition, int totalLength)\
+			void TSTYLECONTROLLER::TransferringAnimation::Play(vint currentPosition, vint totalLength)\
 			{\
 				if(!disabled)\
 				{\
@@ -7941,7 +8072,7 @@ Animation Implementation
 					}\
 				}\
 			}\
-			void TSTYLECONTROLLER::TransferringAnimation::PlayInternal(int currentPosition, int totalLength)\
+			void TSTYLECONTROLLER::TransferringAnimation::PlayInternal(vint currentPosition, vint totalLength)\
 
 #define IMPLEMENT_TRANSFERRING_ANIMATION(TSTATE, TSTYLECONTROLLER)\
 	IMPLEMENT_TRANSFERRING_ANIMATION_BASE(TSTATE, TSTYLECONTROLLER, DEFAULT_TRANSFERRING_ANIMATION_HOST_GETTER)
@@ -8009,7 +8140,7 @@ Button Configuration
 
 				void										SetAlphaWithoutText(unsigned char a);
 
-				static Win7ButtonColors						Blend(const Win7ButtonColors& c1, const Win7ButtonColors& c2, int ratio, int total);
+				static Win7ButtonColors						Blend(const Win7ButtonColors& c1, const Win7ButtonColors& c2, vint ratio, vint total);
 
 				static Win7ButtonColors						ButtonNormal();
 				static Win7ButtonColors						ButtonActive();
@@ -8118,7 +8249,7 @@ Button Configuration
 					return !(*this==colors);
 				}
 
-				static Win7TextBoxColors					Blend(const Win7TextBoxColors& c1, const Win7TextBoxColors& c2, int ratio, int total);
+				static Win7TextBoxColors					Blend(const Win7TextBoxColors& c1, const Win7TextBoxColors& c2, vint ratio, vint total);
 
 				static Win7TextBoxColors					Normal();
 				static Win7TextBoxColors					Active();
@@ -8236,7 +8367,7 @@ Container
 				elements::GuiSolidLabelElement*				textElement;
 				Ptr<TransferringAnimation>					transferringAnimation;
 
-				void										SetMargins(int fontSize);
+				void										SetMargins(vint fontSize);
 			public:
 				Win7GroupBoxStyle();
 				~Win7GroupBoxStyle();
@@ -8589,11 +8720,11 @@ Tab
 				void										SetVisuallyEnabled(bool value)override;
 
 				void										SetCommandExecutor(controls::GuiTab::ICommandExecutor* value)override;
-				void										InsertTab(int index)override;
-				void										SetTabText(int index, const WString& value)override;
-				void										RemoveTab(int index)override;
-				void										MoveTab(int oldIndex, int newIndex)override;
-				void										SetSelectedTab(int index)override;
+				void										InsertTab(vint index)override;
+				void										SetTabText(vint index, const WString& value)override;
+				void										RemoveTab(vint index)override;
+				void										MoveTab(vint oldIndex, vint newIndex)override;
+				void										SetSelectedTab(vint index)override;
 				controls::GuiControl::IStyleController*		CreateTabPageStyleController()override;
 			};
 		}
@@ -8763,8 +8894,8 @@ Scroll
 			class Win7ScrollStyle : public common_styles::CommonScrollStyle, public Description<Win7ScrollStyle>
 			{
 			public:
-				static const int							DefaultSize=18;
-				static const int							ArrowSize=10;
+				static const vint							DefaultSize=18;
+				static const vint							ArrowSize=10;
 			protected:
 				controls::GuiButton::IStyleController*		CreateDecreaseButtonStyle(Direction direction)override;
 				controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction)override;
@@ -8778,10 +8909,10 @@ Scroll
 			class Win7TrackStyle : public common_styles::CommonTrackStyle, public Description<Win7TrackStyle>
 			{
 			public:
-				static const int							TrackThickness=4;
-				static const int							TrackPadding=8;
-				static const int							HandleLong=21;
-				static const int							HandleShort=10;
+				static const vint							TrackThickness=4;
+				static const vint							TrackPadding=8;
+				static const vint							HandleLong=21;
+				static const vint							HandleShort=10;
 
 			protected:
 				controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)override;
@@ -8795,9 +8926,9 @@ Scroll
 			class Win7ProgressBarStyle : public Object, public virtual controls::GuiScroll::IStyleController, public Description<Win7ProgressBarStyle>
 			{
 			protected:
-				int											totalSize;
-				int											pageSize;
-				int											position;
+				vint											totalSize;
+				vint											pageSize;
+				vint											position;
 				compositions::GuiBoundsComposition*			boundsComposition;
 				compositions::GuiBoundsComposition*			containerComposition;
 				compositions::GuiPartialViewComposition*	progressComposition;
@@ -8815,9 +8946,9 @@ Scroll
 				void										SetFont(const FontProperties& value)override;
 				void										SetVisuallyEnabled(bool value)override;
 				void										SetCommandExecutor(controls::GuiScroll::ICommandExecutor* value)override;
-				void										SetTotalSize(int value)override;
-				void										SetPageSize(int value)override;
-				void										SetPosition(int value)override;
+				void										SetTotalSize(vint value)override;
+				void										SetPageSize(vint value)override;
+				void										SetPosition(vint value)override;
 			};
 
 /***********************************************************************
@@ -8838,7 +8969,7 @@ ScrollView
 
 				controls::GuiScroll::IStyleController*		CreateHorizontalScrollStyle()override;
 				controls::GuiScroll::IStyleController*		CreateVerticalScrollStyle()override;
-				int											GetDefaultScrollSize()override;
+				vint											GetDefaultScrollSize()override;
 				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
 			};
 
@@ -9202,7 +9333,7 @@ Button Configuration
 
 				void										SetAlphaWithoutText(unsigned char a);
 
-				static Win8ButtonColors						Blend(const Win8ButtonColors& c1, const Win8ButtonColors& c2, int ratio, int total);
+				static Win8ButtonColors						Blend(const Win8ButtonColors& c1, const Win8ButtonColors& c2, vint ratio, vint total);
 
 				static Win8ButtonColors						ButtonNormal();
 				static Win8ButtonColors						ButtonActive();
@@ -9309,7 +9440,7 @@ Button Configuration
 					return !(*this==colors);
 				}
 
-				static Win8TextBoxColors					Blend(const Win8TextBoxColors& c1, const Win8TextBoxColors& c2, int ratio, int total);
+				static Win8TextBoxColors					Blend(const Win8TextBoxColors& c1, const Win8TextBoxColors& c2, vint ratio, vint total);
 
 				static Win8TextBoxColors					Normal();
 				static Win8TextBoxColors					Active();
@@ -9425,7 +9556,7 @@ Container
 				elements::GuiSolidLabelElement*				textElement;
 				Ptr<TransferringAnimation>					transferringAnimation;
 
-				void										SetMargins(int fontSize);
+				void										SetMargins(vint fontSize);
 			public:
 				Win8GroupBoxStyle();
 				~Win8GroupBoxStyle();
@@ -9913,8 +10044,8 @@ Scroll
 			class Win8ScrollStyle : public common_styles::CommonScrollStyle, public Description<Win8ScrollStyle>
 			{
 			public:
-				static const int							DefaultSize=16;
-				static const int							ArrowSize=8;
+				static const vint							DefaultSize=16;
+				static const vint							ArrowSize=8;
 			protected:
 				controls::GuiButton::IStyleController*		CreateDecreaseButtonStyle(Direction direction)override;
 				controls::GuiButton::IStyleController*		CreateIncreaseButtonStyle(Direction direction)override;
@@ -9928,10 +10059,10 @@ Scroll
 			class Win8TrackStyle : public common_styles::CommonTrackStyle, public Description<Win8TrackStyle>
 			{
 			public:
-				static const int							TrackThickness=4;
-				static const int							TrackPadding=6;
-				static const int							HandleLong=16;
-				static const int							HandleShort=10;
+				static const vint							TrackThickness=4;
+				static const vint							TrackPadding=6;
+				static const vint							HandleLong=16;
+				static const vint							HandleShort=10;
 
 			protected:
 				controls::GuiButton::IStyleController*		CreateHandleButtonStyle(Direction direction)override;
@@ -9945,9 +10076,9 @@ Scroll
 			class Win8ProgressBarStyle : public Object, public virtual controls::GuiScroll::IStyleController, public Description<Win8ProgressBarStyle>
 			{
 			protected:
-				int											totalSize;
-				int											pageSize;
-				int											position;
+				vint											totalSize;
+				vint											pageSize;
+				vint											position;
 				compositions::GuiBoundsComposition*			boundsComposition;
 				compositions::GuiBoundsComposition*			containerComposition;
 				compositions::GuiPartialViewComposition*	progressComposition;
@@ -9964,9 +10095,9 @@ Scroll
 				void										SetFont(const FontProperties& value)override;
 				void										SetVisuallyEnabled(bool value)override;
 				void										SetCommandExecutor(controls::GuiScroll::ICommandExecutor* value)override;
-				void										SetTotalSize(int value)override;
-				void										SetPageSize(int value)override;
-				void										SetPosition(int value)override;
+				void										SetTotalSize(vint value)override;
+				void										SetPageSize(vint value)override;
+				void										SetPosition(vint value)override;
 			};
 
 /***********************************************************************
@@ -9987,7 +10118,7 @@ ScrollView
 
 				controls::GuiScroll::IStyleController*		CreateHorizontalScrollStyle()override;
 				controls::GuiScroll::IStyleController*		CreateVerticalScrollStyle()override;
-				int											GetDefaultScrollSize()override;
+				vint											GetDefaultScrollSize()override;
 				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
 			};
 
@@ -10475,7 +10606,7 @@ Renderers
 				ID2D1SolidColorBrush*			brush;
 				Direct2DTextFormatPackage*		textFormat;
 				IDWriteTextLayout*				textLayout;
-				int								oldMaxWidth;
+				vint								oldMaxWidth;
 
 				void					CreateBrush(IWindowsDirect2DRenderTarget* _renderTarget);
 				void					DestroyBrush(IWindowsDirect2DRenderTarget* _renderTarget);
@@ -10722,12 +10853,12 @@ namespace vl
 			protected:
 				HRGN					FHandle;
 			public:
-				WinRegion(int Left, int Top, int Right, int Bottom, bool Rectangle);
+				WinRegion(vint Left, vint Top, vint Right, vint Bottom, bool Rectangle);
 				WinRegion(RECT Rect, bool Rectangle);
-				WinRegion(int Left, int Top, int Right, int Bottom, int EllipseWidth, int EllipseHeight);
-				WinRegion(POINT* Points, int Count, bool Alternate);
+				WinRegion(vint Left, vint Top, vint Right, vint Bottom, vint EllipseWidth, vint EllipseHeight);
+				WinRegion(POINT* Points, vint Count, bool Alternate);
 				WinRegion(WinRegion::Ptr Region);
-				WinRegion(WinRegion::Ptr Region1, WinRegion::Ptr Region2, int CombineMode);
+				WinRegion(WinRegion::Ptr Region1, WinRegion::Ptr Region2, vint CombineMode);
 				WinRegion(HRGN RegionHandle);
 				~WinRegion();
 
@@ -10735,7 +10866,7 @@ namespace vl
 				bool					ContainPoint(POINT Point);
 				bool					ContainRect(RECT Rect);
 				RECT					GetBoundRect();
-				void					Move(int OffsetX, int OffsetY);
+				void					Move(vint OffsetX, vint OffsetY);
 			};
 
 			class WinTransform : public Object
@@ -10775,16 +10906,16 @@ namespace vl
 			{
 				friend class WinMetaFile;
 			protected:
-				int						FWidth;
-				int						FHeight;
+				vint						FWidth;
+				vint						FHeight;
 				WinProxyDC*				FDC;
 
-				void					Create(int Width, int Height);
+				void					Create(vint Width, vint Height);
 				void					Draw(HENHMETAFILE Handle);
 				void					Destroy();
 			public:
 
-				WinMetaFileBuilder(int Width, int Height);
+				WinMetaFileBuilder(vint Width, vint Height);
 				~WinMetaFileBuilder();
 
 				void					LoadFrom(WinMetaFile* File);
@@ -10792,8 +10923,8 @@ namespace vl
 				void					LoadFrom(WString FileName);
 				void					SaveTo(WString FileName);
 				WinDC*					GetWinDC();
-				int						GetWidth();
-				int						GetHeight();
+				vint						GetWidth();
+				vint						GetHeight();
 			};
 
 			class WinMetaFile : public Object
@@ -10801,16 +10932,16 @@ namespace vl
 				friend class WinMetaFileBuilder;
 			protected:
 				HENHMETAFILE			FHandle;
-				int						FWidth;
-				int						FHeight;
+				vint						FWidth;
+				vint						FHeight;
 			public:
 				WinMetaFile(WString FileName);
 				WinMetaFile(WinMetaFileBuilder* Builder);
 				~WinMetaFile();
 
 				HENHMETAFILE			GetHandle();
-				int						GetWidth();
-				int						GetHeight();
+				vint						GetWidth();
+				vint						GetHeight();
 			};
 
 			class WinBitmap : public Object
@@ -10825,30 +10956,30 @@ namespace vl
 				};
 			protected:
 				BitmapBits				FBits;
-				int						FWidth;
-				int						FHeight;
+				vint						FWidth;
+				vint						FHeight;
 				WinImageDC*				FDC;
 				HBITMAP					FHandle;
 				BYTE**					FScanLines;
 				bool					FAlphaChannelBuilt;
 
-				int						GetBitsFromBB(BitmapBits BB);
-				int						GetLineBytes(int Width, BitmapBits BB);
-				void					FillBitmapInfoHeader(int Width, int Height, BitmapBits Bits, BITMAPINFOHEADER* Header);
-				HBITMAP					CreateDDB(int Width, int Height, BitmapBits Bits);
-				HBITMAP					CreateDIB(int Width, int Height, BitmapBits Bits, BYTE**& ScanLines);
-				void					Constructor(int Width, int Height, BitmapBits Bits, bool DIBSections);
+				vint						GetBitsFromBB(BitmapBits BB);
+				vint						GetLineBytes(vint Width, BitmapBits BB);
+				void					FillBitmapInfoHeader(vint Width, vint Height, BitmapBits Bits, BITMAPINFOHEADER* Header);
+				HBITMAP					CreateDDB(vint Width, vint Height, BitmapBits Bits);
+				HBITMAP					CreateDIB(vint Width, vint Height, BitmapBits Bits, BYTE**& ScanLines);
+				void					Constructor(vint Width, vint Height, BitmapBits Bits, bool DIBSections);
 			public:
-				WinBitmap(int Width, int Height, BitmapBits Bits, bool DIBSections);
+				WinBitmap(vint Width, vint Height, BitmapBits Bits, bool DIBSections);
 				WinBitmap(WString FileName, bool Use32Bits, bool DIBSections);
 				~WinBitmap();
 
 				void					SaveToFile(WString FileName);
 
 				WinDC*					GetWinDC();
-				int						GetWidth();
-				int						GetHeight();
-				int						GetLineBytes();
+				vint						GetWidth();
+				vint						GetHeight();
+				vint						GetLineBytes();
 				BYTE**					GetScanLines();
 				HBITMAP					GetBitmap();
 				BitmapBits				GetBitmapBits();
@@ -10879,7 +11010,7 @@ namespace vl
 			public:
 				WinBrush();
 				WinBrush(COLORREF Color);
-				WinBrush(int Hatch, COLORREF Color);
+				WinBrush(vint Hatch, COLORREF Color);
 				WinBrush(WinBitmap::Ptr Bitmap);
 				~WinBrush();
 
@@ -10894,10 +11025,10 @@ namespace vl
 				HPEN					FHandle;
 				unsigned char*			FDIBMemory;
 			public:
-				WinPen(int Style, int Width, COLORREF Color);
-				WinPen(int Style, int EndCap, int Join, int Width, COLORREF Color);
-				WinPen(int Style, int EndCap, int Join, int Hatch, int Width, COLORREF Color);
-				WinPen(WinBitmap::Ptr DIB, int Style, int EndCap, int Join, int Width);
+				WinPen(vint Style, vint Width, COLORREF Color);
+				WinPen(vint Style, vint EndCap, vint Join, vint Width, COLORREF Color);
+				WinPen(vint Style, vint EndCap, vint Join, vint Hatch, vint Width, COLORREF Color);
+				WinPen(WinBitmap::Ptr DIB, vint Style, vint EndCap, vint Join, vint Width);
 				~WinPen();
 
 				HPEN					GetHandle();
@@ -10911,7 +11042,7 @@ namespace vl
 				LOGFONT					FFontInfo;
 				HFONT					FHandle;
 			public:
-				WinFont(WString Name, int Height, int Width, int Escapement, int Orientation, int Weight, bool Italic, bool Underline, bool StrikeOut, bool Antialise);
+				WinFont(WString Name, vint Height, vint Width, vint Escapement, vint Orientation, vint Weight, bool Italic, bool Underline, bool StrikeOut, bool Antialise);
 				WinFont(LOGFONT* FontInfo);
 				~WinFont();
 
@@ -10972,52 +11103,52 @@ namespace vl
 				POINT					GetBrushOrigin();
 				void					SetBrushOrigin(POINT Point);
 
-				void					DrawBuffer(int X, int Y, const wchar_t* Text, int CharCount);
-				void					DrawBuffer(int X, int Y, const wchar_t* Text, int CharCount, int TabWidth, int TabOriginX);
-				void					DrawBuffer(RECT Rect, const wchar_t* Text, int CharCount, UINT Format);
-				void					DrawString(int X, int Y, WString Text);
-				void					DrawString(int X, int Y, WString Text, int TabWidth, int TabOriginX);
+				void					DrawBuffer(vint X, vint Y, const wchar_t* Text, vint CharCount);
+				void					DrawBuffer(vint X, vint Y, const wchar_t* Text, vint CharCount, vint TabWidth, vint TabOriginX);
+				void					DrawBuffer(RECT Rect, const wchar_t* Text, vint CharCount, UINT Format);
+				void					DrawString(vint X, vint Y, WString Text);
+				void					DrawString(vint X, vint Y, WString Text, vint TabWidth, vint TabOriginX);
 				void					DrawString(RECT Rect, WString Text, UINT Format);
 
-				SIZE					MeasureString(WString Text, int TabSize=-1);
-				SIZE					MeasureBuffer(const wchar_t* Text, int CharCount, int TabSize=-1);
-				SIZE					MeasureBuffer(const wchar_t* Text, int TabSize=-1);
-				SIZE					MeasureWrapLineString(WString Text, int MaxWidth);
-				SIZE					MeasureWrapLineBuffer(const wchar_t* Text, int CharCount, int MaxWidth);
-				SIZE					MeasureWrapLineBuffer(const wchar_t* Text, int MaxWidth);
+				SIZE					MeasureString(WString Text, vint TabSize=-1);
+				SIZE					MeasureBuffer(const wchar_t* Text, vint CharCount, vint TabSize=-1);
+				SIZE					MeasureBuffer(const wchar_t* Text, vint TabSize=-1);
+				SIZE					MeasureWrapLineString(WString Text, vint MaxWidth);
+				SIZE					MeasureWrapLineBuffer(const wchar_t* Text, vint CharCount, vint MaxWidth);
+				SIZE					MeasureWrapLineBuffer(const wchar_t* Text, vint MaxWidth);
 
 				void					FillRegion(WinRegion::Ptr Region);
-				void					FrameRegion(WinRegion::Ptr Region, int BlockWidth, int BlockHeight);
+				void					FrameRegion(WinRegion::Ptr Region, vint BlockWidth, vint BlockHeight);
 
-				void					MoveTo(int X, int Y);
-				void					LineTo(int X, int Y);
-				void					Rectangle(int Left, int Top, int Right, int Bottom);
+				void					MoveTo(vint X, vint Y);
+				void					LineTo(vint X, vint Y);
+				void					Rectangle(vint Left, vint Top, vint Right, vint Bottom);
 				void					Rectangle(RECT Rect);
-				void					FocusRectangle(int Left, int Top, int Right, int Bottom);
+				void					FocusRectangle(vint Left, vint Top, vint Right, vint Bottom);
 				void					FocusRectangle(RECT Rect);
-				void					FillRect(int Left, int Top, int Right, int Bottom);
+				void					FillRect(vint Left, vint Top, vint Right, vint Bottom);
 				void					FillRect(RECT Rect);
-				void					Ellipse(int Left, int Top, int Right, int Bottom);
+				void					Ellipse(vint Left, vint Top, vint Right, vint Bottom);
 				void					Ellipse(RECT Rect);
-				void					RoundRect(int Left, int Top, int Right, int Bottom, int EllipseWidth, int EllipseHeight);
-				void					RoundRect(RECT Rect, int EllipseWidth, int EllipseHeight);
-				void					PolyLine(const POINT* Points, int Count);
-				void					PolyLineTo(const POINT* Points, int Count);
-				void					PolyGon(const POINT* Points, int Count);
-				void					PolyBezier(const POINT* Points, int Count);
-				void					PolyBezierTo(const POINT* Points, int Count);
-				void					PolyDraw(const POINT* Points, const BYTE* Actions, int PointCount);
+				void					RoundRect(vint Left, vint Top, vint Right, vint Bottom, vint EllipseWidth, vint EllipseHeight);
+				void					RoundRect(RECT Rect, vint EllipseWidth, vint EllipseHeight);
+				void					PolyLine(const POINT* Points, vint Count);
+				void					PolyLineTo(const POINT* Points, vint Count);
+				void					PolyGon(const POINT* Points, vint Count);
+				void					PolyBezier(const POINT* Points, vint Count);
+				void					PolyBezierTo(const POINT* Points, vint Count);
+				void					PolyDraw(const POINT* Points, const BYTE* Actions, vint PointCount);
 				void					Arc(RECT Bound, POINT Start, POINT End);
-				void					Arc(int Left, int Top, int Right, int Bottom, int StartX, int StartY, int EndX, int EndY);
+				void					Arc(vint Left, vint Top, vint Right, vint Bottom, vint StartX, vint StartY, vint EndX, vint EndY);
 				void					ArcTo(RECT Bound, POINT Start, POINT End);
-				void					ArcTo(int Left, int Top, int Right, int Bottom, int StartX, int StartY, int EndX, int EndY);
-				void					AngleArc(int X, int Y, int Radius, float StartAngle, float SweepAngle);
-				void					AngleArc(int X, int Y, int Radius, double StartAngle, double SweepAngle);
+				void					ArcTo(vint Left, vint Top, vint Right, vint Bottom, vint StartX, vint StartY, vint EndX, vint EndY);
+				void					AngleArc(vint X, vint Y, vint Radius, float StartAngle, float SweepAngle);
+				void					AngleArc(vint X, vint Y, vint Radius, double StartAngle, double SweepAngle);
 				void					Chord(RECT Bound, POINT Start, POINT End);
-				void					Chord(int Left, int Top, int Right, int Bottom, int StartX, int StartY, int EndX, int EndY);
+				void					Chord(vint Left, vint Top, vint Right, vint Bottom, vint StartX, vint StartY, vint EndX, vint EndY);
 				void					Pie(RECT Bound, POINT Start, POINT End);
-				void					Pie(int Left, int Top, int Right, int Bottom, int StartX, int StartY, int EndX, int EndY);
-				void					GradientTriangle(TRIVERTEX* Vertices, int VerticesCount, GRADIENT_TRIANGLE* Triangles, int TriangleCount);
+				void					Pie(vint Left, vint Top, vint Right, vint Bottom, vint StartX, vint StartY, vint EndX, vint EndY);
+				void					GradientTriangle(TRIVERTEX* Vertices, vint VerticesCount, GRADIENT_TRIANGLE* Triangles, vint TriangleCount);
 
 				void					BeginPath();
 				void					EndPath();
@@ -11031,11 +11162,11 @@ namespace vl
 
 				bool					PointInClip(POINT Point);
 				bool					RectInClip(RECT Rect);
-				void					ClipPath(int CombineMode);
+				void					ClipPath(vint CombineMode);
 				void					ClipRegion(WinRegion::Ptr Region);
 				void					RemoveClip();
-				void					MoveClip(int OffsetX, int OffsetY);
-				void					CombineClip(WinRegion::Ptr Region, int CombineMode);
+				void					MoveClip(vint OffsetX, vint OffsetY);
+				void					CombineClip(WinRegion::Ptr Region, vint CombineMode);
 				void					IntersetClipRect(RECT Rect);
 				void					ExcludeClipRect(RECT Rect);
 				WinRegion::Ptr			GetClipRegion();
@@ -11044,36 +11175,36 @@ namespace vl
 				WinTransform			GetTransform();
 				void					SetTransform(const WinTransform& Transform);
 
-				void					Copy(int dstX, int dstY, int dstW, int dstH, WinDC* Source, int srcX, int srcY, DWORD DrawROP=SRCCOPY);
+				void					Copy(vint dstX, vint dstY, vint dstW, vint dstH, WinDC* Source, vint srcX, vint srcY, DWORD DrawROP=SRCCOPY);
 				void					Copy(RECT dstRect, WinDC* Source, POINT srcPos, DWORD DrawROP=SRCCOPY);
-				void					Copy(int dstX, int dstY, int dstW, int dstH, WinDC* Source, int srcX, int srcY ,int srcW, int srcH, DWORD DrawROP=SRCCOPY);
+				void					Copy(vint dstX, vint dstY, vint dstW, vint dstH, WinDC* Source, vint srcX, vint srcY ,vint srcW, vint srcH, DWORD DrawROP=SRCCOPY);
 				void					Copy(RECT dstRect, WinDC* Source, RECT srcRect, DWORD DrawROP=SRCCOPY);
-				void					Copy(POINT UpperLeft, POINT UpperRight, POINT LowerLeft, WinDC* Source, int srcX, int srcY, int srcW, int srcH);
+				void					Copy(POINT UpperLeft, POINT UpperRight, POINT LowerLeft, WinDC* Source, vint srcX, vint srcY, vint srcW, vint srcH);
 				void					Copy(POINT UpperLeft, POINT UpperRight, POINT LowerLeft, WinDC* Source, RECT srcRect);
-				void					CopyTrans(int dstX, int dstY, int dstW, int dstH, WinDC* Source, int srcX, int srcY ,int srcW, int srcH, COLORREF Color);
+				void					CopyTrans(vint dstX, vint dstY, vint dstW, vint dstH, WinDC* Source, vint srcX, vint srcY ,vint srcW, vint srcH, COLORREF Color);
 				void					CopyTrans(RECT dstRect, WinDC* Source, RECT srcRect, COLORREF Color);
 
-				void					Draw(int dstX, int dstY, WinMetaFile* MetaFile);
+				void					Draw(vint dstX, vint dstY, WinMetaFile* MetaFile);
 				void					Draw(POINT Pos, WinMetaFile* MetaFile);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinMetaFile* MetaFile);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinMetaFile* MetaFile);
 				void					Draw(RECT Rect, WinMetaFile* MetaFile);
 
-				void					Draw(int dstX, int WinBitmap, WinBitmap::Ptr Bitmap);
+				void					Draw(vint dstX, vint WinBitmap, WinBitmap::Ptr Bitmap);
 				void					Draw(POINT Pos, WinBitmap::Ptr Bitmap);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinBitmap::Ptr Bitmap);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinBitmap::Ptr Bitmap);
 				void					Draw(RECT Rect, WinBitmap::Ptr Bitmap);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinBitmap::Ptr Bitmap, int srcX, int srcY);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinBitmap::Ptr Bitmap, vint srcX, vint srcY);
 				void					Draw(RECT Rect, WinBitmap::Ptr Bitmap, POINT Pos);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinBitmap::Ptr Bitmap, int srcX, int srcY, int srcW, int srcH);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinBitmap::Ptr Bitmap, vint srcX, vint srcY, vint srcW, vint srcH);
 				void					Draw(RECT dstRect, WinBitmap::Ptr Bitmap, RECT srcRect);
 
-				void					Draw(int dstX, int dstY, WinBitmap::Ptr Bitmap, unsigned char Alpha);
+				void					Draw(vint dstX, vint dstY, WinBitmap::Ptr Bitmap, unsigned char Alpha);
 				void					Draw(POINT Pos, WinBitmap::Ptr Bitmap, unsigned char Alpha);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinBitmap::Ptr Bitmap, unsigned char Alpha);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinBitmap::Ptr Bitmap, unsigned char Alpha);
 				void					Draw(RECT Rect, WinBitmap::Ptr Bitmap, unsigned char Alpha);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinBitmap::Ptr Bitmap, int srcX, int srcY, unsigned char Alpha);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinBitmap::Ptr Bitmap, vint srcX, vint srcY, unsigned char Alpha);
 				void					Draw(RECT Rect, WinBitmap::Ptr Bitmap, POINT Pos, unsigned char Alpha);
-				void					Draw(int dstX, int dstY, int dstW, int dstH, WinBitmap::Ptr Bitmap, int srcX, int srcY, int srcW, int srcH, unsigned char Alpha);
+				void					Draw(vint dstX, vint dstY, vint dstW, vint dstH, WinBitmap::Ptr Bitmap, vint srcX, vint srcY, vint srcW, vint srcH, unsigned char Alpha);
 				void					Draw(RECT dstRect, WinBitmap::Ptr Bitmap, RECT srcRect, unsigned char Alpha);
 			};
 
@@ -11344,7 +11475,7 @@ Renderers
 			protected:
 				FontProperties			oldFont;
 				Ptr<windows::WinFont>	font;
-				int						oldMaxWidth;
+				vint						oldMaxWidth;
 
 				void					UpdateMinSize();
 
@@ -11381,7 +11512,7 @@ Renderers
 				DEFINE_GUI_GRAPHICS_RENDERER(GuiPolygonElement, GuiPolygonElementRenderer, IWindowsGDIRenderTarget)
 			protected:
 				POINT*							points;
-				int								pointCount;
+				vint								pointCount;
 				Color							oldPenColor;
 				Color							oldBrushColor;
 				Ptr<windows::WinPen>			pen;
@@ -11516,8 +11647,8 @@ namespace vl
 
 				INativeImageService*						GetImageService()override;
 				FormatType									GetFormat()override;
-				int											GetFrameCount()override;
-				INativeImageFrame*							GetFrame(int index)override;
+				vint											GetFrameCount()override;
+				INativeImageFrame*							GetFrame(vint index)override;
 			};
 
 			class WindowsBitmapImage : public Object, public INativeImage
@@ -11532,8 +11663,8 @@ namespace vl
 
 				INativeImageService*						GetImageService()override;
 				FormatType									GetFormat()override;
-				int											GetFrameCount()override;
-				INativeImageFrame*							GetFrame(int index)override;
+				vint											GetFrameCount()override;
+				INativeImageFrame*							GetFrame(vint index)override;
 			};
 
 			class WindowsImageService : public Object, public INativeImageService
@@ -11545,7 +11676,7 @@ namespace vl
 				~WindowsImageService();
 
 				Ptr<INativeImage>							CreateImageFromFile(const WString& path);
-				Ptr<INativeImage>							CreateImageFromMemory(void* buffer, int length);
+				Ptr<INativeImage>							CreateImageFromMemory(void* buffer, vint length);
 				Ptr<INativeImage>							CreateImageFromStream(stream::IStream& stream);
 				Ptr<INativeImage>							CreateImageFromHBITMAP(HBITMAP handle);
 				Ptr<INativeImage>							CreateImageFromHICON(HICON handle);
@@ -11704,7 +11835,7 @@ namespace vl
 					bool operator!=(const TaskItem& item)const{return true;}
 				};
 			protected:
-				int								mainThreadId;
+				vint								mainThreadId;
 				SpinLock						taskListLock;
 				collections::List<TaskItem>		taskItems;
 			public:
@@ -11715,7 +11846,7 @@ namespace vl
 				bool							IsInMainThread()override;
 				void							InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument)override;
 				void							InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument)override;
-				bool							InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, int milliseconds)override;
+				bool							InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds)override;
 			};
 		}
 	}
@@ -11839,7 +11970,7 @@ namespace vl
 				MessageBoxButtonsOutput			ShowMessageBox(INativeWindow* window, const WString& text, const WString& title, MessageBoxButtonsInput buttons, MessageBoxDefaultButton defaultButton, MessageBoxIcons icon, MessageBoxModalOptions modal)override;
 				bool							ShowColorDialog(INativeWindow* window, Color& selection, bool selected, ColorDialogCustomColorOptions customColorOptions, Color* customColors)override;
 				bool							ShowFontDialog(INativeWindow* window, FontProperties& selectionFont, Color& selectionColor, bool selected, bool showEffect, bool forceFontExist)override;
-				bool							ShowFileDialog(INativeWindow* window, collections::List<WString>& selectionFileNames, int& selectionFilterIndex, FileDialogTypes dialogType, const WString& title, const WString& initialFileName, const WString& initialDirectory, const WString& defaultExtension, const WString& filter, FileDialogOptions options)override;
+				bool							ShowFileDialog(INativeWindow* window, collections::List<WString>& selectionFileNames, vint& selectionFilterIndex, FileDialogTypes dialogType, const WString& title, const WString& initialFileName, const WString& initialDirectory, const WString& defaultExtension, const WString& filter, FileDialogOptions options)override;
 			};
 		}
 	}
@@ -11885,13 +12016,13 @@ namespace vl
 				void								StartTimer()override;
 				void								StopTimer()override;
 				bool								IsTimerEnabled()override;
-				bool								IsKeyPressing(int code)override;
-				bool								IsKeyToggled(int code)override;
-				WString								GetKeyName(int code)override;
+				bool								IsKeyPressing(vint code)override;
+				bool								IsKeyToggled(vint code)override;
+				WString								GetKeyName(vint code)override;
 			};
 
-			extern bool								WinIsKeyPressing(int code);
-			extern bool								WinIsKeyToggled(int code);
+			extern bool								WinIsKeyPressing(vint code);
+			extern bool								WinIsKeyToggled(vint code);
 		}
 	}
 }
@@ -11999,15 +12130,15 @@ namespace vl
 				struct MonitorEnumProcData
 				{
 					WindowsScreenService*	screenService;
-					int						currentScreen;
+					vint						currentScreen;
 				};
 
 				WindowsScreenService(HandleRetriver _handleRetriver);
 
 				static BOOL CALLBACK							MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData);
 				void											RefreshScreenInformation();
-				int												GetScreenCount()override;
-				INativeScreen*									GetScreen(int index)override;
+				vint												GetScreenCount()override;
+				INativeScreen*									GetScreen(vint index)override;
 				INativeScreen*									GetScreen(INativeWindow* window)override;
 			};
 		}

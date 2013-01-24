@@ -53,7 +53,7 @@ public:
 		return 0;
 	}
 
-	void ColorizeLineWithCRLF(const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)override
+	void ColorizeLineWithCRLF(int lineIndex, const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)override
 	{
 		if(length>0)
 		{
@@ -125,7 +125,7 @@ public:
 		Setup();
 	}
 
-	void ColorizeTokenContextSensitive(const wchar_t* text, vint start, vint length, vint& token, int& contextState)override
+	void ColorizeTokenContextSensitive(int lineIndex, const wchar_t* text, vint start, vint length, vint& token, int& contextState)override
 	{
 		// 0 < 1 name 2 att > 0
 		switch(token)

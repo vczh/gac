@@ -34,7 +34,7 @@ public:
 		List<WString> directories;
 		List<WString> files;
 		SearchDirectoriesAndFiles(directory, directories, files);
-		FOREACH(WString, file, directories.Wrap()>>Concat(files.Wrap()))
+		FOREACH(WString, file, From(directories).Concat(files))
 		{
 			fileProperties.Add(new FileProperties(directory+L"\\"+file));
 		}

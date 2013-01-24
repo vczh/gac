@@ -53,8 +53,8 @@ void SearchDirectoriesAndFiles(const WString& path, List<WString>& directories, 
 	}
 
 	Func<vint(WString a, WString b)> comparer=[](WString a, WString b){return _wcsicmp(a.Buffer(), b.Buffer());};
-	CopyFrom(directories.Wrap(), directories.Wrap()>>OrderBy(comparer));
-	CopyFrom(files.Wrap(), files.Wrap()>>OrderBy(comparer));
+	CopyFrom(directories, From(directories).OrderBy(comparer));
+	CopyFrom(files, From(files).OrderBy(comparer));
 }
 
 Ptr<GuiImageData> GetFileIcon(const WString& fullPath, UINT uFlags)
