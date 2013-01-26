@@ -5,7 +5,7 @@ GPU Accelerated C++ User Interface/Script Engine
 
 Website for this project: http://www.gaclib.net/
 
-This is a mirror from http://gac.codeplex.com/
+This is a mirror for the release from http://gac.codeplex.com/
 
 Here is a simple description to the code
 * **GacUIDemo** Demo solution and projects
