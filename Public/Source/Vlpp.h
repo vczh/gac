@@ -128,6 +128,144 @@ typedef signed __int64	pos_t;
 		}
 	};
 
+	template<typename T>
+	class Nullable
+	{
+	private:
+		T*					object;
+	public:
+		Nullable()
+			:object(0)
+		{
+		}
+
+		Nullable(const T& value)
+			:object(new T(value))
+		{
+		}
+
+		Nullable(const Nullable<T>& nullable)
+			:object(nullable.object?new T(*nullable.object):0)
+		{
+		}
+
+		Nullable(Nullable<T>&& nullable)
+			:object(nullable.object)
+		{
+			nullable.object=0;
+		}
+
+		~Nullable()
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+		}
+
+		Nullable<T>& operator=(const T& value)
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+			object=new T(value);
+			return *this;
+		}
+
+		Nullable<T>& operator=(const Nullable<T>& nullable)
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+			if(nullable.object)
+			{
+				object=new T(*nullable.object);
+			}
+			return *this;
+		}
+
+		Nullable<T>& operator=(Nullable<T>&& nullable)
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+			object=nullable.object;
+			nullable.object=0;
+			return *this;
+		}
+
+		static bool Equals(const Nullable<T>& a, const Nullable<T>& b)
+		{
+			return
+				object
+				?nullable.object
+					?*object==*nullable.object
+					:false
+				:nullable.object
+					?false
+					:true;
+		}
+
+		static vint Compare(const Nullable<T>& a, const Nullable<T>& b)
+		{
+			return
+				object
+				?nullable.object
+					?(*object==*nullable.object?0:*object<*nullable.object?-1:1)
+					:1
+				:nullable.object
+					?-1
+					:0;
+		}
+
+		bool operator==(const Nullable<T>& nullable)const
+		{
+			return Equals(*this, nullable);
+		}
+
+		bool operator!=(const Nullable<T>& nullable)const
+		{
+			return !Equals(*this, nullable);
+		}
+
+		bool operator<(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)<0;
+		}
+
+		bool operator<=(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)<=0;
+		}
+
+		bool operator>(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)>0;
+		}
+
+		bool operator>=(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)>=0;
+		}
+
+		operator bool()const
+		{
+			return object!=0;
+		}
+
+		const T& Value()const
+		{
+			return *object;
+		}
+	};
+
 	template<typename T, size_t minSize>
 	union BinaryRetriver
 	{
@@ -144,6 +282,11 @@ typedef signed __int64	pos_t;
 	{
 	public:
 		typedef T Type;
+
+		static T GetKeyValue(const T& value)
+		{
+			return value;
+		}
 	};
 
 	template<typename T>
@@ -191,9 +334,14 @@ typedef signed __int64	pos_t;
 
 		static DateTime		LocalTime();
 		static DateTime		UtcTime();
+		static DateTime		FromFileTime(unsigned __int64 filetime);
+
+		DateTime();
 
 		DateTime			ToLocalTime();
 		DateTime			ToUtcTime();
+		DateTime			Forward(unsigned __int64 milliseconds);
+		DateTime			Backward(unsigned __int64 milliseconds);
 	};
 
 /***********************************************************************
@@ -895,6 +1043,8 @@ namespace vl
 			virtual vint								Index()const=0;
 			virtual bool								Next()=0;
 			virtual void								Reset()=0;
+
+			virtual bool								Evaluated()const{return false;}
 		};
 
 		template<typename T>
@@ -1400,7 +1550,7 @@ namespace vl
 				vint end=count-1;
 				while(start<=end)
 				{
-					vint index=(start+end)/2;
+					vint index=start+(end-start)/2;
 					if(buffer[index]==item)
 					{
 						return index;
@@ -1658,7 +1808,7 @@ namespace vl
 
 			bool Add(const KT& key, const VT& value)
 			{
-				CHECK_ERROR(!keys.Contains(key), L"Dictionary<KT, KK, ValueContainer, VT, VK>::Add(const KT&, const VT&)#key已存在。");
+				CHECK_ERROR(!keys.Contains(KeyType<KT>::GetKeyValue(key)), L"Dictionary<KT, KK, ValueContainer, VT, VK>::Add(const KT&, const VT&)#key已存在。");
 				vint index=keys.Add(key);
 				values.Insert(index, value);
 				return true;
@@ -1853,7 +2003,7 @@ namespace vl
 			bool Add(const KT& key, const VT& value)
 			{
 				ValueContainer* target=0;
-				vint index=keys.IndexOf(key);
+				vint index=keys.IndexOf(KeyType<KT>::GetKeyValue(key));
 				if(index==-1)
 				{
 					target=new ValueContainer;
@@ -2027,6 +2177,11 @@ Classes:
 
 namespace vl
 {
+
+/***********************************************************************
+Ptr
+***********************************************************************/
+
 	template<typename T>
 	class Ptr
 	{
@@ -2250,6 +2405,10 @@ namespace vl
 		}
 	};
 
+/***********************************************************************
+ComPtr
+***********************************************************************/
+
 	template<typename T>
 	class ComPtr
 	{
@@ -2428,10 +2587,19 @@ namespace vl
 		}
 	};
 
+/***********************************************************************
+Traits
+***********************************************************************/
+
 	template<typename T>
 	struct KeyType<Ptr<T>>
 	{
 		typedef T* Type;
+
+		static T* GetKeyValue(const Ptr<T>& key)
+		{
+			return key.Obj();
+		}
 	};
 
 	template<typename T>
@@ -2444,6 +2612,11 @@ namespace vl
 	struct KeyType<ComPtr<T>>
 	{
 		typedef T* Type;
+
+		static T* GetKeyValue(const ComPtr<T>& key)
+		{
+			return key.Obj();
+		}
 	};
 
 	template<typename T>
@@ -2630,6 +2803,8 @@ namespace vl
 		bool									StartsWith(const WString& text, const WString& find, Normalization normalization);
 		bool									EndsWidth(const WString& text, const WString& find, Normalization normalization);
 	};
+
+#define INVLOC vl::Locale::Invariant()
 }
 
 #endif
@@ -3877,7 +4052,7 @@ Vczh Library++ 3.0
 Developer: 陈梓瀚(vczh)
 Parser::ParsingJson_Parser
 
-本文件使用Vczh Functional Macro工具自动生成
+本文件使用Vczh Parsing Generator工具自动生成
 ***********************************************************************/
 
 #ifndef VCZH_PARSING_JSON_PARSINGJSON_PARSER
@@ -3892,8 +4067,8 @@ namespace vl
 		{
 			struct JsonParserTokenIndex abstract
 			{
-				static const vl::vint TRUE = 0;
-				static const vl::vint FALSE = 1;
+				static const vl::vint TRUEVALUE = 0;
+				static const vl::vint FALSEVALUE = 1;
 				static const vl::vint NULLVALUE = 2;
 				static const vl::vint OBJOPEN = 3;
 				static const vl::vint OBJCLOSE = 4;
@@ -5653,9 +5828,6 @@ namespace vl
 	namespace collections
 	{
 
-		template<typename T>
-		class Enumerable;
-
 /***********************************************************************
 空迭代器
 ***********************************************************************/
@@ -5663,38 +5835,107 @@ namespace vl
 		template<typename T>
 		class EmptyEnumerable : public Object, public IEnumerable<T>
 		{
-			friend class Enumerable<T>;
 		private:
-			class Enumerator : public Object, public IEnumerator<T>
+			class Enumerator : public Object, public virtual IEnumerator<T>
 			{
-				IEnumerator<T>* Clone()const
+				IEnumerator<T>* Clone()const override
 				{
 					return new Enumerator;
 				}
 
-				const T& Current()const
+				const T& Current()const override
 				{
 					return *(T*)0;
 				}
 
-				vint Index()const
+				vint Index()const override
 				{
 					return -1;
 				}
 
-				bool Next()
+				bool Next()override
 				{
 					return false;
 				}
 
-				void Reset()
+				void Reset()override
 				{
+				}
+
+				bool Evaluated()const override
+				{
+					return true;
 				}
 			};
 		public:
 			IEnumerator<T>* CreateEnumerator()const
 			{
 				return new Enumerator;
+			}
+		};
+
+/***********************************************************************
+递增数组迭代器
+***********************************************************************/
+
+		template<typename T>
+		class RangeEnumerator : public Object, public virtual IEnumerator<T>
+		{
+		protected:
+			T			start;
+			T			count;
+			T			current;
+		public:
+			RangeEnumerator(T _start, T _count, T _current)
+				:start(_start)
+				,count(_count)
+				,current(_current)
+			{
+			}
+
+			RangeEnumerator(T _start, T _count)
+				:start(_start)
+				,count(_count)
+				,current(_start-1)
+			{
+			}
+
+			IEnumerator<T>* Clone()const override
+			{
+				return new RangeEnumerator(start, count, current);
+			}
+
+			const T& Current()const override
+			{
+				return current;
+			}
+
+			T Index()const override
+			{
+				return current-start;
+			}
+
+			bool Next()override
+			{
+				if(start-1<=current && current<start+count-1)
+				{
+					current++;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void Reset()override
+			{
+				current=start-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
 			}
 		};
 
@@ -5716,30 +5957,35 @@ namespace vl
 				index=_index;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new ContainerEnumerator(container, index);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return container->Get(index);
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				index++;
 				return index>=0 && index<container->Count();
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				index=-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
 			}
 		};
 
@@ -11067,9 +11313,10 @@ Select
 			Func<K(T)>			selector;
 			K					current;
 		public:
-			SelectEnumerator(IEnumerator<T>* _enumerator, const Func<K(T)>& _selector)
+			SelectEnumerator(IEnumerator<T>* _enumerator, const Func<K(T)>& _selector, K _current=K())
 				:enumerator(_enumerator)
 				,selector(_selector)
+				,current(_current)
 			{
 			}
 
@@ -11078,22 +11325,22 @@ Select
 				delete enumerator;
 			}
 
-			IEnumerator<K>* Clone()const
+			IEnumerator<K>* Clone()const override
 			{
-				return new SelectEnumerator(enumerator->Clone(), selector);
+				return new SelectEnumerator(enumerator->Clone(), selector, current);
 			}
 
-			const K& Current()const
+			const K& Current()const override
 			{
 				return current;
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator->Index();
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				if(enumerator->Next())
 				{
@@ -11106,7 +11353,7 @@ Select
 				}
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
 			}
@@ -11159,22 +11406,22 @@ Where
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new WhereEnumerator(enumerator->Clone(), selector, index);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(enumerator->Next())
 				{
@@ -11187,9 +11434,10 @@ Where
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
+				index=-1;
 			}
 		};
 	}
@@ -11243,12 +11491,12 @@ Concat
 				delete enumerator2;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new ConcatEnumerator(enumerator1->Clone(), enumerator2->Clone(), index, turned);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				if(turned)
 				{
@@ -11260,12 +11508,12 @@ Concat
 				}
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				index++;
 				if(turned)
@@ -11286,11 +11534,17 @@ Concat
 				}
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator1->Reset();
 				enumerator2->Reset();
 				index=-1;
+				turned=false;
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator1->Evaluated() && enumerator2->Evaluated();
 			}
 		};
 	}
@@ -11339,30 +11593,35 @@ Take
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new TakeEnumerator(enumerator->Clone(), count);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator->Index();
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				if(enumerator->Index()>=count-1) return false;
 				return enumerator->Next();
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator->Evaluated();
 			}
 		};
 
@@ -11376,18 +11635,13 @@ Skip
 		protected:
 			IEnumerator<T>*			enumerator;
 			vint					count;
+			bool					skipped;
 		public:
-			SkipEnumerator(IEnumerator<T>* _enumerator, vint _count, bool runSkip=true)
+			SkipEnumerator(IEnumerator<T>* _enumerator, vint _count, bool _skipped=false)
 				:enumerator(_enumerator)
 				,count(_count)
+				,skipped(_skipped)
 			{
-				if(runSkip)
-				{
-					for(vint i=0;i<count;i++)
-					{
-						enumerator->Next();
-					}
-				}
 			}
 
 			~SkipEnumerator()
@@ -11395,33 +11649,46 @@ Skip
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
-				return new SkipEnumerator(enumerator->Clone(), count, false);
+				return new SkipEnumerator(enumerator->Clone(), count, skipped);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator->Index()-count;
 			}
 
-			bool Next()
+			bool Next()override
 			{
+				if(!skipped)
+				{
+					skipped=true;
+					for(vint i=0;i<count;i++)
+					{
+						if(!enumerator->Next())
+						{
+							return false;
+						}
+					}
+				}
 				return enumerator->Next();
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
-				for(vint i=0;i<count;i++)
-				{
-					enumerator->Next();
-				}
+				skipped=false;
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator->Evaluated();
 			}
 		};
 
@@ -11451,22 +11718,22 @@ Repeat
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new RepeatEnumerator(enumerator->Clone(), count, index, repeatedCount);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(repeatedCount<count)
 				{
@@ -11481,11 +11748,16 @@ Repeat
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
 				index=-1;
 				repeatedCount=0;
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator->Evaluated();
 			}
 		};
 
@@ -11508,6 +11780,7 @@ Distinct
 			}
 
 			DistinctEnumerator(const DistinctEnumerator& _enumerator)
+				:lastValue(_enumerator.lastValue)
 			{
 				enumerator=_enumerator.enumerator->Clone();
 				CopyFrom(distinct, _enumerator.distinct);
@@ -11518,22 +11791,22 @@ Distinct
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new DistinctEnumerator(*this);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return lastValue;
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return distinct.Count()-1;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(enumerator->Next())
 				{
@@ -11548,7 +11821,7 @@ Distinct
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
 				distinct.Clear();
@@ -11573,39 +11846,44 @@ Reverse
 			}
 
 			ReverseEnumerator(const ReverseEnumerator& _enumerator)
+				:index(_enumerator.index)
 			{
 				CopyFrom(cache, _enumerator.cache);
-				index=_enumerator.index;
 			}
 
 			~ReverseEnumerator()
 			{
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new ReverseEnumerator(*this);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return cache.Get(cache.Count()-1-index);
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				index++;
 				return index<cache.Count();
 			}
 
-			void Reset()
+			void Reset()override
 			{
-				index=0;
+				index=-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
 			}
 		};
 
@@ -11616,7 +11894,6 @@ FromIterator
 		template<typename T, typename I>
 		class FromIteratorEnumerable : public Object, public IEnumerable<T>
 		{
-			friend class Enumerable<T>;
 		private:
 			class Enumerator : public Object, public IEnumerator<T>
 			{
@@ -11633,30 +11910,35 @@ FromIterator
 				{
 				}
 
-				IEnumerator<T>* Clone()const
+				IEnumerator<T>* Clone()const override
 				{
 					return new Enumerator(begin, end, current);
 				}
 
-				const T& Current()const
+				const T& Current()const override
 				{
 					return *current;
 				}
 
-				vint Index()const
+				vint Index()const override
 				{
 					return current-begin;
 				}
 
-				bool Next()
+				bool Next()override
 				{
 					current++;
 					return begin<=current && current<end;
 				}
 
-				void Reset()
+				void Reset()override
 				{
 					current=begin-1;
+				}
+
+				bool Evaluated()const override
+				{
+					return true;
 				}
 			};
 		private:
@@ -11753,22 +12035,22 @@ Intersect/Except
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new IntersectExceptEnumerator(*this);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(enumerator->Next())
 				{
@@ -11781,10 +12063,10 @@ Intersect/Except
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
-				index=0;
+				index=-1;
 			}
 		};
 	}
@@ -11823,9 +12105,10 @@ Pairwise
 			IEnumerator<T>*					enumerator2;
 			Pair<S, T>						current;
 		public:
-			PairwiseEnumerator(IEnumerator<S>* _enumerator1, IEnumerator<T>* _enumerator2)
+			PairwiseEnumerator(IEnumerator<S>* _enumerator1, IEnumerator<T>* _enumerator2, Pair<S, T> _current=Pair<S, T>())
 				:enumerator1(_enumerator1)
 				,enumerator2(_enumerator2)
+				,current(_current)
 			{
 			}
 
@@ -11835,22 +12118,22 @@ Pairwise
 				delete enumerator2;
 			}
 
-			IEnumerator<Pair<S, T>>* Clone()const
+			IEnumerator<Pair<S, T>>* Clone()const override
 			{
-				return new PairwiseEnumerator(enumerator1->Clone(), enumerator2->Clone());
+				return new PairwiseEnumerator(enumerator1->Clone(), enumerator2->Clone(), current);
 			}
 
-			const Pair<S, T>& Current()const
+			const Pair<S, T>& Current()const override
 			{
 				return current;
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator1->Index();
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				if(enumerator1->Next() && enumerator2->Next())
 				{
@@ -11863,10 +12146,15 @@ Pairwise
 				}
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator1->Reset();
 				enumerator2->Reset();
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator1->Evaluated() && enumerator2->Evaluated();
 			}
 		};
 	}
@@ -11961,8 +12249,12 @@ Functions:
 	[T]		.Union([T]) => [T]
 	[T]		.Except([T]) => [T]
 
+	[T]		.Evaluate() => [T]
+	[T]		.GroupBy(T->K) => [(K, [T])]
+
 	From(begin, end) => [T]
 	From(array) => [T]
+	Range(start, count) => [vint]
 
 	FOREACH(X, a, XList)
 	FOREACH_INDEXER(X, a, index, XList)
@@ -12283,7 +12575,44 @@ LazyList
 			{
 				return Concat(remains).Distinct();
 			}
+
+			//-------------------------------------------------------
+
+			LazyList<T> Evaluate()const
+			{
+				if(enumeratorPrototype->Evaluated())
+				{
+					return *this;
+				}
+				else
+				{
+					Ptr<List<T>> xs=new List<T>;
+					CopyFrom(*xs.Obj(), *this);
+					return xs;
+				}
+			}
+
+			template<typename F>
+			LazyList<Pair<FUNCTION_RESULT_TYPE(F), LazyList<T>>> GroupBy(F f)const
+			{
+				typedef FUNCTION_RESULT_TYPE(F) K;
+				return Select(f)
+					.Distinct()
+					.Select([=](K k)
+					{
+						return Pair<K, LazyList<T>>(
+							k,
+							Where([=](T t){return k==f(t);})
+							);
+					});
+			}
 		};
+
+		template<typename T>
+		LazyList<T> Range(T start, T count)
+		{
+			return new RangeEnumerator<T>(start, count);
+		}
 
 		template<typename T>
 		LazyList<T> From(const IEnumerable<T>& enumerable)
@@ -12321,7 +12650,7 @@ Vczh Library++ 3.0
 Developer: 陈梓瀚(vczh)
 Parser::ParsingXml_Parser
 
-本文件使用Vczh Functional Macro工具自动生成
+本文件使用Vczh Parsing Generator工具自动生成
 ***********************************************************************/
 
 #ifndef VCZH_PARSING_XML_PARSINGXML_PARSER
@@ -12491,6 +12820,7 @@ namespace vl
 			extern WString							XmlEscapeComment(const WString& value);
 			extern WString							XmlUnescapeComment(const WString& value);
 			extern void								XmlPrint(Ptr<XmlNode> node, stream::TextWriter& writer);
+			extern void								XmlPrintContent(Ptr<XmlElement> element, stream::TextWriter& writer);
 			extern WString							XmlToString(Ptr<XmlNode> node);
 
 			extern Ptr<XmlAttribute>							XmlGetAttribute(Ptr<XmlElement> element, const WString& name);
@@ -12498,6 +12828,30 @@ namespace vl
 			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element);
 			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element, const WString& name);
 			extern WString										XmlGetValue(Ptr<XmlElement> element);
+
+			extern Ptr<XmlAttribute>							XmlGetAttribute(XmlElement* element, const WString& name);
+			extern Ptr<XmlElement>								XmlGetElement(XmlElement* element, const WString& name);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element, const WString& name);
+			extern WString										XmlGetValue(XmlElement* element);
+
+			class XmlElementWriter : public Object
+			{
+			protected:
+				Ptr<XmlElement>					element;
+				const XmlElementWriter*			previousWriter;
+
+			public:
+				XmlElementWriter(Ptr<XmlElement> _element, const XmlElementWriter* _previousWriter=0);
+				~XmlElementWriter();
+
+				const XmlElementWriter&			Attribute(const WString& name, const WString& value)const;
+				XmlElementWriter				Element(const WString& name)const;
+				const XmlElementWriter&			End()const;
+				const XmlElementWriter&			Text(const WString& value)const;
+				const XmlElementWriter&			CData(const WString& value)const;
+				const XmlElementWriter&			Comment(const WString& value)const;
+			};
 		}
 	}
 }
@@ -13471,7 +13825,12 @@ Utf-8
 		class Utf8Decoder : public CharDecoder
 		{
 		protected:
+			wchar_t							cache;
+			bool							cacheAvailable;
+
 			vint							ReadString(wchar_t* _buffer, vint chars);
+		public:
+			Utf8Decoder();
 		};
 
 /***********************************************************************

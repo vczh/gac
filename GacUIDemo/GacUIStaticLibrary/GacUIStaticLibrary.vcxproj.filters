@@ -84,11 +84,19 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\Resources\document2.txt">
-      <Filter>Resource Files</Filter>
-    </Text>
     <Text Include="..\Resources\CalculatorDefinition.txt">
       <Filter>Resource Files</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="..\Resources\document2.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
+    <Xml Include="..\Resources\XmlDoc.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
+    <Xml Include="..\Resources\XmlResource.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
   </ItemGroup>
 </Project>

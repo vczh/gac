@@ -105,6 +105,31 @@ DateTime
 		return SystemTimeToDateTime(utcTime);
 	}
 
+	DateTime DateTime::FromFileTime(unsigned __int64 filetime)
+	{
+		ULARGE_INTEGER largeInteger;
+		largeInteger.QuadPart=filetime;
+		FILETIME fileTime;
+		fileTime.dwHighDateTime=largeInteger.HighPart;
+		fileTime.dwLowDateTime=largeInteger.LowPart;
+
+		SYSTEMTIME systemTime;
+		FileTimeToSystemTime(&fileTime, &systemTime);
+		return SystemTimeToDateTime(systemTime);
+	}
+
+	DateTime::DateTime()
+		:year(0)
+		,month(0)
+		,day(0)
+		,hour(0)
+		,minute(0)
+		,second(0)
+		,milliseconds(0)
+		,filetime(0)
+	{
+	}
+
 	DateTime DateTime::ToLocalTime()
 	{
 		SYSTEMTIME utcTime=DateTimeToSystemTime(*this);
@@ -119,6 +144,16 @@ DateTime
 		SYSTEMTIME utcTime;
 		TzSpecificLocalTimeToSystemTime(NULL, &localTime, &utcTime);
 		return SystemTimeToDateTime(utcTime);
+	}
+
+	DateTime DateTime::Forward(unsigned __int64 milliseconds)
+	{
+		return FromFileTime(filetime+milliseconds*10000);
+	}
+
+	DateTime DateTime::Backward(unsigned __int64 milliseconds)
+	{
+		return FromFileTime(filetime-milliseconds*10000);
 	}
 
 /***********************************************************************
@@ -1343,8 +1378,8 @@ Table Generation
 				table->SetTokenInfo(0, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
 				table->SetTokenInfo(1, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
 				table->SetTokenInfo(2, vl::parsing::tabling::ParsingTable::TokenInfo(L"", L""));
-				table->SetTokenInfo(3, vl::parsing::tabling::ParsingTable::TokenInfo(L"TRUE", L"true"));
-				table->SetTokenInfo(4, vl::parsing::tabling::ParsingTable::TokenInfo(L"FALSE", L"false"));
+				table->SetTokenInfo(3, vl::parsing::tabling::ParsingTable::TokenInfo(L"TRUEVALUE", L"true"));
+				table->SetTokenInfo(4, vl::parsing::tabling::ParsingTable::TokenInfo(L"FALSEVALUE", L"false"));
 				table->SetTokenInfo(5, vl::parsing::tabling::ParsingTable::TokenInfo(L"NULLVALUE", L"null"));
 				table->SetTokenInfo(6, vl::parsing::tabling::ParsingTable::TokenInfo(L"OBJOPEN", L"\\{"));
 				table->SetTokenInfo(7, vl::parsing::tabling::ParsingTable::TokenInfo(L"OBJCLOSE", L"\\}"));
@@ -8958,6 +8993,15 @@ API
 				node->Accept(&visitor);
 			}
 
+			void XmlPrintContent(Ptr<XmlElement> element, stream::TextWriter& writer)
+			{
+				XmlPrintVisitor visitor(writer);
+				FOREACH(Ptr<XmlNode>, node, element->subNodes)
+				{
+					node->Accept(&visitor);
+				}
+			}
+
 			WString XmlToString(Ptr<XmlNode> node)
 			{
 				MemoryStream stream;
@@ -8972,7 +9016,36 @@ API
 				}
 			}
 
+/***********************************************************************
+Linq To Xml
+***********************************************************************/
+
 			Ptr<XmlAttribute> XmlGetAttribute(Ptr<XmlElement> element, const WString& name)
+			{
+				return XmlGetAttribute(element.Obj(), name);
+			}
+
+			Ptr<XmlElement> XmlGetElement(Ptr<XmlElement> element, const WString& name)
+			{
+				return XmlGetElement(element.Obj(), name);
+			}
+
+			collections::LazyList<Ptr<XmlElement>> XmlGetElements(Ptr<XmlElement> element)
+			{
+				return XmlGetElements(element.Obj());
+			}
+
+			collections::LazyList<Ptr<XmlElement>> XmlGetElements(Ptr<XmlElement> element, const WString& name)
+			{
+				return XmlGetElements(element.Obj(), name);
+			}
+
+			WString XmlGetValue(Ptr<XmlElement> element)
+			{
+				return XmlGetValue(element.Obj());
+			}
+
+			Ptr<XmlAttribute> XmlGetAttribute(XmlElement* element, const WString& name)
 			{
 				FOREACH(Ptr<XmlAttribute>, att, element->attributes)
 				{
@@ -8984,7 +9057,7 @@ API
 				return 0;
 			}
 
-			Ptr<XmlElement> XmlGetElement(Ptr<XmlElement> element, const WString& name)
+			Ptr<XmlElement> XmlGetElement(XmlElement* element, const WString& name)
 			{
 				FOREACH(Ptr<XmlNode>, node, element->subNodes)
 				{
@@ -8997,20 +9070,20 @@ API
 				return 0;
 			}
 
-			collections::LazyList<Ptr<XmlElement>> XmlGetElements(Ptr<XmlElement> element)
+			collections::LazyList<Ptr<XmlElement>> XmlGetElements(XmlElement* element)
 			{
 				return From(element->subNodes)
 					.FindType<XmlElement>();
 			}
 
-			collections::LazyList<Ptr<XmlElement>> XmlGetElements(Ptr<XmlElement> element, const WString& name)
+			collections::LazyList<Ptr<XmlElement>> XmlGetElements(XmlElement* element, const WString& name)
 			{
 				return From(element->subNodes)
 					.FindType<XmlElement>()
 					.Where([name](Ptr<XmlElement> e){return e->name.value==name;});
 			}
 
-			WString XmlGetValue(Ptr<XmlElement> element)
+			WString XmlGetValue(XmlElement* element)
 			{
 				WString result;
 				FOREACH(Ptr<XmlNode>, node, element->subNodes)
@@ -9025,6 +9098,66 @@ API
 					}
 				}
 				return result;
+			}
+
+/***********************************************************************
+XmlElementWriter
+***********************************************************************/
+
+			XmlElementWriter::XmlElementWriter(Ptr<XmlElement> _element, const XmlElementWriter* _previousWriter)
+				:element(_element)
+				,previousWriter(_previousWriter)
+			{
+			}
+
+			XmlElementWriter::~XmlElementWriter()
+			{
+			}
+
+			const XmlElementWriter& XmlElementWriter::Attribute(const WString& name, const WString& value)const
+			{
+				Ptr<XmlAttribute> node=new XmlAttribute;
+				node->name.value=name;
+				node->value.value=value;
+				element->attributes.Add(node);
+				return *this;
+			}
+
+			XmlElementWriter XmlElementWriter::Element(const WString& name)const
+			{
+				Ptr<XmlElement> node=new XmlElement;
+				node->name.value=name;
+				element->subNodes.Add(node);
+				return XmlElementWriter(node, this);
+			}
+
+			const XmlElementWriter& XmlElementWriter::End()const
+			{
+				return *previousWriter;
+			}
+
+			const XmlElementWriter& XmlElementWriter::Text(const WString& value)const
+			{
+				Ptr<XmlText> node=new XmlText;
+				node->content.value=value;
+				element->subNodes.Add(node);
+				return *this;
+			}
+
+			const XmlElementWriter& XmlElementWriter::CData(const WString& value)const
+			{
+				Ptr<XmlCData> node=new XmlCData;
+				node->content.value=value;
+				element->subNodes.Add(node);
+				return *this;
+			}
+
+			const XmlElementWriter& XmlElementWriter::Comment(const WString& value)const
+			{
+				Ptr<XmlComment> node=new XmlComment;
+				node->content.value=value;
+				element->subNodes.Add(node);
+				return *this;
 			}
 		}
 	}
@@ -9306,11 +9439,11 @@ Table Generation
 				table->SetTokenInfo(7, vl::parsing::tabling::ParsingTable::TokenInfo(L"ELEMENT_OPEN", L"/<"));
 				table->SetTokenInfo(8, vl::parsing::tabling::ParsingTable::TokenInfo(L"ELEMENT_CLOSE", L"/>"));
 				table->SetTokenInfo(9, vl::parsing::tabling::ParsingTable::TokenInfo(L"EQUAL", L"/="));
-				table->SetTokenInfo(10, vl::parsing::tabling::ParsingTable::TokenInfo(L"NAME", L"[a-zA-Z0-9:_/-]+"));
+				table->SetTokenInfo(10, vl::parsing::tabling::ParsingTable::TokenInfo(L"NAME", L"[a-zA-Z0-9:._/-]+"));
 				table->SetTokenInfo(11, vl::parsing::tabling::ParsingTable::TokenInfo(L"ATTVALUE", L"\"[^<>\"]*\"|\'[^<>\']*\'"));
 				table->SetTokenInfo(12, vl::parsing::tabling::ParsingTable::TokenInfo(L"COMMENT", L"/</!--([^/->]|-[^/->]|--[^>])*--/>"));
 				table->SetTokenInfo(13, vl::parsing::tabling::ParsingTable::TokenInfo(L"CDATA", L"/</!/[CDATA/[([^/]]|/][^/]]|/]/][^>])*/]/]/>"));
-				table->SetTokenInfo(14, vl::parsing::tabling::ParsingTable::TokenInfo(L"TEXT", L"([^<>=\"\' /r/n/ta-zA-Z0-9:_/-])+|\"|\'"));
+				table->SetTokenInfo(14, vl::parsing::tabling::ParsingTable::TokenInfo(L"TEXT", L"([^<>=\"\' /r/n/ta-zA-Z0-9:._/-])+|\"|\'"));
 				table->SetDiscardTokenInfo(0, vl::parsing::tabling::ParsingTable::TokenInfo(L"SPACE", L"/s+"));
 				table->SetStateInfo(0, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.RootStart", L"● $<XAttribute>"));
 				table->SetStateInfo(1, vl::parsing::tabling::ParsingTable::StateInfo(L"XAttribute", L"XAttribute.Start", L"· <XAttribute>"));
@@ -16735,7 +16868,7 @@ Mbcs
 		}
 
 /***********************************************************************
-Utf-16-be
+Utf-16
 ***********************************************************************/
 
 		vint Utf16Encoder::WriteString(wchar_t* _buffer, vint chars)
@@ -16811,41 +16944,81 @@ Utf8
 			}
 		}
 
+		Utf8Decoder::Utf8Decoder()
+			:cache(0)
+			,cacheAvailable(false)
+		{
+		}
+
 		vint Utf8Decoder::ReadString(wchar_t* _buffer, vint chars)
 		{
-			char* source=new char[chars*3];
-			char* reading=source;
+			char source[4];
+			wchar_t target[2];
+			wchar_t* writing=_buffer;
 			vint readed=0;
+			vint sourceCount=0;
+
 			while(readed<chars)
 			{
-				if(stream->Read(reading, 1)!=1)
+				if(cacheAvailable)
 				{
-					break;
-				}
-				if((*reading & 0xE0) == 0xE0)
-				{
-					if(stream->Read(reading+1, 2)!=2)
-					{
-						break;
-					}
-					reading+=3;
-				}
-				else if((*reading & 0xC0) == 0xC0)
-				{
-					if(stream->Read(reading+1, 1)!=1)
-					{
-						break;
-					}
-					reading+=2;
+					*writing++=cache;
+					cache=0;
+					cacheAvailable=false;
 				}
 				else
 				{
-					reading++;
+					if(stream->Read(source, 1)!=1)
+					{
+						break;
+					}
+					if((*source & 0xF0) == 0xF0)
+					{
+						if(stream->Read(source+1, 3)!=3)
+						{
+							break;
+						}
+						sourceCount=4;
+					}
+					else if((*source & 0xE0) == 0xE0)
+					{
+						if(stream->Read(source+1, 2)!=2)
+						{
+							break;
+						}
+						sourceCount=3;
+					}
+					else if((*source & 0xC0) == 0xC0)
+					{
+						if(stream->Read(source+1, 1)!=1)
+						{
+							break;
+						}
+						sourceCount=2;
+					}
+					else
+					{
+						sourceCount=1;
+					}
+					
+					int targetCount=MultiByteToWideChar(CP_UTF8, 0, source, (int)sourceCount, target, 2);
+					if(targetCount==1)
+					{
+						*writing++=target[0];
+					}
+					else if(targetCount==2)
+					{
+						*writing++=target[0];
+						cache=target[1];
+						cacheAvailable=true;
+					}
+					else
+					{
+						break;
+					}
 				}
 				readed++;
 			}
-			MultiByteToWideChar(CP_UTF8, 0, source, (int)(reading-source), _buffer, (int)chars);
-			delete[] source;
 			return readed;
 		}
 

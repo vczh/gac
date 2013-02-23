@@ -128,6 +128,144 @@ typedef signed __int64	pos_t;
 		}
 	};
 
+	template<typename T>
+	class Nullable
+	{
+	private:
+		T*					object;
+	public:
+		Nullable()
+			:object(0)
+		{
+		}
+
+		Nullable(const T& value)
+			:object(new T(value))
+		{
+		}
+
+		Nullable(const Nullable<T>& nullable)
+			:object(nullable.object?new T(*nullable.object):0)
+		{
+		}
+
+		Nullable(Nullable<T>&& nullable)
+			:object(nullable.object)
+		{
+			nullable.object=0;
+		}
+
+		~Nullable()
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+		}
+
+		Nullable<T>& operator=(const T& value)
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+			object=new T(value);
+			return *this;
+		}
+
+		Nullable<T>& operator=(const Nullable<T>& nullable)
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+			if(nullable.object)
+			{
+				object=new T(*nullable.object);
+			}
+			return *this;
+		}
+
+		Nullable<T>& operator=(Nullable<T>&& nullable)
+		{
+			if(object)
+			{
+				delete object;
+				object=0;
+			}
+			object=nullable.object;
+			nullable.object=0;
+			return *this;
+		}
+
+		static bool Equals(const Nullable<T>& a, const Nullable<T>& b)
+		{
+			return
+				object
+				?nullable.object
+					?*object==*nullable.object
+					:false
+				:nullable.object
+					?false
+					:true;
+		}
+
+		static vint Compare(const Nullable<T>& a, const Nullable<T>& b)
+		{
+			return
+				object
+				?nullable.object
+					?(*object==*nullable.object?0:*object<*nullable.object?-1:1)
+					:1
+				:nullable.object
+					?-1
+					:0;
+		}
+
+		bool operator==(const Nullable<T>& nullable)const
+		{
+			return Equals(*this, nullable);
+		}
+
+		bool operator!=(const Nullable<T>& nullable)const
+		{
+			return !Equals(*this, nullable);
+		}
+
+		bool operator<(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)<0;
+		}
+
+		bool operator<=(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)<=0;
+		}
+
+		bool operator>(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)>0;
+		}
+
+		bool operator>=(const Nullable<T>& nullable)const
+		{
+			return Compare(*this, nullable)>=0;
+		}
+
+		operator bool()const
+		{
+			return object!=0;
+		}
+
+		const T& Value()const
+		{
+			return *object;
+		}
+	};
+
 	template<typename T, size_t minSize>
 	union BinaryRetriver
 	{
@@ -144,6 +282,11 @@ typedef signed __int64	pos_t;
 	{
 	public:
 		typedef T Type;
+
+		static T GetKeyValue(const T& value)
+		{
+			return value;
+		}
 	};
 
 	template<typename T>
@@ -191,9 +334,14 @@ typedef signed __int64	pos_t;
 
 		static DateTime		LocalTime();
 		static DateTime		UtcTime();
+		static DateTime		FromFileTime(unsigned __int64 filetime);
+
+		DateTime();
 
 		DateTime			ToLocalTime();
 		DateTime			ToUtcTime();
+		DateTime			Forward(unsigned __int64 milliseconds);
+		DateTime			Backward(unsigned __int64 milliseconds);
 	};
 
 /***********************************************************************
@@ -660,6 +808,847 @@ namespace vl
 #endif
 
 /***********************************************************************
+COMMON\SOURCE\COLLECTIONS\PAIR.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Data Structure::Pair
+
+Classes:
+	Pair<K, V>							：二元组
+***********************************************************************/
+
+#ifndef VCZH_COLLECTIONS_PAIR
+#define VCZH_COLLECTIONS_PAIR
+
+
+namespace vl
+{
+	namespace collections
+	{
+		template<typename K, typename V>
+		class Pair
+		{
+		public:
+			K				key;
+			V				value;
+
+			Pair()
+			{
+			}
+
+			Pair(const K& _key, const V& _value)
+			{
+				key=_key;
+				value=_value;
+			}
+
+			Pair(const Pair<K, V>& pair)
+			{
+				key=pair.key;
+				value=pair.value;
+			}
+
+			vint CompareTo(const Pair<K, V>& pair)const
+			{
+				if(key<pair.key)
+				{
+					return -1;
+				}
+				else if(key>pair.key)
+				{
+					return 1;
+				}
+				else if(value<pair.value)
+				{
+					return -1;
+				}
+				else if(value>pair.value)
+				{
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			bool operator==(const Pair<K, V>& pair)const
+			{
+				return CompareTo(pair)==0;
+			}
+
+			bool operator!=(const Pair<K, V>& pair)const
+			{
+				return CompareTo(pair)!=0;
+			}
+
+			bool operator<(const Pair<K, V>& pair)const
+			{
+				return CompareTo(pair)<0;
+			}
+
+			bool operator<=(const Pair<K, V>& pair)const
+			{
+				return CompareTo(pair)<=0;
+			}
+
+			bool operator>(const Pair<K, V>& pair)const
+			{
+				return CompareTo(pair)>0;
+			}
+
+			bool operator>=(const Pair<K, V>& pair)const
+			{
+				return CompareTo(pair)>=0;
+			}
+		};
+	}
+
+	template<typename K, typename V>
+	struct POD<collections::Pair<K, V>>
+	{
+		static const bool Result=POD<K>::Result && POD<V>::Result;
+	};
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\COLLECTIONS\INTERFACES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Data Structure::Interfaces
+
+Interfaces:
+	IEnumerator<T>									：枚举器
+	IEnumerable<T>									：可枚举对象
+***********************************************************************/
+
+#ifndef VCZH_COLLECTIONS_INTERFACES
+#define VCZH_COLLECTIONS_INTERFACES
+
+
+namespace vl
+{
+	namespace collections
+	{
+
+/***********************************************************************
+接口
+***********************************************************************/
+
+		template<typename T>
+		class IEnumerator : public virtual Interface
+		{
+		public:
+			virtual IEnumerator<T>*						Clone()const=0;
+			virtual const T&							Current()const=0;
+			virtual vint								Index()const=0;
+			virtual bool								Next()=0;
+			virtual void								Reset()=0;
+
+			virtual bool								Evaluated()const{return false;}
+		};
+
+		template<typename T>
+		class IEnumerable : public virtual Interface
+		{
+		public:
+			typedef T									ElementType;
+
+			virtual IEnumerator<T>*						CreateEnumerator()const=0;
+		};
+
+/***********************************************************************
+随机存取
+***********************************************************************/
+
+		namespace randomaccess_internal
+		{
+			template<typename T>
+			struct RandomAccessable
+			{
+				static const bool							CanRead = false;
+				static const bool							CanResize = false;
+			};
+
+			template<typename T>
+			struct RandomAccess
+			{
+				static vint GetCount(const T& t)
+				{
+					return t.Count();
+				}
+
+				static const typename T::ElementType& GetValue(const T& t, vint index)
+				{
+					return t.Get(index);
+				}
+
+				static void SetCount(T& t, vint count)
+				{
+					t.Resize(count);
+				}
+
+				static void SetValue(T& t, vint index, const typename T::ElementType& value)
+				{
+					t.Set(index, value);
+				}
+
+				static void AppendValue(T& t, const typename T::ElementType& value)
+				{
+					t.Add(value);
+				}
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\COLLECTIONS\LIST.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Data Structure::List
+
+Classes:
+	ListStore<T,PODType>				：列表存储复制算法
+	ListBase<T,K>						：列表基类
+	Array<T,K>							：数组
+	List<T,K>							：列表
+	SortedList<T,K>						：有序列表
+***********************************************************************/
+
+#ifndef VCZH_COLLECTIONS_LIST
+#define VCZH_COLLECTIONS_LIST
+
+#include <string.h>
+
+namespace vl
+{
+	namespace collections
+	{
+
+/***********************************************************************
+储存结构
+***********************************************************************/
+
+		template<typename T, bool PODType>
+		class ListStore abstract : public Object
+		{
+		};
+		
+		template<typename T>
+		class ListStore<T, false> abstract : public Object
+		{
+		protected:
+			static void CopyObjects(T* dest, const T* source, vint count)
+			{
+				if(dest<source)
+				{
+					for(vint i=0;i<count;i++)
+					{
+						dest[i]=source[i];
+					}
+				}
+				else if(dest>source)
+				{
+					for(vint i=count-1;i>=0;i--)
+					{
+						dest[i]=source[i];
+					}
+				}
+			}
+
+			static void ClearObjects(T* dest, vint count)
+			{
+				for(vint i=0;i<count;i++)
+				{
+					dest[i]=T();
+				}
+			}
+		public:
+		};
+		
+		template<typename T>
+		class ListStore<T, true> abstract : public Object
+		{
+		protected:
+			static void CopyObjects(T* dest, const T* source, vint count)
+			{
+				if(count)
+				{
+					memmove(dest, source, sizeof(T)*count);
+				}
+			}
+
+			static void ClearObjects(T* dest, vint count)
+			{
+			}
+		public:
+		};
+		
+		template<typename T>
+		class ArrayBase abstract : public ListStore<T,POD<T>::Result>, public virtual IEnumerable<T>
+		{
+		protected:
+			class Enumerator : public Object, public virtual IEnumerator<T>
+			{
+			private:
+				const ArrayBase<T>*				container;
+				vint							index;
+
+			public:
+				Enumerator(const ArrayBase<T>* _container, vint _index=-1)
+				{
+					container=_container;
+					index=_index;
+				}
+
+				IEnumerator<T>* Clone()const
+				{
+					return new Enumerator(container, index);
+				}
+
+				const T& Current()const
+				{
+					return container->Get(index);
+				}
+
+				vint Index()const
+				{
+					return index;
+				}
+
+				bool Next()
+				{
+					index++;
+					return index>=0 && index<container->Count();
+				}
+
+				void Reset()
+				{
+					index=-1;
+				}
+			};
+			
+			T*						buffer;
+			vint					count;
+		public:
+			ArrayBase()
+				:buffer(0)
+				,count(0)
+			{
+			}
+
+			IEnumerator<T>* CreateEnumerator()const
+			{
+				return new Enumerator(this);
+			}
+
+			vint Count()const
+			{
+				return count;
+			}
+
+			const T& Get(vint index)const
+			{
+				CHECK_ERROR(index>=0 && index<count, L"ArrayBase<T, K>::Get(vint)#参数越界。");
+				return buffer[index];
+			}
+
+			const T& operator[](vint index)const
+			{
+				CHECK_ERROR(index>=0 && index<count, L"ArrayBase<T, K>::operator[](vint)#参数index越界。");
+				return buffer[index];
+			}
+		};
+
+		template<typename T, typename K=typename KeyType<T>::Type>
+		class ListBase abstract : public ArrayBase<T>
+		{
+		protected:
+			vint					capacity;
+			bool					lessMemoryMode;
+
+			vint CalculateCapacity(vint expected)
+			{
+				vint result=capacity;
+				while(result<expected)
+				{
+					result=result*5/4+1;
+				}
+				return result;
+			}
+
+			void MakeRoom(vint index, vint _count)
+			{
+				vint newCount=count+_count;
+				if(newCount>capacity)
+				{
+					vint newCapacity=CalculateCapacity(newCount);
+					T* newBuffer=new T[newCapacity];
+					CopyObjects(newBuffer, buffer, index);
+					CopyObjects(newBuffer+index+_count, buffer+index, count-index);
+					delete[] buffer;
+					capacity=newCapacity;
+					buffer=newBuffer;
+				}
+				else
+				{
+					CopyObjects(buffer+index+_count, buffer+index, count-index);
+				}
+				count=newCount;
+			}
+
+			void ReleaseUnnecessaryBuffer(vint previousCount)
+			{
+				if(buffer && count<previousCount)
+				{
+					ClearObjects(&buffer[count], previousCount-count);
+				}
+				if(lessMemoryMode && count<=capacity/2)
+				{
+					vint newCapacity=capacity*5/8;
+					if(count<newCapacity)
+					{
+						T* newBuffer=new T[newCapacity];
+						CopyObjects(newBuffer, buffer, count);
+						delete[] buffer;
+						capacity=newCapacity;
+						buffer=newBuffer;
+					}
+				}
+			}
+		public:
+			ListBase()
+			{
+				count=0;
+				capacity=0;
+				buffer=0;
+				lessMemoryMode=true;
+			}
+
+			~ListBase()
+			{
+				delete[] buffer;
+			}
+
+			void SetLessMemoryMode(bool mode)
+			{
+				lessMemoryMode=mode;
+			}
+
+			bool RemoveAt(vint index)
+			{
+				vint previousCount=count;
+				CHECK_ERROR(index>=0 && index<count, L"ListBase<T, K>::RemoveAt(vint)#参数index越界。");
+				CopyObjects(buffer+index,buffer+index+1,count-index-1);
+				count--;
+				ReleaseUnnecessaryBuffer(previousCount);
+				return true;
+			}
+
+			bool RemoveRange(vint index, vint _count)
+			{
+				vint previousCount=count;
+				CHECK_ERROR(index>=0 && index<=count, L"ListBase<T, K>::RemoveRange(vint, vint)#参数index越界。");
+				CHECK_ERROR(index+_count>=0 && index+_count<=count, L"ListBase<T,K>::RemoveRange(vint, vint)#参数_count越界。");
+				CopyObjects(buffer+index, buffer+index+_count, count-index-_count);
+				count-=_count;
+				ReleaseUnnecessaryBuffer(previousCount);
+				return true;
+			}
+
+			bool Clear()
+			{
+				vint previousCount=count;
+				count=0;
+				if(lessMemoryMode)
+				{
+					capacity=0;
+					delete[] buffer;
+					buffer=0;
+				}
+				else
+				{
+					ReleaseUnnecessaryBuffer(previousCount);
+				}
+				return true;
+			}
+		};
+
+/***********************************************************************
+列表对象
+***********************************************************************/
+
+		template<typename T, typename K=typename KeyType<T>::Type>
+		class Array : public ArrayBase<T>
+		{
+		protected:
+			void Create(vint size)
+			{
+				if(size>0)
+				{
+					count=size;
+					buffer=new T[size];
+				}
+				else
+				{
+					count=0;
+					buffer=0;
+				}
+			}
+
+			void Destroy()
+			{
+				count=0;
+				delete[] buffer;
+				buffer=0;
+			}
+		public:
+			Array(vint size=0)
+			{
+				Create(size);
+			}
+
+			Array(const T* _buffer, vint size)
+			{
+				Create(size);
+				CopyObjects(buffer, _buffer, size);
+			}
+
+			~Array()
+			{
+				Destroy();
+			}
+
+			bool Contains(const K& item)const
+			{
+				return IndexOf(item)!=-1;
+			}
+
+			vint IndexOf(const K& item)const
+			{
+				for(vint i=0;i<count;i++)
+				{
+					if(buffer[i]==item)
+					{
+						return i;
+					}
+				}
+				return -1;
+			}
+
+			void Set(vint index, const T& item)
+			{
+				CHECK_ERROR(index>=0 && index<count, L"Array<T, K>::Set(vint)#参数index越界。");
+				buffer[index]=item;
+			}
+
+			T& operator[](vint index)
+			{
+				CHECK_ERROR(index>=0 && index<count, L"Array<T, K>::operator[](vint)#参数index越界。");
+				return buffer[index];
+			}
+
+			void Resize(vint size)
+			{
+				vint oldCount=count;
+				T* oldBuffer=buffer;
+				Create(size);
+				CopyObjects(buffer, oldBuffer, (count<oldCount?count:oldCount));
+				delete[] oldBuffer;
+			}
+		};
+
+		template<typename T, typename K=typename KeyType<T>::Type>
+		class List : public ListBase<T, K>
+		{
+		public:
+			List()
+			{
+			}
+
+			bool Contains(const K& item)const
+			{
+				return IndexOf(item)!=-1;
+			}
+
+			vint IndexOf(const K& item)const
+			{
+				for(vint i=0;i<count;i++)
+				{
+					if(buffer[i]==item)
+					{
+						return i;
+					}
+				}
+				return -1;
+			}
+
+			vint Add(const T& item)
+			{
+				MakeRoom(count, 1);
+				buffer[count-1]=item;
+				return count-1;
+			}
+
+			vint Insert(vint index, const T& item)
+			{
+				CHECK_ERROR(index>=0 && index<=count, L"List<T, K>::Insert(vint, const T&)#参数index越界。");
+				MakeRoom(index,1);
+				buffer[index]=item;
+				return index;
+			}
+
+			bool Remove(const K& item)
+			{
+				vint index=IndexOf(item);
+				if(index>=0 && index<count)
+				{
+					RemoveAt(index);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool Set(vint index, const T& item)
+			{
+				CHECK_ERROR(index>=0 && index<count, L"List<T, K>::Set(vint)#参数index越界。");
+				buffer[index]=item;
+				return true;
+			}
+
+			T& operator[](vint index)
+			{
+				CHECK_ERROR(index>=0 && index<count, L"List<T, K>::operator[](vint)#参数index越界。");
+				return buffer[index];
+			}
+		};
+
+		template<typename T, typename K=typename KeyType<T>::Type>
+		class SortedList : public ListBase<T, K>
+		{
+		public:
+			SortedList()
+			{
+			}
+
+			bool Contains(const K& item)const
+			{
+				return IndexOf(item)!=-1;
+			}
+
+			template<typename Key>
+			vint IndexOf(const Key& item)const
+			{
+				vint start=0;
+				vint end=count-1;
+				while(start<=end)
+				{
+					vint index=start+(end-start)/2;
+					if(buffer[index]==item)
+					{
+						return index;
+					}
+					else if(buffer[index]>item)
+					{
+						end=index-1;
+					}
+					else
+					{
+						start=index+1;
+					}
+				}
+				return -1;
+			}
+
+			vint IndexOf(const K& item)const
+			{
+				return IndexOf<K>(item);
+			}
+
+			vint Add(const T& item)
+			{
+				if(count==0)
+				{
+					MakeRoom(0, 1);
+					buffer[0]=item;
+					return 0;
+				}
+				else
+				{
+					vint start=0;
+					vint end=count-1;
+					vint index=-1;
+					while(start<=end)
+					{
+						index=(start+end)/2;
+						if(buffer[index]==item)
+						{
+							goto SORTED_LIST_INSERT;
+						}
+						else if(buffer[index]>item)
+						{
+							end=index-1;
+						}
+						else
+						{
+							start=index+1;
+						}
+					}
+					CHECK_ERROR(index>=0 && index<count, L"SortedList<T, K>::Add(const T&)#内部错误，变量index越界");
+					if(buffer[index]<item)
+					{
+						index++;
+					}
+SORTED_LIST_INSERT:
+					MakeRoom(index, 1);
+					buffer[index]=item;
+					return index;
+				}
+			}
+
+			bool Remove(const K& item)
+			{
+				vint index=IndexOf(item);
+				if(index>=0 && index<count)
+				{
+					RemoveAt(index);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+		};
+
+/***********************************************************************
+随机访问
+***********************************************************************/
+
+		namespace randomaccess_internal
+		{
+			template<typename T, typename K>
+			struct RandomAccessable<Array<T, K>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = true;
+			};
+
+			template<typename T, typename K>
+			struct RandomAccessable<List<T, K>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+
+			template<typename T, typename K>
+			struct RandomAccessable<SortedList<T, K>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = false;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\LOCALE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Framework::Locale
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_LOCALE
+#define VCZH_LOCALE
+
+
+namespace vl
+{
+	class Locale : public Object
+	{
+	protected:
+		WString						localeName;
+
+	public:
+		Locale(const WString& _localeName=WString::Empty);
+		~Locale();
+
+		static Locale				Invariant();
+		static Locale				SystemDefault();
+		static Locale				UserDefault();
+		static void					Enumerate(collections::List<Locale>& locales);
+
+		const WString&				GetName()const;
+
+		void						GetShortDateFormats(collections::List<WString>& formats);
+		void						GetLongDateFormats(collections::List<WString>& formats);
+		void						GetYearMonthDateFormats(collections::List<WString>& formats);
+		void						GetLongTimeFormats(collections::List<WString>& formats);
+		void						GetShortTimeFormats(collections::List<WString>& formats);
+		WString						FormatDate(const WString& format, DateTime date);
+		WString						FormatTime(const WString& format, DateTime time);
+		WString						FormatNumber(const WString& number);
+		WString						FormatCurrency(const WString& currency);
+
+		WString						ToFullWidth(const WString& str);
+		WString						ToHalfWidth(const WString& str);
+		WString						ToHiragana(const WString& str);
+		WString						ToKatagana(const WString& str);
+		WString						ToLower(const WString& str);
+		WString						ToUpper(const WString& str);
+		WString						ToLinguisticLower(const WString& str);
+		WString						ToLinguisticUpper(const WString& str);
+		WString						ToSimplifiedChinese(const WString& str);
+		WString						ToTraditionalChinese(const WString& str);
+		WString						ToTileCase(const WString& str);
+
+		enum Normalization
+		{
+			None=0,
+			IgnoreCase=1,
+			IgnoreCaseLinguistic=2,
+			IgnoreKanaType=4,
+			IgnoreNonSpace=8,
+			IgnoreSymbol=16,
+			IgnoreWidth=32,
+			DigitsAsNumbers=64,
+			StringSoft=128,
+		};
+		vint									Compare(const WString& s1, const WString& s2, Normalization normalization);
+		vint									CompareOrdinal(const WString& s1, const WString& s2);
+		vint									CompareOrdinalIgnoreCase(const WString& s1, const WString& s2);
+		collections::Pair<vint, vint>			FindFirst(const WString& text, const WString& find, Normalization normalization);
+		collections::Pair<vint, vint>			FindLast(const WString& text, const WString& find, Normalization normalization);
+		bool									StartsWith(const WString& text, const WString& find, Normalization normalization);
+		bool									EndsWidth(const WString& text, const WString& find, Normalization normalization);
+	};
+
+#define INVLOC vl::Locale::Invariant()
+}
+
+#endif
+
+/***********************************************************************
 COMMON\SOURCE\POINTER.H
 ***********************************************************************/
 /***********************************************************************
@@ -677,6 +1666,11 @@ Classes:
 
 namespace vl
 {
+
+/***********************************************************************
+Ptr
+***********************************************************************/
+
 	template<typename T>
 	class Ptr
 	{
@@ -900,6 +1894,10 @@ namespace vl
 		}
 	};
 
+/***********************************************************************
+ComPtr
+***********************************************************************/
+
 	template<typename T>
 	class ComPtr
 	{
@@ -1078,10 +2076,19 @@ namespace vl
 		}
 	};
 
+/***********************************************************************
+Traits
+***********************************************************************/
+
 	template<typename T>
 	struct KeyType<Ptr<T>>
 	{
 		typedef T* Type;
+
+		static T* GetKeyValue(const Ptr<T>& key)
+		{
+			return key.Obj();
+		}
 	};
 
 	template<typename T>
@@ -1094,6 +2101,11 @@ namespace vl
 	struct KeyType<ComPtr<T>>
 	{
 		typedef T* Type;
+
+		static T* GetKeyValue(const ComPtr<T>& key)
+		{
+			return key.Obj();
+		}
 	};
 
 	template<typename T>
@@ -6362,764 +7374,6 @@ vl::function_combining::Combining<R1(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9), R2(T0,T1,T2
 #endif
 
 /***********************************************************************
-COMMON\SOURCE\COLLECTIONS\PAIR.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Pair
-
-Classes:
-	Pair<K, V>							：二元组
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_PAIR
-#define VCZH_COLLECTIONS_PAIR
-
-
-namespace vl
-{
-	namespace collections
-	{
-		template<typename K, typename V>
-		class Pair
-		{
-		public:
-			K				key;
-			V				value;
-
-			Pair()
-			{
-			}
-
-			Pair(const K& _key, const V& _value)
-			{
-				key=_key;
-				value=_value;
-			}
-
-			Pair(const Pair<K, V>& pair)
-			{
-				key=pair.key;
-				value=pair.value;
-			}
-
-			vint CompareTo(const Pair<K, V>& pair)const
-			{
-				if(key<pair.key)
-				{
-					return -1;
-				}
-				else if(key>pair.key)
-				{
-					return 1;
-				}
-				else if(value<pair.value)
-				{
-					return -1;
-				}
-				else if(value>pair.value)
-				{
-					return 1;
-				}
-				else
-				{
-					return 0;
-				}
-			}
-
-			bool operator==(const Pair<K, V>& pair)const
-			{
-				return CompareTo(pair)==0;
-			}
-
-			bool operator!=(const Pair<K, V>& pair)const
-			{
-				return CompareTo(pair)!=0;
-			}
-
-			bool operator<(const Pair<K, V>& pair)const
-			{
-				return CompareTo(pair)<0;
-			}
-
-			bool operator<=(const Pair<K, V>& pair)const
-			{
-				return CompareTo(pair)<=0;
-			}
-
-			bool operator>(const Pair<K, V>& pair)const
-			{
-				return CompareTo(pair)>0;
-			}
-
-			bool operator>=(const Pair<K, V>& pair)const
-			{
-				return CompareTo(pair)>=0;
-			}
-		};
-	}
-
-	template<typename K, typename V>
-	struct POD<collections::Pair<K, V>>
-	{
-		static const bool Result=POD<K>::Result && POD<V>::Result;
-	};
-}
-
-#endif
-
-/***********************************************************************
-COMMON\SOURCE\COLLECTIONS\INTERFACES.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Interfaces
-
-Interfaces:
-	IEnumerator<T>									：枚举器
-	IEnumerable<T>									：可枚举对象
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_INTERFACES
-#define VCZH_COLLECTIONS_INTERFACES
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-接口
-***********************************************************************/
-
-		template<typename T>
-		class IEnumerator : public virtual Interface
-		{
-		public:
-			virtual IEnumerator<T>*						Clone()const=0;
-			virtual const T&							Current()const=0;
-			virtual vint								Index()const=0;
-			virtual bool								Next()=0;
-			virtual void								Reset()=0;
-		};
-
-		template<typename T>
-		class IEnumerable : public virtual Interface
-		{
-		public:
-			typedef T									ElementType;
-
-			virtual IEnumerator<T>*						CreateEnumerator()const=0;
-		};
-
-/***********************************************************************
-随机存取
-***********************************************************************/
-
-		namespace randomaccess_internal
-		{
-			template<typename T>
-			struct RandomAccessable
-			{
-				static const bool							CanRead = false;
-				static const bool							CanResize = false;
-			};
-
-			template<typename T>
-			struct RandomAccess
-			{
-				static vint GetCount(const T& t)
-				{
-					return t.Count();
-				}
-
-				static const typename T::ElementType& GetValue(const T& t, vint index)
-				{
-					return t.Get(index);
-				}
-
-				static void SetCount(T& t, vint count)
-				{
-					t.Resize(count);
-				}
-
-				static void SetValue(T& t, vint index, const typename T::ElementType& value)
-				{
-					t.Set(index, value);
-				}
-
-				static void AppendValue(T& t, const typename T::ElementType& value)
-				{
-					t.Add(value);
-				}
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-COMMON\SOURCE\COLLECTIONS\LIST.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::List
-
-Classes:
-	ListStore<T,PODType>				：列表存储复制算法
-	ListBase<T,K>						：列表基类
-	Array<T,K>							：数组
-	List<T,K>							：列表
-	SortedList<T,K>						：有序列表
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_LIST
-#define VCZH_COLLECTIONS_LIST
-
-#include <string.h>
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-储存结构
-***********************************************************************/
-
-		template<typename T, bool PODType>
-		class ListStore abstract : public Object
-		{
-		};
-		
-		template<typename T>
-		class ListStore<T, false> abstract : public Object
-		{
-		protected:
-			static void CopyObjects(T* dest, const T* source, vint count)
-			{
-				if(dest<source)
-				{
-					for(vint i=0;i<count;i++)
-					{
-						dest[i]=source[i];
-					}
-				}
-				else if(dest>source)
-				{
-					for(vint i=count-1;i>=0;i--)
-					{
-						dest[i]=source[i];
-					}
-				}
-			}
-
-			static void ClearObjects(T* dest, vint count)
-			{
-				for(vint i=0;i<count;i++)
-				{
-					dest[i]=T();
-				}
-			}
-		public:
-		};
-		
-		template<typename T>
-		class ListStore<T, true> abstract : public Object
-		{
-		protected:
-			static void CopyObjects(T* dest, const T* source, vint count)
-			{
-				if(count)
-				{
-					memmove(dest, source, sizeof(T)*count);
-				}
-			}
-
-			static void ClearObjects(T* dest, vint count)
-			{
-			}
-		public:
-		};
-		
-		template<typename T>
-		class ArrayBase abstract : public ListStore<T,POD<T>::Result>, public virtual IEnumerable<T>
-		{
-		protected:
-			class Enumerator : public Object, public virtual IEnumerator<T>
-			{
-			private:
-				const ArrayBase<T>*				container;
-				vint							index;
-
-			public:
-				Enumerator(const ArrayBase<T>* _container, vint _index=-1)
-				{
-					container=_container;
-					index=_index;
-				}
-
-				IEnumerator<T>* Clone()const
-				{
-					return new Enumerator(container, index);
-				}
-
-				const T& Current()const
-				{
-					return container->Get(index);
-				}
-
-				vint Index()const
-				{
-					return index;
-				}
-
-				bool Next()
-				{
-					index++;
-					return index>=0 && index<container->Count();
-				}
-
-				void Reset()
-				{
-					index=-1;
-				}
-			};
-			
-			T*						buffer;
-			vint					count;
-		public:
-			ArrayBase()
-				:buffer(0)
-				,count(0)
-			{
-			}
-
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new Enumerator(this);
-			}
-
-			vint Count()const
-			{
-				return count;
-			}
-
-			const T& Get(vint index)const
-			{
-				CHECK_ERROR(index>=0 && index<count, L"ArrayBase<T, K>::Get(vint)#参数越界。");
-				return buffer[index];
-			}
-
-			const T& operator[](vint index)const
-			{
-				CHECK_ERROR(index>=0 && index<count, L"ArrayBase<T, K>::operator[](vint)#参数index越界。");
-				return buffer[index];
-			}
-		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class ListBase abstract : public ArrayBase<T>
-		{
-		protected:
-			vint					capacity;
-			bool					lessMemoryMode;
-
-			vint CalculateCapacity(vint expected)
-			{
-				vint result=capacity;
-				while(result<expected)
-				{
-					result=result*5/4+1;
-				}
-				return result;
-			}
-
-			void MakeRoom(vint index, vint _count)
-			{
-				vint newCount=count+_count;
-				if(newCount>capacity)
-				{
-					vint newCapacity=CalculateCapacity(newCount);
-					T* newBuffer=new T[newCapacity];
-					CopyObjects(newBuffer, buffer, index);
-					CopyObjects(newBuffer+index+_count, buffer+index, count-index);
-					delete[] buffer;
-					capacity=newCapacity;
-					buffer=newBuffer;
-				}
-				else
-				{
-					CopyObjects(buffer+index+_count, buffer+index, count-index);
-				}
-				count=newCount;
-			}
-
-			void ReleaseUnnecessaryBuffer(vint previousCount)
-			{
-				if(buffer && count<previousCount)
-				{
-					ClearObjects(&buffer[count], previousCount-count);
-				}
-				if(lessMemoryMode && count<=capacity/2)
-				{
-					vint newCapacity=capacity*5/8;
-					if(count<newCapacity)
-					{
-						T* newBuffer=new T[newCapacity];
-						CopyObjects(newBuffer, buffer, count);
-						delete[] buffer;
-						capacity=newCapacity;
-						buffer=newBuffer;
-					}
-				}
-			}
-		public:
-			ListBase()
-			{
-				count=0;
-				capacity=0;
-				buffer=0;
-				lessMemoryMode=true;
-			}
-
-			~ListBase()
-			{
-				delete[] buffer;
-			}
-
-			void SetLessMemoryMode(bool mode)
-			{
-				lessMemoryMode=mode;
-			}
-
-			bool RemoveAt(vint index)
-			{
-				vint previousCount=count;
-				CHECK_ERROR(index>=0 && index<count, L"ListBase<T, K>::RemoveAt(vint)#参数index越界。");
-				CopyObjects(buffer+index,buffer+index+1,count-index-1);
-				count--;
-				ReleaseUnnecessaryBuffer(previousCount);
-				return true;
-			}
-
-			bool RemoveRange(vint index, vint _count)
-			{
-				vint previousCount=count;
-				CHECK_ERROR(index>=0 && index<=count, L"ListBase<T, K>::RemoveRange(vint, vint)#参数index越界。");
-				CHECK_ERROR(index+_count>=0 && index+_count<=count, L"ListBase<T,K>::RemoveRange(vint, vint)#参数_count越界。");
-				CopyObjects(buffer+index, buffer+index+_count, count-index-_count);
-				count-=_count;
-				ReleaseUnnecessaryBuffer(previousCount);
-				return true;
-			}
-
-			bool Clear()
-			{
-				vint previousCount=count;
-				count=0;
-				if(lessMemoryMode)
-				{
-					capacity=0;
-					delete[] buffer;
-					buffer=0;
-				}
-				else
-				{
-					ReleaseUnnecessaryBuffer(previousCount);
-				}
-				return true;
-			}
-		};
-
-/***********************************************************************
-列表对象
-***********************************************************************/
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class Array : public ArrayBase<T>
-		{
-		protected:
-			void Create(vint size)
-			{
-				if(size>0)
-				{
-					count=size;
-					buffer=new T[size];
-				}
-				else
-				{
-					count=0;
-					buffer=0;
-				}
-			}
-
-			void Destroy()
-			{
-				count=0;
-				delete[] buffer;
-				buffer=0;
-			}
-		public:
-			Array(vint size=0)
-			{
-				Create(size);
-			}
-
-			Array(const T* _buffer, vint size)
-			{
-				Create(size);
-				CopyObjects(buffer, _buffer, size);
-			}
-
-			~Array()
-			{
-				Destroy();
-			}
-
-			bool Contains(const K& item)const
-			{
-				return IndexOf(item)!=-1;
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				for(vint i=0;i<count;i++)
-				{
-					if(buffer[i]==item)
-					{
-						return i;
-					}
-				}
-				return -1;
-			}
-
-			void Set(vint index, const T& item)
-			{
-				CHECK_ERROR(index>=0 && index<count, L"Array<T, K>::Set(vint)#参数index越界。");
-				buffer[index]=item;
-			}
-
-			T& operator[](vint index)
-			{
-				CHECK_ERROR(index>=0 && index<count, L"Array<T, K>::operator[](vint)#参数index越界。");
-				return buffer[index];
-			}
-
-			void Resize(vint size)
-			{
-				vint oldCount=count;
-				T* oldBuffer=buffer;
-				Create(size);
-				CopyObjects(buffer, oldBuffer, (count<oldCount?count:oldCount));
-				delete[] oldBuffer;
-			}
-		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class List : public ListBase<T, K>
-		{
-		public:
-			List()
-			{
-			}
-
-			bool Contains(const K& item)const
-			{
-				return IndexOf(item)!=-1;
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				for(vint i=0;i<count;i++)
-				{
-					if(buffer[i]==item)
-					{
-						return i;
-					}
-				}
-				return -1;
-			}
-
-			vint Add(const T& item)
-			{
-				MakeRoom(count, 1);
-				buffer[count-1]=item;
-				return count-1;
-			}
-
-			vint Insert(vint index, const T& item)
-			{
-				CHECK_ERROR(index>=0 && index<=count, L"List<T, K>::Insert(vint, const T&)#参数index越界。");
-				MakeRoom(index,1);
-				buffer[index]=item;
-				return index;
-			}
-
-			bool Remove(const K& item)
-			{
-				vint index=IndexOf(item);
-				if(index>=0 && index<count)
-				{
-					RemoveAt(index);
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			bool Set(vint index, const T& item)
-			{
-				CHECK_ERROR(index>=0 && index<count, L"List<T, K>::Set(vint)#参数index越界。");
-				buffer[index]=item;
-				return true;
-			}
-
-			T& operator[](vint index)
-			{
-				CHECK_ERROR(index>=0 && index<count, L"List<T, K>::operator[](vint)#参数index越界。");
-				return buffer[index];
-			}
-		};
-
-		template<typename T, typename K=typename KeyType<T>::Type>
-		class SortedList : public ListBase<T, K>
-		{
-		public:
-			SortedList()
-			{
-			}
-
-			bool Contains(const K& item)const
-			{
-				return IndexOf(item)!=-1;
-			}
-
-			template<typename Key>
-			vint IndexOf(const Key& item)const
-			{
-				vint start=0;
-				vint end=count-1;
-				while(start<=end)
-				{
-					vint index=(start+end)/2;
-					if(buffer[index]==item)
-					{
-						return index;
-					}
-					else if(buffer[index]>item)
-					{
-						end=index-1;
-					}
-					else
-					{
-						start=index+1;
-					}
-				}
-				return -1;
-			}
-
-			vint IndexOf(const K& item)const
-			{
-				return IndexOf<K>(item);
-			}
-
-			vint Add(const T& item)
-			{
-				if(count==0)
-				{
-					MakeRoom(0, 1);
-					buffer[0]=item;
-					return 0;
-				}
-				else
-				{
-					vint start=0;
-					vint end=count-1;
-					vint index=-1;
-					while(start<=end)
-					{
-						index=(start+end)/2;
-						if(buffer[index]==item)
-						{
-							goto SORTED_LIST_INSERT;
-						}
-						else if(buffer[index]>item)
-						{
-							end=index-1;
-						}
-						else
-						{
-							start=index+1;
-						}
-					}
-					CHECK_ERROR(index>=0 && index<count, L"SortedList<T, K>::Add(const T&)#内部错误，变量index越界");
-					if(buffer[index]<item)
-					{
-						index++;
-					}
-SORTED_LIST_INSERT:
-					MakeRoom(index, 1);
-					buffer[index]=item;
-					return index;
-				}
-			}
-
-			bool Remove(const K& item)
-			{
-				vint index=IndexOf(item);
-				if(index>=0 && index<count)
-				{
-					RemoveAt(index);
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
-		};
-
-/***********************************************************************
-随机访问
-***********************************************************************/
-
-		namespace randomaccess_internal
-		{
-			template<typename T, typename K>
-			struct RandomAccessable<Array<T, K>>
-			{
-				static const bool							CanRead = true;
-				static const bool							CanResize = true;
-			};
-
-			template<typename T, typename K>
-			struct RandomAccessable<List<T, K>>
-			{
-				static const bool							CanRead = true;
-				static const bool							CanResize = false;
-			};
-
-			template<typename T, typename K>
-			struct RandomAccessable<SortedList<T, K>>
-			{
-				static const bool							CanRead = true;
-				static const bool							CanResize = false;
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
 COMMON\SOURCE\COLLECTIONS\DICTIONARY.H
 ***********************************************************************/
 /***********************************************************************
@@ -7267,7 +7521,7 @@ namespace vl
 
 			bool Add(const KT& key, const VT& value)
 			{
-				CHECK_ERROR(!keys.Contains(key), L"Dictionary<KT, KK, ValueContainer, VT, VK>::Add(const KT&, const VT&)#key已存在。");
+				CHECK_ERROR(!keys.Contains(KeyType<KT>::GetKeyValue(key)), L"Dictionary<KT, KK, ValueContainer, VT, VK>::Add(const KT&, const VT&)#key已存在。");
 				vint index=keys.Add(key);
 				values.Insert(index, value);
 				return true;
@@ -7462,7 +7716,7 @@ namespace vl
 			bool Add(const KT& key, const VT& value)
 			{
 				ValueContainer* target=0;
-				vint index=keys.IndexOf(key);
+				vint index=keys.IndexOf(KeyType<KT>::GetKeyValue(key));
 				if(index==-1)
 				{
 					target=new ValueContainer;
@@ -7745,9 +7999,6 @@ namespace vl
 	namespace collections
 	{
 
-		template<typename T>
-		class Enumerable;
-
 /***********************************************************************
 空迭代器
 ***********************************************************************/
@@ -7755,38 +8006,107 @@ namespace vl
 		template<typename T>
 		class EmptyEnumerable : public Object, public IEnumerable<T>
 		{
-			friend class Enumerable<T>;
 		private:
-			class Enumerator : public Object, public IEnumerator<T>
+			class Enumerator : public Object, public virtual IEnumerator<T>
 			{
-				IEnumerator<T>* Clone()const
+				IEnumerator<T>* Clone()const override
 				{
 					return new Enumerator;
 				}
 
-				const T& Current()const
+				const T& Current()const override
 				{
 					return *(T*)0;
 				}
 
-				vint Index()const
+				vint Index()const override
 				{
 					return -1;
 				}
 
-				bool Next()
+				bool Next()override
 				{
 					return false;
 				}
 
-				void Reset()
+				void Reset()override
 				{
+				}
+
+				bool Evaluated()const override
+				{
+					return true;
 				}
 			};
 		public:
 			IEnumerator<T>* CreateEnumerator()const
 			{
 				return new Enumerator;
+			}
+		};
+
+/***********************************************************************
+递增数组迭代器
+***********************************************************************/
+
+		template<typename T>
+		class RangeEnumerator : public Object, public virtual IEnumerator<T>
+		{
+		protected:
+			T			start;
+			T			count;
+			T			current;
+		public:
+			RangeEnumerator(T _start, T _count, T _current)
+				:start(_start)
+				,count(_count)
+				,current(_current)
+			{
+			}
+
+			RangeEnumerator(T _start, T _count)
+				:start(_start)
+				,count(_count)
+				,current(_start-1)
+			{
+			}
+
+			IEnumerator<T>* Clone()const override
+			{
+				return new RangeEnumerator(start, count, current);
+			}
+
+			const T& Current()const override
+			{
+				return current;
+			}
+
+			T Index()const override
+			{
+				return current-start;
+			}
+
+			bool Next()override
+			{
+				if(start-1<=current && current<start+count-1)
+				{
+					current++;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void Reset()override
+			{
+				current=start-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
 			}
 		};
 
@@ -7808,30 +8128,35 @@ namespace vl
 				index=_index;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new ContainerEnumerator(container, index);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return container->Get(index);
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				index++;
 				return index>=0 && index<container->Count();
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				index=-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
 			}
 		};
 
@@ -7903,9 +8228,10 @@ Select
 			Func<K(T)>			selector;
 			K					current;
 		public:
-			SelectEnumerator(IEnumerator<T>* _enumerator, const Func<K(T)>& _selector)
+			SelectEnumerator(IEnumerator<T>* _enumerator, const Func<K(T)>& _selector, K _current=K())
 				:enumerator(_enumerator)
 				,selector(_selector)
+				,current(_current)
 			{
 			}
 
@@ -7914,22 +8240,22 @@ Select
 				delete enumerator;
 			}
 
-			IEnumerator<K>* Clone()const
+			IEnumerator<K>* Clone()const override
 			{
-				return new SelectEnumerator(enumerator->Clone(), selector);
+				return new SelectEnumerator(enumerator->Clone(), selector, current);
 			}
 
-			const K& Current()const
+			const K& Current()const override
 			{
 				return current;
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator->Index();
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				if(enumerator->Next())
 				{
@@ -7942,7 +8268,7 @@ Select
 				}
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
 			}
@@ -7995,22 +8321,22 @@ Where
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new WhereEnumerator(enumerator->Clone(), selector, index);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(enumerator->Next())
 				{
@@ -8023,9 +8349,10 @@ Where
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
+				index=-1;
 			}
 		};
 	}
@@ -8079,12 +8406,12 @@ Concat
 				delete enumerator2;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new ConcatEnumerator(enumerator1->Clone(), enumerator2->Clone(), index, turned);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				if(turned)
 				{
@@ -8096,12 +8423,12 @@ Concat
 				}
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				index++;
 				if(turned)
@@ -8122,11 +8449,17 @@ Concat
 				}
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator1->Reset();
 				enumerator2->Reset();
 				index=-1;
+				turned=false;
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator1->Evaluated() && enumerator2->Evaluated();
 			}
 		};
 	}
@@ -8175,30 +8508,35 @@ Take
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new TakeEnumerator(enumerator->Clone(), count);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator->Index();
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				if(enumerator->Index()>=count-1) return false;
 				return enumerator->Next();
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator->Evaluated();
 			}
 		};
 
@@ -8212,18 +8550,13 @@ Skip
 		protected:
 			IEnumerator<T>*			enumerator;
 			vint					count;
+			bool					skipped;
 		public:
-			SkipEnumerator(IEnumerator<T>* _enumerator, vint _count, bool runSkip=true)
+			SkipEnumerator(IEnumerator<T>* _enumerator, vint _count, bool _skipped=false)
 				:enumerator(_enumerator)
 				,count(_count)
+				,skipped(_skipped)
 			{
-				if(runSkip)
-				{
-					for(vint i=0;i<count;i++)
-					{
-						enumerator->Next();
-					}
-				}
 			}
 
 			~SkipEnumerator()
@@ -8231,33 +8564,46 @@ Skip
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
-				return new SkipEnumerator(enumerator->Clone(), count, false);
+				return new SkipEnumerator(enumerator->Clone(), count, skipped);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator->Index()-count;
 			}
 
-			bool Next()
+			bool Next()override
 			{
+				if(!skipped)
+				{
+					skipped=true;
+					for(vint i=0;i<count;i++)
+					{
+						if(!enumerator->Next())
+						{
+							return false;
+						}
+					}
+				}
 				return enumerator->Next();
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
-				for(vint i=0;i<count;i++)
-				{
-					enumerator->Next();
-				}
+				skipped=false;
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator->Evaluated();
 			}
 		};
 
@@ -8287,22 +8633,22 @@ Repeat
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new RepeatEnumerator(enumerator->Clone(), count, index, repeatedCount);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(repeatedCount<count)
 				{
@@ -8317,11 +8663,16 @@ Repeat
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
 				index=-1;
 				repeatedCount=0;
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator->Evaluated();
 			}
 		};
 
@@ -8344,6 +8695,7 @@ Distinct
 			}
 
 			DistinctEnumerator(const DistinctEnumerator& _enumerator)
+				:lastValue(_enumerator.lastValue)
 			{
 				enumerator=_enumerator.enumerator->Clone();
 				CopyFrom(distinct, _enumerator.distinct);
@@ -8354,22 +8706,22 @@ Distinct
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new DistinctEnumerator(*this);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return lastValue;
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return distinct.Count()-1;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(enumerator->Next())
 				{
@@ -8384,7 +8736,7 @@ Distinct
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
 				distinct.Clear();
@@ -8409,39 +8761,44 @@ Reverse
 			}
 
 			ReverseEnumerator(const ReverseEnumerator& _enumerator)
+				:index(_enumerator.index)
 			{
 				CopyFrom(cache, _enumerator.cache);
-				index=_enumerator.index;
 			}
 
 			~ReverseEnumerator()
 			{
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new ReverseEnumerator(*this);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return cache.Get(cache.Count()-1-index);
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				index++;
 				return index<cache.Count();
 			}
 
-			void Reset()
+			void Reset()override
 			{
-				index=0;
+				index=-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
 			}
 		};
 
@@ -8452,7 +8809,6 @@ FromIterator
 		template<typename T, typename I>
 		class FromIteratorEnumerable : public Object, public IEnumerable<T>
 		{
-			friend class Enumerable<T>;
 		private:
 			class Enumerator : public Object, public IEnumerator<T>
 			{
@@ -8469,30 +8825,35 @@ FromIterator
 				{
 				}
 
-				IEnumerator<T>* Clone()const
+				IEnumerator<T>* Clone()const override
 				{
 					return new Enumerator(begin, end, current);
 				}
 
-				const T& Current()const
+				const T& Current()const override
 				{
 					return *current;
 				}
 
-				vint Index()const
+				vint Index()const override
 				{
 					return current-begin;
 				}
 
-				bool Next()
+				bool Next()override
 				{
 					current++;
 					return begin<=current && current<end;
 				}
 
-				void Reset()
+				void Reset()override
 				{
 					current=begin-1;
+				}
+
+				bool Evaluated()const override
+				{
+					return true;
 				}
 			};
 		private:
@@ -8589,22 +8950,22 @@ Intersect/Except
 				delete enumerator;
 			}
 
-			IEnumerator<T>* Clone()const
+			IEnumerator<T>* Clone()const override
 			{
 				return new IntersectExceptEnumerator(*this);
 			}
 
-			const T& Current()const
+			const T& Current()const override
 			{
 				return enumerator->Current();
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return index;
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				while(enumerator->Next())
 				{
@@ -8617,10 +8978,10 @@ Intersect/Except
 				return false;
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator->Reset();
-				index=0;
+				index=-1;
 			}
 		};
 	}
@@ -8659,9 +9020,10 @@ Pairwise
 			IEnumerator<T>*					enumerator2;
 			Pair<S, T>						current;
 		public:
-			PairwiseEnumerator(IEnumerator<S>* _enumerator1, IEnumerator<T>* _enumerator2)
+			PairwiseEnumerator(IEnumerator<S>* _enumerator1, IEnumerator<T>* _enumerator2, Pair<S, T> _current=Pair<S, T>())
 				:enumerator1(_enumerator1)
 				,enumerator2(_enumerator2)
+				,current(_current)
 			{
 			}
 
@@ -8671,22 +9033,22 @@ Pairwise
 				delete enumerator2;
 			}
 
-			IEnumerator<Pair<S, T>>* Clone()const
+			IEnumerator<Pair<S, T>>* Clone()const override
 			{
-				return new PairwiseEnumerator(enumerator1->Clone(), enumerator2->Clone());
+				return new PairwiseEnumerator(enumerator1->Clone(), enumerator2->Clone(), current);
 			}
 
-			const Pair<S, T>& Current()const
+			const Pair<S, T>& Current()const override
 			{
 				return current;
 			}
 
-			vint Index()const
+			vint Index()const override
 			{
 				return enumerator1->Index();
 			}
 
-			bool Next()
+			bool Next()override
 			{
 				if(enumerator1->Next() && enumerator2->Next())
 				{
@@ -8699,10 +9061,15 @@ Pairwise
 				}
 			}
 
-			void Reset()
+			void Reset()override
 			{
 				enumerator1->Reset();
 				enumerator2->Reset();
+			}
+
+			bool Evaluated()const override
+			{
+				return enumerator1->Evaluated() && enumerator2->Evaluated();
 			}
 		};
 	}
@@ -8897,8 +9264,12 @@ Functions:
 	[T]		.Union([T]) => [T]
 	[T]		.Except([T]) => [T]
 
+	[T]		.Evaluate() => [T]
+	[T]		.GroupBy(T->K) => [(K, [T])]
+
 	From(begin, end) => [T]
 	From(array) => [T]
+	Range(start, count) => [vint]
 
 	FOREACH(X, a, XList)
 	FOREACH_INDEXER(X, a, index, XList)
@@ -9219,7 +9590,44 @@ LazyList
 			{
 				return Concat(remains).Distinct();
 			}
+
+			//-------------------------------------------------------
+
+			LazyList<T> Evaluate()const
+			{
+				if(enumeratorPrototype->Evaluated())
+				{
+					return *this;
+				}
+				else
+				{
+					Ptr<List<T>> xs=new List<T>;
+					CopyFrom(*xs.Obj(), *this);
+					return xs;
+				}
+			}
+
+			template<typename F>
+			LazyList<Pair<FUNCTION_RESULT_TYPE(F), LazyList<T>>> GroupBy(F f)const
+			{
+				typedef FUNCTION_RESULT_TYPE(F) K;
+				return Select(f)
+					.Distinct()
+					.Select([=](K k)
+					{
+						return Pair<K, LazyList<T>>(
+							k,
+							Where([=](T t){return k==f(t);})
+							);
+					});
+			}
 		};
+
+		template<typename T>
+		LazyList<T> Range(T start, T count)
+		{
+			return new RangeEnumerator<T>(start, count);
+		}
 
 		template<typename T>
 		LazyList<T> From(const IEnumerable<T>& enumerable)
@@ -9788,6 +10196,1365 @@ namespace vl
 			virtual	void					Close()=0;
 			virtual vint					Read(void* _buffer, vint _size)=0;
 		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\STREAM\ACCESSOR.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Stream::Accessor
+
+Classes:
+	TextReader						：字符串阅读器
+	TextWriter						：字符串书写器
+	StreamReader					：流阅读器
+	StreamWriter					：流书写器
+	EncoderStream					：编码流
+	DecoderStream					：解码流
+***********************************************************************/
+
+#ifndef VCZH_STREAM_ACCESSOR
+#define VCZH_STREAM_ACCESSOR
+
+
+namespace vl
+{
+	namespace stream
+	{
+
+/***********************************************************************
+流控制器
+***********************************************************************/
+
+		class TextReader : public Object, private NotCopyable
+		{
+		public:
+			virtual bool				IsEnd()=0;
+			virtual wchar_t				ReadChar()=0;
+			virtual WString				ReadString(vint length);
+			virtual WString				ReadLine();
+			virtual WString				ReadToEnd();
+		};
+
+		class TextWriter : public Object, private NotCopyable
+		{
+		public:
+			virtual void				WriteChar(wchar_t c)=0;
+			virtual void				WriteString(const wchar_t* string, vint charCount);
+			virtual void				WriteString(const wchar_t* string);
+			virtual void				WriteString(const WString& string);
+			virtual void				WriteLine(const wchar_t* string, vint charCount);
+			virtual void				WriteLine(const wchar_t* string);
+			virtual void				WriteLine(const WString& string);
+
+			virtual void				WriteMonospacedEnglishTable(collections::Array<WString>& tableByRow, vint rows, vint columns);
+		};
+
+		class StringReader : public TextReader
+		{
+		protected:
+			WString						string;
+			vint						current;
+			bool						lastCallIsReadLine;
+
+			void						PrepareIfLastCallIsReadLine();
+		public:
+			StringReader(const WString& _string);
+
+			bool						IsEnd();
+			wchar_t						ReadChar();
+			WString						ReadString(vint length);
+			WString						ReadLine();
+			WString						ReadToEnd();
+		};
+
+		class StreamReader : public TextReader
+		{
+		protected:
+			IStream*					stream;
+		public:
+			StreamReader(IStream& _stream);
+
+			bool						IsEnd();
+			wchar_t						ReadChar();
+		};
+
+		class StreamWriter : public TextWriter
+		{
+		protected:
+			IStream*					stream;
+		public:
+			StreamWriter(IStream& _stream);
+			using TextWriter::WriteString;
+
+			void						WriteChar(wchar_t c);
+			void						WriteString(const wchar_t* string, vint charCount);
+		};
+
+/***********************************************************************
+编码解码
+***********************************************************************/
+
+		class EncoderStream : public virtual IStream
+		{
+		protected:
+			IStream*					stream;
+			IEncoder*					encoder;
+			pos_t						position;
+
+		public:
+			EncoderStream(IStream& _stream, IEncoder& _encoder);
+			~EncoderStream();
+
+			bool						CanRead()const;
+			bool						CanWrite()const;
+			bool						CanSeek()const;
+			bool						CanPeek()const;
+			bool						IsLimited()const;
+			bool						IsAvailable()const;
+			void						Close();
+			pos_t						Position()const;
+			pos_t						Size()const;
+			void						Seek(pos_t _size);
+			void						SeekFromBegin(pos_t _size);
+			void						SeekFromEnd(pos_t _size);
+			vint							Read(void* _buffer, vint _size);
+			vint							Write(void* _buffer, vint _size);
+			vint							Peek(void* _buffer, vint _size);
+		};
+
+		class DecoderStream : public virtual IStream
+		{
+		protected:
+			IStream*					stream;
+			IDecoder*					decoder;
+			pos_t						position;
+
+		public:
+			DecoderStream(IStream& _stream, IDecoder& _decoder);
+			~DecoderStream();
+
+			bool						CanRead()const;
+			bool						CanWrite()const;
+			bool						CanSeek()const;
+			bool						CanPeek()const;
+			bool						IsLimited()const;
+			bool						IsAvailable()const;
+			void						Close();
+			pos_t						Position()const;
+			pos_t						Size()const;
+			void						Seek(pos_t _size);
+			void						SeekFromBegin(pos_t _size);
+			void						SeekFromEnd(pos_t _size);
+			vint							Read(void* _buffer, vint _size);
+			vint							Write(void* _buffer, vint _size);
+			vint							Peek(void* _buffer, vint _size);
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\PARSINGTREE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Parsing Tree
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGTREE
+#define VCZH_PARSING_PARSINGTREE
+
+
+namespace vl
+{
+	namespace parsing
+	{
+
+/***********************************************************************
+位置信息
+***********************************************************************/
+
+		struct ParsingTextPos
+		{
+			static const int	UnknownValue=-2;
+			vint				index;
+			vint				row;
+			vint				column;
+
+			ParsingTextPos()
+				:index(UnknownValue)
+				,row(UnknownValue)
+				,column(UnknownValue)
+			{
+			}
+
+			ParsingTextPos(vint _index)
+				:index(_index)
+				,row(UnknownValue)
+				,column(UnknownValue)
+			{
+			}
+
+			ParsingTextPos(vint _row, vint _column)
+				:index(UnknownValue)
+				,row(_row)
+				,column(_column)
+			{
+			}
+
+			ParsingTextPos(vint _index, vint _row, vint _column)
+				:index(_index)
+				,row(_row)
+				,column(_column)
+			{
+			}
+
+			static vint Compare(const ParsingTextPos& a, const ParsingTextPos& b)
+			{
+				if(a.index!=UnknownValue && b.index!=UnknownValue)
+				{
+					return a.index-b.index;
+				}
+				else if(a.row!=UnknownValue && a.column!=UnknownValue && b.row!=UnknownValue && b.column!=UnknownValue)
+				{
+					if(a.row==b.row)
+					{
+						return a.column-b.column;
+					}
+					else
+					{
+						return a.row-b.row;
+					}
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			bool operator==(const ParsingTextPos& pos)const{return Compare(*this, pos)==0;}
+			bool operator!=(const ParsingTextPos& pos)const{return Compare(*this, pos)!=0;}
+			bool operator<(const ParsingTextPos& pos)const{return Compare(*this, pos)<0;}
+			bool operator<=(const ParsingTextPos& pos)const{return Compare(*this, pos)<=0;}
+			bool operator>(const ParsingTextPos& pos)const{return Compare(*this, pos)>0;}
+			bool operator>=(const ParsingTextPos& pos)const{return Compare(*this, pos)>=0;}
+		};
+
+		struct ParsingTextRange
+		{
+			ParsingTextPos	start;
+			ParsingTextPos	end;
+
+			ParsingTextRange()
+			{
+				end.index=-1;
+				end.column=-1;
+			}
+
+			ParsingTextRange(const ParsingTextPos& _start, const ParsingTextPos& _end)
+				:start(_start)
+				,end(_end)
+			{
+			}
+
+			ParsingTextRange(const regex::RegexToken* startToken, const regex::RegexToken* endToken)
+			{
+				start.index=startToken->start;
+				start.row=startToken->rowStart;
+				start.column=startToken->columnStart;
+				end.index=endToken->start+endToken->length-1;
+				end.row=endToken->rowEnd;
+				end.column=endToken->columnEnd;
+			}
+
+			bool operator==(const ParsingTextRange& range)const{return start==range.start && end==range.end;}
+			bool operator!=(const ParsingTextRange& range)const{return start!=range.start || end!=range.end;}
+			bool Contains(const ParsingTextPos& pos)const{return start<=pos && pos<=end;}
+			bool Contains(const ParsingTextRange& range)const{return start<=range.start && range.end<=end;}
+		};
+
+/***********************************************************************
+通用语法树
+***********************************************************************/
+
+		class ParsingTreeNode;
+		class ParsingTreeToken;
+		class ParsingTreeObject;
+		class ParsingTreeArray;
+
+		class ParsingTreeNode : public Object
+		{
+		public:
+			class IVisitor : public Interface
+			{
+			public:
+				virtual void			Visit(ParsingTreeToken* node)=0;
+				virtual void			Visit(ParsingTreeObject* node)=0;
+				virtual void			Visit(ParsingTreeArray* node)=0;
+			};
+
+			class TraversalVisitor : public Object, public IVisitor
+			{
+			public:
+				enum TraverseDirection
+				{
+					ByTextPosition,
+					ByStorePosition
+				};
+			protected:
+				TraverseDirection		direction;
+			public:
+				TraversalVisitor(TraverseDirection _direction);
+
+				virtual void			BeforeVisit(ParsingTreeToken* node);
+				virtual void			AfterVisit(ParsingTreeToken* node);
+				virtual void			BeforeVisit(ParsingTreeObject* node);
+				virtual void			AfterVisit(ParsingTreeObject* node);
+				virtual void			BeforeVisit(ParsingTreeArray* node);
+				virtual void			AfterVisit(ParsingTreeArray* node);
+
+				virtual void			Visit(ParsingTreeToken* node)override;
+				virtual void			Visit(ParsingTreeObject* node)override;
+				virtual void			Visit(ParsingTreeArray* node)override;
+			};
+		protected:
+			typedef collections::List<Ptr<ParsingTreeNode>>				NodeList;
+
+			ParsingTextRange			codeRange;
+			ParsingTreeNode*			parent;
+			NodeList					cachedOrderedSubNodes;
+
+			virtual const NodeList&		GetSubNodesInternal()=0;
+			bool						BeforeAddChild(Ptr<ParsingTreeNode> node);
+			void						AfterAddChild(Ptr<ParsingTreeNode> node);
+			bool						BeforeRemoveChild(Ptr<ParsingTreeNode> node);
+			void						AfterRemoveChild(Ptr<ParsingTreeNode> node);
+		public:
+			ParsingTreeNode(const ParsingTextRange& _codeRange);
+			~ParsingTreeNode();
+
+			virtual void				Accept(IVisitor* visitor)=0;
+			ParsingTextRange			GetCodeRange();
+			void						SetCodeRange(const ParsingTextRange& range);
+
+			void						InitializeQueryCache();
+			void						ClearQueryCache();
+			ParsingTreeNode*			GetParent();
+			const NodeList&				GetSubNodes();
+
+			ParsingTreeNode*			FindSubNode(const ParsingTextPos& position);
+			ParsingTreeNode*			FindSubNode(const ParsingTextRange& range);
+			ParsingTreeNode*			FindDeepestNode(const ParsingTextPos& position);
+			ParsingTreeNode*			FindDeepestNode(const ParsingTextRange& range);
+		};
+
+		class ParsingTreeToken : public ParsingTreeNode
+		{
+		protected:
+			WString						value;
+			vint						tokenIndex;
+
+			const NodeList&				GetSubNodesInternal()override;
+		public:
+			ParsingTreeToken(const WString& _value, vint _tokenIndex=-1, const ParsingTextRange& _codeRange=ParsingTextRange());
+			~ParsingTreeToken();
+
+			void						Accept(IVisitor* visitor)override;
+			vint						GetTokenIndex();
+			void						SetTokenIndex(vint _tokenIndex);
+			const WString&				GetValue();
+			void						SetValue(const WString& _value);
+		};
+
+		class ParsingTreeObject : public ParsingTreeNode
+		{
+		protected:
+			typedef collections::Dictionary<WString, Ptr<ParsingTreeNode>>				NodeMap;
+			typedef collections::SortedList<WString>									NameList;
+
+			WString						type;
+			NodeMap						members;
+
+			const NodeList&			GetSubNodesInternal()override;
+		public:
+			ParsingTreeObject(const WString& _type=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
+			~ParsingTreeObject();
+
+			void						Accept(IVisitor* visitor)override;
+			const WString&				GetType();
+			void						SetType(const WString& _type);
+			NodeMap&					GetMembers();
+			Ptr<ParsingTreeNode>		GetMember(const WString& name);
+			bool						SetMember(const WString& name, Ptr<ParsingTreeNode> node);
+			bool						RemoveMember(const WString& name);
+			const NameList&				GetMemberNames();
+		};
+
+		class ParsingTreeArray : public ParsingTreeNode
+		{
+		protected:
+			typedef collections::List<Ptr<ParsingTreeNode>>								NodeArray;
+
+			WString						elementType;
+			NodeArray					items;
+
+			const NodeList&				GetSubNodesInternal()override;
+		public:
+			ParsingTreeArray(const WString& _elementType=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
+			~ParsingTreeArray();
+
+			void						Accept(IVisitor* visitor)override;
+			const WString&				GetElementType();
+			void						SetElementType(const WString& _elementType);
+			NodeArray&					GetItems();
+			Ptr<ParsingTreeNode>		GetItem(vint index);
+			bool						SetItem(vint index, Ptr<ParsingTreeNode> node);
+			bool						AddItem(Ptr<ParsingTreeNode> node);
+			bool						InsertItem(vint index, Ptr<ParsingTreeNode> node);
+			bool						RemoveItem(vint index);
+			bool						RemoveItem(Ptr<ParsingTreeNode> node);
+			vint						IndexOfItem(Ptr<ParsingTreeNode> node);
+			bool						ContainsItem(Ptr<ParsingTreeNode> node);
+			vint						Count();
+			bool						Clear();
+		};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+		extern void						Log(Ptr<ParsingTreeNode> node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
+
+/***********************************************************************
+语法树基础设施
+***********************************************************************/
+
+		class ParsingTreeCustomBase : public Object
+		{
+		public:
+			ParsingTextRange			codeRange;
+		};
+
+		class ParsingToken : public ParsingTreeCustomBase
+		{
+		public:
+			vint						tokenIndex;
+			WString						value;
+
+			ParsingToken():tokenIndex(-1){}
+		};
+
+		class ParsingError : public Object
+		{
+		public:
+			ParsingTextRange			codeRange;
+			const regex::RegexToken*	token;
+			ParsingTreeCustomBase*		parsingTree;
+			WString						errorMessage;
+
+			ParsingError();
+			ParsingError(const WString& _errorMessage);
+			ParsingError(const regex::RegexToken* _token, const WString& _errorMessage);
+			ParsingError(ParsingTreeCustomBase* _parsingTree, const WString& _errorMessage);
+			~ParsingError();
+		};
+
+/***********************************************************************
+语法树构造
+***********************************************************************/
+
+		class ParsingTreeConverter : public Object
+		{
+		public:
+			typedef collections::List<regex::RegexToken>	TokenList;
+
+			virtual Ptr<ParsingTreeCustomBase>				ConvertClass(Ptr<ParsingTreeObject> obj, const TokenList& tokens)=0;
+
+			bool SetMember(ParsingToken& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
+			{
+				Ptr<ParsingTreeToken> token=node.Cast<ParsingTreeToken>();
+				if(token)
+				{
+					member.tokenIndex=token->GetTokenIndex();
+					member.value=token->GetValue();
+					member.codeRange=token->GetCodeRange();
+					return true;
+				}
+				return false;
+			}
+
+			template<typename T>
+			bool SetMember(collections::List<T>& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
+			{
+				Ptr<ParsingTreeArray> arr=node.Cast<ParsingTreeArray>();
+				if(arr)
+				{
+					member.Clear();
+					vint count=arr->Count();
+					for(vint i=0;i<count;i++)
+					{
+						T t;
+						SetMember(t, arr->GetItem(i), tokens);
+						member.Add(t);
+					}
+					return true;
+				}
+				return false;
+			}
+
+			template<typename T>
+			bool SetMember(Ptr<T>& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
+			{
+				Ptr<ParsingTreeObject> obj=node.Cast<ParsingTreeObject>();
+				if(obj)
+				{
+					Ptr<ParsingTreeCustomBase> tree=ConvertClass(obj, tokens);
+					if(tree)
+					{
+						tree->codeRange=node->GetCodeRange();
+						member=tree.Cast<T>();
+						return member;
+					}
+				}
+				return false;
+			}
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\PARSINGTABLE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Table
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGTABLE
+#define VCZH_PARSING_PARSINGTABLE
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+
+/***********************************************************************
+跳转表
+***********************************************************************/
+
+			class ParsingTable : public Object
+			{
+			public:
+				static const vint							TokenBegin=0;
+				static const vint							TokenFinish=1;
+				static const vint							TryReduce=2;
+				static const vint							UserTokenStart=3;
+
+				class TokenInfo
+				{
+				public:
+					WString									name;
+					WString									regex;
+					vint									regexTokenIndex;
+
+					TokenInfo():regexTokenIndex(-1){}
+
+					TokenInfo(const WString& _name, const WString& _regex)
+						:name(_name)
+						,regex(_regex)
+						,regexTokenIndex(-1)
+					{
+					}
+				};
+
+				class StateInfo
+				{
+				public:
+					WString									ruleName;
+					WString									stateName;
+					WString									stateExpression;
+
+					StateInfo(){}
+
+					StateInfo(const WString& _ruleName, const WString& _stateName, const WString& _stateExpression)
+						:ruleName(_ruleName)
+						,stateName(_stateName)
+						,stateExpression(_stateExpression)
+					{
+					}
+				};
+
+				class RuleInfo
+				{
+				public:
+					WString									name;
+					WString									type;
+					vint									rootStartState;
+
+					RuleInfo(){}
+
+					RuleInfo(const WString& _name, const WString& _type, vint _rootStartState)
+						:name(_name)
+						,type(_type)
+						,rootStartState(_rootStartState)
+					{
+					}
+				};
+
+				class Instruction
+				{
+				public:
+					enum InstructionType
+					{
+						Create,
+						Assign,
+						Item,
+						Using,
+						Setter,
+						Shift,
+						Reduce,
+						LeftRecursiveReduce,
+					};
+
+					InstructionType							instructionType;
+					vint									stateParameter;
+					WString									nameParameter;
+					WString									value;
+
+					Instruction()
+						:instructionType(Create)
+						,stateParameter(0)
+					{
+					}
+
+					Instruction(InstructionType _instructionType, vint _stateParameter, const WString& _nameParameter, const WString& _value)
+						:instructionType(_instructionType)
+						,stateParameter(_stateParameter)
+						,nameParameter(_nameParameter)
+						,value(_value)
+					{
+					}
+				};
+
+				class TransitionItem
+				{
+				public:
+					vint									token;
+					vint									targetState;
+					collections::List<vint>					stackPattern;
+					collections::List<Instruction>			instructions;
+
+					enum OrderResult
+					{
+						CorrectOrder,
+						WrongOrder,
+						SameOrder,
+						UnknownOrder,
+					};
+
+					TransitionItem(){}
+
+					TransitionItem(vint _token, vint _targetState)
+						:token(_token)
+						,targetState(_targetState)
+					{
+					}
+
+					static OrderResult						CheckOrder(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2, bool forceGivingOrder);
+					static vint								Compare(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2);
+				};
+
+				class TransitionBag
+				{
+				public:
+					collections::List<Ptr<TransitionItem>>	transitionItems;
+				};
+
+			protected:
+				Ptr<regex::RegexLexer>						lexer;
+				collections::Array<Ptr<TransitionBag>>		transitionBags;
+				vint										tokenCount;
+				vint										stateCount;
+				collections::Array<TokenInfo>				tokenInfos;
+				collections::Array<TokenInfo>				discardTokenInfos;
+				collections::Array<StateInfo>				stateInfos;
+				collections::Array<RuleInfo>				ruleInfos;
+
+			public:
+				ParsingTable(vint _tokenCount, vint _discardTokenCount, vint _stateCount, vint _ruleCount);
+				~ParsingTable();
+
+				vint										GetTokenCount();
+				const TokenInfo&							GetTokenInfo(vint token);
+				void										SetTokenInfo(vint token, const TokenInfo& info);
+
+				vint										GetDiscardTokenCount();
+				const TokenInfo&							GetDiscardTokenInfo(vint token);
+				void										SetDiscardTokenInfo(vint token, const TokenInfo& info);
+
+				vint										GetStateCount();
+				const StateInfo&							GetStateInfo(vint state);
+				void										SetStateInfo(vint state, const StateInfo& info);
+
+				vint										GetRuleCount();
+				const RuleInfo&								GetRuleInfo(vint rule);
+				void										SetRuleInfo(vint rule, const RuleInfo& info);
+
+				const regex::RegexLexer&					GetLexer();
+				Ptr<TransitionBag>							GetTransitionBag(vint state, vint token);
+				void										SetTransitionBag(vint state, vint token, Ptr<TransitionBag> bag);
+				void										Initialize();
+				bool										IsInputToken(vint regexTokenIndex);
+				vint										GetTableTokenIndex(vint regexTokenIndex);
+				vint										GetTableDiscardTokenIndex(vint regexTokenIndex);
+			};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+			extern void										Log(Ptr<ParsingTable> table, stream::TextWriter& writer);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\PARSINGSTATE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::State
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGSTATE
+#define VCZH_PARSING_PARSINGSTATE
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+
+/***********************************************************************
+语法分析器
+***********************************************************************/
+
+			class ParsingState : public Object
+			{
+			public:
+				struct ShiftReduceRange
+				{
+					regex::RegexToken*							shiftToken;
+					regex::RegexToken*							reduceToken;
+
+					ShiftReduceRange()
+						:shiftToken(0)
+						,reduceToken(0)
+					{
+					}
+				};
+
+				struct TransitionResult
+				{
+					vint										tableTokenIndex;
+					vint										tableStateSource;
+					vint										tableStateTarget;
+					vint										tokenIndexInStream;
+					regex::RegexToken*							token;
+					ParsingTable::TransitionItem*				transition;
+					Ptr<collections::List<ShiftReduceRange>>	shiftReduceRanges;
+
+					TransitionResult()
+						:tableTokenIndex(-1)
+						,tableStateSource(-1)
+						,tableStateTarget(-1)
+						,tokenIndexInStream(-1)
+						,token(0)
+						,transition(0)
+					{
+					}
+
+					operator bool()const
+					{
+						return transition!=0;
+					}
+
+					void AddShiftReduceRange(regex::RegexToken* shiftToken, regex::RegexToken* reduceToken)
+					{
+						ShiftReduceRange range;
+						range.shiftToken=shiftToken;
+						range.reduceToken=reduceToken;
+						if(!shiftReduceRanges)
+						{
+							shiftReduceRanges=new collections::List<ShiftReduceRange>();
+						}
+						shiftReduceRanges->Add(range);
+					}
+				};
+
+				struct Future
+				{
+					vint									currentState;
+					vint									reduceStateCount;
+					collections::List<vint>					shiftStates;
+					vint									selectedToken;
+					Future*									previous;
+					Future*									next;
+
+					Future()
+						:currentState(-1)
+						,reduceStateCount(0)
+						,selectedToken(-1)
+						,previous(0)
+						,next(0)
+					{
+					}
+				};
+			private:
+				WString										input;
+				Ptr<ParsingTable>							table;
+				collections::List<regex::RegexToken>		tokens;
+
+				collections::List<vint>						stateStack;
+				vint										currentState;
+				vint										currentToken;
+				vint										tokenSequenceIndex;
+				
+				collections::List<regex::RegexToken*>		shiftTokenStack;
+				regex::RegexToken*							shiftToken;
+				regex::RegexToken*							reduceToken;
+			public:
+				ParsingState(const WString& _input, Ptr<ParsingTable> _table, vint codeIndex=-1);
+				~ParsingState();
+
+				const WString&								GetInput();
+				Ptr<ParsingTable>							GetTable();
+				const collections::List<regex::RegexToken>&	GetTokens();
+				regex::RegexToken*							GetToken(vint index);
+
+				vint										Reset(const WString& rule);
+				vint										GetCurrentToken();
+				const collections::List<vint>&				GetStateStack();
+				vint										GetCurrentState();
+
+				ParsingTable::TransitionItem*				MatchToken(vint tableTokenIndex);
+				ParsingTable::TransitionItem*				MatchTokenInFuture(vint tableTokenIndex, Future* future);
+				TransitionResult							ReadToken(vint tableTokenIndex, regex::RegexToken* regexToken);
+				TransitionResult							ReadToken();
+				bool										ReadTokenInFuture(vint tableTokenIndex, Future* previous, Future* now);
+			};
+
+/***********************************************************************
+语法树生成器
+***********************************************************************/
+
+			class ParsingTreeBuilder : public Object
+			{
+			protected:
+				Ptr<ParsingTreeNode>						createdObject;
+				Ptr<ParsingTreeObject>						operationTarget;
+				collections::List<Ptr<ParsingTreeObject>>	nodeStack;
+			public:
+				ParsingTreeBuilder();
+				~ParsingTreeBuilder();
+
+				void										Reset();
+				bool										Run(const ParsingState::TransitionResult& result);
+				Ptr<ParsingTreeObject>						GetNode();
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\PARSING.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Parser
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSING
+#define VCZH_PARSING_PARSING
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+
+/***********************************************************************
+语法分析器通用策略
+***********************************************************************/
+
+			class ParsingGeneralParser : public Object
+			{
+			protected:
+				Ptr<ParsingTable>							table;
+
+				virtual void								OnReset();
+				virtual ParsingState::TransitionResult		OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)=0;
+			public:
+				ParsingGeneralParser(Ptr<ParsingTable> _table);
+				~ParsingGeneralParser();
+				
+				Ptr<ParsingTreeNode>						Parse(ParsingState& state, collections::List<Ptr<ParsingError>>& errors);
+				Ptr<ParsingTreeNode>						Parse(const WString& input, const WString& rule, collections::List<Ptr<ParsingError>>& errors);
+			};
+
+/***********************************************************************
+语法分析器策略
+***********************************************************************/
+
+			class ParsingStrictParser : public ParsingGeneralParser
+			{
+			protected:
+
+				ParsingState::TransitionResult				OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)override;
+			public:
+				ParsingStrictParser(Ptr<ParsingTable> _table=0);
+				~ParsingStrictParser();
+			};
+
+			class ParsingAutoRecoverParser : public ParsingGeneralParser
+			{
+			protected:
+				collections::Array<ParsingState::Future>	recoverFutures;
+				vint										recoveringFutureIndex;
+
+				ParsingState::TransitionResult				OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)override;
+			public:
+				ParsingAutoRecoverParser(Ptr<ParsingTable> _table=0);
+				~ParsingAutoRecoverParser();
+			};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+			extern Ptr<ParsingStrictParser>					CreateBootstrapStrictParser();
+			extern Ptr<ParsingAutoRecoverParser>			CreateBootstrapAutoRecoverParser();
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\XML\PARSINGXML_PARSER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingXml_Parser
+
+本文件使用Vczh Parsing Generator工具自动生成
+***********************************************************************/
+
+#ifndef VCZH_PARSING_XML_PARSINGXML_PARSER
+#define VCZH_PARSING_XML_PARSINGXML_PARSER
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace xml
+		{
+			struct XmlParserTokenIndex abstract
+			{
+				static const vl::vint INSTRUCTION_OPEN = 0;
+				static const vl::vint INSTRUCTION_CLOSE = 1;
+				static const vl::vint COMPLEX_ELEMENT_OPEN = 2;
+				static const vl::vint SINGLE_ELEMENT_CLOSE = 3;
+				static const vl::vint ELEMENT_OPEN = 4;
+				static const vl::vint ELEMENT_CLOSE = 5;
+				static const vl::vint EQUAL = 6;
+				static const vl::vint NAME = 7;
+				static const vl::vint ATTVALUE = 8;
+				static const vl::vint COMMENT = 9;
+				static const vl::vint CDATA = 10;
+				static const vl::vint TEXT = 11;
+				static const vl::vint SPACE = 12;
+			};
+			class XmlNode;
+			class XmlText;
+			class XmlCData;
+			class XmlAttribute;
+			class XmlComment;
+			class XmlElement;
+			class XmlInstruction;
+			class XmlDocument;
+
+			class XmlNode abstract : public vl::parsing::ParsingTreeCustomBase
+			{
+			public:
+				class IVisitor : public vl::Interface
+				{
+				public:
+					virtual void Visit(XmlText* node)=0;
+					virtual void Visit(XmlCData* node)=0;
+					virtual void Visit(XmlAttribute* node)=0;
+					virtual void Visit(XmlComment* node)=0;
+					virtual void Visit(XmlElement* node)=0;
+					virtual void Visit(XmlInstruction* node)=0;
+					virtual void Visit(XmlDocument* node)=0;
+				};
+
+				virtual void Accept(XmlNode::IVisitor* visitor)=0;
+
+			};
+
+			class XmlText : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlText> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlCData : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlCData> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlAttribute : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::parsing::ParsingToken value;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlAttribute> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlComment : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlComment> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlElement : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::parsing::ParsingToken closingName;
+				vl::collections::List<vl::Ptr<XmlAttribute>> attributes;
+				vl::collections::List<vl::Ptr<XmlNode>> subNodes;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlElement> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlInstruction : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::collections::List<vl::Ptr<XmlAttribute>> attributes;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlInstruction> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlDocument : public XmlNode
+			{
+			public:
+				vl::collections::List<vl::Ptr<XmlNode>> prologs;
+				vl::Ptr<XmlElement> rootElement;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlDocument> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> XmlConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable();
+
+			extern vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+		}
+	}
+}
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\XML\PARSINGXML.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingXml
+
+***********************************************************************/
+
+#ifndef VCZH_PARSING_XML_PARSINGXML
+#define VCZH_PARSING_XML_PARSINGXML
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace xml
+		{
+			extern WString							XmlEscapeValue(const WString& value);
+			extern WString							XmlUnescapeValue(const WString& value);
+			extern WString							XmlEscapeCData(const WString& value);
+			extern WString							XmlUnescapeCData(const WString& value);
+			extern WString							XmlEscapeComment(const WString& value);
+			extern WString							XmlUnescapeComment(const WString& value);
+			extern void								XmlPrint(Ptr<XmlNode> node, stream::TextWriter& writer);
+			extern void								XmlPrintContent(Ptr<XmlElement> element, stream::TextWriter& writer);
+			extern WString							XmlToString(Ptr<XmlNode> node);
+
+			extern Ptr<XmlAttribute>							XmlGetAttribute(Ptr<XmlElement> element, const WString& name);
+			extern Ptr<XmlElement>								XmlGetElement(Ptr<XmlElement> element, const WString& name);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element, const WString& name);
+			extern WString										XmlGetValue(Ptr<XmlElement> element);
+
+			extern Ptr<XmlAttribute>							XmlGetAttribute(XmlElement* element, const WString& name);
+			extern Ptr<XmlElement>								XmlGetElement(XmlElement* element, const WString& name);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element, const WString& name);
+			extern WString										XmlGetValue(XmlElement* element);
+
+			class XmlElementWriter : public Object
+			{
+			protected:
+				Ptr<XmlElement>					element;
+				const XmlElementWriter*			previousWriter;
+
+			public:
+				XmlElementWriter(Ptr<XmlElement> _element, const XmlElementWriter* _previousWriter=0);
+				~XmlElementWriter();
+
+				const XmlElementWriter&			Attribute(const WString& name, const WString& value)const;
+				XmlElementWriter				Element(const WString& name)const;
+				const XmlElementWriter&			End()const;
+				const XmlElementWriter&			Text(const WString& value)const;
+				const XmlElementWriter&			CData(const WString& value)const;
+				const XmlElementWriter&			Comment(const WString& value)const;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\JSON\PARSINGJSON_PARSER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingJson_Parser
+
+本文件使用Vczh Parsing Generator工具自动生成
+***********************************************************************/
+
+#ifndef VCZH_PARSING_JSON_PARSINGJSON_PARSER
+#define VCZH_PARSING_JSON_PARSINGJSON_PARSER
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace json
+		{
+			struct JsonParserTokenIndex abstract
+			{
+				static const vl::vint TRUEVALUE = 0;
+				static const vl::vint FALSEVALUE = 1;
+				static const vl::vint NULLVALUE = 2;
+				static const vl::vint OBJOPEN = 3;
+				static const vl::vint OBJCLOSE = 4;
+				static const vl::vint ARROPEN = 5;
+				static const vl::vint ARRCLOSE = 6;
+				static const vl::vint COMMA = 7;
+				static const vl::vint COLON = 8;
+				static const vl::vint NUMBER = 9;
+				static const vl::vint STRING = 10;
+				static const vl::vint SPACE = 11;
+			};
+			class JsonNode;
+			class JsonLiteral;
+			class JsonString;
+			class JsonNumber;
+			class JsonArray;
+			class JsonObjectField;
+			class JsonObject;
+
+			class JsonNode abstract : public vl::parsing::ParsingTreeCustomBase
+			{
+			public:
+				class IVisitor : public vl::Interface
+				{
+				public:
+					virtual void Visit(JsonLiteral* node)=0;
+					virtual void Visit(JsonString* node)=0;
+					virtual void Visit(JsonNumber* node)=0;
+					virtual void Visit(JsonArray* node)=0;
+					virtual void Visit(JsonObjectField* node)=0;
+					virtual void Visit(JsonObject* node)=0;
+				};
+
+				virtual void Accept(JsonNode::IVisitor* visitor)=0;
+
+			};
+
+			class JsonLiteral : public JsonNode
+			{
+			public:
+				struct JsonValue abstract
+				{
+					enum Type
+					{
+						True,
+						False,
+						Null,
+					};
+				};
+
+				JsonValue::Type value;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonLiteral> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonString : public JsonNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonString> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonNumber : public JsonNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonNumber> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonArray : public JsonNode
+			{
+			public:
+				vl::collections::List<vl::Ptr<JsonNode>> items;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonArray> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonObjectField : public JsonNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::Ptr<JsonNode> value;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonObjectField> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonObject : public JsonNode
+			{
+			public:
+				vl::collections::List<vl::Ptr<JsonObjectField>> fields;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonObject> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> JsonConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable();
+
+			extern vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+		}
+	}
+}
+#endif
+
+/***********************************************************************
+COMMON\SOURCE\PARSING\JSON\PARSINGJSON.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingJson_Parser
+
+***********************************************************************/
+
+#ifndef VCZH_PARSING_JSON_PARSINGJSON
+#define VCZH_PARSING_JSON_PARSINGJSON
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace json
+		{
+			extern void						JsonEscapeString(const WString& text, stream::TextWriter& writer);
+			extern void						JsonUnescapeString(const WString& text, stream::TextWriter& writer);
+			extern void						JsonPrint(Ptr<JsonNode> node, stream::TextWriter& writer);
+			extern WString					JsonToString(Ptr<JsonNode> node);
+		}
 	}
 }
 
@@ -10552,6 +12319,53 @@ Color
 				return value-color.value;
 			}
 
+			static Color Parse(const WString& value)
+			{
+				const wchar_t* code=L"0123456789ABCDEF";
+				if((value.Length()==7 || value.Length()==9) && value[0]==L'#')
+				{
+					int index[8]={15, 15, 15, 15, 15, 15, 15, 15};
+					for(vint i=0;i<value.Length()-1;i++)
+					{
+						index[i]=wcschr(code, value[i+1])-code;
+						if(index[i]<0 || index[i]>15)
+						{
+							return Color();
+						}
+					}
+
+					Color c;
+					c.r=(unsigned char)(index[0]*16+index[1]);
+					c.g=(unsigned char)(index[2]*16+index[3]);
+					c.b=(unsigned char)(index[4]*16+index[5]);
+					c.a=(unsigned char)(index[6]*16+index[7]);
+					return c;
+				}
+				return Color();
+			}
+
+			WString ToString()const
+			{
+				const wchar_t* code=L"0123456789ABCDEF";
+				wchar_t result[10]=L"#00000000";
+				result[1]=code[r/16];
+				result[2]=code[r%16];
+				result[3]=code[g/16];
+				result[4]=code[g%16];
+				result[5]=code[b/16];
+				result[6]=code[b%16];
+				if(a==255)
+				{
+					result[7]=L'\0';
+				}
+				else
+				{
+					result[7]=code[a/16];
+					result[8]=code[a%16];
+				}
+				return result;
+			}
+
 			bool operator==(Color color)const {return Compare(color)==0;}
 			bool operator!=(Color color)const {return Compare(color)!=0;}
 			bool operator<(Color color)const {return Compare(color)<0;}
@@ -10599,7 +12413,7 @@ Resources
 		struct FontProperties
 		{
 			WString				fontFamily;
-			vint					size;
+			vint				size;
 			bool				bold;
 			bool				italic;
 			bool				underline;
@@ -10774,6 +12588,8 @@ Layout Engine
 			class IGuiGraphicsParagraph : public Interface
 			{
 			public:
+				static const vint		NullInteractionId = -1;
+
 				enum TextStyle
 				{
 					Bold=1,
@@ -10792,7 +12608,7 @@ Layout Engine
 				struct InlineObjectProperties
 				{
 					Size					size;
-					vint						baseline;
+					vint					baseline;
 					BreakCondition			breakCondition;
 
 					InlineObjectProperties()
@@ -10805,8 +12621,10 @@ Layout Engine
 				virtual IGuiGraphicsRenderTarget*			GetRenderTarget()=0;
 				virtual bool								GetWrapLine()=0;
 				virtual void								SetWrapLine(bool value)=0;
-				virtual vint									GetMaxWidth()=0;
+				virtual vint								GetMaxWidth()=0;
 				virtual void								SetMaxWidth(vint value)=0;
+				virtual Alignment::Type						GetParagraphAlignment()=0;
+				virtual void								SetParagraphAlignment(Alignment::Type value)=0;
 
 				virtual bool								SetFont(vint start, vint length, const WString& value)=0;
 				virtual bool								SetSize(vint start, vint length, vint value)=0;
@@ -10814,8 +12632,11 @@ Layout Engine
 				virtual bool								SetColor(vint start, vint length, Color value)=0;
 				virtual bool								SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
 				virtual bool								ResetInlineObject(vint start, vint length)=0;
+				virtual bool								SetInteractionId(vint start, vint length, vint value=NullInteractionId)=0;
 
-				virtual vint									GetHeight()=0;
+				virtual bool								HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)=0;
+
+				virtual vint								GetHeight()=0;
 				virtual void								Render(Rect bounds)=0;
 			};
 
@@ -11148,16 +12969,33 @@ Native Window Services
 			virtual FontProperties			GetDefaultFont()=0;
 			virtual void					SetDefaultFont(const FontProperties& value)=0;
 		};
+
+		class INativeDelay : public Interface
+		{
+		public:
+			enum ExecuteStatus
+			{
+				Pending,
+				Executing,
+				Executed,
+				Canceled,
+			};
+
+			virtual ExecuteStatus			GetStatus()=0;
+			virtual bool					Delay(vint milliseconds)=0;
+			virtual bool					Cancel()=0;
+		};
 		
 		class INativeAsyncService : public virtual Interface
 		{
 		public:
-			typedef void (AsyncTaskProc)(void* arguments);
 
 			virtual bool					IsInMainThread()=0;
-			virtual void					InvokeAsync(AsyncTaskProc* proc, void* argument)=0;
-			virtual void					InvokeInMainThread(AsyncTaskProc* proc, void* argument)=0;
-			virtual bool					InvokeInMainThreadAndWait(AsyncTaskProc* proc, void* argument, vint milliseconds=-1)=0;
+			virtual void					InvokeAsync(const Func<void()>& proc)=0;
+			virtual void					InvokeInMainThread(const Func<void()>& proc)=0;
+			virtual bool					InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds=-1)=0;
+			virtual Ptr<INativeDelay>		DelayExecute(const Func<void()>& proc, vint milliseconds)=0;
+			virtual Ptr<INativeDelay>		DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)=0;
 		};
 		
 		class INativeClipboardService : public virtual Interface
@@ -11821,6 +13659,340 @@ Helpers
 #endif
 
 /***********************************************************************
+LIBRARIES\GACUI\SOURCE\NATIVEWINDOW\GUIRESOURCE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Resource
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_GUIRESOURCE
+#define VCZH_PRESENTATION_GUIRESOURCE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace reflection;
+
+		class GuiResourceItem;
+		class GuiResourceFolder;
+		class GuiResource;
+
+		class DocumentTextRun;
+		class DocumentHyperlinkTextRun;
+		class DocumentImageRun;
+
+/***********************************************************************
+Resource Image
+***********************************************************************/
+			
+		class GuiImageData : public Object
+		{
+		protected:
+			Ptr<INativeImage>				image;
+			vint							frameIndex;
+
+		public:
+			GuiImageData();
+			GuiImageData(Ptr<INativeImage> _image, vint _frameIndex);
+			~GuiImageData();
+
+			Ptr<INativeImage>				GetImage();
+			vint							GetFrameIndex();
+		};
+
+/***********************************************************************
+Rich Content Document (model)
+***********************************************************************/
+
+		class DocumentRun : public Object, public Description<DocumentRun>
+		{
+		public:
+			static const vint				NullHyperlinkId = -1;
+
+			class IVisitor : public Interface
+			{
+			public:
+				virtual void				Visit(DocumentTextRun* run)=0;
+				virtual void				Visit(DocumentHyperlinkTextRun* run)=0;
+				virtual void				Visit(DocumentImageRun* run)=0;
+			};
+			
+			vint							hyperlinkId;
+
+			DocumentRun():hyperlinkId(NullHyperlinkId){}
+
+			virtual void					Accept(IVisitor* visitor)=0;
+		};
+				
+		class DocumentTextRun : public DocumentRun, public Description<DocumentTextRun>
+		{
+		public:
+			FontProperties					style;
+			Color							color;
+			WString							text;
+
+			DocumentTextRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+		
+		class DocumentHyperlinkTextRun : public DocumentTextRun, public Description<DocumentHyperlinkTextRun>
+		{
+		public:
+			FontProperties					normalStyle;
+			Color							normalColor;
+			FontProperties					activeStyle;
+			Color							activeColor;
+
+			DocumentHyperlinkTextRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+				
+		class DocumentInlineObjectRun : public DocumentRun, public Description<DocumentInlineObjectRun>
+		{
+		public:
+			Size							size;
+			vint							baseline;
+
+			DocumentInlineObjectRun():baseline(-1){}
+		};
+				
+		class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
+		{
+		public:
+			Ptr<INativeImage>				image;
+			vint							frameIndex;
+			WString							source;
+
+			DocumentImageRun():frameIndex(0){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+
+		//--------------------------------------------------------------------------
+
+		class DocumentLine : public Object, public Description<DocumentLine>
+		{
+			typedef collections::List<Ptr<DocumentRun>>			RunList;
+		public:
+			RunList							runs;
+		};
+
+		class DocumentParagraph : public Object, public Description<DocumentParagraph>
+		{
+			typedef collections::List<Ptr<DocumentLine>>		LineList;
+		public:
+			LineList						lines;
+
+			Alignment::Type					alignment;
+
+			DocumentParagraph():alignment(Alignment::Left){}
+		};
+
+		class DocumentResolver : public Object
+		{
+		private:
+			Ptr<DocumentResolver>			previousResolver;
+
+		protected:
+
+			virtual Ptr<INativeImage>		ResolveImageInternal(const WString& protocol, const WString& path)=0;
+		public:
+			DocumentResolver(Ptr<DocumentResolver> _previousResolver);
+			~DocumentResolver();
+
+			Ptr<INativeImage>				ResolveImage(const WString& protocol, const WString& path);
+		};
+
+		//--------------------------------------------------------------------------
+
+		class DocumentStyle : public Object
+		{
+		public:
+			WString							parentStyleName;
+
+			Nullable<WString>				face;
+			Nullable<vint>					size;
+			Nullable<Color>					color;
+			Nullable<bool>					bold;
+			Nullable<bool>					italic;
+			Nullable<bool>					underline;
+			Nullable<bool>					strikeline;
+			Nullable<bool>					antialias;
+			Nullable<bool>					verticalAntialias;
+		};
+
+		class DocumentModel : public Object, public Description<DocumentModel>
+		{
+		public:
+
+			struct HyperlinkInfo
+			{
+				WString						reference;
+				vint						paragraphIndex;
+
+				HyperlinkInfo()
+					:paragraphIndex(-1)
+				{
+				}
+			};
+		private:
+			typedef collections::List<Ptr<DocumentParagraph>>							ParagraphList;
+			typedef collections::Dictionary<WString, Ptr<DocumentStyle>>				StyleMap;
+			typedef collections::Dictionary<WString, Ptr<parsing::xml::XmlElement>>		TemplateMap;
+			typedef collections::Pair<FontProperties, Color>							RawStylePair;
+			typedef collections::Dictionary<vint, HyperlinkInfo>						HyperlinkMap;
+		public:
+
+			ParagraphList					paragraphs;
+			StyleMap						styles;
+			TemplateMap						templates;
+			HyperlinkMap					hyperlinkInfos;
+			
+			DocumentModel();
+
+			RawStylePair					GetStyle(const WString& styleName, const RawStylePair& context);
+			vint							ActivateHyperlink(vint hyperlinkId, bool active);
+
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<DocumentResolver> resolver);
+
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory);
+
+			Ptr<parsing::xml::XmlDocument>	SaveToXml();
+		};
+
+/***********************************************************************
+Rich Content Document (resolver)
+***********************************************************************/
+		
+		class DocumentFileProtocolResolver : public DocumentResolver
+		{
+		protected:
+			WString							workingDirectory;
+
+			Ptr<INativeImage>				ResolveImageInternal(const WString& protocol, const WString& path)override;
+		public:
+			DocumentFileProtocolResolver(const WString& _workingDirectory, Ptr<DocumentResolver> previousResolver=0);
+		};
+		
+		class DocumentResProtocolResolver : public DocumentResolver
+		{
+		protected:
+			Ptr<GuiResource>				resource;
+
+			Ptr<INativeImage>				ResolveImageInternal(const WString& protocol, const WString& path)override;
+		public:
+			DocumentResProtocolResolver(Ptr<GuiResource> _resource, Ptr<DocumentResolver> previousResolver=0);
+		};
+
+/***********************************************************************
+Resource Structure
+***********************************************************************/
+
+		class GuiResourceNodeBase : public Object
+		{
+			friend class GuiResourceFolder;
+		protected:
+			GuiResourceFolder*						parent;
+			WString									name;
+			
+		public:
+			GuiResourceNodeBase();
+			~GuiResourceNodeBase();
+
+			GuiResourceFolder*						GetParent();
+			const WString&							GetName();
+		};
+		
+		class GuiResourceItem : public GuiResourceNodeBase
+		{
+			friend class GuiResourceFolder;
+		protected:
+			Ptr<Object>								content;
+			
+		public:
+			GuiResourceItem();
+			~GuiResourceItem();
+			
+			Ptr<Object>								GetContent();
+			void									SetContent(Ptr<Object> value);
+
+			Ptr<GuiImageData>						AsImage();
+			Ptr<parsing::xml::XmlDocument>			AsXml();
+			Ptr<ObjectBox<WString>>					AsString();
+			Ptr<DocumentModel>						AsDocument();
+		};
+		
+		class GuiResourceFolder : public GuiResourceNodeBase
+		{
+		protected:
+			typedef collections::Dictionary<WString, Ptr<GuiResourceItem>>		ItemMap;
+			typedef collections::Dictionary<WString, Ptr<GuiResourceFolder>>	FolderMap;
+			typedef collections::List<Ptr<GuiResourceItem>>						ItemList;
+			typedef collections::List<Ptr<GuiResourceFolder>>					FolderList;
+
+			struct DelayLoading
+			{
+				collections::Dictionary<Ptr<GuiResourceItem>, WString>			documentModelFolders;
+			};
+
+			ItemMap									items;
+			FolderMap								folders;
+
+			void									LoadResourceFolderXml(DelayLoading& delayLoading, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, Ptr<parsing::tabling::ParsingTable> xmlParsingTable);
+		public:
+			GuiResourceFolder();
+			~GuiResourceFolder();
+
+			const ItemList&							GetItems();
+			Ptr<GuiResourceItem>					GetItem(const WString& name);
+			bool									AddItem(const WString& name, Ptr<GuiResourceItem> item);
+			Ptr<GuiResourceItem>					RemoveItem(const WString& name);
+			void									ClearItems();
+			
+			const FolderList&						GetFolders();
+			Ptr<GuiResourceFolder>					GetFolder(const WString& name);
+			bool									AddFolder(const WString& name, Ptr<GuiResourceFolder> folder);
+			Ptr<GuiResourceFolder>					RemoveFolder(const WString& name);
+			void									ClearFolders();
+
+			Ptr<Object>								GetValueByPath(const WString& path);
+		};
+
+/***********************************************************************
+Resource Loader
+***********************************************************************/
+		
+		class GuiResource : public GuiResourceFolder
+		{
+		public:
+			GuiResource();
+			~GuiResource();
+
+			static Ptr<GuiResource>					LoadFromXml(const WString& filePath);
+		};
+
+/***********************************************************************
+Resource Loader
+***********************************************************************/
+
+		extern WString								GetFolderPath(const WString& filePath);
+		extern WString								GetFileName(const WString& filePath);
+		extern bool									LoadTextFile(const WString& filePath, WString& text);
+		extern bool									LoadTextFromStream(stream::IStream& stream, WString& text);
+	}
+}
+
+#endif
+
+/***********************************************************************
 LIBRARIES\GACUI\SOURCE\GRAPHICSELEMENT\GUIGRAPHICSELEMENT.H
 ***********************************************************************/
 /***********************************************************************
@@ -12296,92 +14468,6 @@ Colorized Plain Text (element)
 			};
 
 /***********************************************************************
-Rich Content Document (model)
-***********************************************************************/
-
-			namespace text
-			{
-				class DocumentTextRun;
-				class DocumentImageRun;
-
-				class DocumentRun : public Object, public Description<DocumentRun>
-				{
-				public:
-					class IVisitor : public Interface
-					{
-					public:
-						virtual void				Visit(DocumentTextRun* run)=0;
-						virtual void				Visit(DocumentImageRun* run)=0;
-					};
-
-					DocumentRun(){}
-
-					virtual void					Accept(IVisitor* visitor)=0;
-				};
-				
-				class DocumentTextRun : public DocumentRun, public Description<DocumentTextRun>
-				{
-				public:
-					FontProperties					style;
-					Color							color;
-					WString							text;
-
-					DocumentTextRun(){}
-
-					void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-				};
-				
-				class DocumentInlineObjectRun : public DocumentRun, public Description<DocumentInlineObjectRun>
-				{
-				public:
-					Size							size;
-					vint								baseline;
-
-					DocumentInlineObjectRun():baseline(-1){}
-				};
-				
-				class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
-				{
-				public:
-					Ptr<INativeImage>				image;
-					vint								frameIndex;
-
-					DocumentImageRun():frameIndex(0){}
-
-					void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-				};
-
-				//--------------------------------------------------------------------------
-
-				class DocumentLine : public Object, public Description<DocumentLine>
-				{
-					typedef collections::List<Ptr<DocumentRun>>			RunList;
-				public:
-					RunList							runs;
-				};
-
-				class DocumentParagraph : public Object, public Description<DocumentParagraph>
-				{
-					typedef collections::List<Ptr<DocumentLine>>		LineList;
-				public:
-					LineList						lines;
-				};
-
-				class DocumentModel : public Object, public Description<DocumentModel>
-				{
-					typedef collections::List<Ptr<DocumentParagraph>>	ParagraphList;
-				public:
-					ParagraphList					paragraphs;
-				};
-
-				struct ParagraphCache
-				{
-					WString							fullText;
-					Ptr<IGuiGraphicsParagraph>		graphicsParagraph;
-				};
-			}
-
-/***********************************************************************
 Rich Content Document (element)
 ***********************************************************************/
 
@@ -12393,38 +14479,47 @@ Rich Content Document (element)
 				{
 					DEFINE_GUI_GRAPHICS_RENDERER(GuiDocumentElement, GuiDocumentElementRenderer, IGuiGraphicsRenderTarget)
 				protected:
+					struct ParagraphCache
+					{
+						WString							fullText;
+						Ptr<IGuiGraphicsParagraph>		graphicsParagraph;
+					};
 
-					typedef collections::Array<Ptr<text::ParagraphCache>>		ParagraphCacheArray;
+					typedef collections::Array<Ptr<ParagraphCache>>		ParagraphCacheArray;
 				protected:
 					vint									paragraphDistance;
 					vint									lastMaxWidth;
 					vint									cachedTotalHeight;
-					IGuiGraphicsLayoutProvider*			layoutProvider;
-					ParagraphCacheArray					paragraphCaches;
+					IGuiGraphicsLayoutProvider*				layoutProvider;
+					ParagraphCacheArray						paragraphCaches;
 					collections::Array<vint>				paragraphHeights;
 
-					void					InitializeInternal();
-					void					FinalizeInternal();
-					void					RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget);
+					void									InitializeInternal();
+					void									FinalizeInternal();
+					void									RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget);
 				public:
 					GuiDocumentElementRenderer();
 
-					void					Render(Rect bounds)override;
-					void					OnElementStateChanged()override;
+					void									Render(Rect bounds)override;
+					void									OnElementStateChanged()override;
 
-					void					NotifyParagraphUpdated(vint index);
+					void									NotifyParagraphUpdated(vint index);
+					vint									GetHyperlinkIdFromPoint(Point point);
 				};
 
 			protected:
-				Ptr<text::DocumentModel>	document;
+				Ptr<DocumentModel>							document;
 
 				GuiDocumentElement();
 			public:
 				~GuiDocumentElement();
 				
-				Ptr<text::DocumentModel>	GetDocument();
-				void						SetDocument(Ptr<text::DocumentModel> value);
-				void						NotifyParagraphUpdated(vint index);
+				Ptr<DocumentModel>							GetDocument();
+				void										SetDocument(Ptr<DocumentModel> value);
+				void										NotifyParagraphUpdated(vint index);
+
+				vint										GetHyperlinkIdFromPoint(Point point);
+				void										ActivateHyperlink(vint hyperlinkId, bool active);
 			};
 		}
 	}
@@ -13814,6 +15909,8 @@ Basic Construction
 				GuiControl*								parent;
 				ControlList								children;
 				Ptr<Object>								tag;
+				GuiControl*								tooltipControl;
+				vint									tooltipWidth;
 
 				virtual void							OnChildInserted(GuiControl* control);
 				virtual void							OnChildRemoved(GuiControl* control);
@@ -13840,9 +15937,10 @@ Basic Construction
 				compositions::GuiGraphicsComposition*	GetFocusableComposition();
 				compositions::GuiGraphicsEventReceiver*	GetEventReceiver();
 				GuiControl*								GetParent();
-				vint										GetChildrenCount();
+				vint									GetChildrenCount();
 				GuiControl*								GetChild(vint index);
 				bool									AddChild(GuiControl* control);
+				bool									HasChild(GuiControl* control);
 				
 				virtual GuiControlHost*					GetRelatedControlHost();
 				virtual bool							GetVisuallyEnabled();
@@ -13858,6 +15956,12 @@ Basic Construction
 
 				Ptr<Object>								GetTag();
 				void									SetTag(Ptr<Object> value);
+				GuiControl*								GetTooltipControl();
+				GuiControl*								SetTooltipControl(GuiControl* value);
+				vint									GetTooltipWidth();
+				void									SetTooltipWidth(vint value);
+				bool									DisplayTooltip(Point location);
+				void									CloseTooltip();
 
 				virtual IDescriptable*					QueryService(const WString& identifier);
 
@@ -13889,21 +15993,6 @@ Basic Construction
 					:object(_object)
 				{
 				}
-			};
-			
-			class GuiImageData : public Object
-			{
-			protected:
-				Ptr<INativeImage>				image;
-				vint								frameIndex;
-
-			public:
-				GuiImageData();
-				GuiImageData(Ptr<INativeImage> _image, vint _frameIndex);
-				~GuiImageData();
-
-				Ptr<INativeImage>				GetImage();
-				vint								GetFrameIndex();
 			};
 
 /***********************************************************************
@@ -14325,7 +16414,18 @@ Control Host
 				virtual void							OnNativeWindowChanged();
 				virtual void							OnVisualStatusChanged();
 			private:
+				static const vint						TooltipDelayOpenTime=500;
+				static const vint						TooltipDelayCloseTime=500;
+				static const vint						TooltipDelayLifeTime=5000;
+
+				Ptr<INativeDelay>						tooltipOpenDelay;
+				Ptr<INativeDelay>						tooltipCloseDelay;
+				Point									tooltipLocation;
 				
+				GuiControl*								GetTooltipOwner(Point location);
+				void									MoveIntoTooltipControl(GuiControl* tooltipControl, Point location);
+				void									MouseMoving(const NativeWindowMouseInfo& info)override;
+				void									MouseLeaved()override;
 				void									Moved()override;
 				void									Enabled()override;
 				void									Disabled()override;
@@ -14486,7 +16586,27 @@ Window
 
 				bool									IsClippedByScreen(Point location);
 				void									ShowPopup(Point location);
+				void									ShowPopup(GuiControl* control, Point location);
 				void									ShowPopup(GuiControl* control, bool preferredTopBottomSide);
+			};
+
+			class GuiTooltip : public GuiPopup, private INativeControllerListener, public Description<GuiTooltip>
+			{
+			protected:
+				GuiControl*								temporaryContentControl;
+
+				void									GlobalTimer()override;
+				void									TooltipOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									TooltipClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				GuiTooltip(IStyleController* _styleController);
+				~GuiTooltip();
+
+				vint									GetPrefferedContentWidth();
+				void									SetPrefferedContentWidth(vint value);
+
+				GuiControl*								GetTemporaryContentControl();
+				void									SetTemporaryContentControl(GuiControl* control);
 			};
 		}
 	}
@@ -14529,6 +16649,10 @@ namespace vl
 				void											ClipboardUpdated()override;
 			protected:
 				GuiWindow*										mainWindow;
+				GuiControl*										sharedTooltipOwner;
+				GuiTooltip*										sharedTooltipWindow;
+				bool											sharedTooltipHovering;
+				bool											sharedTooltipClosing;
 				collections::List<GuiWindow*>					windows;
 				collections::SortedList<GuiPopup*>				openingPopups;
 
@@ -14540,20 +16664,25 @@ namespace vl
 				void											RegisterPopupOpened(GuiPopup* popup);
 				void											RegisterPopupClosed(GuiPopup* popup);
 				void											OnMouseDown(Point location);
+				void											TooltipMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void											TooltipMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 			public:
 				void											Run(GuiWindow* _mainWindow);
+				GuiWindow*										GetMainWindow();
 				const collections::List<GuiWindow*>&			GetWindows();
 				GuiWindow*										GetWindow(Point location);
+				void											ShowTooltip(GuiControl* owner, GuiControl* tooltip, vint preferredContentWidth, Point location);
+				void											CloseTooltip();
+				GuiControl*										GetTooltipOwner();
 				WString											GetExecutablePath();
 				WString											GetExecutableFolder();
 
 				bool											IsInMainThread();
-				void											InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				void											InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				bool											InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds=-1);
 				void											InvokeAsync(const Func<void()>& proc);
 				void											InvokeInMainThread(const Func<void()>& proc);
 				bool											InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds=-1);
+				Ptr<INativeDelay>								DelayExecute(const Func<void()>& proc, vint milliseconds);
+				Ptr<INativeDelay>								DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds);
 
 				template<typename T>
 				void InvokeLambdaInMainThread(const T& proc)
@@ -15063,7 +17192,7 @@ namespace vl
 Common Interface
 ***********************************************************************/
 
-			class GuiTextBoxCommonInterface : public Description<GuiTextBoxCommonInterface>
+			class GuiTextBoxCommonInterface abstract : public Description<GuiTextBoxCommonInterface>
 			{
 			protected:
 				class ICallback : public virtual IDescriptable, public Description<ICallback>
@@ -15313,7 +17442,7 @@ SinglelineTextBox
 			{
 			public:
 				static const vint							TextMargin=3;
-
+				
 				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
 				{
 				public:
@@ -15380,6 +17509,89 @@ SinglelineTextBox
 				void										SetFont(const FontProperties& value)override;
 				wchar_t										GetPasswordChar();
 				void										SetPasswordChar(wchar_t value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+LIBRARIES\GACUI\SOURCE\CONTROLS\TEXTEDITORPACKAGE\GUIDOCUMENTVIEWER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIDOCUMENTVIEWER
+#define VCZH_PRESENTATION_CONTROLS_GUIDOCUMENTVIEWER
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+GuiDocumentCommonInterface
+***********************************************************************/
+			
+			class GuiDocumentCommonInterface abstract : public Description<GuiDocumentCommonInterface>
+			{
+			protected:
+				elements::GuiDocumentElement*				documentElement;
+				compositions::GuiBoundsComposition*			documentComposition;
+				vint										activeHyperlinkId;
+				vint										draggingHyperlinkId;
+				bool										dragging;
+				GuiControl*									senderControl;
+
+				void										InstallDocumentViewer(GuiControl* _sender, compositions::GuiGraphicsComposition* _container);
+				void										SetActiveHyperlinkId(vint value);
+				void										OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void										OnMouseDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void										OnMouseUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void										OnMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				GuiDocumentCommonInterface();
+				~GuiDocumentCommonInterface();
+
+				compositions::GuiNotifyEvent				ActiveHyperlinkChanged;
+				compositions::GuiNotifyEvent				ActiveHyperlinkExecuted;
+				
+				Ptr<DocumentModel>							GetDocument();
+				void										SetDocument(Ptr<DocumentModel> value);
+				void										NotifyParagraphUpdated(vint index);
+				vint										GetActiveHyperlinkId();
+				WString										GetActiveHyperlinkReference();
+			};
+
+/***********************************************************************
+GuiDocumentViewer
+***********************************************************************/
+			
+			class GuiDocumentViewer : public GuiScrollContainer, public GuiDocumentCommonInterface, public Description<GuiDocumentViewer>
+			{
+			public:
+				GuiDocumentViewer(GuiDocumentViewer::IStyleProvider* styleProvider);
+				~GuiDocumentViewer();
+			};
+
+/***********************************************************************
+GuiDocumentViewer
+***********************************************************************/
+			
+			class GuiDocumentLabel : public GuiControl, public GuiDocumentCommonInterface, public Description<GuiDocumentLabel>
+			{
+			public:
+				GuiDocumentLabel(GuiDocumentLabel::IStyleController* styleController);
+				~GuiDocumentLabel();
 			};
 		}
 	}
@@ -17745,6 +19957,7 @@ namespace vl
 			{
 			public:
 				virtual controls::GuiWindow::IStyleController*								CreateWindowStyle()=0;
+				virtual controls::GuiTooltip::IStyleController*								CreateTooltipStyle()=0;
 				virtual controls::GuiLabel::IStyleController*								CreateLabelStyle()=0;
 				virtual controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()=0;
 				virtual controls::GuiControl::IStyleController*								CreateGroupBoxStyle()=0;
@@ -17753,6 +19966,8 @@ namespace vl
 				virtual controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()=0;
 				virtual controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()=0;
 				virtual elements::text::ColorEntry											GetDefaultTextBoxColorEntry()=0;
+				virtual controls::GuiDocumentViewer::IStyleProvider*						CreateDocumentViewerStyle()=0;
+				virtual controls::GuiDocumentLabel::IStyleController*						CreateDocumentLabelStyle()=0;
 				virtual controls::GuiListView::IStyleProvider*								CreateListViewStyle()=0;
 				virtual controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()=0;
 				virtual controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()=0;
@@ -17777,8 +19992,8 @@ namespace vl
 				virtual controls::GuiScroll::IStyleController*								CreateHTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateVTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateProgressBarStyle()=0;
-				virtual vint																	GetScrollDefaultSize()=0;
-				virtual vint																	GetTrackerDefaultSize()=0;
+				virtual vint																GetScrollDefaultSize()=0;
+				virtual vint																GetTrackerDefaultSize()=0;
 				
 				virtual controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()=0;
 				virtual controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()=0;
@@ -17799,6 +20014,8 @@ namespace vl
 				extern controls::GuiComboBoxListControl*		NewComboBox(controls::GuiSelectableListControl* containedListControl);
 				extern controls::GuiMultilineTextBox*			NewMultilineTextBox();
 				extern controls::GuiSinglelineTextBox*			NewTextBox();
+				extern controls::GuiDocumentViewer*				NewDocumentViewer();
+				extern controls::GuiDocumentLabel*				NewDocumentLabel();
 				extern controls::GuiListView*					NewListViewBigIcon();
 				extern controls::GuiListView*					NewListViewSmallIcon();
 				extern controls::GuiListView*					NewListViewList();
@@ -17871,6 +20088,7 @@ Theme
 				~Win7Theme();
 
 				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
 				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
@@ -17879,6 +20097,8 @@ Theme
 				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
 				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
 				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				controls::GuiDocumentViewer::IStyleProvider*						CreateDocumentViewerStyle()override;
+				controls::GuiDocumentLabel::IStyleController*						CreateDocumentLabelStyle()override;
 				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
 				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
 				controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()override;
@@ -17903,8 +20123,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				vint																	GetScrollDefaultSize()override;
-				vint																	GetTrackerDefaultSize()override;
+				vint																GetScrollDefaultSize()override;
+				vint																GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
@@ -17950,6 +20170,7 @@ Theme
 				~Win8Theme();
 
 				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
 				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
@@ -17958,6 +20179,8 @@ Theme
 				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
 				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
 				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				controls::GuiDocumentViewer::IStyleProvider*						CreateDocumentViewerStyle()override;
+				controls::GuiDocumentLabel::IStyleController*						CreateDocumentLabelStyle()override;
 				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
 				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
 				controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()override;
@@ -17982,8 +20205,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				vint																	GetScrollDefaultSize()override;
-				vint																	GetTrackerDefaultSize()override;
+				vint																GetScrollDefaultSize()override;
+				vint																GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;

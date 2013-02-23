@@ -1,4 +1,4 @@
-# Gaclib 0.4.2.0
+# Gaclib 0.4.3.0
 
 
 GPU Accelerated C++ User Interface/Script Engine
@@ -17,16 +17,10 @@ Here is a simple description to the code
 Improvements to the previous release
 * Added 1 new demo
 
-    * **Controls.TextBox.AdvancedColorizer** that shows how to write a text code with context sensitive
+    * **Controls.Tooltip.RichTextAndResource** that shows how to load a rich text document and related images from resource files and show it in tooltips of buttons.
 * Added new features
 
-    * x64 supports
-    * Linq to C++
-    * Linq to Xml
-    * Linq to Json
-    * Parser framework and generator (generate parser cpp code from a grammar definition)
-    * Locale awared functions, like compare string with locale, format string with locale, etc
-    * Test buffer encoding, that can test a byte buffer and try to guess the encoding of the text as accurately as possible
-* Fixed bugs
-
-    * Close main form using GuiWindow::Close() will not exit the application
+    * **Delay Executation**
+    * **Resource xml format** that can bring images, texts, xmls and rich texts into a resource package
+    * **Rich text xml format** with hyperlink, style and template
+    * **Tooltip control**

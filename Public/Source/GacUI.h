@@ -377,6 +377,53 @@ Color
 				return value-color.value;
 			}
 
+			static Color Parse(const WString& value)
+			{
+				const wchar_t* code=L"0123456789ABCDEF";
+				if((value.Length()==7 || value.Length()==9) && value[0]==L'#')
+				{
+					int index[8]={15, 15, 15, 15, 15, 15, 15, 15};
+					for(vint i=0;i<value.Length()-1;i++)
+					{
+						index[i]=wcschr(code, value[i+1])-code;
+						if(index[i]<0 || index[i]>15)
+						{
+							return Color();
+						}
+					}
+
+					Color c;
+					c.r=(unsigned char)(index[0]*16+index[1]);
+					c.g=(unsigned char)(index[2]*16+index[3]);
+					c.b=(unsigned char)(index[4]*16+index[5]);
+					c.a=(unsigned char)(index[6]*16+index[7]);
+					return c;
+				}
+				return Color();
+			}
+
+			WString ToString()const
+			{
+				const wchar_t* code=L"0123456789ABCDEF";
+				wchar_t result[10]=L"#00000000";
+				result[1]=code[r/16];
+				result[2]=code[r%16];
+				result[3]=code[g/16];
+				result[4]=code[g%16];
+				result[5]=code[b/16];
+				result[6]=code[b%16];
+				if(a==255)
+				{
+					result[7]=L'\0';
+				}
+				else
+				{
+					result[7]=code[a/16];
+					result[8]=code[a%16];
+				}
+				return result;
+			}
+
 			bool operator==(Color color)const {return Compare(color)==0;}
 			bool operator!=(Color color)const {return Compare(color)!=0;}
 			bool operator<(Color color)const {return Compare(color)<0;}
@@ -424,7 +471,7 @@ Resources
 		struct FontProperties
 		{
 			WString				fontFamily;
-			vint					size;
+			vint				size;
 			bool				bold;
 			bool				italic;
 			bool				underline;
@@ -599,6 +646,8 @@ Layout Engine
 			class IGuiGraphicsParagraph : public Interface
 			{
 			public:
+				static const vint		NullInteractionId = -1;
+
 				enum TextStyle
 				{
 					Bold=1,
@@ -617,7 +666,7 @@ Layout Engine
 				struct InlineObjectProperties
 				{
 					Size					size;
-					vint						baseline;
+					vint					baseline;
 					BreakCondition			breakCondition;
 
 					InlineObjectProperties()
@@ -630,8 +679,10 @@ Layout Engine
 				virtual IGuiGraphicsRenderTarget*			GetRenderTarget()=0;
 				virtual bool								GetWrapLine()=0;
 				virtual void								SetWrapLine(bool value)=0;
-				virtual vint									GetMaxWidth()=0;
+				virtual vint								GetMaxWidth()=0;
 				virtual void								SetMaxWidth(vint value)=0;
+				virtual Alignment::Type						GetParagraphAlignment()=0;
+				virtual void								SetParagraphAlignment(Alignment::Type value)=0;
 
 				virtual bool								SetFont(vint start, vint length, const WString& value)=0;
 				virtual bool								SetSize(vint start, vint length, vint value)=0;
@@ -639,8 +690,11 @@ Layout Engine
 				virtual bool								SetColor(vint start, vint length, Color value)=0;
 				virtual bool								SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
 				virtual bool								ResetInlineObject(vint start, vint length)=0;
+				virtual bool								SetInteractionId(vint start, vint length, vint value=NullInteractionId)=0;
 
-				virtual vint									GetHeight()=0;
+				virtual bool								HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)=0;
+
+				virtual vint								GetHeight()=0;
 				virtual void								Render(Rect bounds)=0;
 			};
 
@@ -973,16 +1027,33 @@ Native Window Services
 			virtual FontProperties			GetDefaultFont()=0;
 			virtual void					SetDefaultFont(const FontProperties& value)=0;
 		};
+
+		class INativeDelay : public Interface
+		{
+		public:
+			enum ExecuteStatus
+			{
+				Pending,
+				Executing,
+				Executed,
+				Canceled,
+			};
+
+			virtual ExecuteStatus			GetStatus()=0;
+			virtual bool					Delay(vint milliseconds)=0;
+			virtual bool					Cancel()=0;
+		};
 		
 		class INativeAsyncService : public virtual Interface
 		{
 		public:
-			typedef void (AsyncTaskProc)(void* arguments);
 
 			virtual bool					IsInMainThread()=0;
-			virtual void					InvokeAsync(AsyncTaskProc* proc, void* argument)=0;
-			virtual void					InvokeInMainThread(AsyncTaskProc* proc, void* argument)=0;
-			virtual bool					InvokeInMainThreadAndWait(AsyncTaskProc* proc, void* argument, vint milliseconds=-1)=0;
+			virtual void					InvokeAsync(const Func<void()>& proc)=0;
+			virtual void					InvokeInMainThread(const Func<void()>& proc)=0;
+			virtual bool					InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds=-1)=0;
+			virtual Ptr<INativeDelay>		DelayExecute(const Func<void()>& proc, vint milliseconds)=0;
+			virtual Ptr<INativeDelay>		DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)=0;
 		};
 		
 		class INativeClipboardService : public virtual Interface
@@ -1646,6 +1717,340 @@ Helpers
 #endif
 
 /***********************************************************************
+NATIVEWINDOW\GUIRESOURCE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Resource
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_GUIRESOURCE
+#define VCZH_PRESENTATION_GUIRESOURCE
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace reflection;
+
+		class GuiResourceItem;
+		class GuiResourceFolder;
+		class GuiResource;
+
+		class DocumentTextRun;
+		class DocumentHyperlinkTextRun;
+		class DocumentImageRun;
+
+/***********************************************************************
+Resource Image
+***********************************************************************/
+			
+		class GuiImageData : public Object
+		{
+		protected:
+			Ptr<INativeImage>				image;
+			vint							frameIndex;
+
+		public:
+			GuiImageData();
+			GuiImageData(Ptr<INativeImage> _image, vint _frameIndex);
+			~GuiImageData();
+
+			Ptr<INativeImage>				GetImage();
+			vint							GetFrameIndex();
+		};
+
+/***********************************************************************
+Rich Content Document (model)
+***********************************************************************/
+
+		class DocumentRun : public Object, public Description<DocumentRun>
+		{
+		public:
+			static const vint				NullHyperlinkId = -1;
+
+			class IVisitor : public Interface
+			{
+			public:
+				virtual void				Visit(DocumentTextRun* run)=0;
+				virtual void				Visit(DocumentHyperlinkTextRun* run)=0;
+				virtual void				Visit(DocumentImageRun* run)=0;
+			};
+			
+			vint							hyperlinkId;
+
+			DocumentRun():hyperlinkId(NullHyperlinkId){}
+
+			virtual void					Accept(IVisitor* visitor)=0;
+		};
+				
+		class DocumentTextRun : public DocumentRun, public Description<DocumentTextRun>
+		{
+		public:
+			FontProperties					style;
+			Color							color;
+			WString							text;
+
+			DocumentTextRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+		
+		class DocumentHyperlinkTextRun : public DocumentTextRun, public Description<DocumentHyperlinkTextRun>
+		{
+		public:
+			FontProperties					normalStyle;
+			Color							normalColor;
+			FontProperties					activeStyle;
+			Color							activeColor;
+
+			DocumentHyperlinkTextRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+				
+		class DocumentInlineObjectRun : public DocumentRun, public Description<DocumentInlineObjectRun>
+		{
+		public:
+			Size							size;
+			vint							baseline;
+
+			DocumentInlineObjectRun():baseline(-1){}
+		};
+				
+		class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
+		{
+		public:
+			Ptr<INativeImage>				image;
+			vint							frameIndex;
+			WString							source;
+
+			DocumentImageRun():frameIndex(0){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+
+		//--------------------------------------------------------------------------
+
+		class DocumentLine : public Object, public Description<DocumentLine>
+		{
+			typedef collections::List<Ptr<DocumentRun>>			RunList;
+		public:
+			RunList							runs;
+		};
+
+		class DocumentParagraph : public Object, public Description<DocumentParagraph>
+		{
+			typedef collections::List<Ptr<DocumentLine>>		LineList;
+		public:
+			LineList						lines;
+
+			Alignment::Type					alignment;
+
+			DocumentParagraph():alignment(Alignment::Left){}
+		};
+
+		class DocumentResolver : public Object
+		{
+		private:
+			Ptr<DocumentResolver>			previousResolver;
+
+		protected:
+
+			virtual Ptr<INativeImage>		ResolveImageInternal(const WString& protocol, const WString& path)=0;
+		public:
+			DocumentResolver(Ptr<DocumentResolver> _previousResolver);
+			~DocumentResolver();
+
+			Ptr<INativeImage>				ResolveImage(const WString& protocol, const WString& path);
+		};
+
+		//--------------------------------------------------------------------------
+
+		class DocumentStyle : public Object
+		{
+		public:
+			WString							parentStyleName;
+
+			Nullable<WString>				face;
+			Nullable<vint>					size;
+			Nullable<Color>					color;
+			Nullable<bool>					bold;
+			Nullable<bool>					italic;
+			Nullable<bool>					underline;
+			Nullable<bool>					strikeline;
+			Nullable<bool>					antialias;
+			Nullable<bool>					verticalAntialias;
+		};
+
+		class DocumentModel : public Object, public Description<DocumentModel>
+		{
+		public:
+
+			struct HyperlinkInfo
+			{
+				WString						reference;
+				vint						paragraphIndex;
+
+				HyperlinkInfo()
+					:paragraphIndex(-1)
+				{
+				}
+			};
+		private:
+			typedef collections::List<Ptr<DocumentParagraph>>							ParagraphList;
+			typedef collections::Dictionary<WString, Ptr<DocumentStyle>>				StyleMap;
+			typedef collections::Dictionary<WString, Ptr<parsing::xml::XmlElement>>		TemplateMap;
+			typedef collections::Pair<FontProperties, Color>							RawStylePair;
+			typedef collections::Dictionary<vint, HyperlinkInfo>						HyperlinkMap;
+		public:
+
+			ParagraphList					paragraphs;
+			StyleMap						styles;
+			TemplateMap						templates;
+			HyperlinkMap					hyperlinkInfos;
+			
+			DocumentModel();
+
+			RawStylePair					GetStyle(const WString& styleName, const RawStylePair& context);
+			vint							ActivateHyperlink(vint hyperlinkId, bool active);
+
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<DocumentResolver> resolver);
+
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory);
+
+			Ptr<parsing::xml::XmlDocument>	SaveToXml();
+		};
+
+/***********************************************************************
+Rich Content Document (resolver)
+***********************************************************************/
+		
+		class DocumentFileProtocolResolver : public DocumentResolver
+		{
+		protected:
+			WString							workingDirectory;
+
+			Ptr<INativeImage>				ResolveImageInternal(const WString& protocol, const WString& path)override;
+		public:
+			DocumentFileProtocolResolver(const WString& _workingDirectory, Ptr<DocumentResolver> previousResolver=0);
+		};
+		
+		class DocumentResProtocolResolver : public DocumentResolver
+		{
+		protected:
+			Ptr<GuiResource>				resource;
+
+			Ptr<INativeImage>				ResolveImageInternal(const WString& protocol, const WString& path)override;
+		public:
+			DocumentResProtocolResolver(Ptr<GuiResource> _resource, Ptr<DocumentResolver> previousResolver=0);
+		};
+
+/***********************************************************************
+Resource Structure
+***********************************************************************/
+
+		class GuiResourceNodeBase : public Object
+		{
+			friend class GuiResourceFolder;
+		protected:
+			GuiResourceFolder*						parent;
+			WString									name;
+			
+		public:
+			GuiResourceNodeBase();
+			~GuiResourceNodeBase();
+
+			GuiResourceFolder*						GetParent();
+			const WString&							GetName();
+		};
+		
+		class GuiResourceItem : public GuiResourceNodeBase
+		{
+			friend class GuiResourceFolder;
+		protected:
+			Ptr<Object>								content;
+			
+		public:
+			GuiResourceItem();
+			~GuiResourceItem();
+			
+			Ptr<Object>								GetContent();
+			void									SetContent(Ptr<Object> value);
+
+			Ptr<GuiImageData>						AsImage();
+			Ptr<parsing::xml::XmlDocument>			AsXml();
+			Ptr<ObjectBox<WString>>					AsString();
+			Ptr<DocumentModel>						AsDocument();
+		};
+		
+		class GuiResourceFolder : public GuiResourceNodeBase
+		{
+		protected:
+			typedef collections::Dictionary<WString, Ptr<GuiResourceItem>>		ItemMap;
+			typedef collections::Dictionary<WString, Ptr<GuiResourceFolder>>	FolderMap;
+			typedef collections::List<Ptr<GuiResourceItem>>						ItemList;
+			typedef collections::List<Ptr<GuiResourceFolder>>					FolderList;
+
+			struct DelayLoading
+			{
+				collections::Dictionary<Ptr<GuiResourceItem>, WString>			documentModelFolders;
+			};
+
+			ItemMap									items;
+			FolderMap								folders;
+
+			void									LoadResourceFolderXml(DelayLoading& delayLoading, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, Ptr<parsing::tabling::ParsingTable> xmlParsingTable);
+		public:
+			GuiResourceFolder();
+			~GuiResourceFolder();
+
+			const ItemList&							GetItems();
+			Ptr<GuiResourceItem>					GetItem(const WString& name);
+			bool									AddItem(const WString& name, Ptr<GuiResourceItem> item);
+			Ptr<GuiResourceItem>					RemoveItem(const WString& name);
+			void									ClearItems();
+			
+			const FolderList&						GetFolders();
+			Ptr<GuiResourceFolder>					GetFolder(const WString& name);
+			bool									AddFolder(const WString& name, Ptr<GuiResourceFolder> folder);
+			Ptr<GuiResourceFolder>					RemoveFolder(const WString& name);
+			void									ClearFolders();
+
+			Ptr<Object>								GetValueByPath(const WString& path);
+		};
+
+/***********************************************************************
+Resource Loader
+***********************************************************************/
+		
+		class GuiResource : public GuiResourceFolder
+		{
+		public:
+			GuiResource();
+			~GuiResource();
+
+			static Ptr<GuiResource>					LoadFromXml(const WString& filePath);
+		};
+
+/***********************************************************************
+Resource Loader
+***********************************************************************/
+
+		extern WString								GetFolderPath(const WString& filePath);
+		extern WString								GetFileName(const WString& filePath);
+		extern bool									LoadTextFile(const WString& filePath, WString& text);
+		extern bool									LoadTextFromStream(stream::IStream& stream, WString& text);
+	}
+}
+
+#endif
+
+/***********************************************************************
 GRAPHICSELEMENT\GUIGRAPHICSELEMENT.H
 ***********************************************************************/
 /***********************************************************************
@@ -2121,92 +2526,6 @@ Colorized Plain Text (element)
 			};
 
 /***********************************************************************
-Rich Content Document (model)
-***********************************************************************/
-
-			namespace text
-			{
-				class DocumentTextRun;
-				class DocumentImageRun;
-
-				class DocumentRun : public Object, public Description<DocumentRun>
-				{
-				public:
-					class IVisitor : public Interface
-					{
-					public:
-						virtual void				Visit(DocumentTextRun* run)=0;
-						virtual void				Visit(DocumentImageRun* run)=0;
-					};
-
-					DocumentRun(){}
-
-					virtual void					Accept(IVisitor* visitor)=0;
-				};
-				
-				class DocumentTextRun : public DocumentRun, public Description<DocumentTextRun>
-				{
-				public:
-					FontProperties					style;
-					Color							color;
-					WString							text;
-
-					DocumentTextRun(){}
-
-					void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-				};
-				
-				class DocumentInlineObjectRun : public DocumentRun, public Description<DocumentInlineObjectRun>
-				{
-				public:
-					Size							size;
-					vint								baseline;
-
-					DocumentInlineObjectRun():baseline(-1){}
-				};
-				
-				class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
-				{
-				public:
-					Ptr<INativeImage>				image;
-					vint								frameIndex;
-
-					DocumentImageRun():frameIndex(0){}
-
-					void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-				};
-
-				//--------------------------------------------------------------------------
-
-				class DocumentLine : public Object, public Description<DocumentLine>
-				{
-					typedef collections::List<Ptr<DocumentRun>>			RunList;
-				public:
-					RunList							runs;
-				};
-
-				class DocumentParagraph : public Object, public Description<DocumentParagraph>
-				{
-					typedef collections::List<Ptr<DocumentLine>>		LineList;
-				public:
-					LineList						lines;
-				};
-
-				class DocumentModel : public Object, public Description<DocumentModel>
-				{
-					typedef collections::List<Ptr<DocumentParagraph>>	ParagraphList;
-				public:
-					ParagraphList					paragraphs;
-				};
-
-				struct ParagraphCache
-				{
-					WString							fullText;
-					Ptr<IGuiGraphicsParagraph>		graphicsParagraph;
-				};
-			}
-
-/***********************************************************************
 Rich Content Document (element)
 ***********************************************************************/
 
@@ -2218,38 +2537,47 @@ Rich Content Document (element)
 				{
 					DEFINE_GUI_GRAPHICS_RENDERER(GuiDocumentElement, GuiDocumentElementRenderer, IGuiGraphicsRenderTarget)
 				protected:
+					struct ParagraphCache
+					{
+						WString							fullText;
+						Ptr<IGuiGraphicsParagraph>		graphicsParagraph;
+					};
 
-					typedef collections::Array<Ptr<text::ParagraphCache>>		ParagraphCacheArray;
+					typedef collections::Array<Ptr<ParagraphCache>>		ParagraphCacheArray;
 				protected:
 					vint									paragraphDistance;
 					vint									lastMaxWidth;
 					vint									cachedTotalHeight;
-					IGuiGraphicsLayoutProvider*			layoutProvider;
-					ParagraphCacheArray					paragraphCaches;
+					IGuiGraphicsLayoutProvider*				layoutProvider;
+					ParagraphCacheArray						paragraphCaches;
 					collections::Array<vint>				paragraphHeights;
 
-					void					InitializeInternal();
-					void					FinalizeInternal();
-					void					RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget);
+					void									InitializeInternal();
+					void									FinalizeInternal();
+					void									RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget);
 				public:
 					GuiDocumentElementRenderer();
 
-					void					Render(Rect bounds)override;
-					void					OnElementStateChanged()override;
+					void									Render(Rect bounds)override;
+					void									OnElementStateChanged()override;
 
-					void					NotifyParagraphUpdated(vint index);
+					void									NotifyParagraphUpdated(vint index);
+					vint									GetHyperlinkIdFromPoint(Point point);
 				};
 
 			protected:
-				Ptr<text::DocumentModel>	document;
+				Ptr<DocumentModel>							document;
 
 				GuiDocumentElement();
 			public:
 				~GuiDocumentElement();
 				
-				Ptr<text::DocumentModel>	GetDocument();
-				void						SetDocument(Ptr<text::DocumentModel> value);
-				void						NotifyParagraphUpdated(vint index);
+				Ptr<DocumentModel>							GetDocument();
+				void										SetDocument(Ptr<DocumentModel> value);
+				void										NotifyParagraphUpdated(vint index);
+
+				vint										GetHyperlinkIdFromPoint(Point point);
+				void										ActivateHyperlink(vint hyperlinkId, bool active);
 			};
 		}
 	}
@@ -3639,6 +3967,8 @@ Basic Construction
 				GuiControl*								parent;
 				ControlList								children;
 				Ptr<Object>								tag;
+				GuiControl*								tooltipControl;
+				vint									tooltipWidth;
 
 				virtual void							OnChildInserted(GuiControl* control);
 				virtual void							OnChildRemoved(GuiControl* control);
@@ -3665,9 +3995,10 @@ Basic Construction
 				compositions::GuiGraphicsComposition*	GetFocusableComposition();
 				compositions::GuiGraphicsEventReceiver*	GetEventReceiver();
 				GuiControl*								GetParent();
-				vint										GetChildrenCount();
+				vint									GetChildrenCount();
 				GuiControl*								GetChild(vint index);
 				bool									AddChild(GuiControl* control);
+				bool									HasChild(GuiControl* control);
 				
 				virtual GuiControlHost*					GetRelatedControlHost();
 				virtual bool							GetVisuallyEnabled();
@@ -3683,6 +4014,12 @@ Basic Construction
 
 				Ptr<Object>								GetTag();
 				void									SetTag(Ptr<Object> value);
+				GuiControl*								GetTooltipControl();
+				GuiControl*								SetTooltipControl(GuiControl* value);
+				vint									GetTooltipWidth();
+				void									SetTooltipWidth(vint value);
+				bool									DisplayTooltip(Point location);
+				void									CloseTooltip();
 
 				virtual IDescriptable*					QueryService(const WString& identifier);
 
@@ -3714,21 +4051,6 @@ Basic Construction
 					:object(_object)
 				{
 				}
-			};
-			
-			class GuiImageData : public Object
-			{
-			protected:
-				Ptr<INativeImage>				image;
-				vint								frameIndex;
-
-			public:
-				GuiImageData();
-				GuiImageData(Ptr<INativeImage> _image, vint _frameIndex);
-				~GuiImageData();
-
-				Ptr<INativeImage>				GetImage();
-				vint								GetFrameIndex();
 			};
 
 /***********************************************************************
@@ -4150,7 +4472,18 @@ Control Host
 				virtual void							OnNativeWindowChanged();
 				virtual void							OnVisualStatusChanged();
 			private:
+				static const vint						TooltipDelayOpenTime=500;
+				static const vint						TooltipDelayCloseTime=500;
+				static const vint						TooltipDelayLifeTime=5000;
+
+				Ptr<INativeDelay>						tooltipOpenDelay;
+				Ptr<INativeDelay>						tooltipCloseDelay;
+				Point									tooltipLocation;
 				
+				GuiControl*								GetTooltipOwner(Point location);
+				void									MoveIntoTooltipControl(GuiControl* tooltipControl, Point location);
+				void									MouseMoving(const NativeWindowMouseInfo& info)override;
+				void									MouseLeaved()override;
 				void									Moved()override;
 				void									Enabled()override;
 				void									Disabled()override;
@@ -4311,7 +4644,27 @@ Window
 
 				bool									IsClippedByScreen(Point location);
 				void									ShowPopup(Point location);
+				void									ShowPopup(GuiControl* control, Point location);
 				void									ShowPopup(GuiControl* control, bool preferredTopBottomSide);
+			};
+
+			class GuiTooltip : public GuiPopup, private INativeControllerListener, public Description<GuiTooltip>
+			{
+			protected:
+				GuiControl*								temporaryContentControl;
+
+				void									GlobalTimer()override;
+				void									TooltipOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									TooltipClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				GuiTooltip(IStyleController* _styleController);
+				~GuiTooltip();
+
+				vint									GetPrefferedContentWidth();
+				void									SetPrefferedContentWidth(vint value);
+
+				GuiControl*								GetTemporaryContentControl();
+				void									SetTemporaryContentControl(GuiControl* control);
 			};
 		}
 	}
@@ -4354,6 +4707,10 @@ namespace vl
 				void											ClipboardUpdated()override;
 			protected:
 				GuiWindow*										mainWindow;
+				GuiControl*										sharedTooltipOwner;
+				GuiTooltip*										sharedTooltipWindow;
+				bool											sharedTooltipHovering;
+				bool											sharedTooltipClosing;
 				collections::List<GuiWindow*>					windows;
 				collections::SortedList<GuiPopup*>				openingPopups;
 
@@ -4365,20 +4722,25 @@ namespace vl
 				void											RegisterPopupOpened(GuiPopup* popup);
 				void											RegisterPopupClosed(GuiPopup* popup);
 				void											OnMouseDown(Point location);
+				void											TooltipMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void											TooltipMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 			public:
 				void											Run(GuiWindow* _mainWindow);
+				GuiWindow*										GetMainWindow();
 				const collections::List<GuiWindow*>&			GetWindows();
 				GuiWindow*										GetWindow(Point location);
+				void											ShowTooltip(GuiControl* owner, GuiControl* tooltip, vint preferredContentWidth, Point location);
+				void											CloseTooltip();
+				GuiControl*										GetTooltipOwner();
 				WString											GetExecutablePath();
 				WString											GetExecutableFolder();
 
 				bool											IsInMainThread();
-				void											InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				void											InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument);
-				bool											InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds=-1);
 				void											InvokeAsync(const Func<void()>& proc);
 				void											InvokeInMainThread(const Func<void()>& proc);
 				bool											InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds=-1);
+				Ptr<INativeDelay>								DelayExecute(const Func<void()>& proc, vint milliseconds);
+				Ptr<INativeDelay>								DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds);
 
 				template<typename T>
 				void InvokeLambdaInMainThread(const T& proc)
@@ -4888,7 +5250,7 @@ namespace vl
 Common Interface
 ***********************************************************************/
 
-			class GuiTextBoxCommonInterface : public Description<GuiTextBoxCommonInterface>
+			class GuiTextBoxCommonInterface abstract : public Description<GuiTextBoxCommonInterface>
 			{
 			protected:
 				class ICallback : public virtual IDescriptable, public Description<ICallback>
@@ -5138,7 +5500,7 @@ SinglelineTextBox
 			{
 			public:
 				static const vint							TextMargin=3;
-
+				
 				class IStyleProvider : public virtual GuiControl::IStyleProvider, public Description<IStyleProvider>
 				{
 				public:
@@ -5205,6 +5567,89 @@ SinglelineTextBox
 				void										SetFont(const FontProperties& value)override;
 				wchar_t										GetPasswordChar();
 				void										SetPasswordChar(wchar_t value);
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEXTEDITORPACKAGE\GUIDOCUMENTVIEWER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIDOCUMENTVIEWER
+#define VCZH_PRESENTATION_CONTROLS_GUIDOCUMENTVIEWER
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+GuiDocumentCommonInterface
+***********************************************************************/
+			
+			class GuiDocumentCommonInterface abstract : public Description<GuiDocumentCommonInterface>
+			{
+			protected:
+				elements::GuiDocumentElement*				documentElement;
+				compositions::GuiBoundsComposition*			documentComposition;
+				vint										activeHyperlinkId;
+				vint										draggingHyperlinkId;
+				bool										dragging;
+				GuiControl*									senderControl;
+
+				void										InstallDocumentViewer(GuiControl* _sender, compositions::GuiGraphicsComposition* _container);
+				void										SetActiveHyperlinkId(vint value);
+				void										OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void										OnMouseDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void										OnMouseUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void										OnMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+			public:
+				GuiDocumentCommonInterface();
+				~GuiDocumentCommonInterface();
+
+				compositions::GuiNotifyEvent				ActiveHyperlinkChanged;
+				compositions::GuiNotifyEvent				ActiveHyperlinkExecuted;
+				
+				Ptr<DocumentModel>							GetDocument();
+				void										SetDocument(Ptr<DocumentModel> value);
+				void										NotifyParagraphUpdated(vint index);
+				vint										GetActiveHyperlinkId();
+				WString										GetActiveHyperlinkReference();
+			};
+
+/***********************************************************************
+GuiDocumentViewer
+***********************************************************************/
+			
+			class GuiDocumentViewer : public GuiScrollContainer, public GuiDocumentCommonInterface, public Description<GuiDocumentViewer>
+			{
+			public:
+				GuiDocumentViewer(GuiDocumentViewer::IStyleProvider* styleProvider);
+				~GuiDocumentViewer();
+			};
+
+/***********************************************************************
+GuiDocumentViewer
+***********************************************************************/
+			
+			class GuiDocumentLabel : public GuiControl, public GuiDocumentCommonInterface, public Description<GuiDocumentLabel>
+			{
+			public:
+				GuiDocumentLabel(GuiDocumentLabel::IStyleController* styleController);
+				~GuiDocumentLabel();
 			};
 		}
 	}
@@ -7570,6 +8015,7 @@ namespace vl
 			{
 			public:
 				virtual controls::GuiWindow::IStyleController*								CreateWindowStyle()=0;
+				virtual controls::GuiTooltip::IStyleController*								CreateTooltipStyle()=0;
 				virtual controls::GuiLabel::IStyleController*								CreateLabelStyle()=0;
 				virtual controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()=0;
 				virtual controls::GuiControl::IStyleController*								CreateGroupBoxStyle()=0;
@@ -7578,6 +8024,8 @@ namespace vl
 				virtual controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()=0;
 				virtual controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()=0;
 				virtual elements::text::ColorEntry											GetDefaultTextBoxColorEntry()=0;
+				virtual controls::GuiDocumentViewer::IStyleProvider*						CreateDocumentViewerStyle()=0;
+				virtual controls::GuiDocumentLabel::IStyleController*						CreateDocumentLabelStyle()=0;
 				virtual controls::GuiListView::IStyleProvider*								CreateListViewStyle()=0;
 				virtual controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()=0;
 				virtual controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()=0;
@@ -7602,8 +8050,8 @@ namespace vl
 				virtual controls::GuiScroll::IStyleController*								CreateHTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateVTrackerStyle()=0;
 				virtual controls::GuiScroll::IStyleController*								CreateProgressBarStyle()=0;
-				virtual vint																	GetScrollDefaultSize()=0;
-				virtual vint																	GetTrackerDefaultSize()=0;
+				virtual vint																GetScrollDefaultSize()=0;
+				virtual vint																GetTrackerDefaultSize()=0;
 				
 				virtual controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()=0;
 				virtual controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()=0;
@@ -7624,6 +8072,8 @@ namespace vl
 				extern controls::GuiComboBoxListControl*		NewComboBox(controls::GuiSelectableListControl* containedListControl);
 				extern controls::GuiMultilineTextBox*			NewMultilineTextBox();
 				extern controls::GuiSinglelineTextBox*			NewTextBox();
+				extern controls::GuiDocumentViewer*				NewDocumentViewer();
+				extern controls::GuiDocumentLabel*				NewDocumentLabel();
 				extern controls::GuiListView*					NewListViewBigIcon();
 				extern controls::GuiListView*					NewListViewSmallIcon();
 				extern controls::GuiListView*					NewListViewList();
@@ -7696,6 +8146,7 @@ Theme
 				~Win7Theme();
 
 				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
 				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
@@ -7704,6 +8155,8 @@ Theme
 				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
 				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
 				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				controls::GuiDocumentViewer::IStyleProvider*						CreateDocumentViewerStyle()override;
+				controls::GuiDocumentLabel::IStyleController*						CreateDocumentLabelStyle()override;
 				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
 				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
 				controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()override;
@@ -7728,8 +8181,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				vint																	GetScrollDefaultSize()override;
-				vint																	GetTrackerDefaultSize()override;
+				vint																GetScrollDefaultSize()override;
+				vint																GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
@@ -7775,6 +8228,7 @@ Theme
 				~Win8Theme();
 
 				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
 				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
@@ -7783,6 +8237,8 @@ Theme
 				controls::GuiScrollView::IStyleProvider*							CreateMultilineTextBoxStyle()override;
 				controls::GuiSinglelineTextBox::IStyleProvider*						CreateTextBoxStyle()override;
 				elements::text::ColorEntry											GetDefaultTextBoxColorEntry()override;
+				controls::GuiDocumentViewer::IStyleProvider*						CreateDocumentViewerStyle()override;
+				controls::GuiDocumentLabel::IStyleController*						CreateDocumentLabelStyle()override;
 				controls::GuiListView::IStyleProvider*								CreateListViewStyle()override;
 				controls::GuiTreeView::IStyleProvider*								CreateTreeViewStyle()override;
 				controls::GuiSelectableButton::IStyleController*					CreateListItemBackgroundStyle()override;
@@ -7807,8 +8263,8 @@ Theme
 				controls::GuiScroll::IStyleController*								CreateHTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateVTrackerStyle()override;
 				controls::GuiScroll::IStyleController*								CreateProgressBarStyle()override;
-				vint																	GetScrollDefaultSize()override;
-				vint																	GetTrackerDefaultSize()override;
+				vint																GetScrollDefaultSize()override;
+				vint																GetTrackerDefaultSize()override;
 
 				controls::GuiScrollView::IStyleProvider*							CreateTextListStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateTextListItemStyle()override;
@@ -7865,9 +8321,9 @@ Scrolls
 				compositions::GuiBoundsComposition*					boundsComposition;
 				compositions::GuiBoundsComposition*					containerComposition;
 
-				vint													totalSize;
-				vint													pageSize;
-				vint													position;
+				vint												totalSize;
+				vint												pageSize;
+				vint												position;
 				Point												draggingStartLocation;
 				bool												draggingHandle;
 
@@ -7915,9 +8371,9 @@ Scrolls
 				controls::GuiButton*								handleButton;
 				compositions::GuiTableComposition*					handleComposition;
 
-				vint													totalSize;
-				vint													pageSize;
-				vint													position;
+				vint												totalSize;
+				vint												pageSize;
+				vint												position;
 				Point												draggingStartLocation;
 				bool												draggingHandle;
 
@@ -8334,6 +8790,23 @@ Container
 				void										SetVisuallyEnabled(bool value)override;
 			};
 
+			class Win7TooltipStyle : public virtual controls::GuiWindow::DefaultBehaviorStyleController, public Description<Win7TooltipStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+			public:
+				Win7TooltipStyle();
+				~Win7TooltipStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+
 			class Win7LabelStyle : public Object, public virtual controls::GuiLabel::IStyleController, public Description<Win7LabelStyle>
 			{
 			protected:
@@ -8579,7 +9052,7 @@ Menu Button
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
@@ -8620,7 +9093,7 @@ Menu Button
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
@@ -8826,7 +9299,7 @@ Toolstrip Button
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
@@ -9155,7 +9628,7 @@ List Control Buttons
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														SetColumnSortingState(controls::GuiListViewColumnHeader::ColumnSortingState value)override;
@@ -9524,6 +9997,23 @@ Container
 				void										SetVisuallyEnabled(bool value)override;
 			};
 
+			class Win8TooltipStyle : public virtual controls::GuiWindow::DefaultBehaviorStyleController, public Description<Win8TooltipStyle>
+			{
+			protected:
+				compositions::GuiBoundsComposition*			boundsComposition;
+				compositions::GuiBoundsComposition*			containerComposition;
+			public:
+				Win8TooltipStyle();
+				~Win8TooltipStyle();
+
+				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
+				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
+				void										SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+				void										SetText(const WString& value)override;
+				void										SetFont(const FontProperties& value)override;
+				void										SetVisuallyEnabled(bool value)override;
+			};
+
 			class Win8LabelStyle : public Object, public virtual controls::GuiLabel::IStyleController, public Description<Win8LabelStyle>
 			{
 			protected:
@@ -9769,7 +10259,7 @@ Menu Button
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
@@ -9810,7 +10300,7 @@ Menu Button
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
@@ -9967,7 +10457,7 @@ Toolstrip Button
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
 				controls::GuiButton*										GetSubMenuHost()override;
-				void														SetImage(Ptr<controls::GuiImageData> value)override;
+				void														SetImage(Ptr<GuiImageData> value)override;
 				void														SetShortcutText(const WString& value)override;
 				compositions::GuiSubComponentMeasurer::IMeasuringSource*	GetMeasuringSource()override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
@@ -11820,33 +12310,49 @@ namespace vl
 		{
 			class WindowsAsyncService : public INativeAsyncService
 			{
-			public:
+			protected:
 				struct TaskItem
 				{
 					Semaphore*							semaphore;
-					INativeAsyncService::AsyncTaskProc*	proc;
-					void*								argument;
+					Func<void()>						proc;
 
 					TaskItem();
-					TaskItem(Semaphore* _semaphore, INativeAsyncService::AsyncTaskProc* _proc, void* _argument);
+					TaskItem(Semaphore* _semaphore, const Func<void()>& _proc);
 					~TaskItem();
+				};
 
-					bool operator==(const TaskItem& item)const{return false;}
-					bool operator!=(const TaskItem& item)const{return true;}
+				class DelayItem : public Object, public INativeDelay
+				{
+				public:
+					DelayItem(WindowsAsyncService* _service, const Func<void()>& _proc, bool _executeInMainThread, vint milliseconds);
+					~DelayItem();
+
+					WindowsAsyncService*				service;
+					Func<void()>						proc;
+					ExecuteStatus						status;
+					DateTime							executeTime;
+					bool								executeInMainThread;
+
+					ExecuteStatus						GetStatus()override;
+					bool								Delay(vint milliseconds)override;
+					bool								Cancel()override;
 				};
 			protected:
-				vint								mainThreadId;
-				SpinLock						taskListLock;
-				collections::List<TaskItem>		taskItems;
+				vint									mainThreadId;
+				SpinLock								taskListLock;
+				collections::List<TaskItem>				taskItems;
+				collections::List<Ptr<DelayItem>>		delayItems;
 			public:
 				WindowsAsyncService();
 				~WindowsAsyncService();
 
-				void							ExecuteAsyncTasks();
-				bool							IsInMainThread()override;
-				void							InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument)override;
-				void							InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument)override;
-				bool							InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds)override;
+				void									ExecuteAsyncTasks();
+				bool									IsInMainThread()override;
+				void									InvokeAsync(const Func<void()>& proc)override;
+				void									InvokeInMainThread(const Func<void()>& proc)override;
+				bool									InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds)override;
+				Ptr<INativeDelay>						DelayExecute(const Func<void()>& proc, vint milliseconds)override;
+				Ptr<INativeDelay>						DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)override;
 			};
 		}
 	}

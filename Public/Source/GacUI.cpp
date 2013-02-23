@@ -18,6 +18,7 @@ namespace vl
 		{
 			using namespace collections;
 			using namespace compositions;
+			using namespace theme;
 
 /***********************************************************************
 GuiApplication
@@ -52,12 +53,21 @@ GuiApplication
 
 			GuiApplication::GuiApplication()
 				:mainWindow(0)
+				,sharedTooltipOwner(0)
+				,sharedTooltipWindow(0)
+				,sharedTooltipHovering(false)
+				,sharedTooltipClosing(false)
 			{
 				GetCurrentController()->CallbackService()->InstallListener(this);
 			}
 
 			GuiApplication::~GuiApplication()
 			{
+				if(sharedTooltipWindow)
+				{
+					delete sharedTooltipWindow;
+					sharedTooltipWindow=0;
+				}
 				GetCurrentController()->CallbackService()->UninstallListener(this);
 			}
 
@@ -107,6 +117,20 @@ GuiApplication
 				}
 			}
 
+			void GuiApplication::TooltipMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				sharedTooltipHovering=true;
+			}
+
+			void GuiApplication::TooltipMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				sharedTooltipHovering=false;
+				if(sharedTooltipClosing)
+				{
+					CloseTooltip();
+				}
+			}
+
 			void GuiApplication::Run(GuiWindow* _mainWindow)
 			{
 				if(!mainWindow)
@@ -115,6 +139,11 @@ GuiApplication
 					GetCurrentController()->WindowService()->Run(mainWindow->GetNativeWindow());
 					mainWindow=0;
 				}
+			}
+
+			GuiWindow* GuiApplication::GetMainWindow()
+			{
+				return mainWindow;
 			}
 
 			const collections::List<GuiWindow*>& GuiApplication::GetWindows()
@@ -137,6 +166,46 @@ GuiApplication
 					}
 				}
 				return 0;
+			}
+
+			void GuiApplication::ShowTooltip(GuiControl* owner, GuiControl* tooltip, vint preferredContentWidth, Point location)
+			{
+				if(!sharedTooltipWindow)
+				{
+					sharedTooltipWindow=new GuiTooltip(GetCurrentTheme()->CreateTooltipStyle());
+					sharedTooltipWindow->GetBoundsComposition()->GetEventReceiver()->mouseEnter.AttachMethod(this, &GuiApplication::TooltipMouseEnter);
+					sharedTooltipWindow->GetBoundsComposition()->GetEventReceiver()->mouseLeave.AttachMethod(this, &GuiApplication::TooltipMouseLeave);
+				}
+				sharedTooltipHovering=false;
+				sharedTooltipClosing=false;
+				sharedTooltipOwner=owner;
+				sharedTooltipWindow->SetClientSize(Size(10, 10));
+				sharedTooltipWindow->SetTemporaryContentControl(tooltip);
+				sharedTooltipWindow->SetPrefferedContentWidth(preferredContentWidth);
+				sharedTooltipWindow->ShowPopup(owner, location);
+			}
+
+			void GuiApplication::CloseTooltip()
+			{
+				if(sharedTooltipWindow)
+				{
+					if(sharedTooltipHovering)
+					{
+						sharedTooltipClosing=true;
+					}
+					else
+					{
+						sharedTooltipClosing=false;
+						sharedTooltipWindow->Close();
+					}
+				}
+			}
+
+			GuiControl* GuiApplication::GetTooltipOwner()
+			{
+				if(!sharedTooltipWindow) return 0;
+				if(!sharedTooltipWindow->GetTemporaryContentControl()) return 0;
+				return sharedTooltipOwner;
 			}
 
 			WString GuiApplication::GetExecutablePath()
@@ -162,41 +231,29 @@ GuiApplication
 				return GetCurrentController()->AsyncService()->IsInMainThread();
 			}
 
-			void GuiApplication::InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument)
-			{
-				GetCurrentController()->AsyncService()->InvokeAsync(proc, argument);
-			}
-
-			void GuiApplication::InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument)
-			{
-				GetCurrentController()->AsyncService()->InvokeInMainThread(proc, argument);
-			}
-
-			bool GuiApplication::InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds)
-			{
-				return GetCurrentController()->AsyncService()->InvokeInMainThreadAndWait(proc, argument, milliseconds);
-			}
-
-			void InvokeInMainThreadProc(void* argument)
-			{
-				Func<void()>* proc=(Func<void()>*)argument;
-				(*proc)();
-				delete proc;
-			}
-
 			void GuiApplication::InvokeAsync(const Func<void()>& proc)
 			{
-				InvokeAsync(&InvokeInMainThreadProc, new Func<void()>(proc));
+				GetCurrentController()->AsyncService()->InvokeAsync(proc);
 			}
 
 			void GuiApplication::InvokeInMainThread(const Func<void()>& proc)
 			{
-				InvokeInMainThread(&InvokeInMainThreadProc, new Func<void()>(proc));
+				GetCurrentController()->AsyncService()->InvokeInMainThread(proc);
 			}
 
 			bool GuiApplication::InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds)
 			{
-				return InvokeInMainThreadAndWait(&InvokeInMainThreadProc, new Func<void()>(proc));
+				return GetCurrentController()->AsyncService()->InvokeInMainThreadAndWait(proc, milliseconds);
+			}
+
+			Ptr<INativeDelay> GuiApplication::DelayExecute(const Func<void()>& proc, vint milliseconds)
+			{
+				return GetCurrentController()->AsyncService()->DelayExecute(proc, milliseconds);
+			}
+
+			Ptr<INativeDelay> GuiApplication::DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)
+			{
+				return GetCurrentController()->AsyncService()->DelayExecuteInMainThread(proc, milliseconds);
 			}
 
 /***********************************************************************
@@ -377,6 +434,8 @@ GuiControl
 				,isVisuallyEnabled(true)
 				,isVisible(true)
 				,parent(0)
+				,tooltipControl(0)
+				,tooltipWidth(50)
 			{
 				boundsComposition->SetAssociatedControl(this);
 				VisibleChanged.SetAssociatedComposition(boundsComposition);
@@ -393,6 +452,15 @@ GuiControl
 
 			GuiControl::~GuiControl()
 			{
+				if(tooltipControl)
+				{
+					// the only legal parent is the GuiApplication::sharedTooltipWindow
+					if(tooltipControl->GetBoundsComposition()->GetParent())
+					{
+						tooltipControl->GetBoundsComposition()->GetParent()->RemoveChild(tooltipControl->GetBoundsComposition());
+					}
+					delete tooltipControl;
+				}
 				if(parent || !styleController)
 				{
 					for(vint i=0;i<children.Count();i++)
@@ -460,6 +528,11 @@ GuiControl
 			bool GuiControl::AddChild(GuiControl* control)
 			{
 				return GetContainerComposition()->AddChild(control->GetBoundsComposition());
+			}
+
+			bool GuiControl::HasChild(GuiControl* control)
+			{
+				return children.Contains(control);
 			}
 
 			GuiControlHost* GuiControl::GetRelatedControlHost()
@@ -554,6 +627,43 @@ GuiControl
 				tag=value;
 			}
 
+			GuiControl* GuiControl::GetTooltipControl()
+			{
+				return tooltipControl;
+			}
+
+			GuiControl* GuiControl::SetTooltipControl(GuiControl* value)
+			{
+				GuiControl* oldTooltipControl=tooltipControl;
+				tooltipControl=value;
+				return oldTooltipControl;
+			}
+
+			vint GuiControl::GetTooltipWidth()
+			{
+				return tooltipWidth;
+			}
+
+			void GuiControl::SetTooltipWidth(vint value)
+			{
+				tooltipWidth=value;
+			}
+
+			bool GuiControl::DisplayTooltip(Point location)
+			{
+				if(!tooltipControl) return false;
+				GetApplication()->ShowTooltip(this, tooltipControl, tooltipWidth, location);
+				return true;
+			}
+
+			void GuiControl::CloseTooltip()
+			{
+				if(GetApplication()->GetTooltipOwner()==this)
+				{
+					GetApplication()->CloseTooltip();
+				}
+			}
+
 			IDescriptable* GuiControl::QueryService(const WString& identifier)
 			{
 				if(parent)
@@ -576,35 +686,6 @@ GuiComponent
 
 			GuiComponent::~GuiComponent()
 			{
-			}
-
-/***********************************************************************
-GuiImageData
-***********************************************************************/
-
-			GuiImageData::GuiImageData()
-				:frameIndex(-1)
-			{
-			}
-
-			GuiImageData::GuiImageData(Ptr<INativeImage> _image, vint _frameIndex)
-				:image(_image)
-				,frameIndex(_frameIndex)
-			{
-			}
-
-			GuiImageData::~GuiImageData()
-			{
-			}
-
-			Ptr<INativeImage> GuiImageData::GetImage()
-			{
-				return image;
-			}
-
-			vint GuiImageData::GetFrameIndex()
-			{
-				return frameIndex;
 			}
 
 /***********************************************************************
@@ -1794,6 +1875,92 @@ GuiControlHost
 			{
 			}
 
+			GuiControl* GuiControlHost::GetTooltipOwner(Point location)
+			{
+				GuiGraphicsComposition* composition=this->GetBoundsComposition()->FindComposition(location);
+				if(composition)
+				{
+					GuiControl* control=composition->GetRelatedControl();
+					while(control)
+					{
+						if(control->GetTooltipControl())
+						{
+							return control;
+						}
+						control=control->GetParent();
+					}
+				}
+				return 0;
+			}
+
+			void GuiControlHost::MoveIntoTooltipControl(GuiControl* tooltipControl, Point location)
+			{
+				if(tooltipLocation!=location)
+				{
+					tooltipLocation=location;
+					{
+						GuiControl* currentOwner=GetApplication()->GetTooltipOwner();
+						if(currentOwner && currentOwner!=tooltipControl)
+						{
+							if(tooltipCloseDelay)
+							{
+								tooltipCloseDelay->Cancel();
+								tooltipCloseDelay=0;
+							}
+							GetApplication()->DelayExecuteInMainThread([=]()
+							{
+								currentOwner->CloseTooltip();
+							}, TooltipDelayCloseTime);
+						}
+					}
+					if(!tooltipControl)
+					{
+						if(tooltipOpenDelay)
+						{
+							tooltipOpenDelay->Cancel();
+							tooltipOpenDelay=0;
+						}
+					}
+					else if(tooltipOpenDelay)
+					{
+						tooltipOpenDelay->Delay(TooltipDelayOpenTime);
+					}
+					else if(GetApplication()->GetTooltipOwner()!=tooltipControl)
+					{
+						tooltipOpenDelay=GetApplication()->DelayExecuteInMainThread([this]()
+						{
+							GuiControl* owner=GetTooltipOwner(tooltipLocation);
+							if(owner)
+							{
+								Point offset=owner->GetBoundsComposition()->GetGlobalBounds().LeftTop();
+								Point p(tooltipLocation.x-offset.x, tooltipLocation.y-offset.y+24);
+								owner->DisplayTooltip(p);
+								tooltipOpenDelay=0;
+
+								tooltipCloseDelay=GetApplication()->DelayExecuteInMainThread([this, owner]()
+								{
+									owner->CloseTooltip();
+								}, TooltipDelayLifeTime);
+							}
+						}, TooltipDelayOpenTime);
+					}
+				}
+			}
+
+			void GuiControlHost::MouseMoving(const NativeWindowMouseInfo& info)
+			{
+				if(!info.left && !info.middle && !info.right)
+				{
+					GuiControl* tooltipControl=GetTooltipOwner(tooltipLocation);
+					MoveIntoTooltipControl(tooltipControl, Point(info.x, info.y));
+				}
+			}
+
+			void GuiControlHost::MouseLeaved()
+			{
+				MoveIntoTooltipControl(0, Point(-1, -1));
+			}
+
 			void GuiControlHost::Moved()
 			{
 				OnVisualStatusChanged();
@@ -2612,6 +2779,31 @@ GuiPopup
 				}
 			}
 
+			void GuiPopup::ShowPopup(GuiControl* control, Point location)
+			{
+				INativeWindow* window=GetNativeWindow();
+				if(window)
+				{
+					Point locations[4];
+					Size size=window->GetBounds().GetSize();
+					Rect controlBounds=control->GetBoundsComposition()->GetGlobalBounds();
+
+					GuiControlHost* controlHost=control->GetBoundsComposition()->GetRelatedControlHost();
+					if(controlHost)
+					{
+						INativeWindow* controlWindow=controlHost->GetNativeWindow();
+						if(controlWindow)
+						{
+							Point controlClientOffset=controlWindow->GetClientBoundsInScreen().LeftTop();
+							vint x=controlBounds.x1+controlClientOffset.x+location.x;
+							vint y=controlBounds.y1+controlClientOffset.y+location.y;
+							window->SetParent(controlWindow);
+							ShowPopup(Point(x, y));
+						}
+					}
+				}
+			}
+
 			void GuiPopup::ShowPopup(GuiControl* control, bool preferredTopBottomSide)
 			{
 				INativeWindow* window=GetNativeWindow();
@@ -2660,6 +2852,71 @@ GuiPopup
 							ShowPopup(locations[0]);
 						}
 					}
+				}
+			}
+
+/***********************************************************************
+GuiPopup
+***********************************************************************/
+
+			void GuiTooltip::GlobalTimer()
+			{
+				SetClientSize(GetClientSize());
+			}
+
+			void GuiTooltip::TooltipOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+			}
+
+			void GuiTooltip::TooltipClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				SetTemporaryContentControl(0);
+			}
+
+			GuiTooltip::GuiTooltip(IStyleController* _styleController)
+				:GuiPopup(_styleController)
+				,temporaryContentControl(0)
+			{
+				GetContainerComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				GetContainerComposition()->SetPreferredMinSize(Size(20, 10));
+				GetCurrentController()->CallbackService()->InstallListener(this);
+
+				WindowOpened.AttachMethod(this, &GuiTooltip::TooltipOpened);
+				WindowClosed.AttachMethod(this, &GuiTooltip::TooltipClosed);
+			}
+
+			GuiTooltip::~GuiTooltip()
+			{
+				GetCurrentController()->CallbackService()->UninstallListener(this);
+			}
+
+			vint GuiTooltip::GetPrefferedContentWidth()
+			{
+				return GetContainerComposition()->GetPreferredMinSize().x;
+			}
+
+			void GuiTooltip::SetPrefferedContentWidth(vint value)
+			{
+				GetContainerComposition()->SetPreferredMinSize(Size(value, 10));
+			}
+
+			GuiControl* GuiTooltip::GetTemporaryContentControl()
+			{
+				return temporaryContentControl;
+			}
+
+			void GuiTooltip::SetTemporaryContentControl(GuiControl* control)
+			{
+				if(temporaryContentControl && HasChild(temporaryContentControl))
+				{
+					GetContainerComposition()->RemoveChild(temporaryContentControl->GetBoundsComposition());
+					temporaryContentControl=0;
+				}
+				temporaryContentControl=control;
+				if(control)
+				{
+					control->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					AddChild(control);
 				}
 			}
 		}
@@ -8928,6 +9185,16 @@ namespace vl
 					return new controls::GuiSinglelineTextBox(GetCurrentTheme()->CreateTextBoxStyle());
 				}
 
+				controls::GuiDocumentViewer* NewDocumentViewer()
+				{
+					return new controls::GuiDocumentViewer(GetCurrentTheme()->CreateDocumentViewerStyle());
+				}
+
+				controls::GuiDocumentLabel* NewDocumentLabel()
+				{
+					return new controls::GuiDocumentLabel(GetCurrentTheme()->CreateDocumentLabelStyle());
+				}
+
 				controls::GuiListView* NewListViewBigIcon()
 				{
 					controls::GuiListView* listview=new controls::GuiListView(GetCurrentTheme()->CreateListViewStyle());
@@ -9123,6 +9390,11 @@ Win7Theme
 				return new Win7WindowStyle;
 			}
 
+			controls::GuiTooltip::IStyleController* Win7Theme::CreateTooltipStyle()
+			{
+				return new Win7TooltipStyle;
+			}
+
 			controls::GuiLabel::IStyleController* Win7Theme::CreateLabelStyle()
 			{
 				return new Win7LabelStyle;
@@ -9158,6 +9430,21 @@ Win7Theme
 				return new Win7SinglelineTextBoxProvider;
 			}
 
+			elements::text::ColorEntry Win7Theme::GetDefaultTextBoxColorEntry()
+			{
+				return Win7GetTextBoxTextColor();
+			}
+
+			controls::GuiDocumentViewer::IStyleProvider* Win7Theme::CreateDocumentViewerStyle()
+			{
+				return new Win7MultilineTextBoxProvider;
+			}
+
+			controls::GuiDocumentLabel::IStyleController* Win7Theme::CreateDocumentLabelStyle()
+			{
+				return new controls::GuiControl::EmptyStyleController;
+			}
+
 			controls::GuiListView::IStyleProvider* Win7Theme::CreateListViewStyle()
 			{
 				return new Win7ListViewProvider;
@@ -9171,11 +9458,6 @@ Win7Theme
 			controls::GuiSelectableButton::IStyleController* Win7Theme::CreateListItemBackgroundStyle()
 			{
 				return new Win7SelectableItemStyle();
-			}
-
-			elements::text::ColorEntry Win7Theme::GetDefaultTextBoxColorEntry()
-			{
-				return Win7GetTextBoxTextColor();
 			}
 
 			controls::GuiToolstripMenu::IStyleController* Win7Theme::CreateMenuStyle()
@@ -9333,6 +9615,11 @@ Win8Theme
 				return new Win8WindowStyle;
 			}
 
+			controls::GuiTooltip::IStyleController* Win8Theme::CreateTooltipStyle()
+			{
+				return new Win8TooltipStyle;
+			}
+
 			controls::GuiLabel::IStyleController* Win8Theme::CreateLabelStyle()
 			{
 				return new Win8LabelStyle;
@@ -9368,6 +9655,21 @@ Win8Theme
 				return new Win8SinglelineTextBoxProvider;
 			}
 
+			elements::text::ColorEntry Win8Theme::GetDefaultTextBoxColorEntry()
+			{
+				return Win8GetTextBoxTextColor();
+			}
+
+			controls::GuiDocumentViewer::IStyleProvider* Win8Theme::CreateDocumentViewerStyle()
+			{
+				return new Win8MultilineTextBoxProvider;
+			}
+
+			controls::GuiDocumentLabel::IStyleController* Win8Theme::CreateDocumentLabelStyle()
+			{
+				return new controls::GuiControl::EmptyStyleController;
+			}
+
 			controls::GuiListView::IStyleProvider* Win8Theme::CreateListViewStyle()
 			{
 				return new Win8ListViewProvider;
@@ -9381,11 +9683,6 @@ Win8Theme
 			controls::GuiSelectableButton::IStyleController* Win8Theme::CreateListItemBackgroundStyle()
 			{
 				return new Win8SelectableItemStyle();
-			}
-
-			elements::text::ColorEntry Win8Theme::GetDefaultTextBoxColorEntry()
-			{
-				return Win8GetTextBoxTextColor();
 			}
 
 			controls::GuiToolstripMenu::IStyleController* Win8Theme::CreateMenuStyle()
@@ -9895,6 +10192,62 @@ Win7WindowStyle
 			}
 
 			void Win7WindowStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win7TooltipStyle
+***********************************************************************/
+
+			Win7TooltipStyle::Win7TooltipStyle()
+			{
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Color(100, 100, 100));
+					boundsComposition->SetOwnedElement(element);
+				}
+
+				containerComposition=new GuiBoundsComposition;
+				containerComposition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+				containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				boundsComposition->AddChild(containerComposition);
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Color(255, 255, 225));
+					containerComposition->SetOwnedElement(element);
+				}
+			}
+
+			Win7TooltipStyle::~Win7TooltipStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win7TooltipStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win7TooltipStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win7TooltipStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win7TooltipStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win7TooltipStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win7TooltipStyle::SetVisuallyEnabled(bool value)
 			{
 			}
 
@@ -10448,7 +10801,7 @@ Win7ListViewColumnHeaderStyle
 				return dropdownButton;
 			}
 
-			void Win7ListViewColumnHeaderStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win7ListViewColumnHeaderStyle::SetImage(Ptr<GuiImageData> value)
 			{
 			}
 
@@ -11086,7 +11439,7 @@ Win7MenuBarButtonStyle
 				return 0;
 			}
 
-			void Win7MenuBarButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win7MenuBarButtonStyle::SetImage(Ptr<GuiImageData> value)
 			{
 			}
 
@@ -11250,7 +11603,7 @@ Win7MenuItemButtonStyle
 				return 0;
 			}
 
-			void Win7MenuItemButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win7MenuItemButtonStyle::SetImage(Ptr<GuiImageData> value)
 			{
 				if(value)
 				{
@@ -13652,7 +14005,7 @@ Win7ToolstripButtonStyle
 				return subMenuHost;
 			}
 
-			void Win7ToolstripButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win7ToolstripButtonStyle::SetImage(Ptr<GuiImageData> value)
 			{
 				if(value)
 				{
@@ -14126,6 +14479,62 @@ Win8WindowStyle
 			}
 
 			void Win8WindowStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+/***********************************************************************
+Win8TooltipStyle
+***********************************************************************/
+
+			Win8TooltipStyle::Win8TooltipStyle()
+			{
+				boundsComposition=new GuiBoundsComposition;
+				boundsComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				{
+					GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+					element->SetColor(Color(100, 100, 100));
+					boundsComposition->SetOwnedElement(element);
+				}
+
+				containerComposition=new GuiBoundsComposition;
+				containerComposition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+				containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				boundsComposition->AddChild(containerComposition);
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(Color(255, 255, 225));
+					containerComposition->SetOwnedElement(element);
+				}
+			}
+
+			Win8TooltipStyle::~Win8TooltipStyle()
+			{
+			}
+
+			compositions::GuiBoundsComposition* Win8TooltipStyle::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* Win8TooltipStyle::GetContainerComposition()
+			{
+				return containerComposition;
+			}
+
+			void Win8TooltipStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8TooltipStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8TooltipStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8TooltipStyle::SetVisuallyEnabled(bool value)
 			{
 			}
 
@@ -14838,7 +15247,7 @@ Win8MenuBarButtonStyle
 				return 0;
 			}
 
-			void Win8MenuBarButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win8MenuBarButtonStyle::SetImage(Ptr<GuiImageData> value)
 			{
 			}
 
@@ -15002,7 +15411,7 @@ Win8MenuItemButtonStyle
 				return 0;
 			}
 
-			void Win8MenuItemButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win8MenuItemButtonStyle::SetImage(Ptr<GuiImageData> value)
 			{
 				if(value)
 				{
@@ -16947,7 +17356,7 @@ Win8ToolstripButtonStyle
 				return subMenuHost;
 			}
 
-			void Win8ToolstripButtonStyle::SetImage(Ptr<controls::GuiImageData> value)
+			void Win8ToolstripButtonStyle::SetImage(Ptr<GuiImageData> value)
 			{
 				if(value)
 				{
@@ -17028,6 +17437,176 @@ Win8ToolstripSplitterStyle
 			}
 
 			void Win8ToolstripSplitterStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\TextEditorPackage\GuiDocumentViewer.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			using namespace elements;
+			using namespace compositions;
+
+/***********************************************************************
+GuiDocumentViewer
+***********************************************************************/
+
+			void GuiDocumentCommonInterface::InstallDocumentViewer(GuiControl* _sender, compositions::GuiGraphicsComposition* _container)
+			{
+				senderControl=_sender;
+
+				documentElement=GuiDocumentElement::Create();
+				documentComposition=new GuiBoundsComposition;
+				documentComposition->SetOwnedElement(documentElement);
+				documentComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+				documentComposition->SetAlignmentToParent(Margin(5, 5, 5, 5));
+				_container->AddChild(documentComposition);
+
+				documentComposition->GetEventReceiver()->mouseMove.AttachMethod(this, &GuiDocumentCommonInterface::OnMouseMove);
+				documentComposition->GetEventReceiver()->leftButtonDown.AttachMethod(this, &GuiDocumentCommonInterface::OnMouseDown);
+				documentComposition->GetEventReceiver()->leftButtonUp.AttachMethod(this, &GuiDocumentCommonInterface::OnMouseUp);
+				documentComposition->GetEventReceiver()->mouseLeave.AttachMethod(this, &GuiDocumentCommonInterface::OnMouseLeave);
+
+				ActiveHyperlinkChanged.SetAssociatedComposition(_sender->GetBoundsComposition());
+				ActiveHyperlinkExecuted.SetAssociatedComposition(_sender->GetBoundsComposition());
+			}
+
+			void GuiDocumentCommonInterface::SetActiveHyperlinkId(vint value)
+			{
+				if(activeHyperlinkId!=value)
+				{
+					documentElement->ActivateHyperlink(activeHyperlinkId, false);
+					activeHyperlinkId=value;
+					documentElement->ActivateHyperlink(activeHyperlinkId, true);
+					ActiveHyperlinkChanged.Execute(senderControl->GetNotifyEventArguments());
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+			{
+				vint id=documentElement->GetHyperlinkIdFromPoint(Point(arguments.x, arguments.y));
+				if(dragging && id!=draggingHyperlinkId)
+				{
+					id=DocumentRun::NullHyperlinkId;
+				}
+				SetActiveHyperlinkId(id);
+				if(id==DocumentRun::NullHyperlinkId)
+				{
+					documentComposition->SetAssociatedCursor(0);
+				}
+				else
+				{
+					INativeCursor* cursor=GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::Hand);
+					documentComposition->SetAssociatedCursor(cursor);
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnMouseDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+			{
+				vint id=documentElement->GetHyperlinkIdFromPoint(Point(arguments.x, arguments.y));
+				draggingHyperlinkId=id;
+				SetActiveHyperlinkId(id);
+				dragging=true;
+			}
+
+			void GuiDocumentCommonInterface::OnMouseUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+			{
+				dragging=false;
+				vint id=documentElement->GetHyperlinkIdFromPoint(Point(arguments.x, arguments.y));
+				if(id==draggingHyperlinkId && id!=DocumentRun::NullHyperlinkId)
+				{
+					ActiveHyperlinkExecuted.Execute(senderControl->GetNotifyEventArguments());
+				}
+				draggingHyperlinkId=DocumentRun::NullHyperlinkId;
+			}
+
+			void GuiDocumentCommonInterface::OnMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				SetActiveHyperlinkId(DocumentRun::NullHyperlinkId);
+			}
+
+			GuiDocumentCommonInterface::GuiDocumentCommonInterface()
+				:documentElement(0)
+				,documentComposition(0)
+				,activeHyperlinkId(DocumentRun::NullHyperlinkId)
+				,draggingHyperlinkId(DocumentRun::NullHyperlinkId)
+				,dragging(false)
+				,senderControl(0)
+			{
+			}
+
+			GuiDocumentCommonInterface::~GuiDocumentCommonInterface()
+			{
+			}
+
+			Ptr<DocumentModel> GuiDocumentCommonInterface::GetDocument()
+			{
+				return documentElement->GetDocument();
+			}
+
+			void GuiDocumentCommonInterface::SetDocument(Ptr<DocumentModel> value)
+			{
+				SetActiveHyperlinkId(DocumentRun::NullHyperlinkId);
+				documentElement->SetDocument(value);
+			}
+
+			void GuiDocumentCommonInterface::NotifyParagraphUpdated(vint index)
+			{
+				documentElement->NotifyParagraphUpdated(index);
+			}
+
+			vint GuiDocumentCommonInterface::GetActiveHyperlinkId()
+			{
+				return activeHyperlinkId;
+			}
+
+			WString GuiDocumentCommonInterface::GetActiveHyperlinkReference()
+			{
+				if(activeHyperlinkId==DocumentRun::NullHyperlinkId) return L"";
+				Ptr<DocumentModel> document=documentElement->GetDocument();
+				if(!document) return L"";
+				vint index=document->hyperlinkInfos.Keys().IndexOf(activeHyperlinkId);
+				if(index==-1) return L"";
+				return document->hyperlinkInfos.Values().Get(index).reference;
+			}
+
+/***********************************************************************
+GuiDocumentViewer
+***********************************************************************/
+
+			GuiDocumentViewer::GuiDocumentViewer(GuiDocumentViewer::IStyleProvider* styleProvider)
+				:GuiScrollContainer(styleProvider)
+			{
+				SetExtendToFullWidth(true);
+				SetHorizontalAlwaysVisible(false);
+				InstallDocumentViewer(this, GetContainerComposition());
+			}
+
+			GuiDocumentViewer::~GuiDocumentViewer()
+			{
+			}
+
+/***********************************************************************
+GuiDocumentLabel
+***********************************************************************/
+
+			GuiDocumentLabel::GuiDocumentLabel(GuiDocumentLabel::IStyleController* styleController)
+				:GuiControl(styleController)
+			{
+				GetContainerComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				InstallDocumentViewer(this, GetContainerComposition());
+			}
+
+			GuiDocumentLabel::~GuiDocumentLabel()
 			{
 			}
 		}
@@ -23601,12 +24180,12 @@ GraphicsElement\GuiGraphicsTextElement.cpp
 namespace vl
 {
 	using namespace collections;
+	using namespace parsing::xml;
 
 	namespace presentation
 	{
 		namespace elements
 		{
-
 			namespace text
 			{
 
@@ -24451,6 +25030,11 @@ Visitors
 						text=run->text;
 					}
 
+					void Visit(DocumentHyperlinkTextRun* run)override
+					{
+						Visit(static_cast<DocumentTextRun*>(run));
+					}
+
 					void Visit(DocumentImageRun* run)override
 					{
 						text=L"[Image]";
@@ -24467,8 +25051,8 @@ Visitors
 				class SetPropertiesVisitor : public Object, public DocumentRun::IVisitor
 				{
 				public:
-					vint							start;
-					vint							length;
+					vint						start;
+					vint						length;
 					IGuiGraphicsParagraph*		paragraph;
 
 					SetPropertiesVisitor(vint _start, IGuiGraphicsParagraph* _paragraph)
@@ -24493,8 +25077,16 @@ Visitors
 								| (run->style.underline?IGuiGraphicsParagraph::Underline:0)
 								| (run->style.strikeline?IGuiGraphicsParagraph::Strikeline:0)
 								));
-							start+=length;
+							if(run->hyperlinkId!=DocumentRun::NullHyperlinkId)
+							{
+								paragraph->SetInteractionId(start, length, run->hyperlinkId);
+							}
 						}
+					}
+
+					void Visit(DocumentHyperlinkTextRun* run)override
+					{
+						Visit(static_cast<DocumentTextRun*>(run));
 					}
 
 					void Visit(DocumentImageRun* run)override
@@ -24512,6 +25104,10 @@ Visitors
 						element->SetStretch(true);
 
 						paragraph->SetInlineObject(start, length, properties, element);
+						if(run->hyperlinkId!=DocumentRun::NullHyperlinkId)
+						{
+							paragraph->SetInteractionId(start, length, run->hyperlinkId);
+						}
 					}
 
 					static vint SetProperty(vint start, IGuiGraphicsParagraph* paragraph, DocumentRun* run)
@@ -24540,7 +25136,7 @@ GuiDocumentElement::GuiDocumentElementRenderer
 			{
 				for(vint i=0;i<paragraphCaches.Count();i++)
 				{
-					text::ParagraphCache* cache=paragraphCaches[i].Obj();
+					ParagraphCache* cache=paragraphCaches[i].Obj();
 					if(cache)
 					{
 						cache->graphicsParagraph=0;
@@ -24583,24 +25179,27 @@ GuiDocumentElement::GuiDocumentElementRenderer
 						}
 						else
 						{
-							Ptr<text::DocumentParagraph> paragraph=element->document->paragraphs[i];
-							Ptr<text::ParagraphCache> cache=paragraphCaches[i];
+							Ptr<DocumentParagraph> paragraph=element->document->paragraphs[i];
+							Ptr<ParagraphCache> cache=paragraphCaches[i];
 							if(!cache)
 							{
-								cache=new text::ParagraphCache;
+								cache=new ParagraphCache;
 								paragraphCaches[i]=cache;
 
 								stream::MemoryStream stream;
 								{
 									stream::StreamWriter writer(stream);
-									FOREACH(Ptr<text::DocumentLine>, line, paragraph->lines)
+									FOREACH_INDEXER(Ptr<DocumentLine>, line, lineIndex, paragraph->lines)
 									{
-										FOREACH(Ptr<text::DocumentRun>, run, line->runs)
+										FOREACH(Ptr<DocumentRun>, run, line->runs)
 										{
 											WString text=ExtractTextVisitor::ExtractText(run.Obj());
 											writer.WriteString(text);
 										}
-										writer.WriteString(L"\r\n");
+										if(lineIndex<paragraph->lines.Count()-1)
+										{
+											writer.WriteString(L"\r\n");
+										}
 									}
 								}
 								{
@@ -24613,10 +25212,11 @@ GuiDocumentElement::GuiDocumentElementRenderer
 							if(!cache->graphicsParagraph)
 							{
 								cache->graphicsParagraph=layoutProvider->CreateParagraph(cache->fullText, renderTarget);
+								cache->graphicsParagraph->SetParagraphAlignment(paragraph->alignment);
 								vint start=0;
-								FOREACH(Ptr<text::DocumentLine>, line, paragraph->lines)
+								FOREACH(Ptr<DocumentLine>, line, paragraph->lines)
 								{
-									FOREACH(Ptr<text::DocumentRun>, run, line->runs)
+									FOREACH(Ptr<DocumentRun>, run, line->runs)
 									{
 										vint length=SetPropertiesVisitor::SetProperty(start, cache->graphicsParagraph.Obj(), run.Obj());
 										start+=length;
@@ -24652,8 +25252,9 @@ GuiDocumentElement::GuiDocumentElementRenderer
 			{
 				if(element->document && element->document->paragraphs.Count()>0)
 				{
-					paragraphDistance=GetCurrentController()->ResourceService()->GetDefaultFont().size;
-					vint defaultHeight=paragraphDistance;
+					vint defaultSize=GetCurrentController()->ResourceService()->GetDefaultFont().size;
+					paragraphDistance=defaultSize;
+					vint defaultHeight=defaultSize;
 
 					paragraphCaches.Resize(element->document->paragraphs.Count());
 					paragraphHeights.Resize(element->document->paragraphs.Count());
@@ -24686,6 +25287,40 @@ GuiDocumentElement::GuiDocumentElementRenderer
 				}
 			}
 
+			vint GuiDocumentElement::GuiDocumentElementRenderer::GetHyperlinkIdFromPoint(Point point)
+			{
+				vint y=0;
+				for(vint i=0;i<paragraphHeights.Count();i++)
+				{
+					vint paragraphHeight=paragraphHeights[i];
+					if(y+paragraphHeight<=point.y)
+					{
+						y+=paragraphHeight+paragraphDistance;
+						continue;
+					}
+					else if(y>point.y)
+					{
+						break;
+					}
+					else
+					{
+						Ptr<ParagraphCache> cache=paragraphCaches[i];
+						if(cache && cache->graphicsParagraph)
+						{
+							vint start=0;
+							vint length=0;
+							vint id=0;
+							if(cache->graphicsParagraph->HitTestPoint(Point(point.x, point.y-y), start, length, id))
+							{
+								return id;
+							}
+						}
+						return DocumentRun::NullHyperlinkId;
+					}
+				}
+				return DocumentRun::NullHyperlinkId;
+			}
+
 /***********************************************************************
 GuiDocumentElement
 ***********************************************************************/
@@ -24698,12 +25333,12 @@ GuiDocumentElement
 			{
 			}
 
-			Ptr<text::DocumentModel> GuiDocumentElement::GetDocument()
+			Ptr<DocumentModel> GuiDocumentElement::GetDocument()
 			{
 				return document;
 			}
 
-			void GuiDocumentElement::SetDocument(Ptr<text::DocumentModel> value)
+			void GuiDocumentElement::SetDocument(Ptr<DocumentModel> value)
 			{
 				document=value;
 				if(renderer)
@@ -24718,6 +25353,31 @@ GuiDocumentElement
 				if(elementRenderer)
 				{
 					elementRenderer->NotifyParagraphUpdated(index);
+				}
+			}
+
+			vint GuiDocumentElement::GetHyperlinkIdFromPoint(Point point)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					return elementRenderer->GetHyperlinkIdFromPoint(point);
+				}
+				else
+				{
+					return DocumentRun::NullHyperlinkId;
+				}
+			}
+
+			void GuiDocumentElement::ActivateHyperlink(vint hyperlinkId, bool active)
+			{
+				if(document)
+				{
+					vint paragraphIndex=document->ActivateHyperlink(hyperlinkId, active);
+					if(paragraphIndex!=-1)
+					{
+						NotifyParagraphUpdated(paragraphIndex);
+					}
 				}
 			}
 		}
@@ -24883,6 +25543,7 @@ WindowsDirect2DParagraph
 			class WindowsDirect2DParagraph : public Object, public IGuiGraphicsParagraph
 			{
 				typedef Dictionary<IGuiGraphicsElement*, ComPtr<WindowsDirect2DElementInlineObject>>		InlineElementMap;
+				typedef Dictionary<Pair<vint, vint>, vint>													InteractionIdMap;
 			protected:
 				IGuiGraphicsLayoutProvider*			provider;
 				ID2D1SolidColorBrush*				defaultTextColor;
@@ -24890,9 +25551,10 @@ WindowsDirect2DParagraph
 				IWindowsDirect2DRenderTarget*		renderTarget;
 				ComPtr<IDWriteTextLayout>			textLayout;
 				bool								wrapLine;
-				vint									maxWidth;
+				vint								maxWidth;
 				List<Color>							usedColors;
 				InlineElementMap					inlineElements;
+				InteractionIdMap					interactionIds;
 
 			public:
 				WindowsDirect2DParagraph(IGuiGraphicsLayoutProvider* _provider, const WString& _text, IGuiGraphicsRenderTarget* _renderTarget)
@@ -24921,6 +25583,7 @@ WindowsDirect2DParagraph
 						textLayout=rawTextLayout;
 						textLayout->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
 					}
+					interactionIds.Add(Pair<vint, vint>(0, _text.Length()), NullInteractionId);
 
 					GetWindowsDirect2DResourceManager()->DestroyDirect2DTextFormat(defaultFont);
 				}
@@ -24968,6 +25631,37 @@ WindowsDirect2DParagraph
 					{
 						maxWidth=value;
 						textLayout->SetMaxWidth(value==-1?65536:(FLOAT)value);
+					}
+				}
+
+				Alignment::Type GetParagraphAlignment()override
+				{
+					switch(textLayout->GetTextAlignment())
+					{
+					case DWRITE_TEXT_ALIGNMENT_LEADING:
+						return Alignment::Left;
+					case DWRITE_TEXT_ALIGNMENT_CENTER:
+						return Alignment::Center;
+					case DWRITE_TEXT_ALIGNMENT_TRAILING:
+						return Alignment::Right;
+					default:
+						return Alignment::Left;
+					}
+				}
+
+				void SetParagraphAlignment(Alignment::Type value)override
+				{
+					switch(value)
+					{
+					case Alignment::Left:
+						textLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+						break;
+					case Alignment::Center:
+						textLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+						break;
+					case Alignment::Right:
+						textLayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+						break;
 					}
 				}
 
@@ -25083,6 +25777,90 @@ WindowsDirect2DParagraph
 						}
 					}
 					return false;
+				}
+
+				vint SearchInInteractionIdMap(vint textPosition)
+				{
+					vint start=0;
+					vint end=interactionIds.Count()-1;
+					while(start<=end)
+					{
+						vint middle=start+(end-start)/2;
+						Pair<vint, vint> p=interactionIds.Keys()[middle];
+						if(textPosition<p.key)
+						{
+							end=middle-1;
+						}
+						else if(p.key+p.value<=textPosition)
+						{
+							start=middle+1;
+						}
+						else
+						{
+							return middle;
+						}
+					}
+					return -1;
+				}
+
+				vint CutInteractionIdMap(vint textPosition, vint index)
+				{
+					Pair<vint, vint> p=interactionIds.Keys()[index];
+					CHECK_ERROR(p.key<=textPosition && textPosition<=p.key+p.value, L"WindowsDirect2DParagraph::CutInteractionIdMap(vint, vint)#textPosition与index不匹配。");
+					if(textPosition==p.key || textPosition==p.key+p.value)
+					{
+						return 0;
+					}
+					else
+					{
+						vint id=interactionIds.Values().Get(index);
+						Pair<vint, vint> bp=p;
+						Pair<vint, vint> ep=p;
+						bp.value=textPosition-p.key;
+						ep.key=textPosition;
+						ep.value=p.value-bp.value;
+
+						interactionIds.Remove(p);
+						interactionIds.Add(bp, id);
+						interactionIds.Add(ep, id);
+						return 1;
+					}
+				}
+
+				bool SetInteractionId(vint start, vint length, vint value)override
+				{
+					vint begin=SearchInInteractionIdMap(start);
+					vint end=SearchInInteractionIdMap(start+length-1);
+					if(begin==-1 || end==-1) return false;
+
+					vint offset=CutInteractionIdMap(start, begin);
+					begin+=offset;
+					end+=offset;
+					CutInteractionIdMap(start+length, end);
+					for(vint i=begin;i<=end;i++)
+					{
+						interactionIds.Set(interactionIds.Keys()[i], value);
+					}
+					return true;
+				}
+
+				bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)override
+				{
+					DWRITE_HIT_TEST_METRICS metrics={0};
+					BOOL trailingHit=FALSE;
+					BOOL inside=FALSE;
+					start=-1;
+					length=0;
+					interactionId=NullInteractionId;
+					HRESULT hr=textLayout->HitTestPoint((FLOAT)point.x, (FLOAT)point.y, &trailingHit, &inside, &metrics);
+					if(hr!=S_OK) return false;
+
+					start=metrics.textPosition;
+					length=metrics.length;
+					vint index=SearchInInteractionIdMap(start);
+					interactionId=index==-1?NullInteractionId:interactionIds.Values().Get(index);
+
+					return inside==TRUE;
 				}
 
 				vint GetHeight()override
@@ -27095,10 +27873,16 @@ Uniscribe Operations (UniscribeFragment)
 				Color											fontColor;
 				WString											text;
 				Ptr<WinFont>									fontObject;
+				vint											interactionId;
 
 				Ptr<IGuiGraphicsElement>						element;
 				IGuiGraphicsParagraph::InlineObjectProperties	inlineObjectProperties;
 				List<Ptr<UniscribeFragment>>					cachedTextFragment;
+
+				UniscribeFragment()
+					:interactionId(-1)
+				{
+				}
 
 				WString GetFingerprint()
 				{
@@ -27280,8 +28064,8 @@ Uniscribe Operations (UniscribeRun)
 			public:
 				struct RunFragmentBounds
 				{
-					vint							start;
-					vint							length;
+					vint						start;
+					vint						length;
 					Rect						bounds;
 
 					bool operator==(const RunFragmentBounds&){return false;}
@@ -27290,8 +28074,8 @@ Uniscribe Operations (UniscribeRun)
 
 				UniscribeFragment*				documentFragment;
 				SCRIPT_ITEM*					scriptItem;
-				vint								start;
-				vint								length;
+				vint							start;
+				vint							length;
 				const wchar_t*					runText;
 				List<RunFragmentBounds>			fragmentBounds;
 
@@ -27308,10 +28092,25 @@ Uniscribe Operations (UniscribeRun)
 				}
 
 				virtual bool					BuildUniscribeData(WinDC* dc)=0;
-				virtual vint						SumWidth(vint charStart, vint charLength)=0;
-				virtual vint						SumHeight()=0;
+				virtual vint					SumWidth(vint charStart, vint charLength)=0;
+				virtual vint					SumHeight()=0;
 				virtual void					SearchForLineBreak(vint tempStart, vint maxWidth, bool firstRun, vint& charLength, vint& charAdvances)=0;
 				virtual void					Render(WinDC* dc, vint fragmentBoundsIndex, vint offsetX, vint offsetY)=0;
+
+				virtual bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)
+				{
+					for(vint i=0;i<fragmentBounds.Count();i++)
+					{
+						if(fragmentBounds[i].bounds.Contains(point))
+						{
+							start=this->start;
+							length=this->length;
+							interactionId=this->documentFragment->interactionId;
+							return true;
+						}
+					}
+					return false;
+				}
 			};
 
 /***********************************************************************
@@ -27323,7 +28122,7 @@ Uniscribe Operations (UniscribeTextRun)
 			public:
 				SCRIPT_CACHE					scriptCache;
 				Array<SCRIPT_LOGATTR>			charLogattrs;
-				vint								advance;
+				vint							advance;
 				UniscribeGlyphData				wholeGlyph;
 
 				UniscribeTextRun()
@@ -27732,11 +28531,13 @@ Uniscribe Operations (UniscribeParagraph)
 				bool							built;
 
 				List<Ptr<UniscribeLine>>		lines;
-				vint								lastAvailableWidth;
+				vint							lastAvailableWidth;
+				Alignment::Type					paragraphAlignment;
 				Rect							bounds;
 
 				UniscribeParagraph()
 					:lastAvailableWidth(-1)
+					,paragraphAlignment(Alignment::Left)
 					,built(false)
 				{
 				}
@@ -27835,13 +28636,14 @@ Uniscribe Operations (UniscribeParagraph)
 					}
 				}
 
-				void Layout(vint availableWidth)
+				void Layout(vint availableWidth, Alignment::Type alignment)
 				{
-					if(lastAvailableWidth==availableWidth)
+					if(lastAvailableWidth==availableWidth && paragraphAlignment==alignment)
 					{
 						return;
 					}
 					lastAvailableWidth=availableWidth;
+					paragraphAlignment=alignment;
 
 					vint cx=0;
 					vint cy=0;
@@ -27861,7 +28663,7 @@ Uniscribe Operations (UniscribeParagraph)
 								run->fragmentBounds.Clear();
 							}
 
-							// render this line into linces with auto line wrapping
+							// render this line into lines with auto line wrapping
 							vint startRun=0;
 							vint startRunOffset=0;
 							vint lastRun=0;
@@ -27914,12 +28716,18 @@ Uniscribe Operations (UniscribeParagraph)
 									}
 
 									// render all runs inside this range
+									vint startRunFragmentCount=-1;
 									for(vint i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
 									{
 										UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
 										vint start=i==startRun?startRunOffset:0;
 										vint end=i==lastRun?lastRunOffset:run->length;
 										vint length=end-start;
+
+										if(startRunFragmentCount==-1)
+										{
+											startRunFragmentCount=run->fragmentBounds.Count();
+										}
 
 										UniscribeRun::RunFragmentBounds fragmentBounds;
 										fragmentBounds.start=start;
@@ -27931,6 +28739,30 @@ Uniscribe Operations (UniscribeParagraph)
 										run->fragmentBounds.Add(fragmentBounds);
 
 										cx+=run->SumWidth(start, length);
+									}
+
+									vint cxOffset=0;
+									switch(alignment)
+									{
+									case Alignment::Center:
+										cxOffset=(availableWidth-cx)/2;
+										break;
+									case Alignment::Right:
+										cxOffset=availableWidth-cx;
+										break;
+									}
+									if(cxOffset!=0)
+									{
+										for(vint i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
+										{
+											UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
+											for(vint j=(i==startRun?startRunFragmentCount:0);j<run->fragmentBounds.Count();j++)
+											{
+												UniscribeRun::RunFragmentBounds& fragmentBounds=run->fragmentBounds[j];
+												fragmentBounds.bounds.x1+=cxOffset;
+												fragmentBounds.bounds.x2+=cxOffset;
+											}
+										}
 									}
 
 									cx=0;
@@ -28019,6 +28851,22 @@ Uniscribe Operations (UniscribeParagraph)
 				{
 					f1=-1;
 					f2=-1;
+					if(fs==fe)
+					{
+						Ptr<UniscribeFragment> fragment=documentFragments[fs];
+						if(fragment->element)
+						{
+							if(ss==0 && se==fragment->text.Length())
+							{
+								f1=f2=fs;
+								return true;
+							}
+							else
+							{
+								return false;
+							}
+						}
+					}
 					for(vint i=fs;i<=fe;i++)
 					{
 						if(documentFragments[i]->element)
@@ -28238,6 +29086,58 @@ Uniscribe Operations (UniscribeParagraph)
 					}
 					return 0;
 				}
+
+				bool SetInteractionId(vint start, vint length, vint value)
+				{
+					vint fs, ss, fe, se, f1, f2;
+					SearchFragment(start, length, fs, ss, fe, se);
+					if(CutFragment(fs, ss, fe, se, f1, f2))
+					{
+						for(vint i=f1;i<=f2;i++)
+						{
+							documentFragments[i]->interactionId=value;
+						}
+						built=false;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)
+				{
+					start=-1;
+					length=0;
+					interactionId=IGuiGraphicsParagraph::NullInteractionId;
+
+					if(bounds.Contains(point))
+					{
+						FOREACH(Ptr<UniscribeLine>, line, lines)
+						{
+							if(point.y<line->bounds.y1)
+							{
+								continue;
+							}
+							else if(line->bounds.y2<=point.y)
+							{
+								break;
+							}
+							else if(line->bounds.Contains(point))
+							{
+								FOREACH(Ptr<UniscribeRun>, run, line->scriptRuns)
+								{
+									if(run->HitTestPoint(point, start, length, interactionId))
+									{
+										return true;
+									}
+								}
+							}
+						}
+					}
+					return false;
+				}
 			};
 
 /***********************************************************************
@@ -28299,7 +29199,18 @@ WindowsGDIParagraph
 				void SetMaxWidth(vint value)override
 				{
 					paragraph->BuildUniscribeData(renderTarget->GetDC());
-					paragraph->Layout(value);
+					paragraph->Layout(value, paragraph->paragraphAlignment);
+				}
+
+				Alignment::Type GetParagraphAlignment()override
+				{
+					return paragraph->paragraphAlignment;
+				}
+
+				void SetParagraphAlignment(Alignment::Type value)override
+				{
+					paragraph->BuildUniscribeData(renderTarget->GetDC());
+					paragraph->Layout(paragraph->lastAvailableWidth, value);
 				}
 
 				bool SetFont(vint start, vint length, const WString& value)override
@@ -28390,12 +29301,30 @@ WindowsGDIParagraph
 					return false;
 				}
 
+				bool SetInteractionId(vint start, vint length, vint value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						return paragraph->SetInteractionId(start, length, value);
+					}
+					else
+					{
+						return false;
+					}
+				}
+
+				bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)override
+				{
+					return paragraph->HitTestPoint(point, start, length, interactionId);
+				}
+
 				vint GetHeight()override
 				{
 					paragraph->BuildUniscribeData(renderTarget->GetDC());
 					if(paragraph->lastAvailableWidth==-1)
 					{
-						paragraph->Layout(65536);
+						paragraph->Layout(65536, paragraph->paragraphAlignment);
 					}
 					return paragraph->bounds.Height();
 				}
@@ -30123,6 +31052,1403 @@ Native Window Provider
 		void SetCurrentController(INativeController* controller)
 		{
 			currentController=controller;
+		}
+	}
+}
+
+/***********************************************************************
+NativeWindow\GuiResource.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace collections;
+		using namespace parsing::tabling;
+		using namespace parsing::xml;
+		using namespace regex;
+
+		WString GetFolderPath(const WString& filePath)
+		{
+			for(vint i=filePath.Length()-1;i>=0;i--)
+			{
+				if(filePath[i]==L'\\' || filePath[i]==L'/')
+				{
+					return filePath.Sub(0, i+1);
+				}
+			}
+			return L"";
+		}
+
+		WString GetFileName(const WString& filePath)
+		{
+			for(vint i=filePath.Length()-1;i>=0;i--)
+			{
+				if(filePath[i]==L'\\' || filePath[i]==L'/')
+				{
+					return filePath.Sub(i+1, filePath.Length()-i-1);
+				}
+			}
+			return filePath;
+		}
+
+		bool LoadTextFile(const WString& filePath, WString& text)
+		{
+			stream::FileStream fileStream(filePath, stream::FileStream::ReadOnly);
+			return LoadTextFromStream(fileStream, text);
+		}
+
+		bool LoadTextFromStream(stream::IStream& stream, WString& text)
+		{
+			if(stream.IsAvailable())
+			{
+				stream::BomDecoder decoder;
+				stream::DecoderStream decoderStream(stream, decoder);
+				stream::StreamReader reader(decoderStream);
+				text=reader.ReadToEnd();
+				return true;
+			}
+			return false;
+		}
+
+/***********************************************************************
+GuiImageData
+***********************************************************************/
+
+		GuiImageData::GuiImageData()
+			:frameIndex(-1)
+		{
+		}
+
+		GuiImageData::GuiImageData(Ptr<INativeImage> _image, vint _frameIndex)
+			:image(_image)
+			,frameIndex(_frameIndex)
+		{
+		}
+
+		GuiImageData::~GuiImageData()
+		{
+		}
+
+		Ptr<INativeImage> GuiImageData::GetImage()
+		{
+			return image;
+		}
+
+		vint GuiImageData::GetFrameIndex()
+		{
+			return frameIndex;
+		}
+
+/***********************************************************************
+DocumentResolver
+***********************************************************************/
+
+		DocumentResolver::DocumentResolver(Ptr<DocumentResolver> _previousResolver)
+			:previousResolver(_previousResolver)
+		{
+		}
+
+		DocumentResolver::~DocumentResolver()
+		{
+		}
+
+		Ptr<INativeImage> DocumentResolver::ResolveImage(const WString& protocol, const WString& path)
+		{
+			auto result=ResolveImageInternal(protocol, path);
+			if(!result && previousResolver)
+			{
+				result=previousResolver->ResolveImage(protocol, path);
+			}
+			return result;
+		}
+
+/***********************************************************************
+document_serialization_visitors::SerializeRunVisitor
+***********************************************************************/
+
+		namespace document_serialization_visitors
+		{
+			class SerializeRunVisitor : public Object, public DocumentRun::IVisitor
+			{
+			protected:
+
+				const XmlElementWriter& Text(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					return writer.Text(run->text);
+				}
+
+				const XmlElementWriter& Antialias(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					if(!run->style.antialias)
+					{
+						return Text(run, writer.Element(L"na")).End();
+					}
+					else if(!run->style.verticalAntialias)
+					{
+						return Text(run, writer);
+					}
+					else
+					{
+						return Text(run, writer.Element(L"va")).End();
+					}
+				}
+
+				const XmlElementWriter& Strikeline(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					if(run->style.strikeline)
+					{
+						return Antialias(run, writer.Element(L"s")).End();
+					}
+					else
+					{
+						return Antialias(run, writer);
+					}
+				}
+
+				const XmlElementWriter& Underline(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					if(run->style.underline)
+					{
+						return Strikeline(run, writer.Element(L"u")).End();
+					}
+					else
+					{
+						return Strikeline(run, writer);
+					}
+				}
+
+				const XmlElementWriter& Italic(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					if(run->style.italic)
+					{
+						return Underline(run, writer.Element(L"i")).End();
+					}
+					else
+					{
+						return Underline(run, writer);
+					}
+				}
+
+				const XmlElementWriter& Bold(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					if(run->style.bold)
+					{
+						return Italic(run, writer.Element(L"b")).End();
+					}
+					else
+					{
+						return Italic(run, writer);
+					}
+				}
+
+				const XmlElementWriter& Font(DocumentTextRun* run, const XmlElementWriter& writer)
+				{
+					const XmlElementWriter& font=writer.Element(L"font");
+					font.Attribute(L"face", run->style.fontFamily);
+					font.Attribute(L"size", itow(run->style.size));
+					font.Attribute(L"color", run->color.ToString());
+					Bold(run, font);
+					return writer;
+				}
+			public:
+				Ptr<XmlElement> container;
+
+				void Visit(DocumentTextRun* run)override
+				{
+					if(run->text!=L"")
+					{
+						XmlElementWriter writer(container);
+						Font(run, writer);
+					}
+				}
+
+				void Visit(DocumentHyperlinkTextRun* run)override
+				{
+					Visit(static_cast<DocumentTextRun*>(run));
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					XmlElementWriter writer(container);
+					writer
+						.Element(L"img")
+						.Attribute(L"width", itow(run->size.x))
+						.Attribute(L"height", itow(run->size.y))
+						.Attribute(L"baseline", itow(run->baseline))
+						.Attribute(L"frameIndex", itow(run->frameIndex))
+						.Attribute(L"source", run->source)
+						;
+				}
+			};
+		}
+		using namespace document_serialization_visitors;
+
+/***********************************************************************
+document_serialization_visitors::DeserializeNodeVisitor
+***********************************************************************/
+
+		namespace document_serialization_visitors
+		{
+			class DeserializeNodeVisitor : public XmlNode::IVisitor
+			{
+			public:
+				struct TemplateInfo
+				{
+					Dictionary<WString, WString>	attributes;
+					XmlElement*						templateElement;
+					XmlElement*						contentElement;
+
+					TemplateInfo()
+						:templateElement(0)
+						,contentElement(0)
+					{
+					}
+				};
+
+				struct StyleStackItem
+				{
+					Pair<FontProperties, Color>		normalStyle;
+					Pair<FontProperties, Color>		activeStyle;
+					vint							hyperlinkId;
+
+					StyleStackItem()
+						:hyperlinkId(DocumentRun::NullHyperlinkId)
+					{
+					}
+				};
+
+				List<StyleStackItem>				styleStack;
+				Ptr<DocumentModel>					model;
+				Ptr<DocumentParagraph>				paragraph;
+				vint								paragraphIndex;
+				Ptr<DocumentLine>					line;
+				Ptr<DocumentResolver>				resolver;
+				Ptr<TemplateInfo>					templateInfo;
+				Regex								regexAttributeApply;
+
+				DeserializeNodeVisitor(Ptr<DocumentModel> _model, Ptr<DocumentParagraph> _paragraph, vint _paragraphIndex, Ptr<DocumentResolver> _resolver)
+					:model(_model)
+					,paragraph(_paragraph)
+					,paragraphIndex(_paragraphIndex)
+					,resolver(_resolver)
+					,regexAttributeApply(L"/{@(<value>[^{}]+)/}")
+				{
+					StyleStackItem item;
+					item.normalStyle=Pair<FontProperties, Color>(GetCurrentController()->ResourceService()->GetDefaultFont(), Color());
+					item.activeStyle=item.normalStyle;
+					styleStack.Add(item);
+				}
+
+				WString TranslateAttribute(const WString& value)
+				{
+					if(templateInfo)
+					{
+						WString result;
+						RegexMatch::List matches;
+						regexAttributeApply.Cut(value, false, matches);
+						FOREACH(RegexMatch::Ref, match, matches)
+						{
+							if(match->Success())
+							{
+								WString name=match->Groups()[L"value"].Get(0).Value();
+								vint index=templateInfo->attributes.Keys().IndexOf(name);
+								result+=(index==-1?match->Result().Value():templateInfo->attributes.Values().Get(index));
+							}
+							else
+							{
+								result+=match->Result().Value();
+							}
+						}
+						return result;
+					}
+					else
+					{
+						return value;
+					}
+				}
+
+				void PrintText(const WString& text)
+				{
+					if(!line)
+					{
+						line=new DocumentLine;
+						paragraph->lines.Add(line);
+					}
+					Ptr<DocumentTextRun> run;
+					const StyleStackItem& item=styleStack[styleStack.Count()-1];
+					if(item.hyperlinkId==DocumentRun::NullHyperlinkId || item.normalStyle==item.activeStyle)
+					{
+						run=new DocumentTextRun;
+					}
+					else
+					{
+						Ptr<DocumentHyperlinkTextRun> hyperlink=new DocumentHyperlinkTextRun;
+						hyperlink->normalStyle=item.normalStyle.key;
+						hyperlink->normalColor=item.normalStyle.value;
+						hyperlink->activeStyle=item.activeStyle.key;
+						hyperlink->activeColor=item.activeStyle.value;
+						run=hyperlink;
+					}
+					run->hyperlinkId=item.hyperlinkId;
+					run->style=item.normalStyle.key;
+					run->color=item.normalStyle.value;
+					run->text=text;
+					line->runs.Add(run);
+				}
+
+				void Visit(XmlText* node)override
+				{
+					PrintText(TranslateAttribute(node->content.value));
+				}
+
+				void Visit(XmlCData* node)override
+				{
+					PrintText(node->content.value);
+				}
+
+				void Visit(XmlAttribute* node)override
+				{
+				}
+
+				void Visit(XmlComment* node)override
+				{
+				}
+
+				void Visit(XmlElement* node)override
+				{
+					if(node->name.value==L"br")
+					{
+						if(!line) PrintText(L"");
+						line=0;
+					}
+					else if(node->name.value==L"sp")
+					{
+						PrintText(L" ");
+					}
+					else if(node->name.value==L"tab")
+					{
+						PrintText(L"\t");
+					}
+					else if(node->name.value==L"img")
+					{
+						if(!line)
+						{
+							line=new DocumentLine;
+							paragraph->lines.Add(line);
+						}
+						Ptr<DocumentImageRun> run=new DocumentImageRun;
+						if(Ptr<XmlAttribute> source=XmlGetAttribute(node, L"source"))
+						{
+							run->hyperlinkId=styleStack[styleStack.Count()-1].hyperlinkId;
+							run->source=TranslateAttribute(source->value.value);
+							Pair<vint, vint> index=INVLOC.FindFirst(run->source, L"://", Locale::IgnoreCase);
+							if(index.key!=-1)
+							{
+								WString protocol=run->source.Sub(0, index.key);
+								WString path=run->source.Sub(index.key+index.value, run->source.Length()-index.key-index.value);
+								run->image=resolver->ResolveImage(protocol, path);
+								if(run->image && run->image->GetFrameCount()>0)
+								{
+									run->size=run->image->GetFrame(0)->GetSize();
+									run->baseline=run->size.y;
+									run->frameIndex=0;
+								}
+							}
+
+							FOREACH(Ptr<XmlAttribute>, att, node->attributes)
+							{
+								if(att->name.value==L"width")
+								{
+									run->size.x=wtoi(TranslateAttribute(att->value.value));
+								}
+								else if(att->name.value==L"height")
+								{
+									run->size.y=wtoi(TranslateAttribute(att->value.value));
+								}
+								else if(att->name.value==L"baseline")
+								{
+									run->baseline=wtoi(TranslateAttribute(att->value.value));
+								}
+								else if(att->name.value==L"frameIndex")
+								{
+									run->frameIndex=wtoi(TranslateAttribute(att->value.value));
+								}
+							}
+							line->runs.Add(run);
+						}
+					}
+					else if(node->name.value==L"font")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						FOREACH(Ptr<XmlAttribute>, att, node->attributes)
+						{
+							if(att->name.value==L"face")
+							{
+								style.normalStyle.key.fontFamily=TranslateAttribute(att->value.value);
+								style.activeStyle.key.fontFamily=TranslateAttribute(att->value.value);
+							}
+							else if(att->name.value==L"size")
+							{
+								style.normalStyle.key.size=wtoi(TranslateAttribute(att->value.value));
+								style.activeStyle.key.size=wtoi(TranslateAttribute(att->value.value));
+							}
+							else if(att->name.value==L"color")
+							{
+								style.normalStyle.value=Color::Parse(TranslateAttribute(att->value.value));
+								style.activeStyle.value=Color::Parse(TranslateAttribute(att->value.value));
+							}
+						}
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"b")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.bold=true;
+						style.activeStyle.key.bold=true;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"i")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.italic=true;
+						style.activeStyle.key.italic=true;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"u")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.underline=true;
+						style.activeStyle.key.underline=true;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"s")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.strikeline=true;
+						style.activeStyle.key.strikeline=true;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"ha")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.antialias=true;
+						style.normalStyle.key.verticalAntialias=false;
+						style.activeStyle.key.antialias=true;
+						style.activeStyle.key.verticalAntialias=false;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"va")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.antialias=true;
+						style.normalStyle.key.verticalAntialias=true;
+						style.activeStyle.key.antialias=true;
+						style.activeStyle.key.verticalAntialias=true;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"na")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						style.normalStyle.key.antialias=false;
+						style.normalStyle.key.verticalAntialias=false;
+						style.activeStyle.key.antialias=false;
+						style.activeStyle.key.verticalAntialias=false;
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"div")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						WString styleName;
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"style"))
+						{
+							styleName=TranslateAttribute(att->value.value);
+						}
+						style.normalStyle=model->GetStyle(styleName, style.normalStyle);
+						style.activeStyle=model->GetStyle(styleName, style.activeStyle);
+						styleStack.Add(style);
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"a")
+					{
+						auto style=styleStack[styleStack.Count()-1];
+						WString normalStyle=L"#NormalLink";
+						WString activeStyle=L"#ActiveLink";
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"normal"))
+						{
+							normalStyle=TranslateAttribute(att->value.value);
+						}
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"active"))
+						{
+							activeStyle=TranslateAttribute(att->value.value);
+						}
+						style.normalStyle=model->GetStyle(normalStyle, style.normalStyle);
+						style.activeStyle=model->GetStyle(activeStyle, style.activeStyle);
+						style.hyperlinkId=model->hyperlinkInfos.Count();
+						styleStack.Add(style);
+
+						WString href;
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"href"))
+						{
+							href=TranslateAttribute(att->value.value);
+						}
+						{
+							DocumentModel::HyperlinkInfo info;
+							info.paragraphIndex=paragraphIndex;
+							info.reference=href;
+							model->hyperlinkInfos.Add(style.hyperlinkId, info);
+						}
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+
+						styleStack.RemoveAt(styleStack.Count()-1);
+					}
+					else if(node->name.value==L"template-content")
+					{
+						if(templateInfo && templateInfo->contentElement)
+						{
+							Ptr<TemplateInfo> info=templateInfo;
+							templateInfo=0;
+							FOREACH(Ptr<XmlNode>, sub, info->contentElement->subNodes)
+							{
+								sub->Accept(this);
+							}
+							templateInfo=info;
+						}
+					}
+					else
+					{
+						vint index=model->templates.Keys().IndexOf(node->name.value);
+						if(index==-1)
+						{
+							FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+							{
+								sub->Accept(this);
+							}
+						}
+						else
+						{
+							Ptr<TemplateInfo> newInfo=new TemplateInfo;
+							newInfo->templateElement=model->templates.Values().Get(index).Obj();
+							newInfo->contentElement=node;
+							FOREACH(Ptr<XmlAttribute>, att, newInfo->contentElement->attributes)
+							{
+								newInfo->attributes.Add(att->name.value, TranslateAttribute(att->value.value));
+							}
+
+							Ptr<TemplateInfo> info=templateInfo;
+							templateInfo=newInfo;
+							FOREACH(Ptr<XmlNode>, sub, newInfo->templateElement->subNodes)
+							{
+								sub->Accept(this);
+							}
+							templateInfo=info;
+						}
+					}
+				}
+
+				void Visit(XmlInstruction* node)override
+				{
+				}
+
+				void Visit(XmlDocument* node)override
+				{
+				}
+			};
+		}
+		using namespace document_serialization_visitors;
+
+/***********************************************************************
+document_serialization_visitors::ActivateHyperlinkVisitor
+***********************************************************************/
+
+		namespace document_serialization_visitors
+		{
+			class ActivateHyperlinkVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				vint			hyperlinkId;
+				bool			active;
+
+				ActivateHyperlinkVisitor(vint _hyperlinkId, bool _active)
+					:hyperlinkId(_hyperlinkId)
+					,active(_active)
+				{
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+				}
+
+				void Visit(DocumentHyperlinkTextRun* run)override
+				{
+					if(run->hyperlinkId==hyperlinkId)
+					{
+						if(active)
+						{
+							run->style=run->activeStyle;
+							run->color=run->activeColor;
+						}
+						else
+						{
+							run->style=run->normalStyle;
+							run->color=run->normalColor;
+						}
+					}
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+				}
+			};
+		}
+		using namespace document_serialization_visitors;
+
+/***********************************************************************
+DocumentModel
+***********************************************************************/
+
+		DocumentModel::DocumentModel()
+		{
+			{
+				FontProperties font=GetCurrentController()->ResourceService()->GetDefaultFont();
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->face=font.fontFamily;
+				style->size=font.size;
+				style->color=Color();
+				style->bold=font.bold;
+				style->italic=font.italic;
+				style->underline=font.underline;
+				style->strikeline=font.strikeline;
+				style->antialias=font.antialias;
+				style->verticalAntialias=font.verticalAntialias;
+				styles.Add(L"#Default", style);
+			}
+			{
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				styles.Add(L"#Context", style);
+			}
+			{
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->parentStyleName=L"#Context";
+				style->color=Color(0, 0, 255);
+				style->underline=true;
+				styles.Add(L"#NormalLink", style);
+			}
+			{
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->parentStyleName=L"#Context";
+				style->color=Color(0, 0, 255);
+				style->underline=true;
+				styles.Add(L"#ActiveLink", style);
+			}
+		}
+
+		DocumentModel::RawStylePair DocumentModel::GetStyle(const WString& styleName, const RawStylePair& context)
+		{
+			DocumentStyle result;
+			Ptr<DocumentStyle> currentStyle;
+			WString currentName=styleName;
+			while(true)
+			{
+				vint index=styles.Keys().IndexOf(currentName);
+				if(index==-1) break;
+				currentStyle=styles.Values().Get(index);
+				currentName=currentStyle->parentStyleName;
+
+				if(!result.face && currentStyle->face) result.face=currentStyle->face;
+				if(!result.size && currentStyle->size) result.size=currentStyle->size;
+				if(!result.color && currentStyle->color) result.color=currentStyle->color;
+				if(!result.bold && currentStyle->bold) result.bold=currentStyle->bold;
+				if(!result.italic && currentStyle->italic) result.italic=currentStyle->italic;
+				if(!result.underline && currentStyle->underline) result.underline=currentStyle->underline;
+				if(!result.strikeline && currentStyle->strikeline) result.strikeline=currentStyle->strikeline;
+				if(!result.antialias && currentStyle->antialias) result.antialias=currentStyle->antialias;
+				if(!result.verticalAntialias && currentStyle->verticalAntialias) result.verticalAntialias=currentStyle->verticalAntialias;
+			}
+
+			if(!result.face) result.face=context.key.fontFamily;
+			if(!result.size) result.size=context.key.size;
+			if(!result.color) result.color=context.value;
+			if(!result.bold) result.bold=context.key.bold;
+			if(!result.italic) result.italic=context.key.italic;
+			if(!result.underline) result.underline=context.key.underline;
+			if(!result.strikeline) result.strikeline=context.key.strikeline;
+			if(!result.antialias) result.antialias=context.key.antialias;
+			if(!result.verticalAntialias) result.verticalAntialias=context.key.verticalAntialias;
+
+			FontProperties font;
+			font.fontFamily=result.face.Value();
+			font.size=result.size.Value();
+			font.bold=result.bold.Value();
+			font.italic=result.italic.Value();
+			font.underline=result.underline.Value();
+			font.strikeline=result.strikeline.Value();
+			font.antialias=result.antialias.Value();
+			font.verticalAntialias=result.verticalAntialias.Value();
+			return RawStylePair(font, result.color.Value());
+		}
+
+		vint DocumentModel::ActivateHyperlink(vint hyperlinkId, bool active)
+		{
+			vint index=hyperlinkInfos.Keys().IndexOf(hyperlinkId);
+			if(index!=-1)
+			{
+				vint paragraphIndex=hyperlinkInfos.Values().Get(index).paragraphIndex;
+				if(0<=paragraphIndex && paragraphIndex<paragraphs.Count())
+				{
+					Ptr<DocumentParagraph> paragraph=paragraphs[paragraphIndex];
+					ActivateHyperlinkVisitor visitor(hyperlinkId, active);
+					FOREACH(Ptr<DocumentLine>, line, paragraph->lines)
+					{
+						FOREACH(Ptr<DocumentRun>, run, line->runs)
+						{
+							run->Accept(&visitor);
+						}
+					}
+					return paragraphIndex;
+				}
+			}
+			return  -1;
+		}
+
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<DocumentResolver> resolver)
+		{
+			Ptr<DocumentModel> model=new DocumentModel;
+			if(xml->rootElement->name.value==L"Doc")
+			{
+				if(Ptr<XmlElement> styles=XmlGetElement(xml->rootElement, L"Styles"))
+				{
+					FOREACH(Ptr<XmlElement>, styleElement, XmlGetElements(styles, L"Style"))
+					if(Ptr<XmlAttribute> name=XmlGetAttribute(styleElement, L"name"))
+					if(!model->styles.Keys().Contains(name->value.value))
+					{
+						Ptr<DocumentStyle> style=new DocumentStyle;
+						model->styles.Add(name->value.value, style);
+
+						if(Ptr<XmlAttribute> parent=XmlGetAttribute(styleElement, L"parent"))
+						{
+							style->parentStyleName=parent->value.value;
+						}
+
+						FOREACH(Ptr<XmlElement>, att, XmlGetElements(styleElement))
+						{
+							if(att->name.value==L"face")
+							{
+								style->face=XmlGetValue(att);
+							}
+							else if(att->name.value==L"size")
+							{
+								style->size=wtoi(XmlGetValue(att));
+							}
+							else if(att->name.value==L"color")
+							{
+								style->color=Color::Parse(XmlGetValue(att));
+							}
+							else if(att->name.value==L"b")
+							{
+								style->bold=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"i")
+							{
+								style->italic=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"u")
+							{
+								style->underline=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"s")
+							{
+								style->strikeline=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"antialias")
+							{
+								WString value=XmlGetValue(att);
+								if(value==L"horizontal" || value==L"default")
+								{
+									style->antialias=true;
+									style->verticalAntialias=false;
+								}
+								else if(value==L"no")
+								{
+									style->antialias=false;
+									style->verticalAntialias=false;
+								}
+								else if(value==L"vertical")
+								{
+									style->antialias=true;
+									style->verticalAntialias=true;
+								}
+							}
+						}
+					}
+				}
+				if(Ptr<XmlElement> styles=XmlGetElement(xml->rootElement, L"Templates"))
+				{
+					FOREACH(Ptr<XmlElement>, templateElement, XmlGetElements(styles, L"Template"))
+					if(Ptr<XmlAttribute> name=XmlGetAttribute(templateElement, L"name"))
+					if(!model->styles.Keys().Contains(name->value.value))
+					{
+						model->templates.Add(name->value.value, templateElement);
+					}
+				}
+				if(Ptr<XmlElement> content=XmlGetElement(xml->rootElement, L"Content"))
+				{
+					FOREACH_INDEXER(Ptr<XmlElement>, p, i, XmlGetElements(content, L"p"))
+					{
+						Ptr<DocumentParagraph> paragraph=new DocumentParagraph;
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(p, L"align"))
+						{
+							if(att->value.value==L"Left")
+							{
+								paragraph->alignment=Alignment::Left;
+							}
+							else if(att->value.value==L"Center")
+							{
+								paragraph->alignment=Alignment::Center;
+							}
+							else if(att->value.value==L"Right")
+							{
+								paragraph->alignment=Alignment::Right;
+							}
+						}
+						model->paragraphs.Add(paragraph);
+						DeserializeNodeVisitor visitor(model, paragraph, i, resolver);
+						p->Accept(&visitor);
+					}
+				}
+			}
+			return model;
+		}
+
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory)
+		{
+			Ptr<DocumentFileProtocolResolver> resolver=new DocumentFileProtocolResolver(workingDirectory);
+			return LoadFromXml(xml, resolver);
+		}
+
+		Ptr<parsing::xml::XmlDocument> DocumentModel::SaveToXml()
+		{
+			SerializeRunVisitor visitor;
+			Ptr<XmlDocument> xml=new XmlDocument;
+			Ptr<XmlElement> doc=new XmlElement;
+			doc->name.value=L"Doc";
+			xml->rootElement=doc;
+			{
+				Ptr<XmlElement> content=new XmlElement;
+				content->name.value=L"Content";
+				doc->subNodes.Add(content);
+
+				FOREACH(Ptr<DocumentParagraph>, p, paragraphs)
+				{
+					Ptr<XmlElement> paragraph=new XmlElement;
+					paragraph->name.value=L"p";
+					content->subNodes.Add(paragraph);
+
+					FOREACH(Ptr<DocumentLine>, l, p->lines)
+					{
+						FOREACH(Ptr<DocumentRun>, r, l->runs)
+						{
+							visitor.container=paragraph;
+							r->Accept(&visitor);
+						}
+						{
+							Ptr<XmlElement> line=new XmlElement;
+							line->name.value=L"br";
+							paragraph->subNodes.Add(line);
+						}
+					}
+				}
+			}
+			{
+				Ptr<XmlElement> stylesElement=new XmlElement;
+				stylesElement->name.value=L"Styles";
+				doc->subNodes.Add(stylesElement);
+
+				for(vint i=0;i<styles.Count();i++)
+				{
+					WString name=styles.Keys()[i];
+					if(name.Length()>0 && name[0]==L'#') continue;
+
+					Ptr<DocumentStyle> style=styles.Values().Get(i);
+					Ptr<XmlElement> styleElement=new XmlElement;
+					styleElement->name.value=L"Style";
+					stylesElement->subNodes.Add(styleElement);
+
+					XmlElementWriter(styleElement).Attribute(L"name", name);
+					if(style->parentStyleName!=L"")
+					{
+						XmlElementWriter(styleElement).Attribute(L"parent", style->parentStyleName);
+					}
+
+					if(style->face) XmlElementWriter(styleElement).Element(L"face").Text(style->face.Value());
+					if(style->size) XmlElementWriter(styleElement).Element(L"size").Text(itow(style->size.Value()));
+					if(style->color) XmlElementWriter(styleElement).Element(L"color").Text(style->color.Value().ToString());
+					if(style->bold) XmlElementWriter(styleElement).Element(L"bold").Text(style->bold.Value()?L"true":L"false");
+					if(style->italic) XmlElementWriter(styleElement).Element(L"italic").Text(style->italic.Value()?L"true":L"false");
+					if(style->underline) XmlElementWriter(styleElement).Element(L"underline").Text(style->underline.Value()?L"true":L"false");
+					if(style->strikeline) XmlElementWriter(styleElement).Element(L"strikeline").Text(style->strikeline.Value()?L"true":L"false");
+					if(style->antialias && style->verticalAntialias)
+					{
+						bool h=style->antialias;
+						bool v=style->verticalAntialias;
+						if(!h)
+						{
+							XmlElementWriter(styleElement).Element(L"antialias").Text(L"no");
+						}
+						else if(!v)
+						{
+							XmlElementWriter(styleElement).Element(L"antialias").Text(L"default");
+						}
+						else
+						{
+							XmlElementWriter(styleElement).Element(L"antialias").Text(L"vertical");
+						}
+					}
+				}
+			}
+			return xml;
+		}
+
+/***********************************************************************
+DocumentFileProtocolResolver
+***********************************************************************/
+
+		Ptr<INativeImage> DocumentFileProtocolResolver::ResolveImageInternal(const WString& protocol, const WString& path)
+		{
+			if(INVLOC.ToUpper(protocol)!=L"FILE") return 0;
+			WString filename=path;
+			if(filename.Length()>=2 && filename[1]!=L':')
+			{
+				filename=workingDirectory+filename;
+			}
+			return GetCurrentController()->ImageService()->CreateImageFromFile(filename);
+		}
+
+		DocumentFileProtocolResolver::DocumentFileProtocolResolver(const WString& _workingDirectory, Ptr<DocumentResolver> previousResolver)
+			:DocumentResolver(previousResolver)
+			,workingDirectory(_workingDirectory)
+		{
+		}
+
+/***********************************************************************
+DocumentResProtocolResolver
+***********************************************************************/
+
+		Ptr<INativeImage> DocumentResProtocolResolver::ResolveImageInternal(const WString& protocol, const WString& path)
+		{
+			if(INVLOC.ToUpper(protocol)!=L"RES") return 0;
+			Ptr<GuiImageData> image=resource->GetValueByPath(path).Cast<GuiImageData>();
+			if(image)
+			{
+				return image->GetImage();
+			}
+			else
+			{
+				return 0;
+			}
+		}
+
+		DocumentResProtocolResolver::DocumentResProtocolResolver(Ptr<GuiResource> _resource, Ptr<DocumentResolver> previousResolver)
+			:DocumentResolver(previousResolver)
+			,resource(_resource)
+		{
+		}
+
+/***********************************************************************
+GuiResourceNodeBase
+***********************************************************************/
+
+		GuiResourceNodeBase::GuiResourceNodeBase()
+			:parent(0)
+		{
+		}
+
+		GuiResourceNodeBase::~GuiResourceNodeBase()
+		{
+		}
+
+		const WString& GuiResourceNodeBase::GetName()
+		{
+			return name;
+		}
+
+		GuiResourceFolder* GuiResourceNodeBase::GetParent()
+		{
+			return parent;
+		}
+
+/***********************************************************************
+GuiResourceItem
+***********************************************************************/
+
+		GuiResourceItem::GuiResourceItem()
+		{
+		}
+
+		GuiResourceItem::~GuiResourceItem()
+		{
+		}
+
+		Ptr<Object> GuiResourceItem::GetContent()
+		{
+			return content;
+		}
+
+		void GuiResourceItem::SetContent(Ptr<Object> value)
+		{
+			content=value;
+		}
+
+		Ptr<GuiImageData> GuiResourceItem::AsImage()
+		{
+			return content.Cast<GuiImageData>();
+		}
+
+		Ptr<parsing::xml::XmlDocument> GuiResourceItem::AsXml()
+		{
+			return content.Cast<XmlDocument>();
+		}
+
+		Ptr<ObjectBox<WString>> GuiResourceItem::AsString()
+		{
+			return content.Cast<ObjectBox<WString>>();
+		}
+
+		Ptr<DocumentModel> GuiResourceItem::AsDocument()
+		{
+			return content.Cast<DocumentModel>();
+		}
+
+/***********************************************************************
+GuiResourceFolder
+***********************************************************************/
+
+		void GuiResourceFolder::LoadResourceFolderXml(DelayLoading& delayLoading, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, Ptr<parsing::tabling::ParsingTable> xmlParsingTable)
+		{
+			ClearItems();
+			ClearFolders();
+			FOREACH(Ptr<XmlElement>, element, XmlGetElements(folderXml))
+			{
+				WString name;
+				if(Ptr<XmlAttribute> nameAtt=XmlGetAttribute(element, L"name"))
+				{
+					name=nameAtt->value.value;
+				}
+				if(element->name.value==L"Folder")
+				{
+					if(name!=L"")
+					{
+						Ptr<GuiResourceFolder> folder=new GuiResourceFolder;
+						if(AddFolder(name, folder))
+						{
+							WString newContainingFolder=containingFolder;
+							Ptr<XmlElement> newFolderXml=element;
+							if(Ptr<XmlAttribute> contentAtt=XmlGetAttribute(element, L"content"))
+							{
+								if(contentAtt->value.value==L"Link")
+								{
+									WString filePath=containingFolder+XmlGetValue(element);
+									WString text;
+									if(LoadTextFile(filePath, text))
+									{
+										Ptr<XmlDocument> xml=XmlParseDocument(text, xmlParsingTable);
+										if(xml)
+										{
+											newContainingFolder=GetFolderPath(filePath);
+											newFolderXml=xml->rootElement;
+										}
+									}
+								}
+							}
+							folder->LoadResourceFolderXml(delayLoading, newContainingFolder, newFolderXml, xmlParsingTable);
+						}
+					}
+				}
+				else
+				{
+					WString filePath;
+					if(Ptr<XmlAttribute> contentAtt=XmlGetAttribute(element, L"content"))
+					{
+						if(contentAtt->value.value==L"File")
+						{
+							filePath=containingFolder+XmlGetValue(element);
+							if(name==L"")
+							{
+								name=GetFileName(filePath);
+							}
+						}
+					}
+
+					Ptr<GuiResourceItem> item=new GuiResourceItem;
+					if(AddItem(name, item))
+					{
+						if(filePath!=L"")
+						{
+							stream::FileStream fileStream(filePath, stream::FileStream::ReadOnly);
+							if(fileStream.IsAvailable())
+							{
+								if(element->name.value==L"Xml" || element->name.value==L"Doc")
+								{
+									WString text;
+									if(LoadTextFromStream(fileStream, text))
+									{
+										Ptr<XmlDocument> xml=XmlParseDocument(text, xmlParsingTable);
+										if(xml)
+										{
+											item->SetContent(xml);
+											if(element->name.value==L"Doc")
+											{
+												delayLoading.documentModelFolders.Add(item, containingFolder);
+											}
+										}
+									}
+								}
+								else if(element->name.value==L"Text")
+								{
+									WString text;
+									if(LoadTextFromStream(fileStream, text))
+									{
+										item->SetContent(new ObjectBox<WString>(text));
+									}
+								}
+								else if(element->name.value==L"Image")
+								{
+									Ptr<INativeImage> image=GetCurrentController()->ImageService()->CreateImageFromStream(fileStream);
+									if(image)
+									{
+										Ptr<GuiImageData> imageData=new GuiImageData(image, 0);
+										item->SetContent(imageData);
+									}
+								}
+							}
+						}
+						else
+						{
+							if(element->name.value==L"Xml" || element->name.value==L"Doc")
+							{
+								Ptr<XmlElement> root=XmlGetElements(element).First(0);
+								if(root)
+								{
+									Ptr<XmlDocument> xml=new XmlDocument;
+									xml->rootElement=root;
+									item->SetContent(xml);
+									if(element->name.value==L"Doc")
+									{
+										delayLoading.documentModelFolders.Add(item, containingFolder);
+									}
+								}
+							}
+							else if(element->name.value==L"Text")
+							{
+								WString text=XmlGetValue(element);
+								item->SetContent(new ObjectBox<WString>(text));
+							}
+							else if(element->name.value==L"Image")
+							{
+							}
+						}
+						if(!item->GetContent())
+						{
+							RemoveItem(name);
+						}
+					}
+				}
+			}
+		}
+
+		GuiResourceFolder::GuiResourceFolder()
+		{
+		}
+
+		GuiResourceFolder::~GuiResourceFolder()
+		{
+		}
+
+		const GuiResourceFolder::ItemList& GuiResourceFolder::GetItems()
+		{
+			return items.Values();
+		}
+
+		Ptr<GuiResourceItem> GuiResourceFolder::GetItem(const WString& name)
+		{
+			vint index=items.Keys().IndexOf(name);
+			return index==-1?0:items.Values().Get(index);
+		}
+
+		bool GuiResourceFolder::AddItem(const WString& name, Ptr<GuiResourceItem> item)
+		{
+			if(item->GetParent()!=0 || items.Keys().Contains(name)) return false;
+			items.Add(name, item);
+			item->parent=this;
+			item->name=name;
+			return true;
+		}
+
+		Ptr<GuiResourceItem> GuiResourceFolder::RemoveItem(const WString& name)
+		{
+			Ptr<GuiResourceItem> item=GetItem(name);
+			if(!item) return 0;
+			items.Remove(name);
+			return item;
+		}
+
+		void GuiResourceFolder::ClearItems()
+		{
+			items.Clear();
+		}
+
+		const GuiResourceFolder::FolderList& GuiResourceFolder::GetFolders()
+		{
+			return folders.Values();
+		}
+
+		Ptr<GuiResourceFolder> GuiResourceFolder::GetFolder(const WString& name)
+		{
+			vint index=folders.Keys().IndexOf(name);
+			return index==-1?0:folders.Values().Get(index);
+		}
+
+		bool GuiResourceFolder::AddFolder(const WString& name, Ptr<GuiResourceFolder> folder)
+		{
+			if(folder->GetParent()!=0 || folders.Keys().Contains(name)) return false;
+			folders.Add(name, folder);
+			folder->parent=this;
+			folder->name=name;
+			return true;
+		}
+
+		Ptr<GuiResourceFolder> GuiResourceFolder::RemoveFolder(const WString& name)
+		{
+			Ptr<GuiResourceFolder> folder=GetFolder(name);
+			if(!folder) return 0;
+			folders.Remove(name);
+			return folder;
+		}
+
+		void GuiResourceFolder::ClearFolders()
+		{
+			folders.Clear();
+		}
+
+		Ptr<Object> GuiResourceFolder::GetValueByPath(const WString& path)
+		{
+			const wchar_t* buffer=path.Buffer();
+			const wchar_t* index=wcschr(buffer, L'\\');
+			if(!index) index=wcschr(buffer, '/');
+
+			if(index)
+			{
+				WString name=path.Sub(0, index-buffer);
+				Ptr<GuiResourceFolder> folder=GetFolder(name);
+				if(folder)
+				{
+					vint start=index-buffer+1;
+					return folder->GetValueByPath(path.Sub(start, path.Length()-start));
+				}
+			}
+			else
+			{
+				Ptr<GuiResourceItem> item=GetItem(path);
+				if(item)
+				{
+					return item->GetContent();
+				}
+			}
+			return 0;
+		}
+
+/***********************************************************************
+GuiResource
+***********************************************************************/
+
+		GuiResource::GuiResource()
+		{
+		}
+
+		GuiResource::~GuiResource()
+		{
+		}
+
+		Ptr<GuiResource> GuiResource::LoadFromXml(const WString& filePath)
+		{
+			Ptr<ParsingTable> table;
+			Ptr<XmlDocument> xml;
+			Ptr<GuiResource> resource;
+			{
+				WString text;
+				if(LoadTextFile(filePath, text))
+				{
+					table=XmlLoadTable();
+					xml=XmlParseDocument(text, table);
+				}
+			}
+			if(xml)
+			{
+				resource=new GuiResource;
+				DelayLoading delayLoading;
+				resource->LoadResourceFolderXml(delayLoading, GetFolderPath(filePath), xml->rootElement, table);
+
+				for(vint i=0;i<delayLoading.documentModelFolders.Count();i++)
+				{
+					Ptr<GuiResourceItem> item=delayLoading.documentModelFolders.Keys()[i];
+					WString folder=delayLoading.documentModelFolders.Values().Get(i);
+					if(Ptr<XmlDocument> xml=item->AsXml())
+					{
+						Ptr<DocumentResolver> resolver=new DocumentResProtocolResolver(resource, new DocumentFileProtocolResolver(folder));
+						Ptr<DocumentModel> model=DocumentModel::LoadFromXml(xml, resolver);
+						item->SetContent(model);
+					}
+				}
+			}
+			return resource;
 		}
 	}
 }
@@ -32473,20 +34799,67 @@ WindowsAsyncService::TaskItem
 
 			WindowsAsyncService::TaskItem::TaskItem()
 				:semaphore(0)
-				,proc(0)
-				,argument(0)
 			{
 			}
 
-			WindowsAsyncService::TaskItem::TaskItem(Semaphore* _semaphore, INativeAsyncService::AsyncTaskProc* _proc, void* _argument)
+			WindowsAsyncService::TaskItem::TaskItem(Semaphore* _semaphore, const Func<void()>& _proc)
 				:semaphore(_semaphore)
 				,proc(_proc)
-				,argument(_argument)
 			{
 			}
 
 			WindowsAsyncService::TaskItem::~TaskItem()
 			{
+			}
+
+/***********************************************************************
+WindowsAsyncService::DelayItem
+***********************************************************************/
+
+			WindowsAsyncService::DelayItem::DelayItem(WindowsAsyncService* _service, const Func<void()>& _proc, bool _executeInMainThread, vint milliseconds)
+				:service(_service)
+				,proc(_proc)
+				,status(INativeDelay::Pending)
+				,executeTime(DateTime::LocalTime().Forward(milliseconds))
+				,executeInMainThread(_executeInMainThread)
+			{
+			}
+
+			WindowsAsyncService::DelayItem::~DelayItem()
+			{
+			}
+
+			INativeDelay::ExecuteStatus WindowsAsyncService::DelayItem::GetStatus()
+			{
+				return status;
+			}
+
+			bool WindowsAsyncService::DelayItem::Delay(vint milliseconds)
+			{
+				SpinLock::Scope scope(service->taskListLock);
+				if(status==INativeDelay::Pending)
+				{
+					executeTime=DateTime::LocalTime().Forward(milliseconds);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool WindowsAsyncService::DelayItem::Cancel()
+			{
+				SpinLock::Scope scope(service->taskListLock);
+				if(status==INativeDelay::Pending)
+				{
+					if(service->delayItems.Remove(this))
+					{
+						status=INativeDelay::Canceled;
+						return true;
+					}
+				}
+				return false;
 			}
 
 /***********************************************************************
@@ -32504,19 +34877,46 @@ WindowsAsyncService
 
 			void WindowsAsyncService::ExecuteAsyncTasks()
 			{
+				DateTime now=DateTime::LocalTime();
 				Array<TaskItem> items;
+				List<Ptr<DelayItem>> executableDelayItems;
 				{
 					SpinLock::Scope scope(taskListLock);
 					CopyFrom(items, taskItems);
 					taskItems.RemoveRange(0, items.Count());
-				}
-				for(vint i=0;i<items.Count();i++)
-				{
-					TaskItem taskItem=items[i];
-					taskItem.proc(taskItem.argument);
-					if(taskItem.semaphore)
+					for(vint i=delayItems.Count()-1;i>=0;i--)
 					{
-						taskItem.semaphore->Release();
+						Ptr<DelayItem> item=delayItems[i];
+						if(now.filetime>=item->executeTime.filetime)
+						{
+							item->status=INativeDelay::Executing;
+							executableDelayItems.Add(item);
+							delayItems.RemoveAt(i);
+						}
+					}
+				}
+				FOREACH(TaskItem, item, items)
+				{
+					item.proc();
+					if(item.semaphore)
+					{
+						item.semaphore->Release();
+					}
+				}
+				FOREACH(Ptr<DelayItem>, item, executableDelayItems)
+				{
+					if(item->executeInMainThread)
+					{
+						item->proc();
+						item->status=INativeDelay::Executed;
+					}
+					else
+					{
+						InvokeAsync([=]()
+						{
+							item->proc();
+							item->status=INativeDelay::Executed;
+						});
 					}
 				}
 			}
@@ -32526,25 +34926,25 @@ WindowsAsyncService
 				return Thread::GetCurrentThreadId()==mainThreadId;
 			}
 
-			void WindowsAsyncService::InvokeAsync(INativeAsyncService::AsyncTaskProc* proc, void* argument)
+			void WindowsAsyncService::InvokeAsync(const Func<void()>& proc)
 			{
-				ThreadPoolLite::Queue(proc, argument);
+				ThreadPoolLite::Queue(proc);
 			}
 
-			void WindowsAsyncService::InvokeInMainThread(INativeAsyncService::AsyncTaskProc* proc, void* argument)
+			void WindowsAsyncService::InvokeInMainThread(const Func<void()>& proc)
 			{
 				SpinLock::Scope scope(taskListLock);
-				TaskItem item(0, proc, argument);
+				TaskItem item(0, proc);
 				taskItems.Add(item);
 			}
 
-			bool WindowsAsyncService::InvokeInMainThreadAndWait(INativeAsyncService::AsyncTaskProc* proc, void* argument, vint milliseconds)
+			bool WindowsAsyncService::InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds)
 			{
 				Semaphore semaphore;
 				semaphore.Create(0, 1);
 				{
 					SpinLock::Scope scope(taskListLock);
-					TaskItem item(&semaphore, proc, argument);
+					TaskItem item(&semaphore, proc);
 					taskItems.Add(item);
 				}
 				if(milliseconds<0)
@@ -32555,6 +34955,22 @@ WindowsAsyncService
 				{
 					return semaphore.WaitForTime(milliseconds);
 				}
+			}
+
+			Ptr<INativeDelay> WindowsAsyncService::DelayExecute(const Func<void()>& proc, vint milliseconds)
+			{
+				SpinLock::Scope scope(taskListLock);
+				Ptr<DelayItem> delay=new DelayItem(this, proc, false, milliseconds);
+				delayItems.Add(delay);
+				return delay;
+			}
+
+			Ptr<INativeDelay> WindowsAsyncService::DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)
+			{
+				SpinLock::Scope scope(taskListLock);
+				Ptr<DelayItem> delay=new DelayItem(this, proc, true, milliseconds);
+				delayItems.Add(delay);
+				return delay;
 			}
 		}
 	}
@@ -34645,18 +37061,14 @@ WindowsForm
 
 				void SetParent(INativeWindow* parent)
 				{
-					WindowsForm* window=dynamic_cast<WindowsForm*>(parent);
-					if(window)
+					parentWindow=dynamic_cast<WindowsForm*>(parent);
+					if(parentWindow)
 					{
-						parentWindow=window;
-						if(parentWindow)
-						{
-							SetWindowLongPtr(handle, GWLP_HWNDPARENT, (LONG_PTR)window->handle);
-						}
-						else
-						{
-							SetWindowLongPtr(handle, GWLP_HWNDPARENT, NULL);
-						}
+						SetWindowLongPtr(handle, GWLP_HWNDPARENT, (LONG_PTR)parentWindow->handle);
+					}
+					else
+					{
+						SetWindowLongPtr(handle, GWLP_HWNDPARENT, NULL);
 					}
 				}
 

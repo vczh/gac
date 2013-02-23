@@ -54,9 +54,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rendering.TextLayout.RichTe
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TextBox.AdvancedColorizer", "Controls.TextBox.AdvancedColorizer\Controls.TextBox.AdvancedColorizer.vcxproj", "{937ABCE3-B803-49EB-B907-CE72C123435B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Tooltip.RichTextAndResource", "Controls.Tooltip.RichTextAndResource\Controls.Tooltip.RichTextAndResource.vcxproj", "{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 23
+		SccNumberOfProjects = 24
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -146,6 +148,10 @@ Global
 		SccProjectTopLevelParentUniqueName22 = GacUIDemo.sln
 		SccProjectName22 = Controls.TextBox.AdvancedColorizer
 		SccLocalPath22 = Controls.TextBox.AdvancedColorizer
+		SccProjectUniqueName23 = Controls.Tooltip.RichTextAndResource\\Controls.Tooltip.RichTextAndResource.vcxproj
+		SccProjectTopLevelParentUniqueName23 = GacUIDemo.sln
+		SccProjectName23 = Controls.Tooltip.RichTextAndResource
+		SccLocalPath23 = Controls.Tooltip.RichTextAndResource
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -240,6 +246,10 @@ Global
 		{937ABCE3-B803-49EB-B907-CE72C123435B}.Debug|Win32.Build.0 = Debug|Win32
 		{937ABCE3-B803-49EB-B907-CE72C123435B}.Release|Win32.ActiveCfg = Release|Win32
 		{937ABCE3-B803-49EB-B907-CE72C123435B}.Release|Win32.Build.0 = Release|Win32
+		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Debug|Win32.Build.0 = Debug|Win32
+		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Release|Win32.ActiveCfg = Release|Win32
+		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -261,6 +271,7 @@ Global
 		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{937ABCE3-B803-49EB-B907-CE72C123435B} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{ED487B28-E445-464D-A09A-97BC9E57FC8D} = {B05A7B62-D27C-48B3-9AA6-AC15ABC38BD8}
 		{1AAAFFB1-0E0C-4D06-B18E-AC3816F97217} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{FBAA9433-4B1B-44FF-8EC9-F7C037859ABC} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
