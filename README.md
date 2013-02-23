@@ -1,7 +1,7 @@
 # Gaclib 0.4.3.0
 
 
-GPU Accelerated C++ User Interface/Script Engine
+GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
 
 Website for this project: http://www.gaclib.net/
 
