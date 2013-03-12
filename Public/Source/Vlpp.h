@@ -454,7 +454,7 @@ namespace vl
 
 		ObjectString(const ObjectString<T>& string, vint _start, vint _length)
 		{
-			if(_length==0)
+			if(_length<=0)
 			{
 				buffer=(T*)&zero;
 				reference=0;
@@ -521,7 +521,7 @@ namespace vl
 
 		ObjectString(const T* _buffer, vint _length)
 		{
-			if(_length==0)
+			if(_length<=0)
 			{
 				buffer=(T*)&zero;
 				reference=0;
@@ -775,6 +775,17 @@ namespace vl
 	typedef ObjectString<char>		AString;
 	typedef ObjectString<wchar_t>	WString;
 
+	extern vint					atoi_test(const AString& string, bool& success);
+	extern vint					wtoi_test(const WString& string, bool& success);
+	extern __int64				atoi64_test(const AString& string, bool& success);
+	extern __int64				wtoi64_test(const WString& string, bool& success);
+	extern vuint				atou_test(const AString& string, bool& success);
+	extern vuint				wtou_test(const WString& string, bool& success);
+	extern unsigned __int64		atou64_test(const AString& string, bool& success);
+	extern unsigned __int64		wtou64_test(const WString& string, bool& success);
+	extern double				atof_test(const AString& string, bool& success);
+	extern double				wtof_test(const WString& string, bool& success);
+
 	extern vint					atoi(const AString& string);
 	extern vint					wtoi(const WString& string);
 	extern __int64				atoi64(const AString& string);
@@ -785,6 +796,7 @@ namespace vl
 	extern unsigned __int64		wtou64(const WString& string);
 	extern double				atof(const AString& string);
 	extern double				wtof(const WString& string);
+
 	extern AString				itoa(vint number);
 	extern WString				itow(vint number);
 	extern AString				i64toa(__int64 number);
@@ -795,6 +807,7 @@ namespace vl
 	extern WString				u64tow(unsigned __int64 number);
 	extern AString				ftoa(double number);
 	extern WString				ftow(double number);
+
 	extern vint					_wtoa(const wchar_t* w, char* a, vint chars);
 	extern AString				wtoa(const WString& string);
 	extern vint					_atow(const char* a, wchar_t* w, vint chars);
@@ -9820,6 +9833,7 @@ vl::Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		struct LambdaRetriveType
 		{
 			typedef vint Type;
+			typedef vint FunctionType;
 			typedef vint ResultType;
 		};
  
@@ -9827,6 +9841,7 @@ vl::Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		struct FunctionObjectRetriveType
 		{
 			typedef typename LambdaRetriveType<decltype(&T::operator())>::Type Type;
+			typedef typename LambdaRetriveType<decltype(&T::operator())>::FunctionType FunctionType;
 			typedef typename LambdaRetriveType<decltype(&T::operator())>::ResultType ResultType;
 		};
  
@@ -9838,6 +9853,7 @@ vl::Func<R()>
 		struct LambdaRetriveType<R (__thiscall TObject::*)()const>
 		{
 			typedef Func<R()> Type;
+			typedef R(FunctionType)();
 			typedef R ResultType;
 		};
  
@@ -9845,6 +9861,7 @@ vl::Func<R()>
 		struct LambdaRetriveType<R (__thiscall TObject::*)()>
 		{
 			typedef Func<R()> Type;
+			typedef R(FunctionType)();
 			typedef R ResultType;
 		};
  
@@ -9852,6 +9869,7 @@ vl::Func<R()>
 		struct FunctionObjectRetriveType<R(*)()>
 		{
 			typedef Func<R()> Type;
+			typedef R(FunctionType)();
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -9862,6 +9880,7 @@ vl::Func<R(T0)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0)const>
 		{
 			typedef Func<R(T0)> Type;
+			typedef R(FunctionType)(T0);
 			typedef R ResultType;
 		};
  
@@ -9869,6 +9888,7 @@ vl::Func<R(T0)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0)>
 		{
 			typedef Func<R(T0)> Type;
+			typedef R(FunctionType)(T0);
 			typedef R ResultType;
 		};
  
@@ -9876,6 +9896,7 @@ vl::Func<R(T0)>
 		struct FunctionObjectRetriveType<R(*)(T0)>
 		{
 			typedef Func<R(T0)> Type;
+			typedef R(FunctionType)(T0);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -9886,6 +9907,7 @@ vl::Func<R(T0,T1)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1)const>
 		{
 			typedef Func<R(T0,T1)> Type;
+			typedef R(FunctionType)(T0,T1);
 			typedef R ResultType;
 		};
  
@@ -9893,6 +9915,7 @@ vl::Func<R(T0,T1)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1)>
 		{
 			typedef Func<R(T0,T1)> Type;
+			typedef R(FunctionType)(T0,T1);
 			typedef R ResultType;
 		};
  
@@ -9900,6 +9923,7 @@ vl::Func<R(T0,T1)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1)>
 		{
 			typedef Func<R(T0,T1)> Type;
+			typedef R(FunctionType)(T0,T1);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -9910,6 +9934,7 @@ vl::Func<R(T0,T1,T2)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2)const>
 		{
 			typedef Func<R(T0,T1,T2)> Type;
+			typedef R(FunctionType)(T0,T1,T2);
 			typedef R ResultType;
 		};
  
@@ -9917,6 +9942,7 @@ vl::Func<R(T0,T1,T2)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2)>
 		{
 			typedef Func<R(T0,T1,T2)> Type;
+			typedef R(FunctionType)(T0,T1,T2);
 			typedef R ResultType;
 		};
  
@@ -9924,6 +9950,7 @@ vl::Func<R(T0,T1,T2)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2)>
 		{
 			typedef Func<R(T0,T1,T2)> Type;
+			typedef R(FunctionType)(T0,T1,T2);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -9934,6 +9961,7 @@ vl::Func<R(T0,T1,T2,T3)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3)const>
 		{
 			typedef Func<R(T0,T1,T2,T3)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3);
 			typedef R ResultType;
 		};
  
@@ -9941,6 +9969,7 @@ vl::Func<R(T0,T1,T2,T3)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3)>
 		{
 			typedef Func<R(T0,T1,T2,T3)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3);
 			typedef R ResultType;
 		};
  
@@ -9948,6 +9977,7 @@ vl::Func<R(T0,T1,T2,T3)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3)>
 		{
 			typedef Func<R(T0,T1,T2,T3)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -9958,6 +9988,7 @@ vl::Func<R(T0,T1,T2,T3,T4)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4)const>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4);
 			typedef R ResultType;
 		};
  
@@ -9965,6 +9996,7 @@ vl::Func<R(T0,T1,T2,T3,T4)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4);
 			typedef R ResultType;
 		};
  
@@ -9972,6 +10004,7 @@ vl::Func<R(T0,T1,T2,T3,T4)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -9982,6 +10015,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5)const>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5);
 			typedef R ResultType;
 		};
  
@@ -9989,6 +10023,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5);
 			typedef R ResultType;
 		};
  
@@ -9996,6 +10031,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -10006,6 +10042,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6)const>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6);
 			typedef R ResultType;
 		};
  
@@ -10013,6 +10050,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6);
 			typedef R ResultType;
 		};
  
@@ -10020,6 +10058,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -10030,6 +10069,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7)const>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
 			typedef R ResultType;
 		};
  
@@ -10037,6 +10077,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
 			typedef R ResultType;
 		};
  
@@ -10044,6 +10085,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6,T7)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -10054,6 +10096,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8)const>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
 			typedef R ResultType;
 		};
  
@@ -10061,6 +10104,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
 			typedef R ResultType;
 		};
  
@@ -10068,6 +10112,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
 			typedef R ResultType;
 		};
  /***********************************************************************
@@ -10078,6 +10123,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)const>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
 			typedef R ResultType;
 		};
  
@@ -10085,6 +10131,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		struct LambdaRetriveType<R (__thiscall TObject::*)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
 			typedef R ResultType;
 		};
  
@@ -10092,6 +10139,7 @@ vl::Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		struct FunctionObjectRetriveType<R(*)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
 		{
 			typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> Type;
+			typedef R(FunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
 			typedef R ResultType;
 		};
  
@@ -12885,28 +12933,33 @@ Attribute
 		namespace description
 		{
 			class ITypeDescriptor;
+			class ITypeInfo;
+			class IEventHandler;
+			class IEventInfo;
+			class IPropertyInfo;
+			class IParameterInfo;
+			class IMethodInfo;
+			class IMethodGroupInfo;
 		}
 
 		class DescriptableObject
 		{
 			template<typename T>
 			friend class Description;
-
 			friend class DescriptableValue;
+
+			typedef collections::Dictionary<WString, Ptr<Object>>		InternalPropertyMap;
 		protected:
 			size_t									objectSize;
 			description::ITypeDescriptor**			typeDescriptor;
+			Ptr<InternalPropertyMap>				internalProperties;
 		public:
 			DescriptableObject();
 			virtual ~DescriptableObject();
 
 			description::ITypeDescriptor*			GetTypeDescriptor();
-		};
-
-		class IDescriptable : public virtual Interface, public virtual DescriptableObject
-		{
-		public:
-			~IDescriptable(){}
+			Ptr<Object>								GetInternalProperty(const WString& name);
+			void									SetInternalProperty(const WString& name, Ptr<Object> value);
 		};
 		
 		template<typename T>
@@ -12920,7 +12973,10 @@ Attribute
 				if(objectSize<sizeof(T))
 				{
 					objectSize=sizeof(T);
-					typeDescriptor=&associatedTypeDescriptor;
+					if(!typeDescriptor || !*typeDescriptor || associatedTypeDescriptor)
+					{
+						typeDescriptor=&associatedTypeDescriptor;
+					}
 				}
 			}
 
@@ -12941,6 +12997,12 @@ Attribute
 		template<typename T>
 		description::ITypeDescriptor* Description<T>::associatedTypeDescriptor=0;
 
+		class IDescriptable : public virtual Interface, public Description<IDescriptable>
+		{
+		public:
+			~IDescriptable(){}
+		};
+
 /***********************************************************************
 Value
 ***********************************************************************/
@@ -12953,46 +13015,330 @@ Value
 				enum ValueType
 				{
 					Null,
-					DescriptableObjectRef,
-					DescriptableObjectPtr,
+					RawPtr,
+					SharedPtr,
 					Text,
 				};
 			protected:
 				ValueType						valueType;
-				DescriptableObject*				descriptableObjectRef;
-				Ptr<DescriptableObject>			descriptableObjectPtr;
+				DescriptableObject*				rawPtr;
+				Ptr<DescriptableObject>			sharedPtr;
 				WString							text;
 				ITypeDescriptor*				typeDescriptor;
-			public:
-				Value();
+
 				Value(DescriptableObject* value);
 				Value(Ptr<DescriptableObject> value);
 				Value(const WString& value, ITypeDescriptor* associatedTypeDescriptor);
+			public:
+				Value();
 				Value(const Value& value);
-
 				Value&							operator=(const Value& value);
+				bool							operator==(const Value& value)const;
+				bool							operator!=(const Value& value)const;
 
 				ValueType						GetValueType()const;
-				DescriptableObject*				GetDescriptableObjectRef()const;
-				Ptr<DescriptableObject>			GetDescriptableObjectPtr()const;
+				DescriptableObject*				GetRawPtr()const;
+				Ptr<DescriptableObject>			GetSharedPtr()const;
 				const WString&					GetText()const;
 				ITypeDescriptor*				GetTypeDescriptor()const;
+				WString							GetTypeFriendlyName()const;
+				bool							IsNull()const;
+				bool							CanConvertTo(ITypeDescriptor* targetType, ValueType targetValueType)const;
+				bool							CanConvertTo(ITypeInfo* targetType)const;
+
+				static Value					From(DescriptableObject* value);
+				static Value					From(Ptr<DescriptableObject> value);
+				static Value					From(const WString& value, ITypeDescriptor* type);
+
+				static IMethodInfo*				SelectMethod(IMethodGroupInfo* methodGroup, collections::Array<Value>& arguments);
+				static Value					Create(const WString& typeName);
+				static Value					Create(const WString& typeName, collections::Array<Value>& arguments);
+				static Value					InvokeStatic(const WString& typeName, const WString& name);
+				static Value					InvokeStatic(const WString& typeName, const WString& name, collections::Array<Value>& arguments);
+				Value							GetProperty(const WString& name)const;
+				void							SetProperty(const WString& name, const Value& newValue);
+				Value							Invoke(const WString& name)const;
+				Value							Invoke(const WString& name, collections::Array<Value>& arguments)const;
+				Ptr<IEventHandler>				AttachEvent(const WString& name, const Value& function)const;
+				bool							DeleteRawPtr();
+
+				template<typename T>
+				void SetProperty(const WString& name, const T& newValue)
+				{
+					return SetProperty(name, BoxValue<T>(newValue));
+				}
+
+				class xs
+				{
+				protected:
+					collections::Array<Value>	arguments;
+				public:
+					xs()
+					{
+					}
+
+					template<typename T>
+					xs& operator,(const T& value)
+					{
+						arguments.Resize(arguments.Count()+1);
+						arguments[arguments.Count()-1]=BoxValue<T>(value);
+						return *this;
+					}
+
+					xs& operator,(const Value& value)
+					{
+						arguments.Resize(arguments.Count()+1);
+						arguments[arguments.Count()-1]=value;
+						return *this;
+					}
+
+					operator collections::Array<Value>&()
+					{
+						return arguments;
+					}
+				};
 			};
 
 			class IValueSerializer : public Interface
 			{
 			public:
-				virtual WString					GetName()=0;
 				virtual ITypeDescriptor*		GetOwnerTypeDescriptor()=0;
 				virtual bool					Validate(const WString& text)=0;
 				virtual bool					Parse(const WString& input, Value& output)=0;
+
+				virtual bool					HasCandidate()=0;
+				virtual vint					GetCandidateCount()=0;
+				virtual WString					GetCandidate(vint index)=0;
+				virtual bool					CanMergeCandidate()=0;
 			};
 
 			template<typename T>
 			class ITypedValueSerializer : public IValueSerializer
 			{
+			public:
 				virtual bool					Serialize(const T& input, Value& output)=0;
 				virtual bool					Deserialize(const Value& input, T& output)=0;
+			};
+
+/***********************************************************************
+Collections
+***********************************************************************/
+
+			class IValueReadonlyList : public virtual IDescriptable, public Description<IValueReadonlyList>
+			{
+			public:
+				virtual vint					Count()=0;
+				virtual Value					Get(vint index)=0;
+				virtual bool					Contains(const Value& value)=0;
+				virtual vint					IndexOf(const Value& value)=0;
+
+				template<typename T>
+				collections::LazyList<T> GetLazyList()
+				{
+					return collections::Range(0, Count())
+						.Select([this](int i){return UnboxValue<T>(Get(i));});
+				}
+			};
+
+			class IValueList : public IValueReadonlyList, public Description<IValueList>
+			{
+			public:
+				virtual void					Set(vint index, const Value& value)=0;
+				virtual vint					Add(const Value& value)=0;
+				virtual vint					Insert(vint index, const Value& value)=0;
+				virtual bool					Remove(const Value& value)=0;
+				virtual bool					RemoveAt(vint index)=0;
+				virtual void					Clear()=0;
+
+				static Ptr<IValueList>			Create();
+				static Ptr<IValueList>			Create(Ptr<IValueReadonlyList> values);
+				static Ptr<IValueList>			Create(collections::LazyList<Value> values);
+			};
+
+			namespace trait_helper
+			{
+				template<typename T>
+				struct RemovePtr
+				{
+					typedef T					Type;
+				};
+				
+				template<typename T>
+				struct RemovePtr<T*>
+				{
+					typedef T					Type;
+				};
+				
+				template<typename T>
+				struct RemovePtr<Ptr<T>>
+				{
+					typedef T					Type;
+				};
+			}
+
+			template<typename T>
+			class ValueReadonlyListWrapper : public Object, public IValueReadonlyList
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::ElementType				ElementType;
+				typedef typename KeyType<ElementType>::Type				ElementKeyType;
+
+				T								wrapperPointer;
+			public:
+				ValueReadonlyListWrapper(const T& _wrapperPointer)
+					:wrapperPointer(_wrapperPointer)
+				{
+				}
+
+				vint Count()override
+				{
+					return wrapperPointer->Count();
+				}
+
+				Value Get(vint index)override
+				{
+					return BoxValue<ElementType>(wrapperPointer->Get(index));
+				}
+
+				bool Contains(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->Contains(item);
+				}
+
+				vint IndexOf(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->IndexOf(item);
+				}
+			};
+
+			template<typename T>
+			class ValueListWrapper : public Object, public IValueList
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::ElementType				ElementType;
+				typedef typename KeyType<ElementType>::Type				ElementKeyType;
+
+				T								wrapperPointer;
+			public:
+				ValueListWrapper(const T& _wrapperPointer)
+					:wrapperPointer(_wrapperPointer)
+				{
+				}
+
+				vint Count()override
+				{
+					return wrapperPointer->Count();
+				}
+
+				Value Get(vint index)override
+				{
+					return BoxValue<ElementType>(wrapperPointer->Get(index));
+				}
+
+				bool Contains(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->Contains(item);
+				}
+
+				vint IndexOf(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->IndexOf(item);
+				}
+
+				void Set(vint index, const Value& value)override
+				{
+					ElementType item=UnboxValue<ElementType>(value);
+					wrapperPointer->Set(index, item);
+				}
+
+				vint Add(const Value& value)override
+				{
+					ElementType item=UnboxValue<ElementType>(value);
+					return wrapperPointer->Add(item);
+				}
+
+				vint Insert(vint index, const Value& value)override
+				{
+					ElementType item=UnboxValue<ElementType>(value);
+					return wrapperPointer->Insert(index, item);
+				}
+
+				bool Remove(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->Remove(item);
+				}
+
+				bool RemoveAt(vint index)override
+				{
+					return wrapperPointer->RemoveAt(index);
+				}
+
+				void Clear()override
+				{
+					wrapperPointer->Clear();
+				}
+			};
+
+/***********************************************************************
+Interface Implementation Proxy
+***********************************************************************/
+
+			class IValueInterfaceProxy : public virtual IDescriptable, public Description<IValueReadonlyList>
+			{
+			public:
+				virtual Value					Invoke(const WString& methodName, Ptr<IValueList> arguments)=0;
+			};
+
+			class IValueFunctionProxy : public virtual IDescriptable, public Description<IValueFunctionProxy>
+			{
+			public:
+				virtual Value					Invoke(Ptr<IValueList> arguments)=0;
+			};
+
+			class ValueInterfaceRoot : public virtual IDescriptable
+			{
+			protected:
+				Ptr<IValueInterfaceProxy>		proxy;
+			public:
+				ValueInterfaceRoot(Ptr<IValueInterfaceProxy> _proxy)
+					:proxy(_proxy)
+				{
+				}
+
+				Ptr<IValueInterfaceProxy> GetProxy()
+				{
+					return proxy;
+				}
+			};
+
+/***********************************************************************
+ITypeDescriptor (type)
+***********************************************************************/
+
+			class ITypeInfo : public virtual Interface
+			{
+			public:
+				enum Decorator
+				{
+					RawPtr,
+					SharedPtr,
+					TypeDescriptor,
+					Generic,
+				};
+
+				virtual Decorator				GetDecorator()=0;
+				virtual ITypeInfo*				GetElementType()=0;
+				virtual ITypeDescriptor*		GetTypeDescriptor()=0;
+				virtual vint					GetGenericArgumentCount()=0;
+				virtual ITypeInfo*				GetGenericArgument(vint index)=0;
+				virtual WString					GetTypeFriendlyName()=0;
 			};
 
 /***********************************************************************
@@ -13006,20 +13352,11 @@ ITypeDescriptor (basic)
 				virtual const WString&			GetName()=0;
 			};
 
-			class IValueInfo : public virtual Interface
-			{
-			public:
-				virtual ITypeDescriptor*		GetValueTypeDescriptor()=0;
-				virtual bool					CanBeNull()=0;
-			};
-
 /***********************************************************************
 ITypeDescriptor (event)
 ***********************************************************************/
 
-			class IEventInfo;
-
-			class IEventHandler : public Interface
+			class IEventHandler : public virtual Interface
 			{
 			public:
 				virtual IEventInfo*				GetOwnerEvent()=0;
@@ -13032,45 +13369,50 @@ ITypeDescriptor (event)
 			class IEventInfo : public IMemberInfo
 			{
 			public:
-				virtual Ptr<IEventHandler>		Attach(const Value& thisObject, const Func<void(const Value&, Value&)>& handler)=0;
-				virtual void					Invoke(const Value& thisObject, Value& arguments)=0;
+				virtual ITypeInfo*				GetHandlerType()=0;
+				virtual vint					GetObservingPropertyCount()=0;
+				virtual IPropertyInfo*			GetObservingProperty(vint index)=0;
+				virtual Ptr<IEventHandler>		Attach(const Value& thisObject, Ptr<IValueFunctionProxy> handler)=0;
 			};
 
 /***********************************************************************
 ITypeDescriptor (property)
 ***********************************************************************/
 
-			class IPropertyInfo : public IMemberInfo, public IValueInfo
+			class IPropertyInfo : public IMemberInfo
 			{
 			public:
 				virtual bool					IsReadable()=0;
 				virtual bool					IsWritable()=0;
+				virtual ITypeInfo*				GetReturn()=0;
+				virtual IMethodInfo*			GetGetter()=0;
+				virtual IMethodInfo*			GetSetter()=0;
 				virtual IEventInfo*				GetValueChangedEvent()=0;
 				virtual Value					GetValue(const Value& thisObject)=0;
-				virtual void					SetValue(const Value& thisObject, Value newValue)=0;
+				virtual void					SetValue(Value& thisObject, const Value& newValue)=0;
 			};
 
 /***********************************************************************
 ITypeDescriptor (method)
 ***********************************************************************/
 
-			class IMethodInfo;
-			class IMethodGroupInfo;
-
-			class IParameterInfo : public IMemberInfo, public IValueInfo
+			class IParameterInfo : public IMemberInfo
 			{
 			public:
+				virtual ITypeInfo*				GetType()=0;
 				virtual IMethodInfo*			GetOwnerMethod()=0;
-				virtual bool					CanOutput()=0;
 			};
 
 			class IMethodInfo : public IMemberInfo
 			{
 			public:
 				virtual IMethodGroupInfo*		GetOwnerMethodGroup()=0;
+				virtual IPropertyInfo*			GetOwnerProperty()=0;
 				virtual vint					GetParameterCount()=0;
 				virtual IParameterInfo*			GetParameter(vint index)=0;
-				virtual IValueInfo*				GetReturn()=0;
+				virtual ITypeInfo*				GetReturn()=0;
+				virtual bool					IsStatic()=0;
+				virtual void					CheckArguments(collections::Array<Value>& arguments)=0;
 				virtual Value					Invoke(const Value& thisObject, collections::Array<Value>& arguments)=0;
 			};
 
@@ -13085,13 +13427,14 @@ ITypeDescriptor (method)
 ITypeDescriptor
 ***********************************************************************/
 
-			class ITypeDescriptor : public Interface
+			class ITypeDescriptor : public virtual Interface
 			{
 			public:
 				virtual const WString&			GetTypeName()=0;
 				virtual IValueSerializer*		GetValueSerializer()=0;
 				virtual vint					GetBaseTypeDescriptorCount()=0;
 				virtual ITypeDescriptor*		GetBaseTypeDescriptor(vint index)=0;
+				virtual bool					CanConvertTo(ITypeDescriptor* targetType)=0;
 
 				virtual vint					GetPropertyCount()=0;
 				virtual IPropertyInfo*			GetProperty(vint index)=0;
@@ -13116,21 +13459,16 @@ ITypeManager
 
 			class ITypeManager;
 
-			class ITypeLoader : public Interface
+			class ITypeLoader : public virtual Interface
 			{
 			public:
 				virtual void					Load(ITypeManager* manager)=0;
 				virtual void					Unload(ITypeManager* manager)=0;
 			};
 
-			class ITypeManager : public Interface
+			class ITypeManager : public virtual Interface
 			{
 			public:
-				virtual vint					GetValueSerializerCount()=0;
-				virtual IValueSerializer*		GetValueSerializer(vint index)=0;
-				virtual IValueSerializer*		GetValueSerializer(const WString& name)=0;
-				virtual bool					SetValueSerializer(const WString& name, Ptr<IValueSerializer> valueSerializer)=0;
-				
 				virtual vint					GetTypeDescriptorCount()=0;
 				virtual ITypeDescriptor*		GetTypeDescriptor(vint index)=0;
 				virtual ITypeDescriptor*		GetTypeDescriptor(const WString& name)=0;
@@ -13142,12 +13480,15 @@ ITypeManager
 				virtual bool					Unload()=0;
 				virtual bool					Reload()=0;
 				virtual bool					IsLoaded()=0;
+				virtual ITypeDescriptor*		GetRootType()=0;
 			};
 
 			extern ITypeManager*				GetGlobalTypeManager();
 			extern bool							DestroyGlobalTypeManager();
+			extern bool							ResetGlobalTypeManager();
 			extern IValueSerializer*			GetValueSerializer(const WString& name);
 			extern ITypeDescriptor*				GetTypeDescriptor(const WString& name);
+			extern void							LogTypeManager(stream::TextWriter& writer);
 
 /***********************************************************************
 Exceptions
@@ -13162,11 +13503,38 @@ Exceptions
 				}
 			};
 
+			class TypeNotExistsException : public TypeDescriptorException
+			{
+			public:
+				TypeNotExistsException(const WString& name)
+					:TypeDescriptorException(L"Cannot find the type \""+name+L"\".")
+				{
+				}
+			};
+
+			class ConstructorNotExistsException : public TypeDescriptorException
+			{
+			public:
+				ConstructorNotExistsException()
+					:TypeDescriptorException(L"Cannot find any constructor.")
+				{
+				}
+			};
+
+			class MemberNotExistsException : public TypeDescriptorException
+			{
+			public:
+				MemberNotExistsException(const WString& name)
+					:TypeDescriptorException(L"Cannot find the member \""+name+L"\".")
+				{
+				}
+			};
+
 			class PropertyIsNotReadableException : public TypeDescriptorException
 			{
 			public:
 				PropertyIsNotReadableException(IPropertyInfo* propertyInfo)
-					:TypeDescriptorException(L"Cannot read value from a property \""+propertyInfo->GetName()+L"\" that is not readable in type \""+propertyInfo->GetOwnerTypeDescriptor()->GetTypeName()+L"\"/")
+					:TypeDescriptorException(L"Cannot read value from a property \""+propertyInfo->GetName()+L"\" that is not readable in type \""+propertyInfo->GetOwnerTypeDescriptor()->GetTypeName()+L"\".")
 				{
 				}
 			};
@@ -13175,10 +13543,479 @@ Exceptions
 			{
 			public:
 				PropertyIsNotWritableException(IPropertyInfo* propertyInfo)
-					:TypeDescriptorException(L"Cannot write value to a property \""+propertyInfo->GetName()+L"\" that is not writable in type \""+propertyInfo->GetOwnerTypeDescriptor()->GetTypeName()+L"\"/")
+					:TypeDescriptorException(L"Cannot write value to a property \""+propertyInfo->GetName()+L"\" that is not writable in type \""+propertyInfo->GetOwnerTypeDescriptor()->GetTypeName()+L"\".")
 				{
 				}
 			};
+
+			class ArgumentNullException : public TypeDescriptorException
+			{
+			public:
+				ArgumentNullException(const WString& name)
+					:TypeDescriptorException(L"Argument \""+name+L"\" cannot be null.")
+				{
+				}
+			};
+
+			class ArgumentTypeMismtatchException : public TypeDescriptorException
+			{
+			public:
+				ArgumentTypeMismtatchException(const WString& name, ITypeInfo* expected, const Value& actual)
+					:TypeDescriptorException(L"Argument \""+name+L"\" cannot convert from \""+actual.GetTypeFriendlyName()+L"\" to \""+expected->GetTypeFriendlyName()+L"\".")
+				{
+				}
+
+				ArgumentTypeMismtatchException(const WString& name, ITypeDescriptor* type, Value::ValueType valueType, const Value& actual)
+					:TypeDescriptorException(L"Argument \""+name+L"\" cannot convert from \""+actual.GetTypeFriendlyName()+L"\" to \""+
+						(valueType==Value::SharedPtr?L"Ptr<":L"")+type->GetTypeName()+(valueType==Value::SharedPtr?L">":valueType==Value::RawPtr?L"*":L"")
+						+L"\".")
+				{
+				}
+			};
+
+			class ArgumentCountMismtatchException : public TypeDescriptorException
+			{
+			public:
+				ArgumentCountMismtatchException()
+					:TypeDescriptorException(L"Argument count does not match the definition.")
+				{
+				}
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+REFLECTION\GUITYPEDESCRIPTORPREDEFINED.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Framework::Reflection
+
+XML Representation for Code Generation:
+***********************************************************************/
+
+#ifndef VCZH_REFLECTION_GUITYPEDESCRIPTORPREDEFINED
+#define VCZH_REFLECTION_GUITYPEDESCRIPTORPREDEFINED
+
+
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+
+/***********************************************************************
+TypeInfo
+***********************************************************************/
+
+			template<typename T>
+			struct TypeInfo
+			{
+			};
+
+			template<typename T>
+			ITypedValueSerializer<T>* GetValueSerializer()
+			{
+				return dynamic_cast<ITypedValueSerializer<T>*>(GetValueSerializer(TypeInfo<T>::TypeName));
+			}
+
+			template<typename T>
+			ITypeDescriptor* GetTypeDescriptor()
+			{
+				return GetTypeDescriptor(TypeInfo<T>::TypeName);
+			}
+
+/***********************************************************************
+GeneralValueSeriaizer
+***********************************************************************/
+
+			template<typename T>
+			class GeneralValueSeriaizer : public Object, public ITypedValueSerializer<T>
+			{
+			protected:
+				ITypeDescriptor*							ownedTypeDescriptor;
+
+				virtual bool								Serialize(const T& input, WString& output)=0;
+				virtual bool								Deserialize(const WString& input, T& output)=0;
+			public:
+				typedef T ValueType;
+
+				GeneralValueSeriaizer(ITypeDescriptor* _ownedTypeDescriptor)
+					:ownedTypeDescriptor(_ownedTypeDescriptor)
+				{
+				}
+
+				ITypeDescriptor* GetOwnerTypeDescriptor()
+				{
+					return ownedTypeDescriptor;
+				}
+
+				bool Validate(const WString& text)
+				{
+					T output;
+					return Deserialize(text, output);
+				}
+
+				bool Parse(const WString& input, Value& output)
+				{
+					if(Validate(input))
+					{
+						output=Value::From(input, ownedTypeDescriptor);
+						return true;
+					}
+					return false;
+				}
+
+				bool HasCandidate()override
+				{
+					return false;
+				}
+
+				vint GetCandidateCount()override
+				{
+					return 0;
+				}
+
+				WString GetCandidate(vint index)override
+				{
+					return L"";
+				}
+
+				bool CanMergeCandidate()override
+				{
+					return false;
+				}
+
+				bool Serialize(const T& input, Value& output)
+				{
+					WString text;
+					if(Serialize(input, text))
+					{
+						output=Value::From(text, ownedTypeDescriptor);
+						return true;
+					}
+					return false;
+				}
+
+				bool Deserialize(const Value& input, T& output)
+				{
+					if(input.GetValueType()!=Value::Text)
+					{
+						return false;
+					}
+					return Deserialize(input.GetText(), output);
+				}
+			};
+
+/***********************************************************************
+TypedValueSerializer
+***********************************************************************/
+
+			template<typename T>
+			struct TypedValueSerializerProvider
+			{
+			};
+
+			template<typename T>
+			class TypedValueSerializer : public GeneralValueSeriaizer<T>
+			{
+			protected:
+				bool Serialize(const T& input, WString& output)override
+				{
+					return TypedValueSerializerProvider<T>::Serialize(input, output);
+				}
+
+				bool Deserialize(const WString& input, T& output)override
+				{
+					return TypedValueSerializerProvider<T>::Deserialize(input, output);
+				}
+			public:
+				TypedValueSerializer(ITypeDescriptor* _ownedTypeDescriptor)
+					:GeneralValueSeriaizer(_ownedTypeDescriptor)
+				{
+				}
+			};
+
+/***********************************************************************
+EnumValueSeriaizer
+***********************************************************************/
+
+			template<typename T, bool CanMerge>
+			struct EnumValueSerializerProvider
+			{
+			};
+
+			template<typename T>
+			struct EnumValueSerializerProvider<T, true>
+			{
+				static bool Serialize(collections::Dictionary<WString, T>& candidates, const T& input, WString& output)
+				{
+					WString result;
+					for(vint i=0;i<candidates.Count();i++)
+					{
+						if(candidates.Values().Get(i)&input)
+						{
+							if(result!=L"") result+=L"|";
+							result+=candidates.Keys()[i];
+						}
+					}
+					output=result;
+					return true;
+				}
+
+				static bool Deserialize(collections::Dictionary<WString, T>& candidates, const WString& input, T& output)
+				{
+					T result=(T)0;
+					const wchar_t* reading=input.Buffer();
+					while(*reading)
+					{
+						const wchar_t* sep=wcschr(reading, L'|');
+						if(!sep) sep=reading+wcslen(reading);
+						WString item(reading, sep-reading);
+						reading=*sep?sep+1:sep;
+
+						vint index=candidates.Keys().IndexOf(item);
+						if(index==-1) return false;
+						result=(T)(result|candidates.Values().Get(index));
+					}
+					output=result;
+					return true;
+				}
+			};
+
+			template<typename T>
+			struct EnumValueSerializerProvider<T, false>
+			{
+				static bool Serialize(collections::Dictionary<WString, T>& candidates, const T& input, WString& output)
+				{
+					for(vint i=0;i<candidates.Count();i++)
+					{
+						if(candidates.Values().Get(i)==input)
+						{
+							output=candidates.Keys()[i];
+							return true;
+						}
+					}
+					return false;
+				}
+
+				static bool Deserialize(collections::Dictionary<WString, T>& candidates, const WString& input, T& output)
+				{
+					vint index=candidates.Keys().IndexOf(input);
+					if(index==-1) return false;
+					output=candidates.Values().Get(index);
+					return true;
+				}
+			};
+
+			template<typename T, bool CanMerge>
+			class EnumValueSeriaizer : public GeneralValueSeriaizer<T>
+			{
+			protected:
+				collections::Dictionary<WString, T>			candidates;
+
+				bool Serialize(const T& input, WString& output)override
+				{
+					return EnumValueSerializerProvider<T, CanMerge>::Serialize(candidates, input, output);
+				}
+
+				bool Deserialize(const WString& input, T& output)override
+				{
+					return EnumValueSerializerProvider<T, CanMerge>::Deserialize(candidates, input, output);
+				}
+			public:
+				EnumValueSeriaizer(ITypeDescriptor* _ownedTypeDescriptor)
+					:GeneralValueSeriaizer(_ownedTypeDescriptor)
+				{
+				}
+
+				bool HasCandidate()override
+				{
+					return true;
+				}
+
+				vint GetCandidateCount()override
+				{
+					return candidates.Count();
+				}
+
+				WString GetCandidate(vint index)override
+				{
+					return candidates.Keys()[index];
+				}
+
+				bool CanMergeCandidate()override
+				{
+					return CanMerge;
+				}
+			};
+
+/***********************************************************************
+SerializableTypeDescriptor
+***********************************************************************/
+
+			class SerializableTypeDescriptorBase : public Object, public ITypeDescriptor
+			{
+			protected:
+				Ptr<IValueSerializer>						serializer;
+				WString										typeName;
+			public:
+				SerializableTypeDescriptorBase(const WString& _typeName, Ptr<IValueSerializer> _serializer);
+				~SerializableTypeDescriptorBase();
+
+				const WString&								GetTypeName()override;
+				IValueSerializer*							GetValueSerializer()override;
+				vint										GetBaseTypeDescriptorCount()override;
+				ITypeDescriptor*							GetBaseTypeDescriptor(vint index)override;
+				bool										CanConvertTo(ITypeDescriptor* targetType)override;
+				vint										GetPropertyCount()override;
+				IPropertyInfo*								GetProperty(vint index)override;
+				bool										IsPropertyExists(const WString& name, bool inheritable)override;
+				IPropertyInfo*								GetPropertyByName(const WString& name, bool inheritable)override;
+				vint										GetEventCount()override;
+				IEventInfo*									GetEvent(vint index)override;
+				bool										IsEventExists(const WString& name, bool inheritable)override;
+				IEventInfo*									GetEventByName(const WString& name, bool inheritable)override;
+				vint										GetMethodGroupCount()override;
+				IMethodGroupInfo*							GetMethodGroup(vint index)override;
+				bool										IsMethodGroupExists(const WString& name, bool inheritable)override;
+				IMethodGroupInfo*							GetMethodGroupByName(const WString& name, bool inheritable)override;
+				IMethodGroupInfo*							GetConstructorGroup()override;
+			};
+
+			template<typename TSerializer>
+			class SerializableTypeDescriptor : public SerializableTypeDescriptorBase
+			{
+			public:
+				SerializableTypeDescriptor()
+					:SerializableTypeDescriptorBase(TypeInfo<typename TSerializer::ValueType>::TypeName, 0)
+				{
+					serializer=new TSerializer(this);
+				}
+			};
+
+/***********************************************************************
+Predefined Types
+***********************************************************************/
+
+			struct VoidValue{};
+			
+			template<>struct TypeInfo<void>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<VoidValue>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IDescriptable>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<Value>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<unsigned __int8>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<unsigned __int16>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<unsigned __int32>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<unsigned __int64>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<signed __int8>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<signed __int16>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<signed __int32>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<signed __int64>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<float>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<double>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<bool>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<wchar_t>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<WString>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueReadonlyList>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueList>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueInterfaceProxy>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueFunctionProxy>{static const wchar_t* TypeName;};
+
+			template<>
+			struct TypedValueSerializerProvider<unsigned __int8>
+			{
+				static bool Serialize(const unsigned __int8& input, WString& output);
+				static bool Deserialize(const WString& input, unsigned __int8& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<unsigned __int16>
+			{
+				static bool Serialize(const unsigned __int16& input, WString& output);
+				static bool Deserialize(const WString& input, unsigned __int16& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<unsigned __int32>
+			{
+				static bool Serialize(const unsigned __int32& input, WString& output);
+				static bool Deserialize(const WString& input, unsigned __int32& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<unsigned __int64>
+			{
+				static bool Serialize(const unsigned __int64& input, WString& output);
+				static bool Deserialize(const WString& input, unsigned __int64& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<signed __int8>
+			{
+				static bool Serialize(const signed __int8& input, WString& output);
+				static bool Deserialize(const WString& input, signed __int8& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<signed __int16>
+			{
+				static bool Serialize(const signed __int16& input, WString& output);
+				static bool Deserialize(const WString& input, signed __int16& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<signed __int32>
+			{
+				static bool Serialize(const signed __int32& input, WString& output);
+				static bool Deserialize(const WString& input, signed __int32& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<signed __int64>
+			{
+				static bool Serialize(const signed __int64& input, WString& output);
+				static bool Deserialize(const WString& input, signed __int64& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<float>
+			{
+				static bool Serialize(const float& input, WString& output);
+				static bool Deserialize(const WString& input, float& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<double>
+			{
+				static bool Serialize(const double& input, WString& output);
+				static bool Deserialize(const WString& input, double& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<wchar_t>
+			{
+				static bool Serialize(const wchar_t& input, WString& output);
+				static bool Deserialize(const WString& input, wchar_t& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<WString>
+			{
+				static bool Serialize(const WString& input, WString& output);
+				static bool Deserialize(const WString& input, WString& output);
+			};
+
+/***********************************************************************
+LoadPredefinedTypes
+***********************************************************************/
+
+			extern bool										LoadPredefinedTypes();
 		}
 	}
 }
@@ -13208,156 +14045,256 @@ namespace vl
 		{
 
 /***********************************************************************
-Exceptions
+TypeInfoImp;
 ***********************************************************************/
 
-			class TypeDescriptorBuilderException : public Exception
+			class TypeInfoImpl : public Object, public ITypeInfo
 			{
+			protected:
+				Decorator								decorator;
+				ITypeDescriptor*						typeDescriptor;
+				collections::List<Ptr<ITypeInfo>>		genericArguments;
+				Ptr<ITypeInfo>							elementType;
 			public:
-				TypeDescriptorBuilderException(const WString& message)
-					:Exception(message)
-				{
-				}
-			};
+				TypeInfoImpl(Decorator _decorator);
+				~TypeInfoImpl();
 
-			class PropertyAlreadyExistsException : public TypeDescriptorBuilderException
-			{
-			public:
-				PropertyAlreadyExistsException(ITypeDescriptor* typeDescriptor, const WString& propertyName)
-					:TypeDescriptorBuilderException(L"Property \""+propertyName+L"\" already exists in type \""+typeDescriptor->GetTypeName()+L"\".")
-				{
-				}
-			};
+				Decorator								GetDecorator()override;
+				ITypeInfo*								GetElementType()override;
+				ITypeDescriptor*						GetTypeDescriptor()override;
+				vint									GetGenericArgumentCount()override;
+				ITypeInfo*								GetGenericArgument(vint index)override;
+				WString									GetTypeFriendlyName()override;
 
-			class EventAlreadyExistsException : public TypeDescriptorBuilderException
-			{
-			public:
-				EventAlreadyExistsException(ITypeDescriptor* typeDescriptor, const WString& eventName)
-					:TypeDescriptorBuilderException(L"Event \""+eventName+L"\" already exists in type \""+typeDescriptor->GetTypeName()+L"\".")
-				{
-				}
-			};
-
-			class ParameterAlreadyExistsException : public TypeDescriptorBuilderException
-			{
-			public:
-				ParameterAlreadyExistsException(IMethodInfo* method,  const WString& parameterName)
-					:TypeDescriptorBuilderException(L"Parameter \""+parameterName+L"\" already exists in method \""+method->GetName()+L"\" in type \""+method->GetOwnerTypeDescriptor()->GetTypeName()+L"\".")
-				{
-				}
+				void									SetTypeDescriptor(ITypeDescriptor* value);
+				void									AddGenericArgument(Ptr<ITypeInfo> value);
+				void									SetElementType(Ptr<ITypeInfo> value);
 			};
 
 /***********************************************************************
-GeneralTypeDescriptor
+ParameterInfoImpl
 ***********************************************************************/
 
-			class GeneralTypeDescriptor : public Object, public ITypeDescriptor
+			class ParameterInfoImpl : public Object, public IParameterInfo
 			{
-			public:
-				class PropertyGroup
-				{
-					friend class GeneralTypeDescriptor;
-				protected:
-					bool														loaded;
-					Func<void(PropertyGroup*)>									loaderProcedure;
-					ITypeDescriptor*											ownerTypeDescriptor;
-					
-					WString														typeName;
-					IValueSerializer*											valueSerializer;
-					collections::List<ITypeDescriptor*>							baseTypeDescriptors;
-					collections::Dictionary<WString, Ptr<IPropertyInfo>>		properties;
-					collections::Dictionary<WString, Ptr<IEventInfo>>			events;
-					collections::Dictionary<WString, Ptr<IMethodGroupInfo>>		methodGroups;
-					Ptr<IMethodGroupInfo>										contructorGroup;
-
-				public:
-					PropertyGroup();
-					~PropertyGroup();
-
-					void						Prepare();
-
-					//----------------------------------------------------
-
-					class MethodBuilder
-					{
-					protected:
-						PropertyGroup&			propertyGroup;
-						Ptr<IMethodGroupInfo>	buildingMethodGroup;
-						Ptr<IMethodInfo>		buildingMethod;
-					public:
-						MethodBuilder(PropertyGroup& _propertyGroup, const WString& _name);
-
-						MethodBuilder&			Parameter(
-													const WString&									_name,
-													ITypeDescriptor*								_type,
-													bool											_nullable,
-													bool											_canOutput
-													);
-						MethodBuilder&			Return(
-													ITypeDescriptor*								_type,
-													bool											_nullable
-													);
-						MethodBuilder&			Invoker(
-													const Func<Value(const Value&, collections::Array<Value>&)>&	_invoker
-													);
-						PropertyGroup&			Done();
-					};
-
-					//----------------------------------------------------
-
-					class EventBuilder
-					{
-					protected:
-						PropertyGroup&			propertyGroup;
-						Ptr<IEventInfo>			buildingEvent;
-					public:
-						EventBuilder(PropertyGroup& _propertyGroup, const WString& _name);
-
-						EventBuilder&			Attacher(
-													const Func<void(DescriptableObject*, IEventHandler*)>&	_attacher
-													);
-						EventBuilder&			Detacher(
-													const Func<void(DescriptableObject*, IEventHandler*)>&	_detacher
-													);
-						EventBuilder&			Invoker(
-													const Func<Value(const Value&, Value&)>&		_invoker
-													);
-						PropertyGroup&			Done();
-					};
-
-					//----------------------------------------------------
-
-					PropertyGroup&				TypeName(
-													const WString&									_typeName
-													);
-					PropertyGroup&				Property(
-													const WString&									_name,
-													ITypeDescriptor*								_type,
-													bool											_nullable,
-													const Func<Value(const Value&)>&				_getter,
-													const Func<void(const Value&, const Value&)>&	_setter,
-													const WString&									_valueChangedEventName
-													);
-					MethodBuilder				Method(
-													const WString&									_name
-													);
-					EventBuilder				Event(
-													const WString&									_name
-													);
-				};
 			protected:
-				PropertyGroup				propertyGroup;
-
+				IMethodInfo*							ownerMethod;
+				WString									name;
+				Ptr<ITypeInfo>							type;
 			public:
-				GeneralTypeDescriptor(const Func<void(PropertyGroup*)>& loaderProcedure);
-				~GeneralTypeDescriptor();
+				ParameterInfoImpl(IMethodInfo* _ownerMethod, const WString& _name, Ptr<ITypeInfo> _type);
+				~ParameterInfoImpl();
 
-				PropertyGroup&				Operations();
+				ITypeDescriptor*						GetOwnerTypeDescriptor()override;
+				const WString&							GetName()override;
+				ITypeInfo*								GetType()override;
+				IMethodInfo*							GetOwnerMethod()override;
+			};
+
+/***********************************************************************
+MethodInfoImpl
+***********************************************************************/
+
+			class MethodInfoImpl : public Object, public IMethodInfo
+			{
+				friend class PropertyInfoImpl;
+			protected:
+				IMethodGroupInfo*						ownerMethodGroup;
+				IPropertyInfo*							ownerProperty;
+				collections::List<Ptr<IParameterInfo>>	parameters;
+				Ptr<ITypeInfo>							returnInfo;
+				bool									isStatic;
+
+				virtual Value							InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)=0;
+			public:
+				MethodInfoImpl(IMethodGroupInfo* _ownerMethodGroup, Ptr<ITypeInfo> _return, bool _isStatic);
+				~MethodInfoImpl();
+
+				ITypeDescriptor*						GetOwnerTypeDescriptor()override;
+				IPropertyInfo*							GetOwnerProperty()override;
+				const WString&							GetName()override;
+				IMethodGroupInfo*						GetOwnerMethodGroup()override;
+				vint									GetParameterCount()override;
+				IParameterInfo*							GetParameter(vint index)override;
+				ITypeInfo*								GetReturn()override;
+				bool									IsStatic()override;
+				void									CheckArguments(collections::Array<Value>& arguments)override;
+				Value									Invoke(const Value& thisObject, collections::Array<Value>& arguments)override;
+				bool									AddParameter(Ptr<IParameterInfo> parameter);
+				bool									SetOwnerMethodgroup(IMethodGroupInfo* _ownerMethodGroup);
+			};
+
+/***********************************************************************
+MethodGroupInfoImpl
+***********************************************************************/
+
+			class MethodGroupInfoImpl : public Object, public IMethodGroupInfo
+			{
+			protected:
+				ITypeDescriptor*						ownerTypeDescriptor;
+				WString									name;
+				collections::List<Ptr<IMethodInfo>>		methods;
+			public:
+				MethodGroupInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name);
+				~MethodGroupInfoImpl();
+
+				ITypeDescriptor*						GetOwnerTypeDescriptor()override;
+				const WString&							GetName()override;
+				vint									GetMethodCount()override;
+				IMethodInfo*							GetMethod(vint index)override;
+				bool									AddMethod(Ptr<IMethodInfo> _method);
+			};
+
+/***********************************************************************
+EventInfoImpl
+***********************************************************************/
+
+			class EventInfoImpl : public Object, public IEventInfo
+			{
+				friend class PropertyInfoImpl;
+			protected:
+				typedef collections::List<Ptr<IEventHandler>>		EventHandlerList;
+				static const wchar_t*								EventHandlerListInternalPropertyName;
+
+				class EventHandlerImpl : public Object, public IEventHandler
+				{
+				protected:
+					EventInfoImpl*						ownerEvent;
+					DescriptableObject*					ownerObject;
+					Ptr<IValueFunctionProxy>			handler;
+					Ptr<DescriptableObject>				tag;
+					bool								attached;
+				public:
+					EventHandlerImpl(EventInfoImpl* _ownerEvent, DescriptableObject* _ownerObject, Ptr<IValueFunctionProxy> _handler);
+					~EventHandlerImpl();
+
+					IEventInfo*							GetOwnerEvent()override;
+					Value								GetOwnerObject()override;
+					bool								IsAttached()override;
+					bool								Detach()override;
+					void								Invoke(const Value& thisObject, Value& arguments)override;
+
+					Ptr<DescriptableObject>				GetTag();
+					void								SetTag(Ptr<DescriptableObject> _tag);
+				};
+
+			protected:
+				ITypeDescriptor*						ownerTypeDescriptor;
+				collections::List<IPropertyInfo*>		observingProperties;
+				WString									name;
+				Ptr<ITypeInfo>							handlerType;
+
+				virtual void							AttachInternal(DescriptableObject* thisObject, IEventHandler* eventHandler)=0;
+				virtual void							DetachInternal(DescriptableObject* thisObject, IEventHandler* eventHandler)=0;
+				virtual Ptr<ITypeInfo>					GetHandlerTypeInternal()=0;
+
+				void									AddEventHandler(DescriptableObject* thisObject, Ptr<IEventHandler> eventHandler);
+				void									RemoveEventHandler(DescriptableObject* thisObject, IEventHandler* eventHandler);
+			public:
+				EventInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name);
+				~EventInfoImpl();
+
+				ITypeDescriptor*						GetOwnerTypeDescriptor()override;
+				const WString&							GetName()override;
+				ITypeInfo*								GetHandlerType()override;
+				vint									GetObservingPropertyCount()override;
+				IPropertyInfo*							GetObservingProperty(vint index)override;
+				Ptr<IEventHandler>						Attach(const Value& thisObject, Ptr<IValueFunctionProxy> handler)override;
+			};
+
+/***********************************************************************
+TypeDescriptorImpl
+***********************************************************************/
+
+			class PropertyInfoImpl : public Object, public IPropertyInfo
+			{
+			protected:
+				ITypeDescriptor*						ownerTypeDescriptor;
+				WString									name;
+				MethodInfoImpl*							getter;
+				MethodInfoImpl*							setter;
+				EventInfoImpl*							valueChangedEvent;
+			public:
+				PropertyInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name, MethodInfoImpl* _getter, MethodInfoImpl* _setter, EventInfoImpl* _valueChangedEvent);
+				~PropertyInfoImpl();
+
+				ITypeDescriptor*						GetOwnerTypeDescriptor()override;
+				const WString&							GetName()override;
+				bool									IsReadable()override;
+				bool									IsWritable()override;
+				ITypeInfo*								GetReturn()override;
+				IMethodInfo*							GetGetter()override;
+				IMethodInfo*							GetSetter()override;
+				IEventInfo*								GetValueChangedEvent()override;
+				Value									GetValue(const Value& thisObject)override;
+				void									SetValue(Value& thisObject, const Value& newValue)override;
+			};
+
+/***********************************************************************
+FieldInfoImpl
+***********************************************************************/
+
+			class FieldInfoImpl : public Object, public IPropertyInfo
+			{
+			protected:
+				ITypeDescriptor*						ownerTypeDescriptor;
+				Ptr<ITypeInfo>							returnInfo;
+				WString									name;
+
+				virtual Value							GetValueInternal(const Value& thisObject)=0;
+				virtual void							SetValueInternal(Value& thisObject, const Value& newValue)=0;
+			public:
+				FieldInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name, Ptr<ITypeInfo> _returnInfo);
+				~FieldInfoImpl();
+
+				ITypeDescriptor*						GetOwnerTypeDescriptor()override;
+				const WString&							GetName()override;
+				bool									IsReadable()override;
+				bool									IsWritable()override;
+				ITypeInfo*								GetReturn()override;
+				IMethodInfo*							GetGetter()override;
+				IMethodInfo*							GetSetter()override;
+				IEventInfo*								GetValueChangedEvent()override;
+				Value									GetValue(const Value& thisObject)override;
+				void									SetValue(Value& thisObject, const Value& newValue)override;
+			};
+
+/***********************************************************************
+TypeDescriptorImpl
+***********************************************************************/
+
+			class TypeDescriptorImpl : public Object, public ITypeDescriptor
+			{
+			private:
+				bool														loaded;
+				WString														typeName;
+				Ptr<IValueSerializer>										valueSerializer;
+				collections::List<ITypeDescriptor*>							baseTypeDescriptors;
+				collections::Dictionary<WString, Ptr<IPropertyInfo>>		properties;
+				collections::Dictionary<WString, Ptr<IEventInfo>>			events;
+				collections::Dictionary<WString, Ptr<MethodGroupInfoImpl>>	methodGroups;
+				Ptr<MethodGroupInfoImpl>									constructorGroup;
+
+			protected:
+				MethodGroupInfoImpl*		PrepareMethodGroup(const WString& name);
+				MethodGroupInfoImpl*		PrepareConstructorGroup();
+				IPropertyInfo*				AddProperty(Ptr<IPropertyInfo> value);
+				IEventInfo*					AddEvent(Ptr<IEventInfo> value);
+				IMethodInfo*				AddMethod(const WString& name, Ptr<MethodInfoImpl> value);
+				IMethodInfo*				AddConstructor(Ptr<MethodInfoImpl> value);
+				void						AddBaseType(ITypeDescriptor* value);
+
+				virtual void				LoadInternal()=0;
+				void						Load();
+			public:
+				TypeDescriptorImpl(const WString& _typeName);
+				~TypeDescriptorImpl();
 
 				const WString&				GetTypeName()override;
 				IValueSerializer*			GetValueSerializer()override;
 				vint						GetBaseTypeDescriptorCount()override;
 				ITypeDescriptor*			GetBaseTypeDescriptor(vint index)override;
+				bool						CanConvertTo(ITypeDescriptor* targetType)override;
 
 				vint						GetPropertyCount()override;
 				IPropertyInfo*				GetProperty(vint index)override;
@@ -13375,6 +14312,6280 @@ GeneralTypeDescriptor
 				IMethodGroupInfo*			GetMethodGroupByName(const WString& name, bool inheritable)override;
 				IMethodGroupInfo*			GetConstructorGroup()override;
 			};
+
+/***********************************************************************
+TypeFlagSelector
+***********************************************************************/
+
+			struct TypeFlags
+			{
+				struct ReadonlyListType{};
+				struct ListType{};
+				struct FunctionType{};
+				struct NonGenericType{};
+			};
+
+			template<typename T>
+			struct ValueRetriver
+			{
+				T* pointer;
+			};
+
+			template<typename T>
+			struct ValueRetriver<T&>
+			{
+				T* pointer;
+			};
+
+			template<typename TDerived>
+			struct IsInheritsFromEnumerable
+			{
+				template<typename T>
+				static void* Inherit(collections::IEnumerable<T>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const bool										Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*);
+			};
+
+			template<typename TDerived>
+			struct IsInheritsFromConstEnumerable
+			{
+				template<typename T>
+				static void* Inherit(const collections::IEnumerable<T>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const bool										Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*);
+			};
+
+			template<typename TDerived>
+			struct IsInheritsFromFunction
+			{
+				template<typename T>
+				static void* Inherit(Func<T>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const bool										Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*);
+			};
+
+			template<typename T, bool IsEnumerable, bool IsConstEnumerable, bool IsFunction>
+			struct TypeFlagSelectorCase
+			{
+				typedef int												TypeFlag;
+			};
+
+			template<typename T>
+			struct TypeFlagSelectorCase<T, true, true, false>
+			{
+				typedef TypeFlags::ListType								TypeFlag;
+			};
+
+			template<typename T>
+			struct TypeFlagSelectorCase<T, false, true, false>
+			{
+				typedef TypeFlags::ReadonlyListType						TypeFlag;
+			};
+
+			template<typename T>
+			struct TypeFlagSelectorCase<T, false, false, true>
+			{
+				typedef TypeFlags::FunctionType							TypeFlag;
+			};
+
+			template<typename T>
+			struct TypeFlagSelectorCase<T, false, false, false>
+			{
+				typedef TypeFlags::NonGenericType						TypeFlag;
+			};
+
+			template<typename T>
+			struct TypeFlagSelector
+			{
+				typedef typename TypeFlagSelectorCase<
+					T,
+					IsInheritsFromEnumerable<T>::Result,
+					IsInheritsFromConstEnumerable<T>::Result,
+					IsInheritsFromFunction<T>::Result
+					>::TypeFlag											TypeFlag;
+			};
+
+/***********************************************************************
+TypeInfoRetriver
+***********************************************************************/
+
+			template<typename T, typename TTypeFlag>
+			struct DetailTypeInfoRetriver
+			{
+				static const ITypeInfo::Decorator						Decorator=ITypeInfo::TypeDescriptor;
+				typedef void											Type;
+				typedef void											TempValueType;
+				typedef void											ResultReferenceType;
+				typedef void											ResultNonReferenceType;
+			};
+
+			template<typename T>
+			struct TypeInfoRetriver
+			{
+				typedef typename TypeFlagSelector<T>::TypeFlag									TypeFlag;
+
+				static const ITypeInfo::Decorator												Decorator=DetailTypeInfoRetriver<T, TypeFlag>::Decorator;
+
+				typedef typename DetailTypeInfoRetriver<T, TypeFlag>::Type						Type;
+				typedef typename DetailTypeInfoRetriver<T, TypeFlag>::TempValueType				TempValueType;
+				typedef typename DetailTypeInfoRetriver<T, TypeFlag>::ResultReferenceType		ResultReferenceType;
+				typedef typename DetailTypeInfoRetriver<T, TypeFlag>::ResultNonReferenceType	ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					return DetailTypeInfoRetriver<T, TypeFlag>::CreateTypeInfo();
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>
+			{
+				static const ITypeInfo::Decorator						Decorator=ITypeInfo::TypeDescriptor;
+				typedef T												Type;
+				typedef T												TempValueType;
+				typedef T&												ResultReferenceType;
+				typedef T												ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					type->SetTypeDescriptor(GetTypeDescriptor<Type>());
+					return type;
+				}
+			};
+
+			template<>
+			struct TypeInfoRetriver<void> : public TypeInfoRetriver<VoidValue>
+			{
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<const T, TypeFlags::NonGenericType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef typename UpLevelRetriver::Type							Type;
+				typedef T														TempValueType;
+				typedef const T&												ResultReferenceType;
+				typedef const T													ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					return TypeInfoRetriver<T>::CreateTypeInfo();
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<volatile T, TypeFlags::NonGenericType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef typename UpLevelRetriver::Type							Type;
+				typedef T														TempValueType;
+				typedef T&														ResultReferenceType;
+				typedef T														ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					return TypeInfoRetriver<T>::CreateTypeInfo();
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T*, TypeFlags::NonGenericType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=ITypeInfo::RawPtr;
+				typedef typename UpLevelRetriver::Type							Type;
+				typedef T*														TempValueType;
+				typedef T*&														ResultReferenceType;
+				typedef T*														ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<ITypeInfo> elementType=TypeInfoRetriver<T>::CreateTypeInfo();
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::RawPtr);
+					type->SetElementType(elementType);
+					return type;
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<Ptr<T>, TypeFlags::NonGenericType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=ITypeInfo::SharedPtr;
+				typedef typename UpLevelRetriver::Type							Type;
+				typedef Ptr<T>													TempValueType;
+				typedef Ptr<T>&													ResultReferenceType;
+				typedef Ptr<T>													ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<ITypeInfo> elementType=TypeInfoRetriver<T>::CreateTypeInfo();
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(elementType);
+					return type;
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T&, TypeFlags::NonGenericType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef typename UpLevelRetriver::Type							Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef T&														ResultReferenceType;
+				typedef T														ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					return TypeInfoRetriver<T>::CreateTypeInfo();
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T, TypeFlags::ReadonlyListType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueReadonlyList										Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					typedef typename DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>::Type		ContainerType;
+					typedef typename ContainerType::ElementType										ElementType;
+
+					Ptr<TypeInfoImpl> arrayType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					arrayType->SetTypeDescriptor(Description<IValueReadonlyList>::GetAssociatedTypeDescriptor());
+
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(arrayType);
+					genericType->AddGenericArgument(TypeInfoRetriver<ElementType>::CreateTypeInfo());
+
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T, TypeFlags::ListType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					typedef typename DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>::Type		ContainerType;
+					typedef typename ContainerType::ElementType										ElementType;
+
+					Ptr<TypeInfoImpl> arrayType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					arrayType->SetTypeDescriptor(Description<IValueList>::GetAssociatedTypeDescriptor());
+
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(arrayType);
+					genericType->AddGenericArgument(TypeInfoRetriver<ElementType>::CreateTypeInfo());
+
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+
+/***********************************************************************
+TypeInfoRetriver Helper Functions (BoxValue, UnboxValue)
+***********************************************************************/
+
+			template<typename T, ITypeInfo::Decorator Decorator>
+			struct ValueAccessor
+			{
+			};
+
+			template<typename T>
+			struct ValueAccessor<T*, ITypeInfo::RawPtr>
+			{
+				static Value BoxValue(T* object, ITypeDescriptor* typeDescriptor)
+				{
+					return Value::From(object);
+				}
+
+				static T* UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					if(value.IsNull()) return 0;
+					T* result=dynamic_cast<T*>(value.GetRawPtr());
+					if(!result)
+					{
+						if(!typeDescriptor)
+						{
+							typeDescriptor=GetTypeDescriptor<T>();
+						}
+						throw ArgumentTypeMismtatchException(valueName, typeDescriptor, Value::RawPtr, value);
+					}
+					return result;
+				}
+			};
+
+			template<typename T>
+			struct ValueAccessor<Ptr<T>, ITypeInfo::SharedPtr>
+			{
+				static Value BoxValue(Ptr<T> object, ITypeDescriptor* typeDescriptor)
+				{
+					return Value::From(object);
+				}
+
+				static Ptr<T> UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					if(value.IsNull()) return 0;
+					Ptr<T> result=value.GetSharedPtr().Cast<T>();
+					if(!result)
+					{
+						if(!typeDescriptor)
+						{
+							typeDescriptor=GetTypeDescriptor<T>();
+						}
+						throw ArgumentTypeMismtatchException(valueName, typeDescriptor, Value::SharedPtr, value);
+					}
+					return result;
+				}
+			};
+
+			template<typename T>
+			struct ValueAccessor<T, ITypeInfo::TypeDescriptor>
+			{
+				static Value BoxValue(const T& object, ITypeDescriptor* typeDescriptor)
+				{
+					if(!typeDescriptor)
+					{
+						typeDescriptor=GetTypeDescriptor<typename TypeInfoRetriver<T>::Type>();
+					}
+					ITypedValueSerializer<T>* serializer=dynamic_cast<ITypedValueSerializer<T>*>(typeDescriptor->GetValueSerializer());
+					Value result;
+					serializer->Serialize(object, result);
+					return result;
+				}
+
+				static T UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					ITypedValueSerializer<T>* serializer=dynamic_cast<ITypedValueSerializer<T>*>(value.GetTypeDescriptor()->GetValueSerializer());
+					T result;
+					if(!serializer->Deserialize(value, result))
+					{
+						if(!typeDescriptor)
+						{
+							typeDescriptor=GetTypeDescriptor<typename TypeInfoRetriver<T>::Type>();
+						}
+						throw ArgumentTypeMismtatchException(valueName, typeDescriptor, Value::Text, value);
+					}
+					return result;
+				}
+			};
+
+			template<>
+			struct ValueAccessor<Value, ITypeInfo::TypeDescriptor>
+			{
+				static Value BoxValue(const Value& object, ITypeDescriptor* typeDescriptor)
+				{
+					return object;
+				}
+
+				static Value UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					return value;
+				}
+			};
+
+			template<typename T>
+			Value BoxValue(const T& object, ITypeDescriptor* typeDescriptor=0)
+			{
+				return ValueAccessor<T, TypeInfoRetriver<T>::Decorator>::BoxValue(object, typeDescriptor);
+			}
+
+			template<typename T>
+			T UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor=0, const WString& valueName=L"value")
+			{
+				return ValueAccessor<T, TypeInfoRetriver<T>::Decorator>::UnboxValue(value, typeDescriptor, valueName);
+			}
+
+/***********************************************************************
+TypeInfoRetriver Helper Functions (UnboxParameter)
+***********************************************************************/
+
+			template<typename T, typename TTypeFlag>
+			struct ParameterAccessor
+			{
+			};
+
+			template<typename T>
+			struct ParameterAccessor<T, TypeFlags::NonGenericType>
+			{
+				static Value BoxParameter(const T& object, ITypeDescriptor* typeDescriptor)
+				{
+					return BoxValue<T>(object, typeDescriptor);
+				}
+
+				static void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					result=UnboxValue<T>(value, typeDescriptor, valueName);
+				}
+			};
+
+			template<typename T>
+			struct ParameterAccessor<T, TypeFlags::ReadonlyListType>
+			{
+				static Value BoxParameter(T& object, ITypeDescriptor* typeDescriptor)
+				{
+					Ptr<IValueReadonlyList> result=new ValueReadonlyListWrapper<T*>(&object);
+					return BoxValue<Ptr<IValueReadonlyList>>(result, Description<IValueReadonlyList>::GetAssociatedTypeDescriptor());
+				}
+
+				static void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef typename T::ElementType ElementType;
+					Ptr<IValueReadonlyList> listProxy=UnboxValue<Ptr<IValueReadonlyList>>(value, typeDescriptor, valueName);
+					LazyList<ElementType> lazyList=listProxy->GetLazyList<ElementType>();
+					collections::CopyFrom(result, lazyList);
+				}
+			};
+
+			template<typename T>
+			struct ParameterAccessor<T, TypeFlags::ListType>
+			{
+				static Value BoxParameter(T& object, ITypeDescriptor* typeDescriptor)
+				{
+					Ptr<IValueList> result=new ValueListWrapper<T*>(&object);
+					return BoxValue<Ptr<IValueList>>(result, Description<IValueList>::GetAssociatedTypeDescriptor());
+				}
+
+				static void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef typename T::ElementType ElementType;
+					Ptr<IValueList> listProxy=UnboxValue<Ptr<IValueList>>(value, typeDescriptor, valueName);
+					LazyList<ElementType> lazyList=listProxy->GetLazyList<ElementType>();
+					collections::CopyFrom(result, lazyList);
+				}
+			};
+
+			template<typename T>
+			Value BoxParameter(typename TypeInfoRetriver<T>::ResultReferenceType object, ITypeDescriptor* typeDescriptor=0)
+			{
+				return ParameterAccessor<typename TypeInfoRetriver<T>::ResultNonReferenceType, typename TypeInfoRetriver<T>::TypeFlag>::BoxParameter(object, typeDescriptor);
+			}
+
+			template<typename T>
+			void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor=0, const WString& valueName=L"value")
+			{
+				ParameterAccessor<T, typename TypeInfoRetriver<T>::TypeFlag>::UnboxParameter(value, result, typeDescriptor, valueName);
+			}
+
+/***********************************************************************
+CustomFieldInfoImpl
+***********************************************************************/
+
+			template<typename TClass, typename TField, TField TClass::* FieldRef>
+			class CustomFieldInfoImpl : public FieldInfoImpl
+			{
+			protected:
+				Value GetValueInternal(const Value& thisObject)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject);
+					if(object)
+					{
+						return BoxParameter<TField>(object->*FieldRef, GetReturn()->GetTypeDescriptor());
+					}
+					return Value();
+				}
+
+				void SetValueInternal(Value& thisObject, const Value& newValue)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject);
+					if(object)
+					{
+						UnboxParameter<TField>(newValue, object->*FieldRef, GetReturn()->GetTypeDescriptor(), L"newValue");
+					}
+				}
+			public:
+				CustomFieldInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name)
+					:FieldInfoImpl(_ownerTypeDescriptor, _name, TypeInfoRetriver<TField>::CreateTypeInfo())
+				{
+				}
+			};
+
+/***********************************************************************
+StructValueSeriaizer
+***********************************************************************/
+
+			template<typename T>
+			class StructValueSeriaizer : public GeneralValueSeriaizer<T>
+			{
+			public:
+				class FieldSerializerBase : public Object
+				{
+				public:
+					virtual bool				SerializeField(const T& input, WString& output)=0;
+					virtual bool				DeserializeField(WString& input, T& output)=0;
+				};
+
+				template<typename TField>
+				class FieldSerializer : public FieldSerializerBase, public FieldInfoImpl
+				{
+				protected:
+					TField T::*					field;
+
+					Value GetValueInternal(const Value& thisObject)override
+					{
+						T structValue=UnboxValue<T>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+						TField fieldValue=structValue.*field;
+						return BoxValue<TField>(fieldValue, GetReturn()->GetTypeDescriptor());
+					}
+
+					void SetValueInternal(Value& thisObject, const Value& newValue)override
+					{
+						T structValue=UnboxValue<T>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+						TField fieldValue=UnboxValue<TField>(newValue, GetReturn()->GetTypeDescriptor(), L"newValue");
+						structValue.*field=fieldValue;
+						thisObject=BoxValue<T>(structValue, GetOwnerTypeDescriptor());
+					}
+				public:
+					FieldSerializer(ITypeDescriptor* _ownerTypeDescriptor, TField T::* _field, const WString& _name)
+						:field(_field)
+						,FieldInfoImpl(_ownerTypeDescriptor, _name, TypeInfoRetriver<TField>::CreateTypeInfo())
+					{
+					}
+
+					bool SerializeField(const T& input, WString& output)override
+					{
+						ITypedValueSerializer<TField>* serializer=GetValueSerializer<TField>();
+						if(!serializer) return false;
+						Value result;
+						if(!serializer->Serialize(input.*field, result)) return false;
+						output=result.GetText();
+						return true;
+					}
+
+					bool DeserializeField(WString& input, T& output)override
+					{
+						ITypedValueSerializer<TField>* serializer=GetValueSerializer<TField>();
+						if(!serializer) return false;
+						Value value=Value::From(input, serializer->GetOwnerTypeDescriptor());
+						return serializer->Deserialize(value, output.*field);
+					}
+				};
+
+			protected:
+				collections::Dictionary<WString, Ptr<FieldSerializerBase>>		fieldSerializers;
+				bool															loaded;
+
+				virtual void													LoadInternal()=0;
+
+				void Load()
+				{
+					if(!loaded)
+					{
+						loaded=true;
+						LoadInternal();
+					}
+				}
+
+				WString Escape(const WString& text)
+				{
+					const wchar_t* reading=text.Buffer();
+					if(wcschr(reading, L' ')==0 && wcschr(reading, L'{')==0 && wcschr(reading, L'}')==0)
+					{
+						return text;
+					}
+
+					WString result;
+					while(wchar_t c=*reading++)
+					{
+						switch(c)
+						{
+						case L'{':
+							result+=L"{{";
+						case L'}':
+							result+=L"}}";
+							break;
+						default:
+							result+=c;
+						}
+					}
+					return L"{"+result+L"}";
+				}
+
+				bool Unescape(const wchar_t*& reading, WString& field)
+				{
+					if(*reading==L'{')
+					{
+						const wchar_t* start=reading+1;
+						const wchar_t* end=start;
+						bool stop=false;
+						while(!stop)
+						{
+							switch(*end)
+							{
+							case L'\0':
+								return false;
+							case L'{':
+								if(end[1]==L'{') return false;
+								end+=2;
+								field+=L'{';
+								break;
+							case L'}':
+								if(end[1]==L'}')
+								{
+									end+=2;
+									field+=L'}';
+								}
+								else
+								{
+									stop=true;
+								}
+								break;
+							default:
+								field+=*end;
+								end++;
+							}
+						}
+						reading=end+1;
+					}
+					else
+					{
+						const wchar_t* space=wcschr(reading, L' ');
+						if(space)
+						{
+							field=WString(reading, space-reading);
+							reading=space+1;
+						}
+						else
+						{
+							field=reading;
+							reading+=field.Length();
+						}
+					}
+					return true;
+				}
+
+				bool Serialize(const T& input, WString& output)override
+				{
+					Load();
+					WString result, field;
+					for(vint i=0;i<fieldSerializers.Count();i++)
+					{
+						if(result!=L"") result+=L" ";
+						result+=fieldSerializers.Keys()[i]+L":";
+
+						Ptr<FieldSerializerBase> fieldSerializer=fieldSerializers.Values().Get(i);
+						if(!fieldSerializer->SerializeField(input, field)) return false;
+						result+=Escape(field);
+					}
+					output=result;
+					return true;
+				}
+
+				bool Deserialize(const WString& input, T& output)override
+				{
+					Load();
+					const wchar_t* reading=input.Buffer();
+					while(true)
+					{
+						while(*reading==L' ') reading++;
+						if(*reading==0) break;
+						const wchar_t* comma=wcschr(reading, L':');
+						if(!comma) return false;
+
+						vint index=fieldSerializers.Keys().IndexOf(WString(reading, comma-reading));
+						if(index==-1) return false;
+						reading=comma+1;
+
+						WString field;
+						if(!Unescape(reading, field)) return false;
+						Ptr<FieldSerializerBase> fieldSerializer=fieldSerializers.Values().Get(index);
+						if(!fieldSerializer->DeserializeField(field, output)) return false;
+					}
+					return true;
+				}
+			public:
+				StructValueSeriaizer(ITypeDescriptor* _ownedTypeDescriptor)
+					:GeneralValueSeriaizer(_ownedTypeDescriptor)
+					,loaded(false)
+				{
+				}
+
+				const collections::Dictionary<WString, Ptr<FieldSerializerBase>>& GetFieldSerializers()
+				{
+					Load();
+					return fieldSerializers;
+				}
+			};
+
+			template<typename TSerializer>
+			class StructTypeDescriptor : public SerializableTypeDescriptor<TSerializer>
+			{
+			protected:
+				Ptr<TSerializer>				typedSerializer;
+
+			public:
+				StructTypeDescriptor()
+				{
+					typedSerializer=serializer.Cast<TSerializer>();
+				}
+
+				vint GetPropertyCount()override
+				{
+					return typedSerializer->GetFieldSerializers().Count();
+				}
+
+				IPropertyInfo* GetProperty(vint index)override
+				{
+					return typedSerializer->GetFieldSerializers().Values().Get(index).Cast<IPropertyInfo>().Obj();
+				}
+
+				bool IsPropertyExists(const WString& name, bool inheritable)override
+				{
+					return typedSerializer->GetFieldSerializers().Keys().Contains(name);
+				}
+
+				IPropertyInfo* GetPropertyByName(const WString& name, bool inheritable)override
+				{
+					vint index=typedSerializer->GetFieldSerializers().Keys().IndexOf(name);
+					if(index==-1) return 0;
+					return GetProperty(index);
+				}
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+REFLECTION\GUITYPEDESCRIPTORBUILDER_GEN.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Framework::Reflection
+	
+本文件使用Vczh Functional Macro工具自动生成
+***********************************************************************/
+ 
+#ifndef VCZH_REFLECTION_GUITYPEDESCRIPTORBUILDER_GEN
+#define VCZH_REFLECTION_GUITYPEDESCRIPTORBUILDER_GEN
+ 
+ 
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+			template<typename T>
+			class CustomConstructorInfoImpl{};
+			template<typename TClass, typename T>
+			struct CustomMethodInfoImplSelector{};
+ 
+/***********************************************************************
+Constructor: R()
+***********************************************************************/
+			template<typename R >
+			class CustomConstructorInfoImpl<R()> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+
+					R result = new typename TypeInfoRetriver<R>::Type();
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0)
+***********************************************************************/
+			template<typename R,typename T0>
+			class CustomConstructorInfoImpl<R(T0)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1)
+***********************************************************************/
+			template<typename R,typename T0,typename T1>
+			class CustomConstructorInfoImpl<R(T0,T1)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2>
+			class CustomConstructorInfoImpl<R(T0,T1,T2)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3,T4)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3,p4);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3,T4,T5)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3,p4,p5);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3,T4,T5,T6)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3,p4,p5,p6);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3,T4,T5,T6,T7)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3,p4,p5,p6,p7);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+  
+/***********************************************************************
+Constructor: R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			class CustomConstructorInfoImpl<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> : public MethodInfoImpl
+			{
+			protected:
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					R result = new typename TypeInfoRetriver<R>::Type(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return BoxParameter<R>(result, GetOwnerTypeDescriptor());
+				}
+			public:
+				CustomConstructorInfoImpl(const wchar_t* parameterNames[])
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+ 
+/***********************************************************************
+Member Method: void()
+***********************************************************************/
+			template<typename TClass  >
+			struct CustomMethodInfoImplSelector<TClass, void()>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)();
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+
+					  (object->*method)();
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)())
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+
+					  method(object);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R()
+***********************************************************************/
+			template<typename TClass,typename R >
+			struct CustomMethodInfoImplSelector<TClass, R()>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)();
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+
+					R result =  (object->*method)();
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)())
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+
+					R result =  method(object);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0)
+***********************************************************************/
+			template<typename TClass, typename T0>
+			struct CustomMethodInfoImplSelector<TClass, void(T0)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					  (object->*method)(p0);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					  method(object, p0);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0>
+			struct CustomMethodInfoImplSelector<TClass, R(T0)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					R result =  (object->*method)(p0);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					R result =  method(object, p0);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					  (object->*method)(p0,p1);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					  method(object, p0, p1);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					R result =  (object->*method)(p0,p1);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					R result =  method(object, p0, p1);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					  (object->*method)(p0,p1,p2);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					  method(object, p0, p1, p2);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					R result =  (object->*method)(p0,p1,p2);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					R result =  method(object, p0, p1, p2);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					  (object->*method)(p0,p1,p2,p3);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					  method(object, p0, p1, p2, p3);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					R result =  method(object, p0, p1, p2, p3);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3,T4)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3,T4);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					  (object->*method)(p0,p1,p2,p3,p4);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3,T4))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3, T4);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					  method(object, p0, p1, p2, p3, p4);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3, T4))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3,T4)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3,T4);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3,p4);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3,T4))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3, T4);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					R result =  method(object, p0, p1, p2, p3, p4);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3, T4))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3,T4,T5)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					  (object->*method)(p0,p1,p2,p3,p4,p5);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3, T4, T5);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					  method(object, p0, p1, p2, p3, p4, p5);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3, T4, T5))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3,T4,T5)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3,p4,p5);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3, T4, T5);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					R result =  method(object, p0, p1, p2, p3, p4, p5);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3, T4, T5))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3,T4,T5,T6)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					  (object->*method)(p0,p1,p2,p3,p4,p5,p6);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					  method(object, p0, p1, p2, p3, p4, p5, p6);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3,T4,T5,T6)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3,p4,p5,p6);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					R result =  method(object, p0, p1, p2, p3, p4, p5, p6);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3,T4,T5,T6,T7)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6,T7);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					  (object->*method)(p0,p1,p2,p3,p4,p5,p6,p7);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6,T7))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					  method(object, p0, p1, p2, p3, p4, p5, p6, p7);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3,T4,T5,T6,T7)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6,T7);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3,p4,p5,p6,p7);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6,T7))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					R result =  method(object, p0, p1, p2, p3, p4, p5, p6, p7);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					  (object->*method)(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					  method(object, p0, p1, p2, p3, p4, p5, p6, p7, p8);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					R result =  method(object, p0, p1, p2, p3, p4, p5, p6, p7, p8);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Member Method: void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template<typename TClass, typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct CustomMethodInfoImplSelector<TClass, void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					  (object->*method)(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					  method(object, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
+					return Value();
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], void(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Member Method: R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template<typename TClass,typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct CustomMethodInfoImplSelector<TClass, R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(__thiscall TClass::* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					R result =  (object->*method)(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(__thiscall TClass::* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+ 
+			class ExternalMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(*method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					TClass* object=UnboxValue<TClass*>(thisObject, GetOwnerTypeDescriptor(), L"thisObject");
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					R result =  method(object, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				ExternalMethodInfoImpl(const wchar_t* parameterNames[], R(*_method)(TClass*, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), false)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+ 
+ 
+/***********************************************************************
+Static Method: void()
+***********************************************************************/
+			template< >
+			struct CustomMethodInfoImplSelector<void, void()>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)();
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+
+					  method();
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)())
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R()
+***********************************************************************/
+			template<typename R >
+			struct CustomMethodInfoImplSelector<void, R()>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)();
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+
+					R result =  method();
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)())
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0)
+***********************************************************************/
+			template< typename T0>
+			struct CustomMethodInfoImplSelector<void, void(T0)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					  method(p0);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0)
+***********************************************************************/
+			template<typename R,typename T0>
+			struct CustomMethodInfoImplSelector<void, R(T0)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 
+					R result =  method(p0);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1)
+***********************************************************************/
+			template< typename T0,typename T1>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					  method(p0,p1);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1)
+***********************************************************************/
+			template<typename R,typename T0,typename T1>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 
+					R result =  method(p0,p1);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					  method(p0,p1,p2);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 
+					R result =  method(p0,p1,p2);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					  method(p0,p1,p2,p3);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 
+					R result =  method(p0,p1,p2,p3);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3,T4)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3,T4);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					  method(p0,p1,p2,p3,p4);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3,T4))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3,T4)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3,T4);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 
+					R result =  method(p0,p1,p2,p3,p4);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3,T4))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3,T4,T5)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3,T4,T5);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					  method(p0,p1,p2,p3,p4,p5);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3,T4,T5))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3,T4,T5)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3,T4,T5);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 
+					R result =  method(p0,p1,p2,p3,p4,p5);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3,T4,T5))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3,T4,T5,T6)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3,T4,T5,T6);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					  method(p0,p1,p2,p3,p4,p5,p6);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3,T4,T5,T6))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3,T4,T5,T6)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3,T4,T5,T6);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 
+					R result =  method(p0,p1,p2,p3,p4,p5,p6);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3,T4,T5,T6))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3,T4,T5,T6,T7)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3,T4,T5,T6,T7);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					  method(p0,p1,p2,p3,p4,p5,p6,p7);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3,T4,T5,T6,T7))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3,T4,T5,T6,T7)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3,T4,T5,T6,T7);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 
+					R result =  method(p0,p1,p2,p3,p4,p5,p6,p7);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3,T4,T5,T6,T7))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					  method(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 
+					R result =  method(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+  
+/***********************************************************************
+Static Method: void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct CustomMethodInfoImplSelector<void, void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				void(* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					  method(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return Value();
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], void(* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9))
+					:MethodInfoImpl(0, TypeInfoRetriver<void>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+/***********************************************************************
+Static Method: R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct CustomMethodInfoImplSelector<void, R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>
+			{
+			class CustomMethodInfoImpl : public MethodInfoImpl
+			{
+			protected:
+				R(* method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+ 
+				Value InvokeInternal(const Value& thisObject, collections::Array<Value>& arguments)override
+				{
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments[0], p0, GetParameter(0)->GetType()->GetTypeDescriptor(), L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments[1], p1, GetParameter(1)->GetType()->GetTypeDescriptor(), L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments[2], p2, GetParameter(2)->GetType()->GetTypeDescriptor(), L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments[3], p3, GetParameter(3)->GetType()->GetTypeDescriptor(), L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments[4], p4, GetParameter(4)->GetType()->GetTypeDescriptor(), L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments[5], p5, GetParameter(5)->GetType()->GetTypeDescriptor(), L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments[6], p6, GetParameter(6)->GetType()->GetTypeDescriptor(), L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments[7], p7, GetParameter(7)->GetType()->GetTypeDescriptor(), L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments[8], p8, GetParameter(8)->GetType()->GetTypeDescriptor(), L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments[9], p9, GetParameter(9)->GetType()->GetTypeDescriptor(), L"p9");
+ 
+					R result =  method(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return BoxParameter<R>(result, GetReturn()->GetTypeDescriptor());
+				}
+			public:
+				CustomMethodInfoImpl(const wchar_t* parameterNames[], R(* _method)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9))
+					:MethodInfoImpl(0, TypeInfoRetriver<R>::CreateTypeInfo(), true)
+					,method(_method)
+				{
+					AddParameter(new ParameterInfoImpl(this, parameterNames[0], TypeInfoRetriver<T0>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[1], TypeInfoRetriver<T1>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[2], TypeInfoRetriver<T2>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[3], TypeInfoRetriver<T3>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[4], TypeInfoRetriver<T4>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[5], TypeInfoRetriver<T5>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[6], TypeInfoRetriver<T6>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[7], TypeInfoRetriver<T7>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[8], TypeInfoRetriver<T8>::CreateTypeInfo()));
+ 					AddParameter(new ParameterInfoImpl(this, parameterNames[9], TypeInfoRetriver<T9>::CreateTypeInfo()));
+ 
+				}
+			};
+			};
+ 
+ 
+/***********************************************************************
+DetailTypeInfoRetriver: R()
+***********************************************************************/
+			template<typename R >
+			struct DetailTypeInfoRetriver<Func<R()>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R()>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0)
+***********************************************************************/
+			template<typename R,typename T0>
+			struct DetailTypeInfoRetriver<Func<R(T0)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1)
+***********************************************************************/
+			template<typename R,typename T0,typename T1>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T4>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T4>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T5>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T4>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T5>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T6>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T4>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T5>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T6>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T7>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T4>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T5>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T6>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T7>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T8>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+  
+/***********************************************************************
+DetailTypeInfoRetriver: R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>, TypeFlags::FunctionType>
+			{
+				typedef DetailTypeInfoRetriver<Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>, TypeFlags::NonGenericType>	UpLevelRetriver;
+ 
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueList												Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+ 
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<TypeInfoImpl> functionType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					functionType->SetTypeDescriptor(Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+ 
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(functionType);
+					genericType->AddGenericArgument(TypeInfoRetriver<R>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<T0>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T1>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T2>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T3>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T4>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T5>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T6>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T7>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T8>::CreateTypeInfo());
+ 					genericType->AddGenericArgument(TypeInfoRetriver<T9>::CreateTypeInfo());
+ 
+ 
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+ 
+ 
+			template<typename T>
+			class ValueFunctionProxyWrapper
+			{
+			};
+ 
+ 
+/***********************************************************************
+Parameter Accessor: void()
+***********************************************************************/
+			template< >
+			class ValueFunctionProxyWrapper<void()> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void()>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(arguments && arguments->Count()!=0) throw ArgumentCountMismtatchException();
+
+					  function();
+					return Value();
+				}
+			};
+ 
+			template< >
+			struct ParameterAccessor<Func<void()>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void()>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)();
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void()>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)();
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy]()
+							{
+								functionProxy->Invoke(0);
+								 
+
+								 
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R()
+***********************************************************************/
+			template<typename R >
+			class ValueFunctionProxyWrapper<R()> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R()>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(arguments && arguments->Count()!=0) throw ArgumentCountMismtatchException();
+
+					R result =  function();
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R >
+			struct ParameterAccessor<Func<R()>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R()>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)();
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R()>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)();
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy]()
+							{
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(0),proxyResult);return proxyResult;
+								 
+
+								 
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0)
+***********************************************************************/
+			template< typename T0>
+			class ValueFunctionProxyWrapper<void(T0)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=1) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 
+					  function(p0);
+					return Value();
+				}
+			};
+ 
+			template< typename T0>
+			struct ParameterAccessor<Func<void(T0)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0)
+***********************************************************************/
+			template<typename R,typename T0>
+			class ValueFunctionProxyWrapper<R(T0)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=1) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 
+					R result =  function(p0);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0>
+			struct ParameterAccessor<Func<R(T0)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1)
+***********************************************************************/
+			template< typename T0,typename T1>
+			class ValueFunctionProxyWrapper<void(T0,T1)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=2) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 
+					  function(p0,p1);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1>
+			struct ParameterAccessor<Func<void(T0,T1)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1)
+***********************************************************************/
+			template<typename R,typename T0,typename T1>
+			class ValueFunctionProxyWrapper<R(T0,T1)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=2) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 
+					R result =  function(p0,p1);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1>
+			struct ParameterAccessor<Func<R(T0,T1)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=3) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 
+					  function(p0,p1,p2);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2>
+			struct ParameterAccessor<Func<void(T0,T1,T2)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=3) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 
+					R result =  function(p0,p1,p2);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2>
+			struct ParameterAccessor<Func<R(T0,T1,T2)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=4) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 
+					  function(p0,p1,p2,p3);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=4) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 
+					R result =  function(p0,p1,p2,p3);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3,T4)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3,T4)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=5) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 
+					  function(p0,p1,p2,p3,p4);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3,T4)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3,T4)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3,T4)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3,T4)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3,T4)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3,T4)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=5) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 
+					R result =  function(p0,p1,p2,p3,p4);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3,T4)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3,T4)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3,T4)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3,T4,T5)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3,T4,T5)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=6) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 
+					  function(p0,p1,p2,p3,p4,p5);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3,T4,T5)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3,T4,T5)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3,T4,T5)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3,T4,T5)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3,T4,T5)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3,T4,T5)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=6) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 
+					R result =  function(p0,p1,p2,p3,p4,p5);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3,T4,T5)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3,T4,T5)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3,T4,T5)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3,T4,T5,T6)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3,T4,T5,T6)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=7) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 
+					  function(p0,p1,p2,p3,p4,p5,p6);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3,T4,T5,T6)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3,T4,T5,T6)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3,T4,T5,T6)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3,T4,T5,T6)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3,T4,T5,T6)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=7) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 
+					R result =  function(p0,p1,p2,p3,p4,p5,p6);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3,T4,T5,T6)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3,T4,T5,T6)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3,T4,T5,T6)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3,T4,T5,T6,T7)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3,T4,T5,T6,T7)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=8) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments->Get(7), p7, 0, L"p7");
+ 
+					  function(p0,p1,p2,p3,p4,p5,p6,p7);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3,T4,T5,T6,T7)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3,T4,T5,T6,T7)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3,T4,T5,T6,T7)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6,T7 p7)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 								arguments->Add(description::BoxParameter<T7>(p7));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6,T7)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3,T4,T5,T6,T7)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=8) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments->Get(7), p7, 0, L"p7");
+ 
+					R result =  function(p0,p1,p2,p3,p4,p5,p6,p7);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3,T4,T5,T6,T7)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6,T7 p7)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 								arguments->Add(description::BoxParameter<T7>(p7));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3,T4,T5,T6,T7,T8)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=9) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments->Get(7), p7, 0, L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments->Get(8), p8, 0, L"p8");
+ 
+					  function(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6,T7 p7,T8 p8)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 								arguments->Add(description::BoxParameter<T7>(p7));
+ 								arguments->Add(description::BoxParameter<T8>(p8));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6,T7,T8)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=9) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments->Get(7), p7, 0, L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments->Get(8), p8, 0, L"p8");
+ 
+					R result =  function(p0,p1,p2,p3,p4,p5,p6,p7,p8);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6,T7 p7,T8 p8)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 								arguments->Add(description::BoxParameter<T7>(p7));
+ 								arguments->Add(description::BoxParameter<T8>(p8));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+  
+/***********************************************************************
+Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			class ValueFunctionProxyWrapper<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=10) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments->Get(7), p7, 0, L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments->Get(8), p8, 0, L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments->Get(9), p9, 0, L"p9");
+ 
+					  function(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return Value();
+				}
+			};
+ 
+			template< typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct ParameterAccessor<Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef void(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6,T7 p7,T8 p8,T9 p9)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 								arguments->Add(description::BoxParameter<T7>(p7));
+ 								arguments->Add(description::BoxParameter<T8>(p8));
+ 								arguments->Add(description::BoxParameter<T9>(p9));
+ 
+								functionProxy->Invoke(arguments);
+							};
+						}
+					}
+				}
+			};
+/***********************************************************************
+Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
+***********************************************************************/
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			class ValueFunctionProxyWrapper<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)> : public Object, public virtual IValueFunctionProxy
+			{
+				typedef Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>					FunctionType;
+			protected:
+				FunctionType			function;
+			public:
+				ValueFunctionProxyWrapper(const FunctionType& _function)
+					:function(_function)
+				{
+				}
+ 
+				FunctionType GetFunction()
+				{
+					return function;
+				}
+ 
+				Value Invoke(Ptr<IValueList> arguments)override
+				{
+					if(!arguments || arguments->Count()!=10) throw ArgumentCountMismtatchException();
+					typename TypeInfoRetriver<T0>::TempValueType p0;
+					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
+ 					typename TypeInfoRetriver<T1>::TempValueType p1;
+					UnboxParameter<typename TypeInfoRetriver<T1>::TempValueType>(arguments->Get(1), p1, 0, L"p1");
+ 					typename TypeInfoRetriver<T2>::TempValueType p2;
+					UnboxParameter<typename TypeInfoRetriver<T2>::TempValueType>(arguments->Get(2), p2, 0, L"p2");
+ 					typename TypeInfoRetriver<T3>::TempValueType p3;
+					UnboxParameter<typename TypeInfoRetriver<T3>::TempValueType>(arguments->Get(3), p3, 0, L"p3");
+ 					typename TypeInfoRetriver<T4>::TempValueType p4;
+					UnboxParameter<typename TypeInfoRetriver<T4>::TempValueType>(arguments->Get(4), p4, 0, L"p4");
+ 					typename TypeInfoRetriver<T5>::TempValueType p5;
+					UnboxParameter<typename TypeInfoRetriver<T5>::TempValueType>(arguments->Get(5), p5, 0, L"p5");
+ 					typename TypeInfoRetriver<T6>::TempValueType p6;
+					UnboxParameter<typename TypeInfoRetriver<T6>::TempValueType>(arguments->Get(6), p6, 0, L"p6");
+ 					typename TypeInfoRetriver<T7>::TempValueType p7;
+					UnboxParameter<typename TypeInfoRetriver<T7>::TempValueType>(arguments->Get(7), p7, 0, L"p7");
+ 					typename TypeInfoRetriver<T8>::TempValueType p8;
+					UnboxParameter<typename TypeInfoRetriver<T8>::TempValueType>(arguments->Get(8), p8, 0, L"p8");
+ 					typename TypeInfoRetriver<T9>::TempValueType p9;
+					UnboxParameter<typename TypeInfoRetriver<T9>::TempValueType>(arguments->Get(9), p9, 0, L"p9");
+ 
+					R result =  function(p0,p1,p2,p3,p4,p5,p6,p7,p8,p9);
+					return BoxParameter<R>(result);
+				}
+			};
+ 
+			template<typename R,typename T0,typename T1,typename T2,typename T3,typename T4,typename T5,typename T6,typename T7,typename T8,typename T9>
+			struct ParameterAccessor<Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>, TypeFlags::FunctionType>
+			{
+				static Value BoxParameter(const Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>& object, ITypeDescriptor* typeDescriptor)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+					Ptr<IValueFunctionProxy> result=new ValueFunctionProxyWrapper<RawFunctionType>(object);
+					return BoxValue<Ptr<IValueFunctionProxy>>(result, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor());
+				}
+ 
+				static void UnboxParameter(const Value& value, Func<R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef R(RawFunctionType)(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9);
+					typedef ValueFunctionProxyWrapper<RawFunctionType> ProxyType;
+					Ptr<IValueFunctionProxy> functionProxy=UnboxValue<Ptr<IValueFunctionProxy>>(value, typeDescriptor, valueName);
+					if(functionProxy)
+					{
+						if(Ptr<ProxyType> proxy=functionProxy.Cast<ProxyType>())
+						{
+							result=proxy->GetFunction();
+						}
+						else
+						{
+							result=[functionProxy](T0 p0,T1 p1,T2 p2,T3 p3,T4 p4,T5 p5,T6 p6,T7 p7,T8 p8,T9 p9)
+							{
+								 
+								Ptr<IValueList> arguments=IValueList::Create();
+								arguments->Add(description::BoxParameter<T0>(p0));
+ 								arguments->Add(description::BoxParameter<T1>(p1));
+ 								arguments->Add(description::BoxParameter<T2>(p2));
+ 								arguments->Add(description::BoxParameter<T3>(p3));
+ 								arguments->Add(description::BoxParameter<T4>(p4));
+ 								arguments->Add(description::BoxParameter<T5>(p5));
+ 								arguments->Add(description::BoxParameter<T6>(p6));
+ 								arguments->Add(description::BoxParameter<T7>(p7));
+ 								arguments->Add(description::BoxParameter<T8>(p8));
+ 								arguments->Add(description::BoxParameter<T9>(p9));
+ 
+								TypeInfoRetriver<R>::TempValueType proxyResult;description::UnboxParameter<R>(functionProxy->Invoke(arguments),proxyResult);return proxyResult;
+							};
+						}
+					}
+				}
+			};
+ 
+ 
+/***********************************************************************
+Parameter Accessor: const function
+***********************************************************************/
+			template<typename T>
+			struct ParameterAccessor<const T, TypeFlags::ListType> : public ParameterAccessor<T, TypeFlags::ListType>
+			{
+			};
+		}
+	}
+}
+ 
+#endif
+
+/***********************************************************************
+REFLECTION\GUITYPEDESCRIPTORMACROS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Framework::Reflection
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_REFLECTION_GUITYPEDESCRIPTORMACROS
+#define VCZH_REFLECTION_GUITYPEDESCRIPTORMACROS
+
+
+/***********************************************************************
+Macros
+***********************************************************************/
+
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+			template<typename T>
+			struct CustomTypeDescriptorSelector{};
+
+/***********************************************************************
+Type
+***********************************************************************/
+
+#define BEGIN_TYPE_INFO_NAMESPACE namespace vl{namespace reflection{namespace description{
+#define END_TYPE_INFO_NAMESPACE }}}
+#define DECL_TYPE_INFO(TYPENAME) template<>struct TypeInfo<TYPENAME>{static const wchar_t* TypeName;};
+#define IMPL_TYPE_INFO(TYPENAME) const wchar_t* TypeInfo<TYPENAME>::TypeName = L#TYPENAME;
+#define ADD_TYPE_INFO(TYPENAME)\
+			{\
+				Ptr<ITypeDescriptor> type=new CustomTypeDescriptorSelector<TYPENAME>::CustomTypeDescriptorImpl();\
+				Description<TYPENAME>::SetAssociatedTypeDescroptor(type.Obj());\
+				manager->SetTypeDescriptor(TypeInfo<TYPENAME>::TypeName, type);\
+			}
+
+#define INVOKE_INTERFACE_PROXY(METHODNAME, ...)\
+	proxy->Invoke(L#METHODNAME, IValueList::Create(collections::From((collections::Array<Value>&)(Value::xs(), __VA_ARGS__))))
+
+#define INVOKE_INTERFACE_PROXY_NOPARAM(METHODNAME)\
+	proxy->Invoke(L#METHODNAME, IValueList::Create())
+
+#define INVOKEGET_INTERFACE_PROXY(METHODNAME, ...)\
+	UnboxValue<decltype(METHODNAME(__VA_ARGS__))>(proxy->Invoke(L#METHODNAME, IValueList::Create(collections::From((collections::Array<Value>&)(Value::xs(), __VA_ARGS__)))))
+
+#define INVOKEGET_INTERFACE_PROXY_NOPARAMS(METHODNAME)\
+	UnboxValue<decltype(METHODNAME())>(proxy->Invoke(L#METHODNAME, IValueList::Create()))
+
+/***********************************************************************
+Enum
+***********************************************************************/
+
+#define BEGIN_ENUM_ITEM_FLAG(TYPENAME, FLAG)\
+			template<>\
+			struct CustomTypeDescriptorSelector<TYPENAME>\
+			{\
+			public:\
+				class CustomEnumValueSerializer : public EnumValueSeriaizer<TYPENAME, FLAG>\
+				{\
+					typedef TYPENAME EnumType;\
+				public:\
+					CustomEnumValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)\
+						:EnumValueSeriaizer(_ownerTypeDescriptor)\
+					{
+
+#define BEGIN_ENUM_ITEM(TYPENAME) BEGIN_ENUM_ITEM_FLAG(TYPENAME, false)
+#define BEGIN_ENUM_ITEM_MERGABLE(TYPENAME) BEGIN_ENUM_ITEM_FLAG(TYPENAME, true)
+
+#define END_ENUM_ITEM(TYPENAME)\
+					}\
+				};\
+				typedef SerializableTypeDescriptor<CustomEnumValueSerializer> CustomTypeDescriptorImpl;\
+			};
+
+#define ENUM_ITEM_NAMESPACE(TYPENAME) typedef TYPENAME EnumItemNamespace;
+#define ENUM_ITEM(ITEMNAME) candidates.Add(L#ITEMNAME, ITEMNAME);
+#define ENUM_NAMESPACE_ITEM(ITEMNAME) candidates.Add(L#ITEMNAME, EnumItemNamespace::ITEMNAME);
+#define ENUM_CLASS_ITEM(ITEMNAME) candidates.Add(L#ITEMNAME, EnumType::ITEMNAME);
+
+/***********************************************************************
+Struct
+***********************************************************************/
+
+#define BEGIN_STRUCT_MEMBER(TYPENAME)\
+			template<>\
+			struct CustomTypeDescriptorSelector<TYPENAME>\
+			{\
+			public:\
+				class CustomStructValueSerializer : public StructValueSeriaizer<TYPENAME>\
+				{\
+					typedef TYPENAME StructType;\
+				public:\
+					CustomStructValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)\
+						:StructValueSeriaizer(_ownerTypeDescriptor)\
+					{\
+					}\
+				protected:\
+					void LoadInternal()override\
+					{
+
+#define END_STRUCT_MEMBER(TYPENAME)\
+					}\
+				};\
+				typedef StructTypeDescriptor<CustomStructValueSerializer> CustomTypeDescriptorImpl;\
+			};
+
+#define STRUCT_MEMBER(FIELDNAME)\
+	fieldSerializers.Add(L#FIELDNAME, new FieldSerializer<decltype(((StructType*)0)->FIELDNAME)>(GetOwnerTypeDescriptor(), &StructType::FIELDNAME, L#FIELDNAME));
+
+/***********************************************************************
+Class
+***********************************************************************/
+
+#define BEGIN_CLASS_MEMBER(TYPENAME)\
+			template<>\
+			struct CustomTypeDescriptorSelector<TYPENAME>\
+			{\
+			public:\
+				class CustomTypeDescriptorImpl : public TypeDescriptorImpl\
+				{\
+					typedef TYPENAME ClassType;\
+				public:\
+					CustomTypeDescriptorImpl()\
+						:TypeDescriptorImpl(TypeInfo<TYPENAME>::TypeName)\
+					{\
+					}\
+				protected:\
+					void LoadInternal()override\
+					{
+
+#define END_CLASS_MEMBER(TYPENAME)\
+					}\
+				};\
+			};
+
+#define CLASS_MEMBER_BASE(TYPENAME)\
+			AddBaseType(GetTypeDescriptor<TYPENAME>());
+
+/***********************************************************************
+Field
+***********************************************************************/
+
+#define CLASS_MEMBER_FIELD(FIELDNAME)\
+			AddProperty(\
+				new CustomFieldInfoImpl<\
+					ClassType,\
+					decltype(((ClassType*)0)->FIELDNAME), (decltype(((ClassType*)0)->FIELDNAME) ClassType::*)&ClassType::FIELDNAME>\
+					(this, L#FIELDNAME)\
+				);
+
+/***********************************************************************
+Constructor
+***********************************************************************/
+
+#define NO_PARAMETER {L""}
+
+#define CLASS_MEMBER_CONSTRUCTOR(FUNCTIONTYPE, PARAMETERNAMES)\
+			{\
+				const wchar_t* parameterNames[]=PARAMETERNAMES;\
+				AddConstructor(new CustomConstructorInfoImpl<FUNCTIONTYPE>(parameterNames));\
+			}
+
+#define CLASS_MEMBER_EXTERNALCTOR(FUNCTIONTYPE, PARAMETERNAMES, SOURCE)\
+			{\
+				const wchar_t* parameterNames[]=PARAMETERNAMES;\
+				AddConstructor(\
+					new CustomMethodInfoImplSelector<\
+						void,\
+						FUNCTIONTYPE\
+						>\
+						::CustomMethodInfoImpl(parameterNames, SOURCE)\
+					);\
+			}
+
+/***********************************************************************
+Method
+***********************************************************************/
+
+#define CLASS_MEMBER_EXTERNALMETHOD(FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE, SOURCE)\
+			{\
+				const wchar_t* parameterNames[]=PARAMETERNAMES;\
+				AddMethod(\
+					L#FUNCTIONNAME,\
+					new CustomMethodInfoImplSelector<\
+						ClassType,\
+						vl::function_lambda::LambdaRetriveType<FUNCTIONTYPE>::FunctionType\
+						>\
+						::ExternalMethodInfoImpl(parameterNames, SOURCE)\
+					);\
+			}
+
+#define CLASS_MEMBER_METHOD_OVERLOAD_RENAME(EXPECTEDNAME, FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE)\
+			{\
+				const wchar_t* parameterNames[]=PARAMETERNAMES;\
+				AddMethod(\
+					L#EXPECTEDNAME,\
+					new CustomMethodInfoImplSelector<\
+						ClassType,\
+						vl::function_lambda::LambdaRetriveType<FUNCTIONTYPE>::FunctionType\
+						>\
+						::CustomMethodInfoImpl(parameterNames, (FUNCTIONTYPE)&ClassType::FUNCTIONNAME)\
+					);\
+			}
+
+#define CLASS_MEMBER_METHOD_OVERLOAD(FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE)\
+			CLASS_MEMBER_METHOD_OVERLOAD_RENAME(FUNCTIONNAME, FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE)
+
+#define CLASS_MEMBER_METHOD_RENAME(EXPECTEDNAME, FUNCTIONNAME, PARAMETERNAMES)\
+			CLASS_MEMBER_METHOD_OVERLOAD_RENAME(EXPECTEDNAME, FUNCTIONNAME, PARAMETERNAMES, decltype(&ClassType::FUNCTIONNAME))
+
+#define CLASS_MEMBER_METHOD(FUNCTIONNAME, PARAMETERNAMES)\
+			CLASS_MEMBER_METHOD_OVERLOAD(FUNCTIONNAME, PARAMETERNAMES, decltype(&ClassType::FUNCTIONNAME))
+
+/***********************************************************************
+Static Method
+***********************************************************************/
+
+#define CLASS_MEMBER_STATIC_EXTERNALMETHOD(FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE, SOURCE)\
+			{\
+				const wchar_t* parameterNames[]=PARAMETERNAMES;\
+				AddMethod(\
+					L#FUNCTIONNAME,\
+					new CustomMethodInfoImplSelector<\
+						void,\
+						vl::function_lambda::FunctionObjectRetriveType<FUNCTIONTYPE>::FunctionType\
+						>\
+						::CustomMethodInfoImpl(parameterNames, SOURCE)\
+					);\
+			}
+
+#define CLASS_MEMBER_STATIC_METHOD_OVERLOAD(FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE)\
+			CLASS_MEMBER_STATIC_EXTERNALMETHOD(FUNCTIONNAME, PARAMETERNAMES, FUNCTIONTYPE, (FUNCTIONTYPE)&ClassType::FUNCTIONNAME)
+
+#define CLASS_MEMBER_STATIC_METHOD(FUNCTIONNAME, PARAMETERNAMES)\
+			CLASS_MEMBER_STATIC_METHOD_OVERLOAD(FUNCTIONNAME, PARAMETERNAMES, decltype(&ClassType::FUNCTIONNAME))
+
+/***********************************************************************
+Property
+***********************************************************************/
+
+#define CLASS_MEMBER_PROPERTY_READONLY(PROPERTYNAME, GETTER)\
+			AddProperty(\
+				new PropertyInfoImpl(\
+					this,\
+					L#PROPERTYNAME,\
+					dynamic_cast<MethodInfoImpl*>(GetMethodGroupByName(L#GETTER, true)->GetMethod(0)),\
+					0,\
+					0\
+					)\
+				);
+
+#define CLASS_MEMBER_PROPERTY(PROPERTYNAME, GETTER, SETTER)\
+			AddProperty(\
+				new PropertyInfoImpl(\
+					this,\
+					L#PROPERTYNAME,\
+					dynamic_cast<MethodInfoImpl*>(GetMethodGroupByName(L#GETTER, true)->GetMethod(0)),\
+					dynamic_cast<MethodInfoImpl*>(GetMethodGroupByName(L#SETTER, true)->GetMethod(0)),\
+					0\
+					)\
+				);
+
+#define CLASS_MEMBER_PROPERTY_EVENT(PROPERTYNAME, GETTER, SETTER, EVENT)\
+			AddProperty(\
+				new PropertyInfoImpl(\
+					this,\
+					L#PROPERTYNAME,\
+					dynamic_cast<MethodInfoImpl*>(GetMethodGroupByName(L#GETTER, true)->GetMethod(0)),\
+					dynamic_cast<MethodInfoImpl*>(GetMethodGroupByName(L#SETTER, true)->GetMethod(0)),\
+					dynamic_cast<EventInfoImpl*>(GetEventByName(L#EVENT, true))\
+					)\
+				);
+
+#define CLASS_MEMBER_PROPERTY_EVENT_READONLY(PROPERTYNAME, GETTER, EVENT)\
+			AddProperty(\
+				new PropertyInfoImpl(\
+					this,\
+					L#PROPERTYNAME,\
+					dynamic_cast<MethodInfoImpl*>(GetMethodGroupByName(L#GETTER, true)->GetMethod(0)),\
+					0,\
+					dynamic_cast<EventInfoImpl*>(GetEventByName(L#EVENT, true))\
+					)\
+				);
+
+#define CLASS_MEMBER_PROPERTY_READONLY_FAST(PROPERTYNAME)\
+			CLASS_MEMBER_METHOD(Get##PROPERTYNAME, NO_PARAMETER)\
+			CLASS_MEMBER_PROPERTY_READONLY(PROPERTYNAME, Get##PROPERTYNAME)\
+
+#define CLASS_MEMBER_PROPERTY_FAST(PROPERTYNAME)\
+			CLASS_MEMBER_METHOD(Get##PROPERTYNAME, NO_PARAMETER)\
+			CLASS_MEMBER_METHOD(Set##PROPERTYNAME, {L"value"})\
+			CLASS_MEMBER_PROPERTY(PROPERTYNAME, Get##PROPERTYNAME, Set##PROPERTYNAME)\
+
+#define CLASS_MEMBER_PROPERTY_EVENT_FAST(PROPERTYNAME, EVENTNAME)\
+			CLASS_MEMBER_METHOD(Get##PROPERTYNAME, NO_PARAMETER)\
+			CLASS_MEMBER_METHOD(Set##PROPERTYNAME, {L"value"})\
+			CLASS_MEMBER_PROPERTY_EVENT(PROPERTYNAME, Get##PROPERTYNAME, Set##PROPERTYNAME, EVENTNAME)\
+
+#define CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(PROPERTYNAME, EVENTNAME)\
+			CLASS_MEMBER_METHOD(Get##PROPERTYNAME, NO_PARAMETER)\
+			CLASS_MEMBER_PROPERTY_EVENT_READONLY(PROPERTYNAME, Get##PROPERTYNAME, EVENTNAME)\
+
 		}
 	}
 }

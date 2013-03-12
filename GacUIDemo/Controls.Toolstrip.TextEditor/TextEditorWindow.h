@@ -1,7 +1,7 @@
 #ifndef GACUIDEMO_CONTROLS_TOOLSTRIP_TEXTEDITOR
 #define GACUIDEMO_CONTROLS_TOOLSTRIP_TEXTEDITOR
 
-#include "..\..\Public\Source\GacUI.h"
+#include "..\..\Public\Source\GacUIWindows.h"
 
 class TextEditorWindow : public GuiWindow
 {

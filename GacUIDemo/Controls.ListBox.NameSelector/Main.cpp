@@ -1,4 +1,4 @@
-#include "..\..\Public\Source\GacUIIncludes.h"
+#include "..\..\Public\Source\GacUI.h"
 #include <Windows.h>
 
 // for SortedList, CopyFrom and Select
@@ -89,14 +89,14 @@ private:
 	GuiButton*						buttonAdd;
 	GuiButton*						buttonRemove;
 
-	static list::TextItem GetTextItem(GuiTextList* list, int index)
+	static Ptr<list::TextItem> GetTextItem(GuiTextList* list, int index)
 	{
 		return list->GetItems()[index];
 	}
 
-	static int CompareTextItem(list::TextItem a, list::TextItem b)
+	static int CompareTextItem(Ptr<list::TextItem> a, Ptr<list::TextItem> b)
 	{
-		return _wcsicmp(a.GetText().Buffer(), b.GetText().Buffer());
+		return _wcsicmp(a->GetText().Buffer(), b->GetText().Buffer());
 	}
 
 	static int ReverseCompareInt(int a, int b)
@@ -134,7 +134,7 @@ private:
 			list->GetItems(),
 			From(DataSource)
 				.OrderBy(_wcsicmp)
-				.Select([](const wchar_t* name){return list::TextItem(name);})
+				.Select([](const wchar_t* name){return new list::TextItem(name);})
 			);
 	}
 

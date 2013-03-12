@@ -1,6 +1,5 @@
-#include "..\..\Public\Source\GacUI.h"
+#include "..\..\Public\Source\GacUIWindows.h"
 #include <math.h>
-#include <Windows.h>
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int CmdShow)
 {

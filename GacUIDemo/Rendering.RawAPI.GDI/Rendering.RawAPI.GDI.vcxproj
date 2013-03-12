@@ -83,10 +83,6 @@
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Public\Source\GacUI.h" />
-    <ClInclude Include="..\..\Public\Source\Vlpp.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\GacUIStaticLibrary\GacUIStaticLibrary.vcxproj">
       <Project>{6698c71d-0d4e-4031-846a-8698f9c9d658}</Project>
     </ProjectReference>

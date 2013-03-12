@@ -85,9 +85,6 @@
     <ClCompile Include="TextEditorWindow_Initialization.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Public\Source\GacUI.h" />
-    <ClInclude Include="..\..\Public\Source\GacUIIncludes.h" />
-    <ClInclude Include="..\..\Public\Source\Vlpp.h" />
     <ClInclude Include="TextEditorWindow.h" />
   </ItemGroup>
   <ItemGroup>

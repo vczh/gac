@@ -1,6 +1,5 @@
-#include "..\..\Public\Source\GacUI.h"
+#include "..\..\Public\Source\GacUIWindows.h"
 #include <math.h>
-#include <Windows.h>
 
 using namespace vl::presentation::windows;
 

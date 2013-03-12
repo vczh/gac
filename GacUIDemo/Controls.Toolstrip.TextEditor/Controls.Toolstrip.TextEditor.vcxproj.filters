@@ -29,15 +29,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Public\Source\GacUI.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Public\Source\GacUIIncludes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Public\Source\Vlpp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TextEditorWindow.h">
       <Filter>TextEditorWindow</Filter>
     </ClInclude>

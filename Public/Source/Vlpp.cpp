@@ -10797,46 +10797,92 @@ DescriptableObject
 			return typeDescriptor?*typeDescriptor:0;
 		}
 
+		Ptr<Object> DescriptableObject::GetInternalProperty(const WString& name)
+		{
+			if(!internalProperties) return 0;
+			vint index=internalProperties->Keys().IndexOf(name);
+			if(index==-1) return 0;
+			return internalProperties->Values().Get(index);
+		}
+
+		void DescriptableObject::SetInternalProperty(const WString& name, Ptr<Object> value)
+		{
+			if(internalProperties)
+			{
+				vint index=internalProperties->Keys().IndexOf(name);
+				if(index==-1)
+				{
+					if(value)
+					{
+						internalProperties->Add(name, value);
+					}
+				}
+				else
+				{
+					if(value)
+					{
+						internalProperties->Set(name, value);
+					}
+					else
+					{
+						internalProperties->Remove(name);
+						if(internalProperties->Count()==0)
+						{
+							internalProperties=0;
+						}
+					}
+				}
+			}
+			else
+			{
+				if(value)
+				{
+					internalProperties=new InternalPropertyMap;
+					internalProperties->Add(name, value);
+				}
+			}
+		}
+
 /***********************************************************************
 description::Value
 ***********************************************************************/
 
 		namespace description
 		{
-			Value::Value()
-				:valueType(Null)
-				,descriptableObjectRef(0)
-				,typeDescriptor(0)
-			{
-			}
-
 			Value::Value(DescriptableObject* value)
-				:valueType(DescriptableObjectRef)
-				,descriptableObjectRef(value)
+				:valueType(RawPtr)
+				,rawPtr(value)
 				,typeDescriptor(0)
 			{
 			}
 
 			Value::Value(Ptr<DescriptableObject> value)
-				:valueType(DescriptableObjectPtr)
-				,descriptableObjectRef(value.Obj())
-				,descriptableObjectPtr(value)
+				:valueType(SharedPtr)
+				,rawPtr(value.Obj())
+				,sharedPtr(value)
 				,typeDescriptor(0)
 			{
 			}
 
 			Value::Value(const WString& value, ITypeDescriptor* associatedTypeDescriptor)
-				:valueType(Null)
-				,descriptableObjectRef(0)
+				:valueType(Text)
+				,rawPtr(0)
 				,text(value)
 				,typeDescriptor(associatedTypeDescriptor)
 			{
 			}
 
+			Value::Value()
+				:valueType(Null)
+				,rawPtr(0)
+				,typeDescriptor(0)
+			{
+			}
+
 			Value::Value(const Value& value)
 				:valueType(value.valueType)
-				,descriptableObjectRef(value.descriptableObjectRef)
-				,descriptableObjectPtr(value.descriptableObjectPtr)
+				,rawPtr(value.rawPtr)
+				,sharedPtr(value.sharedPtr)
 				,text(value.text)
 				,typeDescriptor(value.typeDescriptor)
 			{
@@ -10845,11 +10891,31 @@ description::Value
 			Value& Value::operator=(const Value& value)
 			{
 				valueType=value.valueType;
-				descriptableObjectRef=value.descriptableObjectRef;
-				descriptableObjectPtr=value.descriptableObjectPtr;
+				rawPtr=value.rawPtr;
+				sharedPtr=value.sharedPtr;
 				text=value.text;
 				typeDescriptor=value.typeDescriptor;
 				return *this;
+			}
+
+			bool Value::operator==(const Value& value)const
+			{
+				switch(valueType)
+				{
+				case Null:
+					return value.IsNull();
+				case Text:
+					return GetTypeDescriptor()==value.GetTypeDescriptor() && GetText()==value.GetText();
+				case RawPtr:
+				case SharedPtr:
+					return GetRawPtr()==value.GetRawPtr();
+				}
+				return false;
+			}
+
+			bool Value::operator!=(const Value& value)const
+			{
+				return !(*this==value);
 			}
 
 			Value::ValueType Value::GetValueType()const
@@ -10857,14 +10923,14 @@ description::Value
 				return valueType;
 			}
 
-			DescriptableObject* Value::GetDescriptableObjectRef()const
+			DescriptableObject* Value::GetRawPtr()const
 			{
-				return descriptableObjectRef;
+				return rawPtr;
 			}
 
-			Ptr<DescriptableObject> Value::GetDescriptableObjectPtr()const
+			Ptr<DescriptableObject> Value::GetSharedPtr()const
 			{
-				return descriptableObjectPtr;
+				return sharedPtr;
 			}
 
 			const WString& Value::GetText()const
@@ -10876,14 +10942,263 @@ description::Value
 			{
 				switch(valueType)
 				{
-				case DescriptableObjectRef:
-					return descriptableObjectRef?descriptableObjectRef->GetTypeDescriptor():0;
-				case DescriptableObjectPtr:
-					return descriptableObjectPtr?descriptableObjectPtr->GetTypeDescriptor():0;
+				case RawPtr:
+				case SharedPtr:
+					return rawPtr?rawPtr->GetTypeDescriptor():0;
 				case Text:
 					return typeDescriptor;
 				}
 				return 0;
+			}
+
+			WString Value::GetTypeFriendlyName()const
+			{
+				switch(valueType)
+				{
+				case RawPtr:
+					return GetTypeDescriptor()->GetTypeName()+L"*";
+				case SharedPtr:
+					return L"Ptr<"+GetTypeDescriptor()->GetTypeName()+L">";
+				case Text:
+					return GetTypeDescriptor()->GetTypeName();
+				default:
+					return L"null";
+				}
+			}
+
+			bool Value::IsNull()const
+			{
+				return valueType==Null;
+			}
+
+			bool Value::CanConvertTo(ITypeDescriptor* targetType, ValueType targetValueType)const
+			{
+				if(targetType==GetGlobalTypeManager()->GetRootType())
+				{
+					return true;
+				}
+				switch(valueType)
+				{
+				case Null:
+					return targetValueType!=Text;
+				case RawPtr:
+					if(targetValueType!=RawPtr) return false;
+					break;
+				case SharedPtr:
+					if(targetValueType!=RawPtr && targetValueType!=SharedPtr) return false;
+					break;
+				case Text:
+					return targetValueType==Text && GetTypeDescriptor()==targetType;
+				}
+				return GetTypeDescriptor()->CanConvertTo(targetType);
+			}
+
+			bool Value::CanConvertTo(ITypeInfo* targetType)const
+			{
+				ValueType targetValueType=ValueType::Null;
+				{
+					ITypeInfo* currentType=targetType;
+					while(currentType)
+					{
+						switch(targetType->GetDecorator())
+						{
+						case ITypeInfo::RawPtr:
+							targetValueType=RawPtr;
+							currentType=0;
+							break;
+						case ITypeInfo::SharedPtr:
+							targetValueType=SharedPtr;
+							currentType=0;
+							break;
+						case ITypeInfo::TypeDescriptor:
+							targetValueType=Text;
+							currentType=0;
+							break;
+						default:
+							currentType=currentType->GetElementType();
+						}
+					}
+				}
+				return CanConvertTo(targetType->GetTypeDescriptor(), targetValueType);
+			}
+
+			Value Value::From(DescriptableObject* value)
+			{
+				return Value(value);
+			}
+
+			Value Value::From(Ptr<DescriptableObject> value)
+			{
+				return Value(value);
+			}
+
+			Value Value::From(const WString& value, ITypeDescriptor* type)
+			{
+				return Value(value, type);
+			}
+
+			IMethodInfo* Value::SelectMethod(IMethodGroupInfo* methodGroup, collections::Array<Value>& arguments)
+			{
+				if(methodGroup->GetMethodCount()==1)
+				{
+					return methodGroup->GetMethod(0);
+				}
+
+				List<IMethodInfo*> methods;
+				for(vint i=0;i<methodGroup->GetMethodCount();i++)
+				{
+					IMethodInfo* method=methodGroup->GetMethod(i);
+					if(method->GetParameterCount()==arguments.Count())
+					{
+						methods.Add(method);
+					}
+				}
+
+				if(methods.Count()==0)
+				{
+					throw ArgumentCountMismtatchException();
+				}
+				else if(methods.Count()==1)
+				{
+					return methods[0];
+				}
+				else
+				{
+					for(vint i=0;i<methods.Count();i++)
+					{
+						IMethodInfo* method=methods[i];
+						try
+						{
+							method->CheckArguments(arguments);
+							return method;
+						}
+						catch(const TypeDescriptorException&)
+						{
+						}
+					}
+					return methods[0];
+				}
+			}
+
+			Value Value::Create(const WString& typeName)
+			{
+				Array<Value> arguments;
+				return Create(typeName, arguments);
+			}
+
+			Value Value::Create(const WString& typeName, collections::Array<Value>& arguments)
+			{
+				ITypeDescriptor* type=vl::reflection::description::GetTypeDescriptor(typeName);
+				if(!type) throw TypeNotExistsException(typeName);
+
+				IMethodGroupInfo* methodGroup=type->GetConstructorGroup();
+				if(!methodGroup) throw ConstructorNotExistsException();
+
+				IMethodInfo* method=SelectMethod(methodGroup, arguments);
+				return method->Invoke(Value(), arguments);
+			}
+
+			Value Value::InvokeStatic(const WString& typeName, const WString& name)
+			{
+				Array<Value> arguments;
+				return InvokeStatic(typeName, name, arguments);
+			}
+
+			Value Value::InvokeStatic(const WString& typeName, const WString& name, collections::Array<Value>& arguments)
+			{
+				ITypeDescriptor* type=vl::reflection::description::GetTypeDescriptor(typeName);
+				if(!type) throw TypeNotExistsException(typeName);
+
+				IMethodGroupInfo* methodGroup=type->GetMethodGroupByName(name, true);
+				if(!methodGroup) throw MemberNotExistsException(name);
+
+				IMethodInfo* method=SelectMethod(methodGroup, arguments);
+				return method->Invoke(Value(), arguments);
+			}
+
+			Value Value::GetProperty(const WString& name)const
+			{
+				ITypeDescriptor* type=GetTypeDescriptor();
+				if(!type) throw ArgumentNullException(L"thisObject");
+
+				IPropertyInfo* prop=type->GetPropertyByName(name, true);
+				if(!prop) throw MemberNotExistsException(name);
+
+				return prop->GetValue(*this);
+			}
+
+			void Value::SetProperty(const WString& name, const Value& newValue)
+			{
+				ITypeDescriptor* type=GetTypeDescriptor();
+				if(!type) throw ArgumentNullException(L"thisObject");
+
+				IPropertyInfo* prop=type->GetPropertyByName(name, true);
+				if(!prop) throw MemberNotExistsException(name);
+
+				prop->SetValue(*this, newValue);
+			}
+
+			Value Value::Invoke(const WString& name)const
+			{
+				Array<Value> arguments;
+				return Invoke(name, arguments);
+			}
+
+			Value Value::Invoke(const WString& name, collections::Array<Value>& arguments)const
+			{
+				ITypeDescriptor* type=GetTypeDescriptor();
+				if(!type) throw ArgumentNullException(L"thisObject");
+
+				IMethodGroupInfo* methodGroup=type->GetMethodGroupByName(name, true);
+				if(!methodGroup) throw MemberNotExistsException(name);
+
+				IMethodInfo* method=SelectMethod(methodGroup, arguments);
+				return method->Invoke(*this, arguments);
+			}
+
+			Ptr<IEventHandler> Value::AttachEvent(const WString& name, const Value& function)const
+			{
+				ITypeDescriptor* type=GetTypeDescriptor();
+				if(!type) throw ArgumentNullException(L"thisObject");
+
+				IEventInfo* eventInfo=type->GetEventByName(name, true);
+				if(!eventInfo) throw MemberNotExistsException(name);
+
+				Ptr<IValueFunctionProxy> proxy=UnboxValue<Ptr<IValueFunctionProxy>>(function, Description<IValueFunctionProxy>::GetAssociatedTypeDescriptor(), L"function");
+				return eventInfo->Attach(*this, proxy);
+			}
+
+			bool Value::DeleteRawPtr()
+			{
+				if(valueType!=RawPtr) return false;
+				if(!rawPtr) return false;
+				delete rawPtr;
+				*this=Value();
+				return true;
+			}
+
+/***********************************************************************
+IValueList
+***********************************************************************/
+
+			Ptr<IValueList> IValueList::Create()
+			{
+				Ptr<List<Value>> list=new List<Value>;
+				return new ValueListWrapper<Ptr<List<Value>>>(list);
+			}
+
+			Ptr<IValueList> IValueList::Create(Ptr<IValueReadonlyList> values)
+			{
+				Ptr<List<Value>> list=new List<Value>;
+				CopyFrom(*list.Obj(), values->GetLazyList<Value>());
+				return new ValueListWrapper<Ptr<List<Value>>>(list);
+			}
+
+			Ptr<IValueList> IValueList::Create(collections::LazyList<Value> values)
+			{
+				Ptr<List<Value>> list=new List<Value>;
+				CopyFrom(*list.Obj(), values);
+				return new ValueListWrapper<Ptr<List<Value>>>(list);
 			}
 
 /***********************************************************************
@@ -10893,14 +11208,15 @@ description::TypeManager
 			class TypeManager : public Object, public ITypeManager
 			{
 			protected:
-				Dictionary<WString, Ptr<IValueSerializer>>		valueSerializers;
 				Dictionary<WString, Ptr<ITypeDescriptor>>		typeDescriptors;
 				List<Ptr<ITypeLoader>>							typeLoaders;
+				ITypeDescriptor*								rootType;
 				bool											loaded;
 
 			public:
 				TypeManager()
-					:loaded(false)
+					:rootType(0)
+					,loaded(false)
 				{
 				}
 
@@ -10909,62 +11225,29 @@ description::TypeManager
 					Unload();
 				}
 
-				vint GetValueSerializerCount()
-				{
-					return valueSerializers.Values().Count();
-				}
-
-				IValueSerializer* GetValueSerializer(vint index)
-				{
-					return valueSerializers.Values().Get(index).Obj();
-				}
-
-				IValueSerializer* GetValueSerializer(const WString& name)
-				{
-					vint index=valueSerializers.Keys().IndexOf(name);
-					return index==-1?0:valueSerializers.Values().Get(index).Obj();
-				}
-
-				bool SetValueSerializer(const WString& name, Ptr<IValueSerializer> valueSerializer)
-				{
-					if(valueSerializers.Keys().Contains(name))
-					{
-						if(valueSerializer)
-						{
-							valueSerializers.Add(name, valueSerializer);
-							return true;
-						}
-					}
-					else
-					{
-						if(!valueSerializer)
-						{
-							valueSerializers.Remove(name);
-							return true;
-						}
-					}
-					return false;
-				}
-
-				vint GetTypeDescriptorCount()
+				vint GetTypeDescriptorCount()override
 				{
 					return typeDescriptors.Values().Count();
 				}
 
-				ITypeDescriptor* GetTypeDescriptor(vint index)
+				ITypeDescriptor* GetTypeDescriptor(vint index)override
 				{
 					return typeDescriptors.Values().Get(index).Obj();
 				}
 
-				ITypeDescriptor* GetTypeDescriptor(const WString& name)
+				ITypeDescriptor* GetTypeDescriptor(const WString& name)override
 				{
 					vint index=typeDescriptors.Keys().IndexOf(name);
 					return index==-1?0:typeDescriptors.Values().Get(index).Obj();
 				}
 
-				bool SetTypeDescriptor(const WString& name, Ptr<ITypeDescriptor> typeDescriptor)
+				bool SetTypeDescriptor(const WString& name, Ptr<ITypeDescriptor> typeDescriptor)override
 				{
-					if(typeDescriptors.Keys().Contains(name))
+					if(typeDescriptor && name!=typeDescriptor->GetTypeName())
+					{
+						return false;
+					}
+					if(!typeDescriptors.Keys().Contains(name))
 					{
 						if(typeDescriptor)
 						{
@@ -10983,7 +11266,7 @@ description::TypeManager
 					return false;
 				}
 
-				bool AddTypeLoader(Ptr<ITypeLoader> typeLoader)
+				bool AddTypeLoader(Ptr<ITypeLoader> typeLoader)override
 				{
 					vint index=typeLoaders.IndexOf(typeLoader.Obj());
 					if(index==-1)
@@ -11001,7 +11284,7 @@ description::TypeManager
 					}
 				}
 
-				bool RemoveTypeLoader(Ptr<ITypeLoader> typeLoader)
+				bool RemoveTypeLoader(Ptr<ITypeLoader> typeLoader)override
 				{
 					vint index=typeLoaders.IndexOf(typeLoader.Obj());
 					if(index!=-1)
@@ -11019,7 +11302,7 @@ description::TypeManager
 					}
 				}
 
-				bool Load()
+				bool Load()override
 				{
 					if(!loaded)
 					{
@@ -11028,6 +11311,7 @@ description::TypeManager
 						{
 							typeLoaders[i]->Load(this);
 						}
+						rootType=description::GetTypeDescriptor<Value>();
 						return true;
 					}
 					else
@@ -11036,16 +11320,16 @@ description::TypeManager
 					}
 				}
 
-				bool Unload()
+				bool Unload()override
 				{
 					if(loaded)
 					{
 						loaded=false;
+						rootType=0;
 						for(vint i=0;i<typeLoaders.Count();i++)
 						{
 							typeLoaders[i]->Unload(this);
 						}
-						valueSerializers.Clear();
 						typeDescriptors.Clear();
 						return true;
 					}
@@ -11055,16 +11339,21 @@ description::TypeManager
 					}
 				}
 
-				bool Reload()
+				bool Reload()override
 				{
 					Unload();
 					Load();
 					return true;
 				}
 
-				bool IsLoaded()
+				bool IsLoaded()override
 				{
 					return loaded;
+				}
+
+				ITypeDescriptor* GetRootType()override
+				{
+					return rootType;
 				}
 			};
 
@@ -11099,17 +11388,17 @@ description::TypeManager helper functions
 				}
 			}
 
+			bool ResetGlobalTypeManager()
+			{
+				if(!DestroyGlobalTypeManager()) return false;
+				initializedGlobalTypeManager=false;
+				return true;
+			}
+
 			IValueSerializer* GetValueSerializer(const WString& name)
 			{
-				if(globalTypeManager)
-				{
-					if(!globalTypeManager->IsLoaded())
-					{
-						globalTypeManager->Load();
-					}
-					return globalTypeManager->GetValueSerializer(name);
-				}
-				return 0;
+				ITypeDescriptor* descriptor=GetTypeDescriptor(name);
+				return descriptor?descriptor->GetValueSerializer():0;
 			}
 
 			ITypeDescriptor* GetTypeDescriptor(const WString& name)
@@ -11123,6 +11412,256 @@ description::TypeManager helper functions
 					return globalTypeManager->GetTypeDescriptor(name);
 				}
 				return 0;
+			}
+
+/***********************************************************************
+LogTypeManager (enum)
+***********************************************************************/
+
+			void LogTypeManager_Enum(stream::TextWriter& writer, ITypeDescriptor* type, IValueSerializer* serializer)
+			{
+				writer.WriteLine(L"enum "+type->GetTypeName()+(serializer->CanMergeCandidate()?L" flag":L""));
+				writer.WriteLine(L"{");
+				for(vint j=0;j<serializer->GetCandidateCount();j++)
+				{
+					writer.WriteLine(L"    "+serializer->GetCandidate(j)+L",");
+				}
+				writer.WriteLine(L"}");
+			}
+
+/***********************************************************************
+LogTypeManager (struct)
+***********************************************************************/
+
+			void LogTypeManager_Struct(stream::TextWriter& writer, ITypeDescriptor* type)
+			{
+				writer.WriteLine(L"struct "+type->GetTypeName());
+				writer.WriteLine(L"{");
+				for(vint j=0;j<type->GetPropertyCount();j++)
+				{
+					IPropertyInfo* info=type->GetProperty(j);
+					writer.WriteLine(L"    "+info->GetReturn()->GetTypeFriendlyName()+L" "+info->GetName()+L";");
+				}
+				writer.WriteLine(L"}");
+			}
+
+/***********************************************************************
+LogTypeManager (data)
+***********************************************************************/
+
+			void LogTypeManager_Data(stream::TextWriter& writer, ITypeDescriptor* type)
+			{
+				writer.WriteLine(L"data "+type->GetTypeName()+L";");
+			}
+
+/***********************************************************************
+LogTypeManager (class)
+***********************************************************************/
+
+			bool LogTypeManager_IsInterface(ITypeDescriptor* type)
+			{
+				bool containsConstructor=false;
+				if(IMethodGroupInfo* group=type->GetConstructorGroup())
+				{
+					containsConstructor=group->GetMethodCount()>0;
+					if(group->GetMethodCount()==1)
+					{
+						if(IMethodInfo* info=group->GetMethod(0))
+						{
+							if(info->GetParameterCount()==1 && info->GetParameter(0)->GetType()->GetTypeDescriptor()->GetTypeName()==TypeInfo<IValueInterfaceProxy>::TypeName)
+							{
+								return true;
+							}
+						}
+					}
+				}
+
+				if(!containsConstructor)
+				{
+					if(type->GetTypeName()==TypeInfo<IDescriptable>::TypeName)
+					{
+						return true;
+					}
+					else
+					{
+						for(vint i=0;i<type->GetBaseTypeDescriptorCount();i++)
+						{
+							if(!LogTypeManager_IsInterface(type->GetBaseTypeDescriptor(i)))
+							{
+								return false;
+							}
+						}
+						const wchar_t* name=type->GetTypeName().Buffer();
+						while(const wchar_t* next=wcschr(name, L':'))
+						{
+							name=next+1;
+						}
+						return name[0]==L'I' && (L'A'<=name[1] && name[1]<=L'Z');
+					}
+				}
+				return false;
+			}
+
+			void LogTypeManager_PrintEvents(stream::TextWriter& writer, ITypeDescriptor* type)
+			{
+				bool printed=false;
+				for(vint j=0;j<type->GetEventCount();j++)
+				{
+					printed=true;
+					IEventInfo* info=type->GetEvent(j);
+					writer.WriteString(L"    event "+info->GetHandlerType()->GetTypeFriendlyName()+L" "+info->GetName()+L"{");
+					if(info->GetObservingPropertyCount()>0)
+					{
+						writer.WriteString(L" observing ");
+						vint count=+info->GetObservingPropertyCount();
+						for(vint i=0;i<count;i++)
+						{
+							if(i>0) writer.WriteString(L", ");
+							writer.WriteString(info->GetObservingProperty(i)->GetName());
+						}
+						writer.WriteString(L";");
+					}
+					writer.WriteLine(L"};");
+				}
+				if(printed)
+				{
+					writer.WriteLine(L"");
+				}
+			}
+
+			void LogTypeManager_PrintProperties(stream::TextWriter& writer, ITypeDescriptor* type, List<IMethodInfo*>& propertyAccessors)
+			{
+				bool printed=false;
+				for(vint j=0;j<type->GetPropertyCount();j++)
+				{
+					printed=true;
+					IPropertyInfo* info=type->GetProperty(j);
+					writer.WriteString(L"    property "+info->GetReturn()->GetTypeFriendlyName()+L" "+info->GetName()+L"{");
+					if(info->GetGetter())
+					{
+						propertyAccessors.Add(info->GetGetter());
+						writer.WriteString(L" getter "+info->GetGetter()->GetName()+L";");
+					}
+					if(info->GetSetter())
+					{
+						propertyAccessors.Add(info->GetSetter());
+						writer.WriteString(L" setter "+info->GetSetter()->GetName()+L";");
+					}
+					if(info->GetValueChangedEvent())
+					{
+						writer.WriteString(L" raising "+info->GetValueChangedEvent()->GetName()+L";");
+					}
+					writer.WriteLine(L"}");
+				}
+				if(printed)
+				{
+					writer.WriteLine(L"");
+				}
+			}
+
+			void LogTypeManager_PrintMethods(stream::TextWriter& writer, ITypeDescriptor* type, const List<IMethodInfo*>& propertyAccessors, bool isPropertyAccessor)
+			{
+				bool printed=false;
+				for(vint j=0;j<type->GetMethodGroupCount();j++)
+				{
+					IMethodGroupInfo* group=type->GetMethodGroup(j);
+					for(vint k=0;k<group->GetMethodCount();k++)
+					{
+						IMethodInfo* info=group->GetMethod(k);
+						if(propertyAccessors.Contains(info)==isPropertyAccessor)
+						{
+							printed=true;
+							writer.WriteString(WString(L"    ")+(info->IsStatic()?L"static ":L"")+(isPropertyAccessor?L"accessor ":L"function ")+info->GetReturn()->GetTypeFriendlyName());
+							writer.WriteString(L" "+info->GetName()+L"(");
+							for(vint l=0;l<info->GetParameterCount();l++)
+							{
+								if(l>0) writer.WriteString(L", ");
+								IParameterInfo* parameter=info->GetParameter(l);
+								writer.WriteString(parameter->GetType()->GetTypeFriendlyName()+L" "+parameter->GetName());
+							}
+							writer.WriteLine(L");");
+						}
+					}
+				}
+				if(printed)
+				{
+					writer.WriteLine(L"");
+				}
+			}
+
+			void LogTypeManager_PrintConstructors(stream::TextWriter& writer, ITypeDescriptor* type)
+			{
+				if(IMethodGroupInfo* group=type->GetConstructorGroup())
+				{
+					for(vint k=0;k<group->GetMethodCount();k++)
+					{
+						IMethodInfo* info=group->GetMethod(k);
+						writer.WriteString(L"    constructor "+info->GetReturn()->GetTypeFriendlyName());
+						writer.WriteString(L" "+info->GetName()+L"(");
+						for(vint l=0;l<info->GetParameterCount();l++)
+						{
+							if(l>0) writer.WriteString(L", ");
+							IParameterInfo* parameter=info->GetParameter(l);
+							writer.WriteString(parameter->GetType()->GetTypeFriendlyName()+L" "+parameter->GetName());
+						}
+						writer.WriteLine(L");");
+					}
+				}
+			}
+
+			void LogTypeManager_Class(stream::TextWriter& writer, ITypeDescriptor* type)
+			{
+				bool isInterface=LogTypeManager_IsInterface(type);
+				writer.WriteString((isInterface?L"interface ":L"class ")+type->GetTypeName());
+				for(vint j=0;j<type->GetBaseTypeDescriptorCount();j++)
+				{
+					writer.WriteString(j==0?L" : ":L", ");
+					writer.WriteString(type->GetBaseTypeDescriptor(j)->GetTypeName());
+				}
+				writer.WriteLine(L"");
+				writer.WriteLine(L"{");
+				
+				List<IMethodInfo*> propertyAccessors;
+				LogTypeManager_PrintEvents(writer, type);
+				LogTypeManager_PrintProperties(writer, type, propertyAccessors);
+				LogTypeManager_PrintMethods(writer, type, propertyAccessors, false);
+				LogTypeManager_PrintMethods(writer, type, propertyAccessors, true);
+				LogTypeManager_PrintConstructors(writer, type);
+
+				writer.WriteLine(L"}");
+			}
+
+/***********************************************************************
+LogTypeManager
+***********************************************************************/
+
+			void LogTypeManager(stream::TextWriter& writer)
+			{
+				for(vint i=0;i<globalTypeManager->GetTypeDescriptorCount();i++)
+				{
+					ITypeDescriptor* type=globalTypeManager->GetTypeDescriptor(i);
+					IValueSerializer* serializer=type->GetValueSerializer();
+					if(serializer)
+					{
+						if(serializer->HasCandidate())
+						{
+							LogTypeManager_Enum(writer, type, serializer);
+						}
+						else if(type->GetPropertyCount()>0)
+						{
+							LogTypeManager_Struct(writer, type);
+						}
+						else
+						{
+							LogTypeManager_Data(writer, type);
+						}
+					}
+					else
+					{
+						LogTypeManager_Class(writer, type);
+					}
+					writer.WriteLine(L"");
+				}
 			}
 		}
 	}
@@ -11142,815 +11681,1406 @@ namespace vl
 		{
 
 /***********************************************************************
-description::PropertyInfoImpl
+TypeInfoImpl
 ***********************************************************************/
 
-			class PropertyInfoImpl : public Object, public IPropertyInfo
-			{
-			protected:
-				ITypeDescriptor*						ownerTypeDescriptor;
-				WString									name;
-				ITypeDescriptor*						type;
-				bool									nullable;
-				Func<Value(const Value&)>				getter;
-				Func<void(const Value&, const Value&)>	setter;
-				WString									valueChangedEventName;
-			public:
-				PropertyInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name, ITypeDescriptor* _type, bool _nullable, const Func<Value(const Value&)>& _getter, const Func<void(const Value&, const Value&)>& _setter, const WString& _valueChangedEventName)
-					:ownerTypeDescriptor(_ownerTypeDescriptor)
-					,name(_name)
-					,type(_type)
-					,nullable(_nullable)
-					,getter(_getter)
-					,setter(_setter)
-					,valueChangedEventName(_valueChangedEventName)
-				{
-				}
-
-				ITypeDescriptor* GetOwnerTypeDescriptor()override
-				{
-					return ownerTypeDescriptor;
-				}
-
-				const WString& GetName()override
-				{
-					return name;
-				}
-
-				ITypeDescriptor* GetValueTypeDescriptor()override
-				{
-					return type;
-				}
-
-				bool CanBeNull()override
-				{
-					return nullable;
-				}
-
-				bool IsReadable()override
-				{
-					return getter;
-				}
-
-				bool IsWritable()override
-				{
-					return setter;
-				}
-
-				IEventInfo* GetValueChangedEvent()override
-				{
-					return ownerTypeDescriptor->GetEventByName(valueChangedEventName, true);
-				}
-
-				Value GetValue(const Value& thisObject)override
-				{
-					if(getter)
-					{
-						return getter(thisObject);
-					}
-					else
-					{
-						throw PropertyIsNotReadableException(this);
-					}
-				}
-
-				void SetValue(const Value& thisObject, Value newValue)override
-				{
-					if(setter)
-					{
-						setter(thisObject, newValue);
-					}
-					else
-					{
-						throw PropertyIsNotWritableException(this);
-					}
-				}
-			};
-
-/***********************************************************************
-description::ParameterInfoImpl
-***********************************************************************/
-
-			class ParameterInfoImpl : public Object, public IParameterInfo
-			{
-			protected:
-				IMethodInfo*							ownerMethod;
-				WString									name;
-				ITypeDescriptor*						type;
-				bool									nullable;
-				bool									canOutput;
-			public:
-				ParameterInfoImpl(IMethodInfo* _ownerMethod, const WString& _name, ITypeDescriptor* _type, bool _nullable, bool _canOutput)
-					:ownerMethod(_ownerMethod)
-					,name(_name)
-					,type(_type)
-					,nullable(_nullable)
-					,canOutput(_canOutput)
-				{
-				}
-
-				ITypeDescriptor* GetOwnerTypeDescriptor()override
-				{
-					return ownerMethod->GetOwnerTypeDescriptor();
-				}
-
-				const WString& GetName()override
-				{
-					return name;
-				}
-
-				ITypeDescriptor* GetValueTypeDescriptor()override
-				{
-					return type;
-				}
-
-				bool CanBeNull()override
-				{
-					return nullable;
-				}
-
-				IMethodInfo* GetOwnerMethod()override
-				{
-					return ownerMethod;
-				}
-
-				bool CanOutput()override
-				{
-					return canOutput;
-				}
-			};
-
-/***********************************************************************
-description::MethodReturnImpl
-***********************************************************************/
-
-			class MethodReturnImpl : public Object, public IValueInfo
-			{
-			protected:
-				ITypeDescriptor*						type;
-				bool									nullable;
-			public:
-				MethodReturnImpl(ITypeDescriptor* _type, bool _nullable)
-					:type(_type)
-					,nullable(_nullable)
-				{
-				}
-
-				ITypeDescriptor* GetValueTypeDescriptor()override
-				{
-					return type;
-				}
-
-				bool CanBeNull()override
-				{
-					return nullable;
-				}
-			};
-
-/***********************************************************************
-description::MethodInfoImpl
-***********************************************************************/
-
-			class MethodInfoImpl : public Object, public IMethodInfo
-			{
-			protected:
-				IMethodGroupInfo*											ownerMethodGroup;
-				List<Ptr<ParameterInfoImpl>>									parameters;
-				Ptr<MethodReturnImpl>										returnInfo;
-				Func<Value(const Value&, collections::Array<Value>&)>		invoker;
-			public:
-				MethodInfoImpl(IMethodGroupInfo* _ownerMethodGroup)
-					:ownerMethodGroup(_ownerMethodGroup)
-				{
-				}
-
-				ITypeDescriptor* GetOwnerTypeDescriptor()override
-				{
-					return ownerMethodGroup->GetOwnerTypeDescriptor();
-				}
-
-				const WString& GetName()override
-				{
-					return ownerMethodGroup->GetName();
-				}
-
-				IMethodGroupInfo* GetOwnerMethodGroup()override
-				{
-					return ownerMethodGroup;
-				}
-
-				vint GetParameterCount()override
-				{
-					return parameters.Count();
-				}
-
-				IParameterInfo* GetParameter(vint index)override
-				{
-					if(0<=index && index<parameters.Count())
-					{
-						return parameters[index].Obj();
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				IValueInfo* GetReturn()override
-				{
-					return returnInfo.Obj();
-				}
-
-				Value Invoke(const Value& thisObject, collections::Array<Value>& arguments)override
-				{
-					return invoker(thisObject, arguments);
-				}
-
-				void BuilderSetParameter(const WString& _name, ITypeDescriptor* _type, bool _nullable, bool _canOutput)
-				{
-					for(vint i=0;i<parameters.Count();i++)
-					{
-						if(parameters[i]->GetName()==_name)
-						{
-							throw ParameterAlreadyExistsException(this, _name);
-						}
-					}
-					parameters.Add(new ParameterInfoImpl(this, _name, _type, _nullable, _canOutput));
-				}
-
-				void BuilderSetReturn(ITypeDescriptor* _type, bool _nullable)
-				{
-					returnInfo=new MethodReturnImpl(_type, _nullable);
-				}
-
-				void BuilderSetInvoker(const Func<Value(const Value&, collections::Array<Value>&)>& _invoker)
-				{
-					invoker=_invoker;
-				}
-			};
-
-/***********************************************************************
-description::MethodGroupInfoImpl
-***********************************************************************/
-
-			class MethodGroupInfoImpl : public Object, public IMethodGroupInfo
-			{
-			protected:
-				ITypeDescriptor*						ownerTypeDescriptor;
-				WString									name;
-				List<Ptr<MethodInfoImpl>>				methods;
-			public:
-				MethodGroupInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name)
-					:ownerTypeDescriptor(_ownerTypeDescriptor)
-					,name(_name)
-				{
-				}
-
-				ITypeDescriptor* GetOwnerTypeDescriptor()override
-				{
-					return ownerTypeDescriptor;
-				}
-
-				const WString& GetName()override
-				{
-					return name;
-				}
-
-				vint GetMethodCount()
-				{
-					return methods.Count();
-				}
-
-				IMethodInfo* GetMethod(vint index)
-				{
-					if(0<=index && index<methods.Count())
-					{
-						return methods[index].Obj();
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				void BuilderSetMethod(Ptr<MethodInfoImpl> _method)
-				{
-					methods.Add(_method);
-				}
-			};
-
-/***********************************************************************
-description::EventInfoImpl
-***********************************************************************/
-
-			class EventInfoImpl : public Object, public IEventInfo
-			{
-			protected:
-				class EventHandlerImpl : public Object, public IEventHandler
-				{
-				protected:
-					EventInfoImpl*							ownerEvent;
-					DescriptableObject*						ownerObject;
-					Func<void(const Value&, Value&)>		handler;
-					bool									attached;
-				public:
-					EventHandlerImpl(EventInfoImpl* _ownerEvent, DescriptableObject* ownerObject, const Func<void(const Value&, Value&)>& _handler)
-						:ownerEvent(_ownerEvent)
-						,handler(_handler)
-					{
-					}
-
-					IEventInfo* GetOwnerEvent()
-					{
-						return ownerEvent;
-					}
-
-					Value GetOwnerObject()
-					{
-						return ownerObject;
-					}
-
-					bool IsAttached()
-					{
-						return attached;
-					}
-
-					bool Detach()
-					{
-						if(attached)
-						{
-							attached=false;
-							ownerEvent->DetachEventHandler(ownerObject, this);
-							return true;
-						}
-						else
-						{
-							return false;
-						}
-					}
-
-					void Invoke(const Value& thisObject, Value& arguments)
-					{
-						handler(thisObject, arguments);
-					}
-				};
-			protected:
-				ITypeDescriptor*									ownerTypeDescriptor;
-				WString												name;
-				Func<Value(const Value&, Value&)>					invoker;
-				Func<void(DescriptableObject*, IEventHandler*)>		attacher;
-				Func<void(DescriptableObject*, IEventHandler*)>		detacher;
-
-				void AttachEventHandler(DescriptableObject* thisObject, Ptr<EventHandlerImpl> eventHandler)
-				{
-					attacher(thisObject, eventHandler.Obj());
-				}
-
-				void DetachEventHandler(DescriptableObject* thisObject, EventHandlerImpl* eventHandler)
-				{
-					detacher(thisObject, eventHandler);
-				}
-			public:
-				EventInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name)
-					:ownerTypeDescriptor(_ownerTypeDescriptor)
-					,name(_name)
-				{
-				}
-
-				ITypeDescriptor* GetOwnerTypeDescriptor()override
-				{
-					return ownerTypeDescriptor;
-				}
-
-				const WString& GetName()override
-				{
-					return name;
-				}
-
-				Ptr<IEventHandler> Attach(const Value& thisObject, const Func<void(const Value&, Value&)>& handler)
-				{
-					DescriptableObject* rawThisObject=0;
-					switch(thisObject.GetValueType())
-					{
-					case Value::DescriptableObjectRef:
-						rawThisObject=thisObject.GetDescriptableObjectRef();
-						break;
-					case Value::DescriptableObjectPtr:
-						rawThisObject=thisObject.GetDescriptableObjectPtr().Obj();
-						break;
-					}
-					if(rawThisObject)
-					{
-						Ptr<EventHandlerImpl> eventHandler=new EventHandlerImpl(this, rawThisObject, handler);
-						AttachEventHandler(rawThisObject, eventHandler);
-						return eventHandler;
-					}
-					else
-					{
-						return 0;
-					}
-				}
-
-				void Invoke(const Value& thisObject, Value& arguments)
-				{
-					invoker(thisObject, arguments);
-				}
-
-				void BuilderSetInvoker(const Func<Value(const Value&, Value&)>& _invoker)
-				{
-					invoker=_invoker;
-				}
-
-				void BuilderSetAttacher(const Func<void(DescriptableObject*, IEventHandler*)>& _attacher)
-				{
-					attacher=_attacher;
-				}
-
-				void BuilderSetDetacher(const Func<void(DescriptableObject*, IEventHandler*)>& _detacher)
-				{
-					detacher=_detacher;
-				}
-			};
-
-/***********************************************************************
-description::GeneralTypeDescriptor::PropertyGroup
-***********************************************************************/
-
-			GeneralTypeDescriptor::PropertyGroup::PropertyGroup()
-				:valueSerializer(0)
-				,loaded(false)
-				,ownerTypeDescriptor(0)
+			TypeInfoImpl::TypeInfoImpl(Decorator _decorator)
+				:decorator(_decorator)
+				,typeDescriptor(0)
 			{
 			}
 
-			GeneralTypeDescriptor::PropertyGroup::~PropertyGroup()
+			TypeInfoImpl::~TypeInfoImpl()
 			{
 			}
 
-			void GeneralTypeDescriptor::PropertyGroup::Prepare()
+			TypeInfoImpl::Decorator TypeInfoImpl::GetDecorator()
+			{
+				return decorator;
+			}
+
+			ITypeInfo* TypeInfoImpl::GetElementType()
+			{
+				return elementType.Obj();
+			}
+
+			ITypeDescriptor* TypeInfoImpl::GetTypeDescriptor()
+			{
+				return
+					typeDescriptor?typeDescriptor:
+					elementType?elementType->GetTypeDescriptor():
+					0;
+			}
+
+			vint TypeInfoImpl::GetGenericArgumentCount()
+			{
+				return genericArguments.Count();
+			}
+
+			ITypeInfo* TypeInfoImpl::GetGenericArgument(vint index)
+			{
+				return genericArguments[index].Obj();
+			}
+
+			WString TypeInfoImpl::GetTypeFriendlyName()
+			{
+				switch(decorator)
+				{
+				case RawPtr:
+					return elementType->GetTypeFriendlyName()+L"*";
+				case SharedPtr:
+					return elementType->GetTypeFriendlyName()+L"^";
+				case TypeDescriptor:
+					return typeDescriptor->GetTypeName();
+				case Generic:
+					{
+						WString result=elementType->GetTypeFriendlyName()+L"<";
+						FOREACH_INDEXER(Ptr<ITypeInfo>, type, i, genericArguments)
+						{
+							if(i>0) result+=L", ";
+							result+=type->GetTypeFriendlyName();
+						}
+						result+=L">";
+						return result;
+					}
+				default:
+					return L"";
+				}
+			}
+
+			void TypeInfoImpl::SetTypeDescriptor(ITypeDescriptor* value)
+			{
+				typeDescriptor=value;
+			}
+
+			void TypeInfoImpl::AddGenericArgument(Ptr<ITypeInfo> value)
+			{
+				genericArguments.Add(value);
+			}
+
+			void TypeInfoImpl::SetElementType(Ptr<ITypeInfo> value)
+			{
+				elementType=value;
+			}
+
+/***********************************************************************
+ParameterInfoImpl
+***********************************************************************/
+
+			ParameterInfoImpl::ParameterInfoImpl(IMethodInfo* _ownerMethod, const WString& _name, Ptr<ITypeInfo> _type)
+				:ownerMethod(_ownerMethod)
+				,name(_name)
+				,type(_type)
+			{
+			}
+
+			ParameterInfoImpl::~ParameterInfoImpl()
+			{
+			}
+
+			ITypeDescriptor* ParameterInfoImpl::GetOwnerTypeDescriptor()
+			{
+				return ownerMethod->GetOwnerTypeDescriptor();
+			}
+
+			const WString& ParameterInfoImpl::GetName()
+			{
+				return name;
+			}
+
+			ITypeInfo* ParameterInfoImpl::GetType()
+			{
+				return type.Obj();
+			}
+
+			IMethodInfo* ParameterInfoImpl::GetOwnerMethod()
+			{
+				return ownerMethod;
+			}
+
+/***********************************************************************
+MethodInfoImpl
+***********************************************************************/
+
+			MethodInfoImpl::MethodInfoImpl(IMethodGroupInfo* _ownerMethodGroup, Ptr<ITypeInfo> _return, bool _isStatic)
+				:ownerMethodGroup(_ownerMethodGroup)
+				,ownerProperty(0)
+				,returnInfo(_return)
+				,isStatic(_isStatic)
+			{
+			}
+
+			MethodInfoImpl::~MethodInfoImpl()
+			{
+			}
+
+			ITypeDescriptor* MethodInfoImpl::GetOwnerTypeDescriptor()
+			{
+				return ownerMethodGroup->GetOwnerTypeDescriptor();
+			}
+
+			IPropertyInfo* MethodInfoImpl::GetOwnerProperty()
+			{
+				return ownerProperty;
+			}
+
+			const WString& MethodInfoImpl::GetName()
+			{
+				return ownerMethodGroup->GetName();
+			}
+
+			IMethodGroupInfo* MethodInfoImpl::GetOwnerMethodGroup()
+			{
+				return ownerMethodGroup;
+			}
+
+			vint MethodInfoImpl::GetParameterCount()
+			{
+				return parameters.Count();
+			}
+
+			IParameterInfo* MethodInfoImpl::GetParameter(vint index)
+			{
+				if(0<=index && index<parameters.Count())
+				{
+					return parameters[index].Obj();
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			ITypeInfo* MethodInfoImpl::GetReturn()
+			{
+				return returnInfo.Obj();
+			}
+
+			bool MethodInfoImpl::IsStatic()
+			{
+				return isStatic;
+			}
+
+			void MethodInfoImpl::CheckArguments(collections::Array<Value>& arguments)
+			{
+				if(arguments.Count()!=parameters.Count())
+				{
+					throw ArgumentCountMismtatchException();
+				}
+				for(vint i=0;i<parameters.Count();i++)
+				{
+					if(!arguments[i].CanConvertTo(parameters[i]->GetType()))
+					{
+						throw ArgumentTypeMismtatchException(parameters[i]->GetName(), parameters[i]->GetType(), arguments[i]);
+					}
+				}
+			}
+
+			Value MethodInfoImpl::Invoke(const Value& thisObject, collections::Array<Value>& arguments)
+			{
+				if(thisObject.IsNull())
+				{
+					if(!isStatic)
+					{
+						throw ArgumentNullException(L"thisObject");
+					}
+				}
+				else if(!thisObject.CanConvertTo(ownerMethodGroup->GetOwnerTypeDescriptor(), Value::RawPtr))
+				{
+					throw ArgumentTypeMismtatchException(L"thisObject", ownerMethodGroup->GetOwnerTypeDescriptor(), Value::RawPtr, thisObject);
+				}
+				CheckArguments(arguments);
+				return InvokeInternal(thisObject, arguments);
+			}
+
+			bool MethodInfoImpl::AddParameter(Ptr<IParameterInfo> parameter)
+			{
+				for(vint i=0;i<parameters.Count();i++)
+				{
+					if(parameters[i]->GetName()==parameter->GetName())
+					{
+						return false;
+					}
+				}
+				parameters.Add(parameter);
+				return true;
+			}
+
+			bool MethodInfoImpl::SetOwnerMethodgroup(IMethodGroupInfo* _ownerMethodGroup)
+			{
+				if(ownerMethodGroup) return false;
+				ownerMethodGroup=_ownerMethodGroup;
+				return true;
+			}
+
+/***********************************************************************
+MethodGroupInfoImpl
+***********************************************************************/
+
+			MethodGroupInfoImpl::MethodGroupInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name)
+				:ownerTypeDescriptor(_ownerTypeDescriptor)
+				,name(_name)
+			{
+			}
+
+			MethodGroupInfoImpl::~MethodGroupInfoImpl()
+			{
+			}
+
+			ITypeDescriptor* MethodGroupInfoImpl::GetOwnerTypeDescriptor()
+			{
+				return ownerTypeDescriptor;
+			}
+
+			const WString& MethodGroupInfoImpl::GetName()
+			{
+				return name;
+			}
+
+			vint MethodGroupInfoImpl::GetMethodCount()
+			{
+				return methods.Count();
+			}
+
+			IMethodInfo* MethodGroupInfoImpl::GetMethod(vint index)
+			{
+				if(0<=index && index<methods.Count())
+				{
+					return methods[index].Obj();
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			bool MethodGroupInfoImpl::AddMethod(Ptr<IMethodInfo> _method)
+			{
+				methods.Add(_method);
+				return true;
+			}
+
+/***********************************************************************
+EventInfoImpl::EventHandlerImpl
+***********************************************************************/
+
+			EventInfoImpl::EventHandlerImpl::EventHandlerImpl(EventInfoImpl* _ownerEvent, DescriptableObject* _ownerObject, Ptr<IValueFunctionProxy> _handler)
+				:ownerEvent(_ownerEvent)
+				,ownerObject(_ownerObject)
+				,handler(_handler)
+			{
+			}
+
+			EventInfoImpl::EventHandlerImpl::~EventHandlerImpl()
+			{
+			}
+
+			IEventInfo* EventInfoImpl::EventHandlerImpl::GetOwnerEvent()
+			{
+				return ownerEvent;
+			}
+
+			Value EventInfoImpl::EventHandlerImpl::GetOwnerObject()
+			{
+				return Value::From(ownerObject);
+			}
+
+			bool EventInfoImpl::EventHandlerImpl::IsAttached()
+			{
+				return attached;
+			}
+
+			bool EventInfoImpl::EventHandlerImpl::Detach()
+			{
+				if(attached)
+				{
+					attached=false;
+					ownerEvent->DetachInternal(ownerObject, this);
+					ownerEvent->RemoveEventHandler(ownerObject, this);
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void EventInfoImpl::EventHandlerImpl::Invoke(const Value& thisObject, Value& arguments)
+			{
+				if(thisObject.IsNull())
+				{
+					throw ArgumentNullException(L"thisObject");
+				}
+				Ptr<IValueList> eventArgs=IValueList::Create();
+				eventArgs->Add(thisObject);
+				eventArgs->Add(arguments);
+				handler->Invoke(eventArgs);
+				if(eventArgs->Count()>=2)
+				{
+					arguments=eventArgs->Get(1);
+				}
+			}
+
+			Ptr<DescriptableObject> EventInfoImpl::EventHandlerImpl::GetTag()
+			{
+				return tag;
+			}
+
+			void EventInfoImpl::EventHandlerImpl::SetTag(Ptr<DescriptableObject> _tag)
+			{
+				tag=_tag;
+			}
+
+/***********************************************************************
+EventInfoImpl
+***********************************************************************/
+
+			const wchar_t* EventInfoImpl::EventHandlerListInternalPropertyName = L"List<EventInfoImpl::EventHandlerImpl>";
+
+			void EventInfoImpl::AddEventHandler(DescriptableObject* thisObject, Ptr<IEventHandler> eventHandler)
+			{
+				WString key=EventHandlerListInternalPropertyName;
+				Ptr<EventHandlerList> value=thisObject->GetInternalProperty(key).Cast<EventHandlerList>();
+				if(!value)
+				{
+					value=new EventHandlerList;
+					thisObject->SetInternalProperty(key, value);
+				}
+				value->Add(eventHandler);
+			}
+			
+			void EventInfoImpl::RemoveEventHandler(DescriptableObject* thisObject, IEventHandler* eventHandler)
+			{
+				WString key=EventHandlerListInternalPropertyName;
+				Ptr<EventHandlerList> value=thisObject->GetInternalProperty(key).Cast<EventHandlerList>();
+				if(value)
+				{
+					value->Remove(eventHandler);
+					if(value->Count()==0)
+					{
+						thisObject->SetInternalProperty(key, 0);
+					}
+				}
+			}
+
+			EventInfoImpl::EventInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name)
+				:ownerTypeDescriptor(_ownerTypeDescriptor)
+				,name(_name)
+			{
+			}
+
+			EventInfoImpl::~EventInfoImpl()
+			{
+			}
+
+			ITypeDescriptor* EventInfoImpl::GetOwnerTypeDescriptor()
+			{
+				return ownerTypeDescriptor;
+			}
+
+			ITypeInfo* EventInfoImpl::GetHandlerType()
+			{
+				if(!handlerType)
+				{
+					handlerType=GetHandlerTypeInternal();
+				}
+				return handlerType.Obj();
+			}
+
+			vint EventInfoImpl::GetObservingPropertyCount()
+			{
+				return observingProperties.Count();
+			}
+
+			IPropertyInfo* EventInfoImpl::GetObservingProperty(vint index)
+			{
+				return observingProperties[index];
+			}
+
+			const WString& EventInfoImpl::GetName()
+			{
+				return name;
+			}
+
+			Ptr<IEventHandler> EventInfoImpl::Attach(const Value& thisObject, Ptr<IValueFunctionProxy> handler)
+			{
+				if(thisObject.IsNull())
+				{
+					throw ArgumentNullException(L"thisObject");
+				}
+				else if(!thisObject.CanConvertTo(ownerTypeDescriptor, Value::RawPtr))
+				{
+					throw ArgumentTypeMismtatchException(L"thisObject", ownerTypeDescriptor, Value::RawPtr, thisObject);
+				}
+				DescriptableObject* rawThisObject=thisObject.GetRawPtr();
+				if(rawThisObject)
+				{
+					Ptr<EventHandlerImpl> eventHandler=new EventHandlerImpl(this, rawThisObject, handler);
+					AddEventHandler(rawThisObject, eventHandler);
+					AttachInternal(rawThisObject, eventHandler.Obj());
+					return eventHandler;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+/***********************************************************************
+PropertyInfoImpl
+***********************************************************************/
+
+			PropertyInfoImpl::PropertyInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name, MethodInfoImpl* _getter, MethodInfoImpl* _setter, EventInfoImpl* _valueChangedEvent)
+				:ownerTypeDescriptor(_ownerTypeDescriptor)
+				,name(_name)
+				,getter(_getter)
+				,setter(_setter)
+				,valueChangedEvent(_valueChangedEvent)
+			{
+				if(getter) getter->ownerProperty=this;
+				if(setter) setter->ownerProperty=this;
+				if(valueChangedEvent)
+				{
+					valueChangedEvent->observingProperties.Add(this);
+				}
+			}
+
+			PropertyInfoImpl::~PropertyInfoImpl()
+			{
+			}
+
+			ITypeDescriptor* PropertyInfoImpl::GetOwnerTypeDescriptor()
+			{
+				return ownerTypeDescriptor;
+			}
+
+			const WString& PropertyInfoImpl::GetName()
+			{
+				return name;
+			}
+
+			bool PropertyInfoImpl::IsReadable()
+			{
+				return getter!=0;
+			}
+
+			bool PropertyInfoImpl::IsWritable()
+			{
+				return setter!=0;
+			}
+
+			ITypeInfo* PropertyInfoImpl::GetReturn()
+			{
+				return getter?getter->GetReturn():0;
+			}
+
+			IMethodInfo* PropertyInfoImpl::GetGetter()
+			{
+				return getter;
+			}
+
+			IMethodInfo* PropertyInfoImpl::GetSetter()
+			{
+				return setter;
+			}
+
+			IEventInfo* PropertyInfoImpl::GetValueChangedEvent()
+			{
+				return valueChangedEvent;
+			}
+
+			Value PropertyInfoImpl::GetValue(const Value& thisObject)
+			{
+				if(getter)
+				{
+					Array<Value> arguments;
+					return getter->Invoke(thisObject, arguments);
+				}
+				else
+				{
+					throw PropertyIsNotReadableException(this);
+				}
+			}
+
+			void PropertyInfoImpl::SetValue(Value& thisObject, const Value& newValue)
+			{
+				if(setter)
+				{
+					Array<Value> arguments(1);
+					arguments[0]=newValue;
+					setter->Invoke(thisObject, arguments);
+				}
+				else
+				{
+					throw PropertyIsNotWritableException(this);
+				}
+			}
+
+/***********************************************************************
+FieldInfoImpl
+***********************************************************************/
+
+			FieldInfoImpl::FieldInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name, Ptr<ITypeInfo> _returnInfo)
+				:ownerTypeDescriptor(_ownerTypeDescriptor)
+				,name(_name)
+				,returnInfo(_returnInfo)
+			{
+			}
+
+			FieldInfoImpl::~FieldInfoImpl()
+			{
+			}
+
+			ITypeDescriptor* FieldInfoImpl::GetOwnerTypeDescriptor()
+			{
+				return ownerTypeDescriptor;
+			}
+
+			const WString& FieldInfoImpl::GetName()
+			{
+				return name;
+			}
+
+			bool FieldInfoImpl::IsReadable()
+			{
+				return true;
+			}
+
+			bool FieldInfoImpl::IsWritable()
+			{
+				return true;
+			}
+
+			ITypeInfo* FieldInfoImpl::GetReturn()
+			{
+				return returnInfo.Obj();
+			}
+
+			IMethodInfo* FieldInfoImpl::GetGetter()
+			{
+				return 0;
+			}
+
+			IMethodInfo* FieldInfoImpl::GetSetter()
+			{
+				return 0;
+			}
+
+			IEventInfo* FieldInfoImpl::GetValueChangedEvent()
+			{
+				return 0;
+			}
+
+			Value FieldInfoImpl::GetValue(const Value& thisObject)
+			{
+				if(thisObject.IsNull())
+				{
+					throw ArgumentNullException(L"thisObject");
+				}
+				else if(!thisObject.CanConvertTo(ownerTypeDescriptor, Value::RawPtr))
+				{
+					throw ArgumentTypeMismtatchException(L"thisObject", ownerTypeDescriptor, Value::RawPtr, thisObject);
+				}
+				DescriptableObject* rawThisObject=thisObject.GetRawPtr();
+				if(rawThisObject)
+				{
+					return GetValueInternal(thisObject);
+				}
+				else
+				{
+					return Value();
+				}
+			}
+
+			void FieldInfoImpl::SetValue(Value& thisObject, const Value& newValue)
+			{
+				if(thisObject.IsNull())
+				{
+					throw ArgumentNullException(L"thisObject");
+				}
+				else if(!thisObject.CanConvertTo(ownerTypeDescriptor, Value::RawPtr))
+				{
+					throw ArgumentTypeMismtatchException(L"thisObject", ownerTypeDescriptor, Value::RawPtr, thisObject);
+				}
+				if(!newValue.CanConvertTo(returnInfo.Obj()))
+				{
+					throw ArgumentTypeMismtatchException(L"newValue", returnInfo.Obj(), newValue);
+				}
+				DescriptableObject* rawThisObject=thisObject.GetRawPtr();
+				if(rawThisObject)
+				{
+					SetValueInternal(thisObject, newValue);
+				}
+			}
+
+/***********************************************************************
+TypeDescriptorImpl
+***********************************************************************/
+
+			MethodGroupInfoImpl* TypeDescriptorImpl::PrepareMethodGroup(const WString& name)
+			{
+				vint index=methodGroups.Keys().IndexOf(name);
+				if(index==-1)
+				{
+					Ptr<MethodGroupInfoImpl> methodGroup=new MethodGroupInfoImpl(this, name);
+					methodGroups.Add(name, methodGroup);
+					return methodGroup.Obj();
+				}
+				else
+				{
+					return methodGroups.Values().Get(index).Obj();
+				}
+			}
+
+			MethodGroupInfoImpl* TypeDescriptorImpl::PrepareConstructorGroup()
+			{
+				if(!constructorGroup)
+				{
+					constructorGroup=new MethodGroupInfoImpl(this, L"");
+				}
+				return constructorGroup.Obj();
+			}
+
+			IPropertyInfo* TypeDescriptorImpl::AddProperty(Ptr<IPropertyInfo> value)
+			{
+				properties.Add(value->GetName(), value);
+				return value.Obj();
+			}
+
+			IEventInfo* TypeDescriptorImpl::AddEvent(Ptr<IEventInfo> value)
+			{
+				events.Add(value->GetName(), value);
+				return value.Obj();
+			}
+
+			IMethodInfo* TypeDescriptorImpl::AddMethod(const WString& name, Ptr<MethodInfoImpl> value)
+			{
+				MethodGroupInfoImpl* methodGroup=PrepareMethodGroup(name);
+				value->SetOwnerMethodgroup(methodGroup);
+				methodGroup->AddMethod(value);
+				return value.Obj();
+			}
+
+			IMethodInfo* TypeDescriptorImpl::AddConstructor(Ptr<MethodInfoImpl> value)
+			{
+				MethodGroupInfoImpl* methodGroup=PrepareConstructorGroup();
+				value->SetOwnerMethodgroup(methodGroup);
+				methodGroup->AddMethod(value);
+				return value.Obj();
+			}
+
+			void TypeDescriptorImpl::AddBaseType(ITypeDescriptor* value)
+			{
+				baseTypeDescriptors.Add(value);
+			}
+
+			void TypeDescriptorImpl::Load()
 			{
 				if(!loaded)
 				{
 					loaded=true;
-					loaderProcedure(this);
+					LoadInternal();
 				}
 			}
 
-			//----------------------------------------------------------
-
-			GeneralTypeDescriptor::PropertyGroup::MethodBuilder::MethodBuilder(PropertyGroup& _propertyGroup, const WString& _name)
-				:propertyGroup(_propertyGroup)
+			TypeDescriptorImpl::TypeDescriptorImpl(const WString& _typeName)
+				:typeName(_typeName)
+				,loaded(false)
 			{
-				vint index=propertyGroup.methodGroups.Keys().IndexOf(_name);
-				Ptr<MethodGroupInfoImpl> methodGroup;
-				if(index==-1)
+			}
+
+			TypeDescriptorImpl::~TypeDescriptorImpl()
+			{
+			}
+
+			const WString& TypeDescriptorImpl::GetTypeName()
+			{
+				return typeName;
+			}
+
+			IValueSerializer* TypeDescriptorImpl::GetValueSerializer()
+			{
+				Load();
+				return valueSerializer.Obj();
+			}
+
+			vint TypeDescriptorImpl::GetBaseTypeDescriptorCount()
+			{
+				Load();
+				return baseTypeDescriptors.Count();
+			}
+
+			ITypeDescriptor* TypeDescriptorImpl::GetBaseTypeDescriptor(vint index)
+			{
+				Load();
+				if(0<=index && index<baseTypeDescriptors.Count())
 				{
-					methodGroup=new MethodGroupInfoImpl(propertyGroup.ownerTypeDescriptor, _name);
-					buildingMethodGroup=methodGroup;
-					propertyGroup.methodGroups.Add(_name, buildingMethodGroup);
+					return baseTypeDescriptors[index];
 				}
 				else
 				{
-					buildingMethodGroup=propertyGroup.methodGroups.Values().Get(index);
-					methodGroup=buildingMethodGroup.Cast<MethodGroupInfoImpl>();
+					return 0;
 				}
-
-				Ptr<MethodInfoImpl> method=new MethodInfoImpl(buildingMethodGroup.Obj());
-				methodGroup->BuilderSetMethod(method);
-				buildingMethod=method;
 			}
 
-			GeneralTypeDescriptor::PropertyGroup::MethodBuilder& GeneralTypeDescriptor::PropertyGroup::MethodBuilder::Parameter(const WString& _name, ITypeDescriptor* _type, bool _nullable, bool _canOutput)
+			bool TypeDescriptorImpl::CanConvertTo(ITypeDescriptor* targetType)
 			{
-				dynamic_cast<MethodInfoImpl*>(buildingMethod.Obj())->BuilderSetParameter(_name, _type, _nullable, _canOutput);
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup::MethodBuilder& GeneralTypeDescriptor::PropertyGroup::MethodBuilder::Return(ITypeDescriptor* _type, bool _nullable)
-			{
-				dynamic_cast<MethodInfoImpl*>(buildingMethod.Obj())->BuilderSetReturn(_type, _nullable);
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup::MethodBuilder& GeneralTypeDescriptor::PropertyGroup::MethodBuilder::Invoker(const Func<Value(const Value&, collections::Array<Value>&)>& _invoker)
-			{
-				dynamic_cast<MethodInfoImpl*>(buildingMethod.Obj())->BuilderSetInvoker(_invoker);
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup& GeneralTypeDescriptor::PropertyGroup::MethodBuilder::Done()
-			{
-				return propertyGroup;
-			}
-
-			//----------------------------------------------------------
-
-			GeneralTypeDescriptor::PropertyGroup::EventBuilder::EventBuilder(PropertyGroup& _propertyGroup, const WString& _name)
-				:propertyGroup(_propertyGroup)
-			{
-				Ptr<EventInfoImpl> eventInfo=new EventInfoImpl(propertyGroup.ownerTypeDescriptor, _name);
-				buildingEvent=eventInfo;
-				propertyGroup.events.Add(_name, buildingEvent);
-			}
-
-			GeneralTypeDescriptor::PropertyGroup::EventBuilder& GeneralTypeDescriptor::PropertyGroup::EventBuilder::Attacher(const Func<void(DescriptableObject*, IEventHandler*)>& _attacher)
-			{
-				dynamic_cast<EventInfoImpl*>(buildingEvent.Obj())->BuilderSetAttacher(_attacher);
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup::EventBuilder& GeneralTypeDescriptor::PropertyGroup::EventBuilder::Detacher(const Func<void(DescriptableObject*, IEventHandler*)>& _detacher)
-			{
-				dynamic_cast<EventInfoImpl*>(buildingEvent.Obj())->BuilderSetDetacher(_detacher);
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup::EventBuilder& GeneralTypeDescriptor::PropertyGroup::EventBuilder::Invoker(const Func<Value(const Value&, Value&)>& _invoker)
-			{
-				dynamic_cast<EventInfoImpl*>(buildingEvent.Obj())->BuilderSetInvoker(_invoker);
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup& GeneralTypeDescriptor::PropertyGroup::EventBuilder::Done()
-			{
-				return propertyGroup;
-			}
-
-			//----------------------------------------------------------
-
-			GeneralTypeDescriptor::PropertyGroup& GeneralTypeDescriptor::PropertyGroup::TypeName(const WString& _typeName)
-			{
-				typeName=_typeName;
-				return *this;
-			}
-
-			GeneralTypeDescriptor::PropertyGroup& GeneralTypeDescriptor::PropertyGroup::Property(const WString& _name, ITypeDescriptor* _type, bool _nullable, const Func<Value(const Value&)>& _getter, const Func<void(const Value&, const Value&)>& _setter, const WString& _valueChangedEventName)
-			{
-				if(!properties.Keys().Contains(_name))
+				Load();
+				if(this==targetType) return true;
+				for(vint i=0;i<baseTypeDescriptors.Count();i++)
 				{
-					properties.Add(_name, new PropertyInfoImpl(ownerTypeDescriptor, _name, _type, _nullable, _getter, _setter, _valueChangedEventName));
-					return *this;
+					if(baseTypeDescriptors[i]->CanConvertTo(targetType)) return true;
+				}
+				return false;
+			}
+
+			vint TypeDescriptorImpl::GetPropertyCount()
+			{
+				Load();
+				return properties.Count();
+			}
+
+			IPropertyInfo* TypeDescriptorImpl::GetProperty(vint index)
+			{
+				Load();
+				if(0<=index && index<properties.Count())
+				{
+					return properties.Values().Get(index).Obj();
 				}
 				else
 				{
-					throw PropertyAlreadyExistsException(ownerTypeDescriptor, _name);
+					return 0;
 				}
 			}
 
-			GeneralTypeDescriptor::PropertyGroup::MethodBuilder GeneralTypeDescriptor::PropertyGroup::Method(const WString& _name)
+			bool TypeDescriptorImpl::IsPropertyExists(const WString& name, bool inheritable)
 			{
-				return MethodBuilder(*this, _name);
+				Load();
+				if(properties.Keys().Contains(name))
+				{
+					return true;
+				}
+				if(inheritable)
+				{
+					for(vint i=0;i<baseTypeDescriptors.Count();i++)
+					{
+						if(baseTypeDescriptors[i]->IsPropertyExists(name, true))
+						{
+							return true;
+						}
+					}
+				}
+				return false;
 			}
 
-			GeneralTypeDescriptor::PropertyGroup::EventBuilder GeneralTypeDescriptor::PropertyGroup::Event(const WString& _name)
+			IPropertyInfo* TypeDescriptorImpl::GetPropertyByName(const WString& name, bool inheritable)
 			{
-				if(!events.Keys().Contains(_name))
+				Load();
+				vint index=properties.Keys().IndexOf(name);
+				if(index!=-1)
 				{
-					return EventBuilder(*this, _name);
+					return properties.Values().Get(index).Obj();
+				}
+				if(inheritable)
+				{
+					for(vint i=0;i<baseTypeDescriptors.Count();i++)
+					{
+						IPropertyInfo* result=baseTypeDescriptors[i]->GetPropertyByName(name, true);
+						if(result)
+						{
+							return result;
+						}
+					}
+				}
+				return 0;
+			}
+
+			vint TypeDescriptorImpl::GetEventCount()
+			{
+				Load();
+				return events.Count();
+			}
+
+			IEventInfo* TypeDescriptorImpl::GetEvent(vint index)
+			{
+				Load();
+				if(0<=index && index<events.Count())
+				{
+					return events.Values().Get(index).Obj();
 				}
 				else
 				{
-					throw EventAlreadyExistsException(ownerTypeDescriptor, _name);
+					return 0;
 				}
+			}
+
+			bool TypeDescriptorImpl::IsEventExists(const WString& name, bool inheritable)
+			{
+				Load();
+				if(events.Keys().Contains(name))
+				{
+					return true;
+				}
+				if(inheritable)
+				{
+					for(vint i=0;i<baseTypeDescriptors.Count();i++)
+					{
+						if(baseTypeDescriptors[i]->IsEventExists(name, true))
+						{
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+
+			IEventInfo* TypeDescriptorImpl::GetEventByName(const WString& name, bool inheritable)
+			{
+				Load();
+				vint index=events.Keys().IndexOf(name);
+				if(index!=-1)
+				{
+					return events.Values().Get(index).Obj();
+				}
+				if(inheritable)
+				{
+					for(vint i=0;i<baseTypeDescriptors.Count();i++)
+					{
+						IEventInfo* result=baseTypeDescriptors[i]->GetEventByName(name, true);
+						if(result)
+						{
+							return result;
+						}
+					}
+				}
+				return 0;
+			}
+
+			vint TypeDescriptorImpl::GetMethodGroupCount()
+			{
+				Load();
+				return methodGroups.Count();
+			}
+
+			IMethodGroupInfo* TypeDescriptorImpl::GetMethodGroup(vint index)
+			{
+				Load();
+				if(0<=index && index<methodGroups.Count())
+				{
+					return methodGroups.Values().Get(index).Obj();
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			bool TypeDescriptorImpl::IsMethodGroupExists(const WString& name, bool inheritable)
+			{
+				Load();
+				if(methodGroups.Keys().Contains(name))
+				{
+					return true;
+				}
+				if(inheritable)
+				{
+					for(vint i=0;i<baseTypeDescriptors.Count();i++)
+					{
+						if(baseTypeDescriptors[i]->IsMethodGroupExists(name, true))
+						{
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+
+			IMethodGroupInfo* TypeDescriptorImpl::GetMethodGroupByName(const WString& name, bool inheritable)
+			{
+				Load();
+				vint index=methodGroups.Keys().IndexOf(name);
+				if(index!=-1)
+				{
+					return methodGroups.Values().Get(index).Obj();
+				}
+				if(inheritable)
+				{
+					for(vint i=0;i<baseTypeDescriptors.Count();i++)
+					{
+						IMethodGroupInfo* result=baseTypeDescriptors[i]->GetMethodGroupByName(name, true);
+						if(result)
+						{
+							return result;
+						}
+					}
+				}
+				return 0;
+			}
+
+			IMethodGroupInfo* TypeDescriptorImpl::GetConstructorGroup()
+			{
+				Load();
+				return constructorGroup.Obj();
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Reflection\GuiTypeDescriptorPredefined.cpp
+***********************************************************************/
+#include <limits.h>
+#include <float.h>
+
+namespace vl
+{
+	using namespace collections;
+
+	namespace reflection
+	{
+		namespace description
+		{
+
+/***********************************************************************
+SerializableTypeDescriptorBase
+***********************************************************************/
+
+			SerializableTypeDescriptorBase::SerializableTypeDescriptorBase(const WString& _typeName, Ptr<IValueSerializer> _serializer)
+				:typeName(_typeName)
+				,serializer(_serializer)
+			{
+			}
+
+			SerializableTypeDescriptorBase::~SerializableTypeDescriptorBase()
+			{
+			}
+
+			const WString& SerializableTypeDescriptorBase::GetTypeName()
+			{
+				return typeName;
+			}
+
+			IValueSerializer* SerializableTypeDescriptorBase::GetValueSerializer()
+			{
+				return serializer.Obj();
+			}
+
+			vint SerializableTypeDescriptorBase::GetBaseTypeDescriptorCount()
+			{
+				return 0;
+			}
+
+			ITypeDescriptor* SerializableTypeDescriptorBase::GetBaseTypeDescriptor(vint index)
+			{
+				return 0;
+			}
+
+			bool SerializableTypeDescriptorBase::CanConvertTo(ITypeDescriptor* targetType)
+			{
+				return this==targetType;
+			}
+
+			vint SerializableTypeDescriptorBase::GetPropertyCount()
+			{
+				return 0;
+			}
+
+			IPropertyInfo* SerializableTypeDescriptorBase::GetProperty(vint index)
+			{
+				return 0;
+			}
+
+			bool SerializableTypeDescriptorBase::IsPropertyExists(const WString& name, bool inheritable)
+			{
+				return false;
+			}
+
+			IPropertyInfo* SerializableTypeDescriptorBase::GetPropertyByName(const WString& name, bool inheritable)
+			{
+				return 0;
+			}
+
+			vint SerializableTypeDescriptorBase::GetEventCount()
+			{
+				return 0;
+			}
+
+			IEventInfo* SerializableTypeDescriptorBase::GetEvent(vint index)
+			{
+				return 0;
+			}
+
+			bool SerializableTypeDescriptorBase::IsEventExists(const WString& name, bool inheritable)
+			{
+				return false;
+			}
+
+			IEventInfo* SerializableTypeDescriptorBase::GetEventByName(const WString& name, bool inheritable)
+			{
+				return 0;
+			}
+
+			vint SerializableTypeDescriptorBase::GetMethodGroupCount()
+			{
+				return 0;
+			}
+
+			IMethodGroupInfo* SerializableTypeDescriptorBase::GetMethodGroup(vint index)
+			{
+				return 0;
+			}
+
+			bool SerializableTypeDescriptorBase::IsMethodGroupExists(const WString& name, bool inheritable)
+			{
+				return false;
+			}
+
+			IMethodGroupInfo* SerializableTypeDescriptorBase::GetMethodGroupByName(const WString& name, bool inheritable)
+			{
+				return 0;
+			}
+
+			IMethodGroupInfo* SerializableTypeDescriptorBase::GetConstructorGroup()
+			{
+				return 0;
 			}
 
 /***********************************************************************
-description::GeneralTypeDescriptor
+TypeName
+***********************************************************************/
+			
+			const wchar_t* TypeInfo<void>::TypeName						= L"system::Void";
+			const wchar_t* TypeInfo<VoidValue>::TypeName				= L"system::Void";
+			const wchar_t* TypeInfo<IDescriptable>::TypeName			= L"system::Interface";
+			const wchar_t* TypeInfo<Value>::TypeName					= L"system::Object";
+			const wchar_t* TypeInfo<unsigned __int8>::TypeName			= L"system::UInt8";
+			const wchar_t* TypeInfo<unsigned __int16>::TypeName			= L"system::UInt16";
+			const wchar_t* TypeInfo<unsigned __int32>::TypeName			= L"system::UInt32";
+			const wchar_t* TypeInfo<unsigned __int64>::TypeName			= L"system::UInt64";
+			const wchar_t* TypeInfo<signed __int8>::TypeName			= L"system::Int8";
+			const wchar_t* TypeInfo<signed __int16>::TypeName			= L"system::Int16";
+			const wchar_t* TypeInfo<signed __int32>::TypeName			= L"system::Int32";
+			const wchar_t* TypeInfo<signed __int64>::TypeName			= L"system::Int64";
+			const wchar_t* TypeInfo<float>::TypeName					= L"system::Single";
+			const wchar_t* TypeInfo<double>::TypeName					= L"system::Double";
+			const wchar_t* TypeInfo<bool>::TypeName						= L"system::Boolean";
+			const wchar_t* TypeInfo<wchar_t>::TypeName					= L"system::Char";
+			const wchar_t* TypeInfo<WString>::TypeName					= L"system::String";
+			const wchar_t* TypeInfo<IValueReadonlyList>::TypeName		= L"system::ReadableList";
+			const wchar_t* TypeInfo<IValueList>::TypeName				= L"system::List";
+			const wchar_t* TypeInfo<IValueInterfaceProxy>::TypeName		= L"system::InterfaceProxy";
+			const wchar_t* TypeInfo<IValueFunctionProxy>::TypeName		= L"system::Function";
+
+/***********************************************************************
+TypedValueSerializerProvider
 ***********************************************************************/
 
-			GeneralTypeDescriptor::GeneralTypeDescriptor(const Func<void(PropertyGroup*)>& loaderProcedure)
+			bool TypedValueSerializerProvider<unsigned __int8>::Serialize(const unsigned __int8& input, WString& output)
 			{
-				propertyGroup.loaderProcedure=loaderProcedure;
-				propertyGroup.ownerTypeDescriptor=this;
+				output=u64tow(input);
+				return true;
 			}
 
-			GeneralTypeDescriptor::~GeneralTypeDescriptor()
+			bool TypedValueSerializerProvider<unsigned __int8>::Deserialize(const WString& input, unsigned __int8& output)
 			{
+				bool success=false;
+				unsigned __int64 result=wtou64_test(input, success);
+				if(!success) return false;
+				if(result>_UI8_MAX) return false;
+				output=(unsigned __int8)result;
+				return true;
 			}
 
-			GeneralTypeDescriptor::PropertyGroup& GeneralTypeDescriptor::Operations()
+			bool TypedValueSerializerProvider<unsigned __int16>::Serialize(const unsigned __int16& input, WString& output)
 			{
-				return propertyGroup;
+				output=u64tow(input);
+				return true;
 			}
 
-			const WString& GeneralTypeDescriptor::GetTypeName()
+			bool TypedValueSerializerProvider<unsigned __int16>::Deserialize(const WString& input, unsigned __int16& output)
 			{
-				propertyGroup.Prepare();
-				return propertyGroup.typeName;
+				bool success=false;
+				unsigned __int64 result=wtou64_test(input, success);
+				if(!success) return false;
+				if(result>_UI16_MAX) return false;
+				output=(unsigned __int16)result;
+				return true;
 			}
 
-			IValueSerializer* GeneralTypeDescriptor::GetValueSerializer()
+			bool TypedValueSerializerProvider<unsigned __int32>::Serialize(const unsigned __int32& input, WString& output)
 			{
-				propertyGroup.Prepare();
-				return propertyGroup.valueSerializer;
+				output=u64tow(input);
+				return true;
 			}
 
-			vint GeneralTypeDescriptor::GetBaseTypeDescriptorCount()
+			bool TypedValueSerializerProvider<unsigned __int32>::Deserialize(const WString& input, unsigned __int32& output)
 			{
-				propertyGroup.Prepare();
-				return propertyGroup.baseTypeDescriptors.Count();
+				bool success=false;
+				unsigned __int64 result=wtou64_test(input, success);
+				if(!success) return false;
+				if(result>_UI32_MAX) return false;
+				output=(unsigned __int32)result;
+				return true;
 			}
 
-			ITypeDescriptor* GeneralTypeDescriptor::GetBaseTypeDescriptor(vint index)
+			bool TypedValueSerializerProvider<unsigned __int64>::Serialize(const unsigned __int64& input, WString& output)
 			{
-				propertyGroup.Prepare();
-				if(0<=index && index<propertyGroup.baseTypeDescriptors.Count())
+				output=u64tow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<unsigned __int64>::Deserialize(const WString& input, unsigned __int64& output)
+			{
+				bool success=false;
+				unsigned __int64 result=wtou64_test(input, success);
+				if(!success) return false;
+				output=result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int8>::Serialize(const signed __int8& input, WString& output)
+			{
+				output=i64tow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int8>::Deserialize(const WString& input, signed __int8& output)
+			{
+				bool success=false;
+				signed __int64 result=wtoi64_test(input, success);
+				if(!success) return false;
+				if(result<_I8_MIN || result>_I8_MAX) return false;
+				output=(signed __int8)result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int16>::Serialize(const signed __int16& input, WString& output)
+			{
+				output=i64tow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int16>::Deserialize(const WString& input, signed __int16& output)
+			{
+				bool success=false;
+				signed __int64 result=wtoi64_test(input, success);
+				if(!success) return false;
+				if(result<_I16_MIN || result>_I16_MAX) return false;
+				output=(signed __int16)result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int32>::Serialize(const signed __int32& input, WString& output)
+			{
+				output=i64tow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int32>::Deserialize(const WString& input, signed __int32& output)
+			{
+				bool success=false;
+				signed __int64 result=wtoi64_test(input, success);
+				if(!success) return false;
+				if(result<_I32_MIN || result>_I32_MAX) return false;
+				output=(signed __int32)result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int64>::Serialize(const signed __int64& input, WString& output)
+			{
+				output=i64tow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<signed __int64>::Deserialize(const WString& input, signed __int64& output)
+			{
+				bool success=false;
+				signed __int64 result=wtoi64_test(input, success);
+				if(!success) return false;
+				output=result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<float>::Serialize(const float& input, WString& output)
+			{
+				output=ftow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<float>::Deserialize(const WString& input, float& output)
+			{
+				bool success=false;
+				double result=wtof_test(input, success);
+				if(!success) return false;
+				if(result<-FLT_MAX  || result>FLT_MAX) return false;
+				output=(float)result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<double>::Serialize(const double& input, WString& output)
+			{
+				output=ftow(input);
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<double>::Deserialize(const WString& input, double& output)
+			{
+				bool success=false;
+				double result=wtof_test(input, success);
+				if(!success) return false;
+				output=result;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<wchar_t>::Serialize(const wchar_t& input, WString& output)
+			{
+				output=input;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<wchar_t>::Deserialize(const WString& input, wchar_t& output)
+			{
+				if(input.Length()>1) return false;
+				output=input.Length()==0?0:input[0];
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<WString>::Serialize(const WString& input, WString& output)
+			{
+				output=input;
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<WString>::Deserialize(const WString& input, WString& output)
+			{
+				output=input;
+				return true;
+			}
+
+/***********************************************************************
+ObjectTypeDescriptor
+***********************************************************************/
+
+			class ObjectTypeDescriptor : public SerializableTypeDescriptorBase
+			{
+			public:
+				ObjectTypeDescriptor()
+					:SerializableTypeDescriptorBase(TypeInfo<Value>::TypeName, 0)
 				{
-					return propertyGroup.baseTypeDescriptors[index];
 				}
-				else
-				{
-					return 0;
-				}
-			}
+			};
 
-			vint GeneralTypeDescriptor::GetPropertyCount()
-			{
-				propertyGroup.Prepare();
-				return propertyGroup.properties.Count();
-			}
+/***********************************************************************
+BoolValueSerializer
+***********************************************************************/
 
-			IPropertyInfo* GeneralTypeDescriptor::GetProperty(vint index)
+			class BoolValueSeriaizer : public EnumValueSeriaizer<bool, false>
 			{
-				propertyGroup.Prepare();
-				if(0<=index && index<propertyGroup.properties.Count())
+			public:
+				BoolValueSeriaizer(ITypeDescriptor* _ownerTypeDescriptor)
+					:EnumValueSeriaizer(_ownerTypeDescriptor)
 				{
-					return propertyGroup.properties.Values().Get(index).Obj();
+					candidates.Add(L"true", true);
+					candidates.Add(L"false", false);
 				}
-				else
-				{
-					return 0;
-				}
-			}
+			};
 
-			bool GeneralTypeDescriptor::IsPropertyExists(const WString& name, bool inheritable)
+/***********************************************************************
+Collections
+***********************************************************************/
+
+#define _ ,
+
+			BEGIN_STRUCT_MEMBER(VoidValue)
+			END_STRUCT_MEMBER(VoidValue)
+
+			BEGIN_CLASS_MEMBER(IDescriptable)
+			END_CLASS_MEMBER(IDescriptable)
+
+			BEGIN_CLASS_MEMBER(IValueReadonlyList)
+				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_METHOD(Count, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(Get, {L"index"})
+				CLASS_MEMBER_METHOD(Contains, {L"value"})
+				CLASS_MEMBER_METHOD(IndexOf, {L"value"})
+			END_CLASS_MEMBER(IValueReadonlyList)
+
+			BEGIN_CLASS_MEMBER(IValueList)
+				CLASS_MEMBER_BASE(IValueReadonlyList)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueList>(), NO_PARAMETER, (Ptr<IValueList>(*)())&IValueList::Create)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueList>(Ptr<IValueReadonlyList>), {L"values"}, (Ptr<IValueList>(*)(Ptr<IValueReadonlyList>))&IValueList::Create)
+
+				CLASS_MEMBER_METHOD(Set, {L"index" _ L"value"})
+				CLASS_MEMBER_METHOD(Add, {L"value"})
+				CLASS_MEMBER_METHOD(Insert, {L"index" _ L"value"})
+				CLASS_MEMBER_METHOD(Remove, {L"value"})
+				CLASS_MEMBER_METHOD(RemoveAt, {L"index"})
+				CLASS_MEMBER_METHOD(Clear, NO_PARAMETER)
+			END_CLASS_MEMBER(IValueList)
+
+			BEGIN_CLASS_MEMBER(IValueInterfaceProxy)
+				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_METHOD(Invoke, {L"name" _ L"arguments"})
+			END_CLASS_MEMBER(IValueInterfaceProxy)
+
+			BEGIN_CLASS_MEMBER(IValueFunctionProxy)
+				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_METHOD(Invoke, {L"arguments"})
+			END_CLASS_MEMBER(IValueFunctionProxy)
+
+#undef _
+
+/***********************************************************************
+LoadPredefinedTypes
+***********************************************************************/
+
+			class PredefinedTypeLoader : public Object, public ITypeLoader
 			{
-				propertyGroup.Prepare();
-				if(propertyGroup.properties.Keys().Contains(name))
+			public:
+				template<typename TSerializer>
+				void AddSerializableType(ITypeManager* manager)
 				{
-					return true;
+					manager->SetTypeDescriptor(TypeInfo<TSerializer::ValueType>::TypeName, new SerializableTypeDescriptor<TSerializer>);
 				}
-				if(inheritable)
+
+				void Load(ITypeManager* manager)override
 				{
-					for(vint i=0;i<propertyGroup.baseTypeDescriptors.Count();i++)
-					{
-						if(propertyGroup.baseTypeDescriptors[i]->IsPropertyExists(name, true))
-						{
-							return true;
-						}
-					}
+					manager->SetTypeDescriptor(TypeInfo<Value>::TypeName, new ObjectTypeDescriptor);
+					AddSerializableType<TypedValueSerializer<unsigned __int8>>(manager);
+					AddSerializableType<TypedValueSerializer<unsigned __int16>>(manager);
+					AddSerializableType<TypedValueSerializer<unsigned __int32>>(manager);
+					AddSerializableType<TypedValueSerializer<unsigned __int64>>(manager);
+					AddSerializableType<TypedValueSerializer<signed __int8>>(manager);
+					AddSerializableType<TypedValueSerializer<signed __int16>>(manager);
+					AddSerializableType<TypedValueSerializer<signed __int32>>(manager);
+					AddSerializableType<TypedValueSerializer<signed __int64>>(manager);
+					AddSerializableType<TypedValueSerializer<float>>(manager);
+					AddSerializableType<TypedValueSerializer<double>>(manager);
+					AddSerializableType<BoolValueSeriaizer>(manager);
+					AddSerializableType<TypedValueSerializer<wchar_t>>(manager);
+					AddSerializableType<TypedValueSerializer<WString>>(manager);
+					ADD_TYPE_INFO(VoidValue)
+					ADD_TYPE_INFO(IDescriptable)
+					ADD_TYPE_INFO(IValueReadonlyList)
+					ADD_TYPE_INFO(IValueList)
+					ADD_TYPE_INFO(IValueInterfaceProxy)
+					ADD_TYPE_INFO(IValueFunctionProxy)
+				}
+
+				void Unload(ITypeManager* manager)override
+				{
+				}
+			};
+
+			bool LoadPredefinedTypes()
+			{
+				ITypeManager* manager=GetGlobalTypeManager();
+				if(manager)
+				{
+					Ptr<ITypeLoader> loader=new PredefinedTypeLoader;
+					return manager->AddTypeLoader(loader);
 				}
 				return false;
-			}
-
-			IPropertyInfo* GeneralTypeDescriptor::GetPropertyByName(const WString& name, bool inheritable)
-			{
-				propertyGroup.Prepare();
-				vint index=propertyGroup.properties.Keys().IndexOf(name);
-				if(index!=-1)
-				{
-					return propertyGroup.properties.Values().Get(index).Obj();
-				}
-				if(inheritable)
-				{
-					for(vint i=0;i<propertyGroup.baseTypeDescriptors.Count();i++)
-					{
-						IPropertyInfo* result=propertyGroup.baseTypeDescriptors[i]->GetPropertyByName(name, true);
-						if(result)
-						{
-							return result;
-						}
-					}
-				}
-				return 0;
-			}
-
-			vint GeneralTypeDescriptor::GetEventCount()
-			{
-				propertyGroup.Prepare();
-				return propertyGroup.events.Count();
-			}
-
-			IEventInfo* GeneralTypeDescriptor::GetEvent(vint index)
-			{
-				propertyGroup.Prepare();
-				if(0<=index && index<propertyGroup.events.Count())
-				{
-					return propertyGroup.events.Values().Get(index).Obj();
-				}
-				else
-				{
-					return 0;
-				}
-			}
-
-			bool GeneralTypeDescriptor::IsEventExists(const WString& name, bool inheritable)
-			{
-				propertyGroup.Prepare();
-				if(propertyGroup.events.Keys().Contains(name))
-				{
-					return true;
-				}
-				if(inheritable)
-				{
-					for(vint i=0;i<propertyGroup.baseTypeDescriptors.Count();i++)
-					{
-						if(propertyGroup.baseTypeDescriptors[i]->IsEventExists(name, true))
-						{
-							return true;
-						}
-					}
-				}
-				return false;
-			}
-
-			IEventInfo* GeneralTypeDescriptor::GetEventByName(const WString& name, bool inheritable)
-			{
-				propertyGroup.Prepare();
-				vint index=propertyGroup.events.Keys().IndexOf(name);
-				if(index!=-1)
-				{
-					return propertyGroup.events.Values().Get(index).Obj();
-				}
-				if(inheritable)
-				{
-					for(vint i=0;i<propertyGroup.baseTypeDescriptors.Count();i++)
-					{
-						IEventInfo* result=propertyGroup.baseTypeDescriptors[i]->GetEventByName(name, true);
-						if(result)
-						{
-							return result;
-						}
-					}
-				}
-				return 0;
-			}
-
-			vint GeneralTypeDescriptor::GetMethodGroupCount()
-			{
-				propertyGroup.Prepare();
-				return propertyGroup.methodGroups.Count();
-			}
-
-			IMethodGroupInfo* GeneralTypeDescriptor::GetMethodGroup(vint index)
-			{
-				propertyGroup.Prepare();
-				if(0<=index && index<propertyGroup.methodGroups.Count())
-				{
-					return propertyGroup.methodGroups.Values().Get(index).Obj();
-				}
-				else
-				{
-					return 0;
-				}
-			}
-
-			bool GeneralTypeDescriptor::IsMethodGroupExists(const WString& name, bool inheritable)
-			{
-				propertyGroup.Prepare();
-				if(propertyGroup.methodGroups.Keys().Contains(name))
-				{
-					return true;
-				}
-				if(inheritable)
-				{
-					for(vint i=0;i<propertyGroup.baseTypeDescriptors.Count();i++)
-					{
-						if(propertyGroup.baseTypeDescriptors[i]->IsMethodGroupExists(name, true))
-						{
-							return true;
-						}
-					}
-				}
-				return false;
-			}
-
-			IMethodGroupInfo* GeneralTypeDescriptor::GetMethodGroupByName(const WString& name, bool inheritable)
-			{
-				propertyGroup.Prepare();
-				vint index=propertyGroup.methodGroups.Keys().IndexOf(name);
-				if(index!=-1)
-				{
-					return propertyGroup.methodGroups.Values().Get(index).Obj();
-				}
-				if(inheritable)
-				{
-					for(vint i=0;i<propertyGroup.baseTypeDescriptors.Count();i++)
-					{
-						IMethodGroupInfo* result=propertyGroup.baseTypeDescriptors[i]->GetMethodGroupByName(name, true);
-						if(result)
-						{
-							return result;
-						}
-					}
-				}
-				return 0;
-			}
-
-			IMethodGroupInfo* GeneralTypeDescriptor::GetConstructorGroup()
-			{
-				propertyGroup.Prepare();
-				return propertyGroup.contructorGroup.Obj();
 			}
 		}
 	}
@@ -18153,64 +19283,144 @@ String.cpp
 
 namespace vl
 {
-	vint atoi(const AString& string)
+	vint atoi_test(const AString& string, bool& success)
 	{
 		char* endptr=0;
-		return strtol(string.Buffer(), &endptr, 10);
+		vint result=strtol(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	vint wtoi_test(const WString& string, bool& success)
+	{
+		wchar_t* endptr=0;
+		vint result=wcstol(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	__int64 atoi64_test(const AString& string, bool& success)
+	{
+		char* endptr=0;
+		__int64 result=_strtoi64(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	__int64 wtoi64_test(const WString& string, bool& success)
+	{
+		wchar_t* endptr=0;
+		__int64 result=_wcstoi64(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	vuint atou_test(const AString& string, bool& success)
+	{
+		char* endptr=0;
+		vuint result=strtoul(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	vuint wtou_test(const WString& string, bool& success)
+	{
+		wchar_t* endptr=0;
+		vuint result=wcstoul(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	unsigned __int64 atou64_test(const AString& string, bool& success)
+	{
+		char* endptr=0;
+		unsigned __int64 result=_strtoui64(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	unsigned __int64 wtou64_test(const WString& string, bool& success)
+	{
+		wchar_t* endptr=0;
+		unsigned __int64 result=_wcstoui64(string.Buffer(), &endptr, 10);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	double atof_test(const AString& string, bool& success)
+	{
+		char* endptr=0;
+		double result=strtod(string.Buffer(), &endptr);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	double wtof_test(const WString& string, bool& success)
+	{
+		wchar_t* endptr=0;
+		double result=wcstod(string.Buffer(), &endptr);
+		success=endptr==string.Buffer()+string.Length();
+		return result;
+	}
+
+	vint atoi(const AString& string)
+	{
+		bool success=false;
+		return atoi_test(string, success);
 	}
 
 	vint wtoi(const WString& string)
 	{
-		wchar_t* endptr=0;
-		return wcstol(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return wtoi_test(string, success);
 	}
 
 	__int64 atoi64(const AString& string)
 	{
-		char* endptr=0;
-		return _strtoi64(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return atoi64_test(string, success);
 	}
 
 	__int64 wtoi64(const WString& string)
 	{
-		wchar_t* endptr=0;
-		return _wcstoi64(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return wtoi64_test(string, success);
 	}
 
 	vuint atou(const AString& string)
 	{
-		char* endptr=0;
-		return strtoul(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return atou_test(string, success);
 	}
 
 	vuint wtou(const WString& string)
 	{
-		wchar_t* endptr=0;
-		return wcstoul(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return wtou_test(string, success);
 	}
 
 	unsigned __int64 atou64(const AString& string)
 	{
-		char* endptr=0;
-		return _strtoui64(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return atou64_test(string, success);
 	}
 
 	unsigned __int64 wtou64(const WString& string)
 	{
-		wchar_t* endptr=0;
-		return _wcstoui64(string.Buffer(), &endptr, 10);
+		bool success=false;
+		return wtou64_test(string, success);
 	}
 
 	double atof(const AString& string)
 	{
-		char* endptr=0;
-		return strtod(string.Buffer(), &endptr);
+		bool success=false;
+		return atof_test(string, success);
 	}
 
 	double wtof(const WString& string)
 	{
-		wchar_t* endptr=0;
-		return wcstod(string.Buffer(), &endptr);
+		bool success=false;
+		return wtof_test(string, success);
 	}
 
 	AString itoa(vint number)

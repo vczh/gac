@@ -1,4 +1,5 @@
 #include "..\..\Public\Source\GacUI.h"
+#include <Windows.h>
 
 using namespace vl::stream;
 using namespace vl::regex;

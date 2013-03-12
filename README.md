@@ -1,4 +1,4 @@
-# Gaclib 0.4.3.0
+# Gaclib 0.5.0.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -17,10 +17,7 @@ Here is a simple description to the code
 Improvements to the previous release
 * Added 1 new demo
 
-    * **Controls.Tooltip.RichTextAndResource** that shows how to load a rich text document and related images from resource files and show it in tooltips of buttons.
+    * **Persistant.DirectCode.SimpleWindow** that shows how to create a simple application totally using reflection, that is, without touching any types (symbols) of GacUI library.
 * Added new features
 
-    * **Delay Executation**
-    * **Resource xml format** that can bring images, texts, xmls and rich texts into a resource package
-    * **Rich text xml format** with hyperlink, style and template
-    * **Tooltip control**
+    * **Reflection** that can enumerate, create and execute types, methods, properties and events, with supporting to collection types.

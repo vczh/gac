@@ -1,4 +1,4 @@
-#include "..\..\Public\Source\GacUIIncludes.h"
+#include "..\..\Public\Source\GacUI.h"
 #include <Windows.h>
 
 // for SortedList, CopyFrom and Select
@@ -20,7 +20,7 @@ private:
 	void buttonAdd_Clicked(GuiGraphicsComposition* sender, GuiEventArgs& arguments)
 	{
 		// add the specified name at the end of the list box
-		listBox->GetItems().Add(textBox->GetText());
+		listBox->GetItems().Add(new list::TextItem(textBox->GetText()));
 		textBox->SelectAll();
 		textBox->SetFocus();
 	}

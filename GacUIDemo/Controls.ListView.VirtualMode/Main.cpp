@@ -291,12 +291,12 @@ public:
 			cell->SetSite(0, 0, 1, 1);
 
 			GuiTextList* comboSource=g::NewTextList();
-			comboSource->GetItems().Add(L"Big Icon");
-			comboSource->GetItems().Add(L"Small Icon");
-			comboSource->GetItems().Add(L"List");
-			comboSource->GetItems().Add(L"Detail");
-			comboSource->GetItems().Add(L"Tile");
-			comboSource->GetItems().Add(L"Information");
+			comboSource->GetItems().Add(new list::TextItem(L"Big Icon"));
+			comboSource->GetItems().Add(new list::TextItem(L"Small Icon"));
+			comboSource->GetItems().Add(new list::TextItem(L"List"));
+			comboSource->GetItems().Add(new list::TextItem(L"Detail"));
+			comboSource->GetItems().Add(new list::TextItem(L"Tile"));
+			comboSource->GetItems().Add(new list::TextItem(L"Information"));
 			comboSource->SetHorizontalAlwaysVisible(false);
 
 			comboView=g::NewComboBox(comboSource);

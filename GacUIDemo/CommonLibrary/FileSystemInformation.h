@@ -1,7 +1,8 @@
 #ifndef GACUI_DEMO_FILE_SYSTEM_INFORMATION
 #define GACUI_DEMO_FILE_SYSTEM_INFORMATION
 
-#include "..\..\Public\Source\GacUI.h"
+#include "..\..\Public\Source\GacUIWindows.h"
+#include <Windows.h>
 #include <ShlObj.h>
 
 using namespace vl;

@@ -80,11 +80,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Public\Source\GacUI.h" />
-    <ClInclude Include="..\..\Public\Source\GacUIIncludes.h" />
-    <ClInclude Include="..\..\Public\Source\Vlpp.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
