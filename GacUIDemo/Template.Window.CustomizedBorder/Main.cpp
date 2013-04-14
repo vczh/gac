@@ -8,6 +8,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	return SetupWindowsDirect2DRenderer();
 }
 
+const int								SystemIconSize = 24;
+
 /***********************************************************************
 CustomTemplateWindowButtonStyle
 ***********************************************************************/
@@ -21,7 +23,7 @@ public:
 	{
 		boundsComposition=new GuiBoundsComposition;
 		boundsComposition->SetAssociatedHitTestResult(INativeWindowListener::Client);
-		boundsComposition->SetPreferredMinSize(Size(16, 16));
+		boundsComposition->SetPreferredMinSize(Size(SystemIconSize, SystemIconSize));
 
 		GuiSolidBorderElement* borderElement=GuiSolidBorderElement::Create();
 		borderElement->SetColor(borderColor);
@@ -70,10 +72,11 @@ CustomTemplateWindowStyle
 class CustomTemplateWindowStyle : public GuiWindow::IStyleController
 {
 protected:
+
 	GuiWindow*							window;
 	GuiTableComposition*				boundsComposition;
 	GuiBoundsComposition*				iconComposition;
-	GuiSolidBorderElement*				iconElement;
+	GuiImageFrameElement*				iconElement;
 	GuiBoundsComposition*				titleComposition;
 	GuiSolidLabelElement*				titleElement;
 	GuiBoundsComposition*				containerComposition;
@@ -101,7 +104,7 @@ protected:
 
 		GuiBoundsComposition* composition=new GuiBoundsComposition;
 		composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
-		composition->SetPreferredMinSize(Size(16, 16));
+		composition->SetPreferredMinSize(Size(SystemIconSize, SystemIconSize));
 		composition->SetAssociatedHitTestResult(hitTestResult);
 		cell->AddChild(composition);
 
@@ -186,8 +189,10 @@ public:
 				iconComposition=AddTitleCell(1, INativeWindowListener::Icon, titleBackgroundColor);
 				iconComposition->SetAlignmentToParent(Margin(3, 3, 3, 3));
 
-				iconElement=GuiSolidBorderElement::Create();
-				iconElement->SetColor(titleColor);
+				Ptr<INativeImage> icon=GetCurrentController()->ImageService()->CreateImageFromFile(GetApplication()->GetExecutableFolder()+L"..\\Resources\\BigDoc.png");
+				iconElement=GuiImageFrameElement::Create();
+				iconElement->SetImage(icon, 0);
+				iconElement->SetStretch(true);
 				iconComposition->SetOwnedElement(iconElement);
 			}
 			{

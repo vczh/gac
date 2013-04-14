@@ -1051,6 +1051,8 @@ namespace vl
 		class IEnumerator : public virtual Interface
 		{
 		public:
+			typedef T									ElementType;
+
 			virtual IEnumerator<T>*						Clone()const=0;
 			virtual const T&							Current()const=0;
 			virtual vint								Index()const=0;
@@ -1702,6 +1704,7 @@ namespace vl
 		>
 		class Dictionary : public Object, public virtual IEnumerable<Pair<KT, VT>>
 		{
+		public:
 			typedef SortedList<KT, KK>			KeyContainer;
 			typedef List<VT, VK>				ValueContainer;
 		protected:
@@ -1799,9 +1802,9 @@ namespace vl
 				return values.Get(keys.IndexOf(key));
 			}
 
-			bool Set(const KK& key, const VT& value)
+			bool Set(const KT& key, const VT& value)
 			{
-				vint index=keys.IndexOf(key);
+				vint index=keys.IndexOf(KeyType<KT>::GetKeyValue(key));
 				if(index==-1)
 				{
 					index=keys.Add(key);
@@ -3383,9 +3386,9 @@ namespace vl
 			class IVisitor : public Interface
 			{
 			public:
-				virtual void			Visit(ParsingTreeToken* node)=0;
-				virtual void			Visit(ParsingTreeObject* node)=0;
-				virtual void			Visit(ParsingTreeArray* node)=0;
+				virtual void					Visit(ParsingTreeToken* node)=0;
+				virtual void					Visit(ParsingTreeObject* node)=0;
+				virtual void					Visit(ParsingTreeArray* node)=0;
 			};
 
 			class TraversalVisitor : public Object, public IVisitor
@@ -3397,68 +3400,70 @@ namespace vl
 					ByStorePosition
 				};
 			protected:
-				TraverseDirection		direction;
+				TraverseDirection				direction;
 			public:
 				TraversalVisitor(TraverseDirection _direction);
 
-				virtual void			BeforeVisit(ParsingTreeToken* node);
-				virtual void			AfterVisit(ParsingTreeToken* node);
-				virtual void			BeforeVisit(ParsingTreeObject* node);
-				virtual void			AfterVisit(ParsingTreeObject* node);
-				virtual void			BeforeVisit(ParsingTreeArray* node);
-				virtual void			AfterVisit(ParsingTreeArray* node);
+				virtual void					BeforeVisit(ParsingTreeToken* node);
+				virtual void					AfterVisit(ParsingTreeToken* node);
+				virtual void					BeforeVisit(ParsingTreeObject* node);
+				virtual void					AfterVisit(ParsingTreeObject* node);
+				virtual void					BeforeVisit(ParsingTreeArray* node);
+				virtual void					AfterVisit(ParsingTreeArray* node);
 
-				virtual void			Visit(ParsingTreeToken* node)override;
-				virtual void			Visit(ParsingTreeObject* node)override;
-				virtual void			Visit(ParsingTreeArray* node)override;
+				virtual void					Visit(ParsingTreeToken* node)override;
+				virtual void					Visit(ParsingTreeObject* node)override;
+				virtual void					Visit(ParsingTreeArray* node)override;
 			};
 		protected:
 			typedef collections::List<Ptr<ParsingTreeNode>>				NodeList;
 
-			ParsingTextRange			codeRange;
-			ParsingTreeNode*			parent;
-			NodeList					cachedOrderedSubNodes;
+			ParsingTextRange					codeRange;
+			ParsingTreeNode*					parent;
+			NodeList							cachedOrderedSubNodes;
 
-			virtual const NodeList&		GetSubNodesInternal()=0;
-			bool						BeforeAddChild(Ptr<ParsingTreeNode> node);
-			void						AfterAddChild(Ptr<ParsingTreeNode> node);
-			bool						BeforeRemoveChild(Ptr<ParsingTreeNode> node);
-			void						AfterRemoveChild(Ptr<ParsingTreeNode> node);
+			virtual const NodeList&				GetSubNodesInternal()=0;
+			bool								BeforeAddChild(Ptr<ParsingTreeNode> node);
+			void								AfterAddChild(Ptr<ParsingTreeNode> node);
+			bool								BeforeRemoveChild(Ptr<ParsingTreeNode> node);
+			void								AfterRemoveChild(Ptr<ParsingTreeNode> node);
 		public:
 			ParsingTreeNode(const ParsingTextRange& _codeRange);
 			~ParsingTreeNode();
 
-			virtual void				Accept(IVisitor* visitor)=0;
-			ParsingTextRange			GetCodeRange();
-			void						SetCodeRange(const ParsingTextRange& range);
+			virtual void						Accept(IVisitor* visitor)=0;
+			virtual Ptr<ParsingTreeNode>		Clone()=0;
+			ParsingTextRange					GetCodeRange();
+			void								SetCodeRange(const ParsingTextRange& range);
 
-			void						InitializeQueryCache();
-			void						ClearQueryCache();
-			ParsingTreeNode*			GetParent();
-			const NodeList&				GetSubNodes();
+			void								InitializeQueryCache();
+			void								ClearQueryCache();
+			ParsingTreeNode*					GetParent();
+			const NodeList&						GetSubNodes();
 
-			ParsingTreeNode*			FindSubNode(const ParsingTextPos& position);
-			ParsingTreeNode*			FindSubNode(const ParsingTextRange& range);
-			ParsingTreeNode*			FindDeepestNode(const ParsingTextPos& position);
-			ParsingTreeNode*			FindDeepestNode(const ParsingTextRange& range);
+			ParsingTreeNode*					FindSubNode(const ParsingTextPos& position);
+			ParsingTreeNode*					FindSubNode(const ParsingTextRange& range);
+			ParsingTreeNode*					FindDeepestNode(const ParsingTextPos& position);
+			ParsingTreeNode*					FindDeepestNode(const ParsingTextRange& range);
 		};
 
 		class ParsingTreeToken : public ParsingTreeNode
 		{
 		protected:
-			WString						value;
-			vint						tokenIndex;
+			WString								value;
+			vint								tokenIndex;
 
-			const NodeList&				GetSubNodesInternal()override;
+			const NodeList&						GetSubNodesInternal()override;
 		public:
 			ParsingTreeToken(const WString& _value, vint _tokenIndex=-1, const ParsingTextRange& _codeRange=ParsingTextRange());
 			~ParsingTreeToken();
 
-			void						Accept(IVisitor* visitor)override;
-			vint						GetTokenIndex();
-			void						SetTokenIndex(vint _tokenIndex);
-			const WString&				GetValue();
-			void						SetValue(const WString& _value);
+			void								Accept(IVisitor* visitor)override;
+			Ptr<ParsingTreeNode>				Clone()override;
+			vint								GetTokenIndex();
+			void								SetTokenIndex(vint _tokenIndex);
+			const WString&						GetValue();
+			void								SetValue(const WString& _value);
 		};
 
 		class ParsingTreeObject : public ParsingTreeNode
@@ -3467,22 +3472,23 @@ namespace vl
 			typedef collections::Dictionary<WString, Ptr<ParsingTreeNode>>				NodeMap;
 			typedef collections::SortedList<WString>									NameList;
 
-			WString						type;
-			NodeMap						members;
+			WString								type;
+			NodeMap								members;
 
 			const NodeList&			GetSubNodesInternal()override;
 		public:
 			ParsingTreeObject(const WString& _type=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
 			~ParsingTreeObject();
 
-			void						Accept(IVisitor* visitor)override;
-			const WString&				GetType();
-			void						SetType(const WString& _type);
-			NodeMap&					GetMembers();
-			Ptr<ParsingTreeNode>		GetMember(const WString& name);
-			bool						SetMember(const WString& name, Ptr<ParsingTreeNode> node);
-			bool						RemoveMember(const WString& name);
-			const NameList&				GetMemberNames();
+			void								Accept(IVisitor* visitor)override;
+			Ptr<ParsingTreeNode>				Clone()override;
+			const WString&						GetType();
+			void								SetType(const WString& _type);
+			NodeMap&							GetMembers();
+			Ptr<ParsingTreeNode>				GetMember(const WString& name);
+			bool								SetMember(const WString& name, Ptr<ParsingTreeNode> node);
+			bool								RemoveMember(const WString& name);
+			const NameList&						GetMemberNames();
 		};
 
 		class ParsingTreeArray : public ParsingTreeNode
@@ -3490,35 +3496,36 @@ namespace vl
 		protected:
 			typedef collections::List<Ptr<ParsingTreeNode>>								NodeArray;
 
-			WString						elementType;
-			NodeArray					items;
+			WString								elementType;
+			NodeArray							items;
 
-			const NodeList&				GetSubNodesInternal()override;
+			const NodeList&						GetSubNodesInternal()override;
 		public:
 			ParsingTreeArray(const WString& _elementType=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
 			~ParsingTreeArray();
 
-			void						Accept(IVisitor* visitor)override;
-			const WString&				GetElementType();
-			void						SetElementType(const WString& _elementType);
-			NodeArray&					GetItems();
-			Ptr<ParsingTreeNode>		GetItem(vint index);
-			bool						SetItem(vint index, Ptr<ParsingTreeNode> node);
-			bool						AddItem(Ptr<ParsingTreeNode> node);
-			bool						InsertItem(vint index, Ptr<ParsingTreeNode> node);
-			bool						RemoveItem(vint index);
-			bool						RemoveItem(Ptr<ParsingTreeNode> node);
-			vint						IndexOfItem(Ptr<ParsingTreeNode> node);
-			bool						ContainsItem(Ptr<ParsingTreeNode> node);
-			vint						Count();
-			bool						Clear();
+			void								Accept(IVisitor* visitor)override;
+			Ptr<ParsingTreeNode>				Clone()override;
+			const WString&						GetElementType();
+			void								SetElementType(const WString& _elementType);
+			NodeArray&							GetItems();
+			Ptr<ParsingTreeNode>				GetItem(vint index);
+			bool								SetItem(vint index, Ptr<ParsingTreeNode> node);
+			bool								AddItem(Ptr<ParsingTreeNode> node);
+			bool								InsertItem(vint index, Ptr<ParsingTreeNode> node);
+			bool								RemoveItem(vint index);
+			bool								RemoveItem(Ptr<ParsingTreeNode> node);
+			vint								IndexOfItem(Ptr<ParsingTreeNode> node);
+			bool								ContainsItem(Ptr<ParsingTreeNode> node);
+			vint								Count();
+			bool								Clear();
 		};
 
 /***********************************************************************
 辅助函数
 ***********************************************************************/
 
-		extern void						Log(Ptr<ParsingTreeNode> node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
+		extern void								Log(Ptr<ParsingTreeNode> node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
 
 /***********************************************************************
 语法树基础设施
@@ -3527,14 +3534,14 @@ namespace vl
 		class ParsingTreeCustomBase : public Object
 		{
 		public:
-			ParsingTextRange			codeRange;
+			ParsingTextRange					codeRange;
 		};
 
 		class ParsingToken : public ParsingTreeCustomBase
 		{
 		public:
-			vint						tokenIndex;
-			WString						value;
+			vint								tokenIndex;
+			WString								value;
 
 			ParsingToken():tokenIndex(-1){}
 		};
@@ -3542,10 +3549,10 @@ namespace vl
 		class ParsingError : public Object
 		{
 		public:
-			ParsingTextRange			codeRange;
-			const regex::RegexToken*	token;
-			ParsingTreeCustomBase*		parsingTree;
-			WString						errorMessage;
+			ParsingTextRange					codeRange;
+			const regex::RegexToken*			token;
+			ParsingTreeCustomBase*				parsingTree;
+			WString								errorMessage;
 
 			ParsingError();
 			ParsingError(const WString& _errorMessage);
@@ -3677,6 +3684,8 @@ namespace vl
 					WString									stateName;
 					WString									stateExpression;
 
+					WString									ruleAmbiguousType;		// filled in Initialize()
+
 					StateInfo(){}
 
 					StateInfo(const WString& _ruleName, const WString& _stateName, const WString& _stateExpression)
@@ -3692,13 +3701,15 @@ namespace vl
 				public:
 					WString									name;
 					WString									type;
+					WString									ambiguousType;
 					vint									rootStartState;
 
 					RuleInfo(){}
 
-					RuleInfo(const WString& _name, const WString& _type, vint _rootStartState)
+					RuleInfo(const WString& _name, const WString& _type, const WString& _ambiguousType, vint _rootStartState)
 						:name(_name)
 						,type(_type)
+						,ambiguousType(_ambiguousType)
 						,rootStartState(_rootStartState)
 					{
 					}
@@ -3739,11 +3750,34 @@ namespace vl
 					}
 				};
 
+				class LookAheadInfo
+				{
+				public:
+					collections::List<vint>					tokens;
+					vint									state;
+
+					LookAheadInfo()
+						:state(-1)
+					{
+					}
+
+					enum PrefixResult
+					{
+						Prefix,
+						Equal,
+						NotPrefix,
+					};
+
+					static PrefixResult						TestPrefix(Ptr<LookAheadInfo> a, Ptr<LookAheadInfo> b);
+					static void								Walk(Ptr<ParsingTable> table, Ptr<LookAheadInfo> previous, vint state, collections::List<Ptr<LookAheadInfo>>& newInfos);
+				};
+
 				class TransitionItem
 				{
 				public:
 					vint									token;
 					vint									targetState;
+					collections::List<Ptr<LookAheadInfo>>	lookAheads;
 					collections::List<vint>					stackPattern;
 					collections::List<Instruction>			instructions;
 
@@ -3774,6 +3808,7 @@ namespace vl
 				};
 
 			protected:
+				bool										ambiguity;
 				Ptr<regex::RegexLexer>						lexer;
 				collections::Array<Ptr<TransitionBag>>		transitionBags;
 				vint										tokenCount;
@@ -3782,10 +3817,14 @@ namespace vl
 				collections::Array<TokenInfo>				discardTokenInfos;
 				collections::Array<StateInfo>				stateInfos;
 				collections::Array<RuleInfo>				ruleInfos;
+				collections::Dictionary<WString, vint>		ruleMap;
 
 			public:
 				ParsingTable(vint _tokenCount, vint _discardTokenCount, vint _stateCount, vint _ruleCount);
 				~ParsingTable();
+
+				bool										GetAmbiguity();
+				void										SetAmbiguity(bool value);
 
 				vint										GetTokenCount();
 				const TokenInfo&							GetTokenInfo(vint token);
@@ -3800,6 +3839,7 @@ namespace vl
 				void										SetStateInfo(vint state, const StateInfo& info);
 
 				vint										GetRuleCount();
+				const RuleInfo&								GetRuleInfo(const WString& ruleName);
 				const RuleInfo&								GetRuleInfo(vint rule);
 				void										SetRuleInfo(vint rule, const RuleInfo& info);
 
@@ -3848,6 +3888,48 @@ namespace vl
 /***********************************************************************
 语法分析器
 ***********************************************************************/
+			
+			class ParsingTokenWalker : public Object, protected collections::IEnumerable<vint>
+			{
+			protected:
+				collections::List<regex::RegexToken>&	tokens;
+				Ptr<ParsingTable>						table;
+				vint									currentToken;
+
+				vint									GetNextIndex(vint index)const;
+				vint									GetTableTokenIndex(vint index)const;
+				collections::IEnumerator<vint>*			CreateEnumerator()const override;
+			protected:
+				class LookAheadEnumerator : public Object, public collections::IEnumerator<vint>
+				{
+				protected:
+					const ParsingTokenWalker*			walker;
+					vint								firstToken;
+					vint								currentToken;
+					vint								currentValue;
+					vint								index;
+
+				public:
+					LookAheadEnumerator(const ParsingTokenWalker* _walker, vint _currentToken);
+					LookAheadEnumerator(const LookAheadEnumerator& _enumerator);
+
+					IEnumerator<vint>*					Clone()const override;
+					const vint&							Current()const override;
+					vint								Index()const override;
+					bool								Next()override;
+					void								Reset()override;
+				};
+			public:
+				ParsingTokenWalker(collections::List<regex::RegexToken>& _tokens, Ptr<ParsingTable> _table);
+				~ParsingTokenWalker();
+
+				const collections::IEnumerable<vint>&	GetLookahead()const;
+				void									Reset();
+				bool									Move();
+				vint									GetTableTokenIndex()const;
+				regex::RegexToken*						GetRegexToken()const;
+				vint									GetTokenIndexInStream()const;
+			};
 
 			class ParsingState : public Object
 			{
@@ -3866,27 +3948,46 @@ namespace vl
 
 				struct TransitionResult
 				{
+					enum TransitionType
+					{
+						ExecuteInstructions,
+						AmbiguityBegin,
+						AmbiguityBranch,
+						AmbiguityEnd,
+					};
+
+					TransitionType								transitionType;
+					vint										ambiguityAffectedStackNodeCount;
+					WString										ambiguityNodeType;
+
 					vint										tableTokenIndex;
 					vint										tableStateSource;
 					vint										tableStateTarget;
 					vint										tokenIndexInStream;
 					regex::RegexToken*							token;
+
 					ParsingTable::TransitionItem*				transition;
+					vint										instructionBegin;
+					vint										instructionCount;
 					Ptr<collections::List<ShiftReduceRange>>	shiftReduceRanges;
 
 					TransitionResult()
-						:tableTokenIndex(-1)
+						:transitionType(ExecuteInstructions)
+						,ambiguityAffectedStackNodeCount(0)
+						,tableTokenIndex(-1)
 						,tableStateSource(-1)
 						,tableStateTarget(-1)
 						,tokenIndexInStream(-1)
 						,token(0)
 						,transition(0)
+						,instructionBegin(-1)
+						,instructionCount(-1)
 					{
 					}
 
 					operator bool()const
 					{
-						return transition!=0;
+						return transitionType!=ExecuteInstructions || transition!=0;
 					}
 
 					void AddShiftReduceRange(regex::RegexToken* shiftToken, regex::RegexToken* reduceToken)
@@ -3908,6 +4009,7 @@ namespace vl
 					vint									reduceStateCount;
 					collections::List<vint>					shiftStates;
 					vint									selectedToken;
+					ParsingTable::TransitionItem*			selectedItem;
 					Future*									previous;
 					Future*									next;
 
@@ -3915,24 +4017,36 @@ namespace vl
 						:currentState(-1)
 						,reduceStateCount(0)
 						,selectedToken(-1)
+						,selectedItem(0)
 						,previous(0)
 						,next(0)
 					{
 					}
 				};
+
+				struct StateGroup
+				{
+					collections::List<vint>						stateStack;
+					vint										currentState;
+					vint										tokenSequenceIndex;
+
+					collections::List<regex::RegexToken*>		shiftTokenStack;
+					regex::RegexToken*							shiftToken;
+					regex::RegexToken*							reduceToken;
+
+					StateGroup();
+					StateGroup(const ParsingTable::RuleInfo& info);
+					StateGroup(const StateGroup& group);
+				};
 			private:
 				WString										input;
 				Ptr<ParsingTable>							table;
 				collections::List<regex::RegexToken>		tokens;
-
-				collections::List<vint>						stateStack;
-				vint										currentState;
-				vint										currentToken;
-				vint										tokenSequenceIndex;
+				Ptr<ParsingTokenWalker>						walker;
 				
-				collections::List<regex::RegexToken*>		shiftTokenStack;
-				regex::RegexToken*							shiftToken;
-				regex::RegexToken*							reduceToken;
+				WString										parsingRule;
+				vint										parsingRuleStartState;
+				Ptr<StateGroup>								stateGroup;
 			public:
 				ParsingState(const WString& _input, Ptr<ParsingTable> _table, vint codeIndex=-1);
 				~ParsingState();
@@ -3943,15 +4057,30 @@ namespace vl
 				regex::RegexToken*							GetToken(vint index);
 
 				vint										Reset(const WString& rule);
+				WString										GetParsingRule();
+				vint										GetParsingRuleStartState();
 				vint										GetCurrentToken();
 				const collections::List<vint>&				GetStateStack();
 				vint										GetCurrentState();
 
-				ParsingTable::TransitionItem*				MatchToken(vint tableTokenIndex);
-				ParsingTable::TransitionItem*				MatchTokenInFuture(vint tableTokenIndex, Future* future);
-				TransitionResult							ReadToken(vint tableTokenIndex, regex::RegexToken* regexToken);
+				bool										TestTransitionItemInFuture(vint tableTokenIndex, Future* future, ParsingTable::TransitionItem* item, const collections::IEnumerable<vint>* lookAheadTokens);
+				ParsingTable::TransitionItem*				MatchTokenInFuture(vint tableTokenIndex, Future* future, const collections::IEnumerable<vint>* lookAheadTokens);
+				ParsingTable::TransitionItem*				MatchToken(vint tableTokenIndex, const collections::IEnumerable<vint>* lookAheadTokens);
+				void										RunTransitionInFuture(ParsingTable::TransitionItem* transition, Future* previous, Future* now);
+				ParsingState::TransitionResult				RunTransition(ParsingTable::TransitionItem* transition, regex::RegexToken* regexToken, vint instructionBegin, vint instructionCount, bool lastPart);
+				ParsingState::TransitionResult				RunTransition(ParsingTable::TransitionItem* transition, regex::RegexToken* regexToken);
+
+				bool										ReadTokenInFuture(vint tableTokenIndex, Future* previous, Future* now, const collections::IEnumerable<vint>* lookAheadTokens);
+				TransitionResult							ReadToken(vint tableTokenIndex, regex::RegexToken* regexToken, const collections::IEnumerable<vint>* lookAheadTokens);
 				TransitionResult							ReadToken();
-				bool										ReadTokenInFuture(vint tableTokenIndex, Future* previous, Future* now);
+
+				void										Explore(vint tableTokenIndex, Future* previous, collections::List<Future*>& possibilities);
+				regex::RegexToken*							ExploreStep(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities);
+				void										ExploreTryReduce(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities);
+				Future*										ExploreCreateRootFuture();
+
+				Ptr<StateGroup>								TakeSnapshot();
+				void										RestoreSnapshot(Ptr<StateGroup> group);
 			};
 
 /***********************************************************************
@@ -3964,6 +4093,13 @@ namespace vl
 				Ptr<ParsingTreeNode>						createdObject;
 				Ptr<ParsingTreeObject>						operationTarget;
 				collections::List<Ptr<ParsingTreeObject>>	nodeStack;
+
+				bool										processingAmbiguityBranch;
+				Ptr<ParsingTreeNode>						ambiguityBranchCreatedObject;
+				Ptr<ParsingTreeNode>						ambiguityBranchOperationTarget;
+				vint										ambiguityBranchSharedNodeCount;
+				collections::List<Ptr<ParsingTreeObject>>	ambiguityBranchNodeStack;
+				collections::List<Ptr<ParsingTreeObject>>	ambiguityNodes;
 			public:
 				ParsingTreeBuilder();
 				~ParsingTreeBuilder();
@@ -4008,13 +4144,13 @@ namespace vl
 			{
 			protected:
 				Ptr<ParsingTable>							table;
-
-				virtual void								OnReset();
-				virtual ParsingState::TransitionResult		OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)=0;
+				
 			public:
 				ParsingGeneralParser(Ptr<ParsingTable> _table);
 				~ParsingGeneralParser();
 				
+				virtual ParsingState::TransitionResult		ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)=0;
+				virtual void								BeginParse();
 				Ptr<ParsingTreeNode>						Parse(ParsingState& state, collections::List<Ptr<ParsingError>>& errors);
 				Ptr<ParsingTreeNode>						Parse(const WString& input, const WString& rule, collections::List<Ptr<ParsingError>>& errors);
 			};
@@ -4027,13 +4163,15 @@ namespace vl
 			{
 			protected:
 
-				ParsingState::TransitionResult				OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)override;
+				virtual ParsingState::TransitionResult		OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors);
 			public:
 				ParsingStrictParser(Ptr<ParsingTable> _table=0);
 				~ParsingStrictParser();
+				
+				ParsingState::TransitionResult				ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)override;
 			};
 
-			class ParsingAutoRecoverParser : public ParsingGeneralParser
+			class ParsingAutoRecoverParser : public ParsingStrictParser
 			{
 			protected:
 				collections::Array<ParsingState::Future>	recoverFutures;
@@ -4045,12 +4183,38 @@ namespace vl
 				~ParsingAutoRecoverParser();
 			};
 
+			class ParsingAmbiguousParser : public ParsingGeneralParser
+			{
+				typedef collections::List<ParsingState::TransitionResult>		DecisionList;
+			protected:
+
+				DecisionList								decisions;
+				vint										consumedDecisionCount;
+
+				vint										GetResolvableFutureLevels(collections::List<ParsingState::Future*>& futures, vint begin, vint end);
+				vint										SearchPath(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint& begin, vint& end, collections::List<Ptr<ParsingError>>& errors);
+				vint										GetConflictReduceCount(collections::List<ParsingState::Future*>& futures);
+				void										GetConflictReduceIndices(collections::List<ParsingState::Future*>& futures, vint conflictReduceCount, collections::Array<vint>& conflictReduceIndices);
+				vint										GetAffectedStackNodeCount(collections::List<ParsingState::Future*>& futures, collections::Array<vint>& conflictReduceIndices);
+				void										BuildSingleDecisionPath(ParsingState& state, ParsingState::Future* future, collections::List<regex::RegexToken*>& tokens, vint availableTokenCount, vint lastAvailableInstructionCount);
+				void										BuildAmbiguousDecisions(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint begin, vint end, vint resolvableFutureLevels, collections::List<Ptr<ParsingError>>& errors);
+				void										BuildDecisions(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint begin, vint end, vint resolvableFutureLevels, collections::List<Ptr<ParsingError>>& errors);
+			public:
+				ParsingAmbiguousParser(Ptr<ParsingTable> _table=0);
+				~ParsingAmbiguousParser();
+				
+				ParsingState::TransitionResult				ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)override;
+				void										BeginParse()override;
+			};
+
 /***********************************************************************
 辅助函数
 ***********************************************************************/
-
-			extern Ptr<ParsingStrictParser>					CreateBootstrapStrictParser();
-			extern Ptr<ParsingAutoRecoverParser>			CreateBootstrapAutoRecoverParser();
+			
+			extern Ptr<ParsingGeneralParser>				CreateStrictParser(Ptr<ParsingTable> table);
+			extern Ptr<ParsingGeneralParser>				CreateAutoRecoverParser(Ptr<ParsingTable> table);
+			extern Ptr<ParsingGeneralParser>				CreateBootstrapStrictParser();
+			extern Ptr<ParsingGeneralParser>				CreateBootstrapAutoRecoverParser();
 		}
 	}
 }
@@ -4193,7 +4357,9 @@ namespace vl
 			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> JsonConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
 			extern vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable();
 
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
 			extern vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+
 		}
 	}
 }
@@ -4404,6 +4570,7 @@ namespace vl
 				typedef collections::List<Ptr<ParsingDefinitionClassMemberDefinition>>	MemberList;
 				typedef collections::List<Ptr<ParsingDefinitionTypeDefinition>>			TypeList;
 
+				WString											ambiguousType;
 				Ptr<ParsingDefinitionType>						parentType;
 				MemberList										members;
 				TypeList										subTypes;
@@ -5061,52 +5228,229 @@ namespace vl
 			};
 
 /***********************************************************************
-辅助函数
+辅助函数（搜索闭包）
 ***********************************************************************/
 
-			namespace closure_searching
+			struct ClosureItem
 			{
-				struct ClosureItem
-				{
-					State*											state;			// target state of one path of a closure
-					Ptr<collections::List<Transition*>>				transitions;	// path
-					bool											cycle;			// true: invalid closure because there are cycles, and in the middle of the path there will be a transition that targets to the state field.
-
-					ClosureItem()
-						:state(0)
-						,cycle(false)
-					{
-					}
-
-					ClosureItem(State* _state, Ptr<collections::List<Transition*>> _transitions, bool _cycle)
-						:state(_state)
-						,transitions(_transitions)
-						,cycle(_cycle)
-					{
-					}
-				};
-
-				enum ClosureSearchResult
+				enum SearchResult
 				{
 					Continue,
 					Hit,
 					Blocked,
 				};
 
-				extern void											SearchClosure(ClosureSearchResult(*closurePredicate)(Transition*), State* startState, collections::List<ClosureItem>& closure);
-			}
+				State*											state;			// target state of one path of a closure
+				Ptr<collections::List<Transition*>>				transitions;	// path
+				bool											cycle;			// true: invalid closure because there are cycles, and in the middle of the path there will be a transition that targets to the state field.
 
-			extern Ptr<Automaton>									CreateEpsilonPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager);
+				ClosureItem()
+					:state(0)
+					,cycle(false)
+				{
+				}
+
+				ClosureItem(State* _state, Ptr<collections::List<Transition*>> _transitions, bool _cycle)
+					:state(_state)
+					,transitions(_transitions)
+					,cycle(_cycle)
+				{
+				}
+			};
+
+			extern void												SearchClosure(ClosureItem::SearchResult(*closurePredicate)(Transition*), State* startState, collections::List<ClosureItem>& closure);
 			extern void												RemoveEpsilonTransitions(collections::Dictionary<State*, State*>& oldNewStateMap, collections::List<State*>& scanningStates, Ptr<Automaton> automaton);
+
+/***********************************************************************
+辅助函数（合并状态）
+***********************************************************************/
+			
+			extern void												DeleteUnnecessaryStates(Ptr<Automaton> automaton, Ptr<RuleInfo> ruleInfo, collections::List<State*>& newStates);
+			extern void												MergeStates(Ptr<Automaton> automaton, Ptr<RuleInfo> ruleInfo, collections::List<State*>& newStates);
+
+/***********************************************************************
+辅助函数（创建状态机）
+***********************************************************************/
+			
+			extern Ptr<Automaton>									CreateEpsilonPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager);
 			extern Ptr<Automaton>									CreateNondeterministicPDAFromEpsilonPDA(Ptr<Automaton> epsilonPDA);
 			extern Ptr<Automaton>									CreateJointPDAFromNondeterministicPDA(Ptr<Automaton> nondeterministicPDA);
 			extern void												CompactJointPDA(Ptr<Automaton> jointPDA);
+			extern void												MergeJointPDAStates(Ptr<Automaton> jointPDA);
 			extern void												MarkLeftRecursiveInJointPDA(Ptr<Automaton> jointPDA, collections::List<Ptr<ParsingError>>& errors);
 
+/***********************************************************************
+辅助函数（输出跳转表）
+***********************************************************************/
+
 			extern WString											GetTypeNameForCreateInstruction(ParsingSymbol* type);
-			extern Ptr<tabling::ParsingTable>						GenerateTable(Ptr<definitions::ParsingDefinition> definition, Ptr<Automaton> jointPDA, collections::List<Ptr<ParsingError>>& errors);
-			extern Ptr<tabling::ParsingTable>						GenerateTable(Ptr<definitions::ParsingDefinition> definition, collections::List<Ptr<ParsingError>>& errors);
+			extern Ptr<tabling::ParsingTable>						GenerateTableFromPDA(Ptr<definitions::ParsingDefinition> definition, Ptr<Automaton> jointPDA, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors);
+			extern Ptr<tabling::ParsingTable>						GenerateTable(Ptr<definitions::ParsingDefinition> definition, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors);
 			extern void												Log(Ptr<Automaton> automaton, stream::TextWriter& writer);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+COLLECTIONS\OPERATIONCOPYFROM.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Data Structure::Operations
+
+***********************************************************************/
+
+#ifndef VCZH_COLLECTIONS_OPERATIONCOPYFROM
+#define VCZH_COLLECTIONS_OPERATIONCOPYFROM
+
+
+namespace vl
+{
+	namespace collections
+	{
+
+/***********************************************************************
+容器复制
+***********************************************************************/
+
+		namespace copyfrom_internal
+		{
+			using namespace randomaccess_internal;
+
+			template<typename Ds, typename Ss, bool DsRA, bool SsRA>
+			struct CopyFromAlgorithm
+			{
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, true, true>
+			{
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					vint copyCount=RandomAccess<Ss>::GetCount(ss);
+					vint index=(append?RandomAccess<Ds>::GetCount(ds):0);
+					vint resizeCount=index+copyCount;
+					RandomAccess<Ds>::SetCount(ds, resizeCount);
+					for(vint i=0;i<copyCount;i++)
+					{
+						RandomAccess<Ds>::SetValue(ds, index+i, RandomAccess<Ss>::GetValue(ss, i));
+					}
+				}
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, false, true>
+			{
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					if(!append)
+					{
+						ds.Clear();
+					}
+					vint copyCount=RandomAccess<Ss>::GetCount(ss);
+					for(vint i=0;i<copyCount;i++)
+					{
+						RandomAccess<Ds>::AppendValue(ds, RandomAccess<Ss>::GetValue(ss, i));
+					}
+				}
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, true, false>
+			{
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					Ptr<IEnumerator<typename Ss::ElementType>> enumerator;
+					vint copyCount=0;
+
+					enumerator=ss.CreateEnumerator();
+					while(enumerator->Next())
+					{
+						copyCount++;
+					}
+
+					vint index=(append?RandomAccess<Ds>::GetCount(ds):0);
+					vint resizeCount=index+copyCount;
+					RandomAccess<Ds>::SetCount(ds, resizeCount);
+
+					enumerator=ss.CreateEnumerator();
+					while(enumerator->Next())
+					{
+						RandomAccess<Ds>::SetValue(ds, index++, enumerator->Current());
+					}
+				}
+			};
+
+			template<typename Ds, typename Ss>
+			struct CopyFromAlgorithm<Ds, Ss, false, false>
+			{
+				static void Perform(Ds& ds, const Ss& ss, bool append)
+				{
+					if(!append)
+					{
+						ds.Clear();
+					}
+					Ptr<IEnumerator<typename Ss::ElementType>> enumerator=ss.CreateEnumerator();
+					while(enumerator->Next())
+					{
+						RandomAccess<Ds>::AppendValue(ds, enumerator->Current());
+					}
+				}
+			};
+
+			template<typename T>
+			struct Slice
+			{
+				const T*	items;
+				vint		count;
+			};
+		}
+
+		namespace randomaccess_internal
+		{
+			template<typename T>
+			struct RandomAccessable<copyfrom_internal::Slice<T>>
+			{
+				static const bool							CanRead = true;
+				static const bool							CanResize = true;
+			};
+		
+			template<typename T>
+			struct RandomAccess<copyfrom_internal::Slice<T>>
+			{
+				static vint GetCount(const copyfrom_internal::Slice<T>& t)
+				{
+					return t.count;
+				}
+
+				static const T& GetValue(const copyfrom_internal::Slice<T>& t, vint index)
+				{
+					return t.items[index];
+				}
+			};
+		}
+
+		template<typename Ds, typename Ss>
+		void CopyFrom(Ds& ds, const Ss& ss, bool append=false)
+		{
+			copyfrom_internal::CopyFromAlgorithm<Ds, Ss, randomaccess_internal::RandomAccessable<Ds>::CanResize, randomaccess_internal::RandomAccessable<Ss>::CanRead>::Perform(ds, ss, append);
+		}
+
+		template<typename Ds, typename S>
+		void CopyFrom(Ds& ds, const S* buffer, vint count, bool append=false)
+		{
+			copyfrom_internal::Slice<S> slice={buffer, count};
+			CopyFrom(ds, slice, append);
+		}
+
+		template<typename Ds, typename S>
+		void CopyFrom(Ds& ds, const S* begin, const S* end, bool append=false)
+		{
+			copyfrom_internal::Slice<S> slice={begin, end-begin};
+			CopyFrom(ds, slice, append);
 		}
 	}
 }
@@ -5653,170 +5997,6 @@ namespace vl
 		extern WString					UnescapeTextForRegex(const WString& escapedText);
 		extern WString					NormalizeEscapedTextForRegex(const WString& escapedText);
 		extern bool						IsRegexEscapedListeralString(const WString& regex);
-	}
-}
-
-#endif
-
-/***********************************************************************
-COLLECTIONS\OPERATIONCOPYFROM.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Operations
-
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_OPERATIONCOPYFROM
-#define VCZH_COLLECTIONS_OPERATIONCOPYFROM
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-容器复制
-***********************************************************************/
-
-		namespace copyfrom_internal
-		{
-			using namespace randomaccess_internal;
-
-			template<typename Ds, typename Ss, bool DsRA, bool SsRA>
-			struct CopyFromAlgorithm
-			{
-			};
-
-			template<typename Ds, typename Ss>
-			struct CopyFromAlgorithm<Ds, Ss, true, true>
-			{
-				static void Perform(Ds& ds, const Ss& ss, bool append)
-				{
-					vint copyCount=RandomAccess<Ss>::GetCount(ss);
-					vint index=(append?RandomAccess<Ds>::GetCount(ds):0);
-					vint resizeCount=index+copyCount;
-					RandomAccess<Ds>::SetCount(ds, resizeCount);
-					for(vint i=0;i<copyCount;i++)
-					{
-						RandomAccess<Ds>::SetValue(ds, index+i, RandomAccess<Ss>::GetValue(ss, i));
-					}
-				}
-			};
-
-			template<typename Ds, typename Ss>
-			struct CopyFromAlgorithm<Ds, Ss, false, true>
-			{
-				static void Perform(Ds& ds, const Ss& ss, bool append)
-				{
-					if(!append)
-					{
-						ds.Clear();
-					}
-					vint copyCount=RandomAccess<Ss>::GetCount(ss);
-					for(vint i=0;i<copyCount;i++)
-					{
-						RandomAccess<Ds>::AppendValue(ds, RandomAccess<Ss>::GetValue(ss, i));
-					}
-				}
-			};
-
-			template<typename Ds, typename Ss>
-			struct CopyFromAlgorithm<Ds, Ss, true, false>
-			{
-				static void Perform(Ds& ds, const Ss& ss, bool append)
-				{
-					Ptr<IEnumerator<typename Ss::ElementType>> enumerator;
-					vint copyCount=0;
-
-					enumerator=ss.CreateEnumerator();
-					while(enumerator->Next())
-					{
-						copyCount++;
-					}
-
-					vint index=(append?RandomAccess<Ds>::GetCount(ds):0);
-					vint resizeCount=index+copyCount;
-					RandomAccess<Ds>::SetCount(ds, resizeCount);
-
-					enumerator=ss.CreateEnumerator();
-					while(enumerator->Next())
-					{
-						RandomAccess<Ds>::SetValue(ds, index++, enumerator->Current());
-					}
-				}
-			};
-
-			template<typename Ds, typename Ss>
-			struct CopyFromAlgorithm<Ds, Ss, false, false>
-			{
-				static void Perform(Ds& ds, const Ss& ss, bool append)
-				{
-					if(!append)
-					{
-						ds.Clear();
-					}
-					Ptr<IEnumerator<typename Ss::ElementType>> enumerator=ss.CreateEnumerator();
-					while(enumerator->Next())
-					{
-						RandomAccess<Ds>::AppendValue(ds, enumerator->Current());
-					}
-				}
-			};
-
-			template<typename T>
-			struct Slice
-			{
-				const T*	items;
-				vint		count;
-			};
-		}
-
-		namespace randomaccess_internal
-		{
-			template<typename T>
-			struct RandomAccessable<copyfrom_internal::Slice<T>>
-			{
-				static const bool							CanRead = true;
-				static const bool							CanResize = true;
-			};
-		
-			template<typename T>
-			struct RandomAccess<copyfrom_internal::Slice<T>>
-			{
-				static vint GetCount(const copyfrom_internal::Slice<T>& t)
-				{
-					return t.count;
-				}
-
-				static const T& GetValue(const copyfrom_internal::Slice<T>& t, vint index)
-				{
-					return t.items[index];
-				}
-			};
-		}
-
-		template<typename Ds, typename Ss>
-		void CopyFrom(Ds& ds, const Ss& ss, bool append=false)
-		{
-			copyfrom_internal::CopyFromAlgorithm<Ds, Ss, randomaccess_internal::RandomAccessable<Ds>::CanResize, randomaccess_internal::RandomAccessable<Ss>::CanRead>::Perform(ds, ss, append);
-		}
-
-		template<typename Ds, typename S>
-		void CopyFrom(Ds& ds, const S* buffer, vint count, bool append=false)
-		{
-			copyfrom_internal::Slice<S> slice={buffer, count};
-			CopyFrom(ds, slice, append);
-		}
-
-		template<typename Ds, typename S>
-		void CopyFrom(Ds& ds, const S* begin, const S* end, bool append=false)
-		{
-			copyfrom_internal::Slice<S> slice={begin, end-begin};
-			CopyFrom(ds, slice, append);
-		}
 	}
 }
 
@@ -12834,8 +13014,12 @@ namespace vl
 			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> XmlConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
 			extern vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable();
 
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
 			extern vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
 			extern vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+
 		}
 	}
 }
@@ -12940,6 +13124,7 @@ Attribute
 			class IParameterInfo;
 			class IMethodInfo;
 			class IMethodGroupInfo;
+			class IValueFunctionProxy;
 		}
 
 		class DescriptableObject
@@ -12987,10 +13172,7 @@ Attribute
 
 			static void SetAssociatedTypeDescroptor(description::ITypeDescriptor* typeDescroptor)
 			{
-				if(!associatedTypeDescriptor)
-				{
-					associatedTypeDescriptor=typeDescroptor;
-				}
+				associatedTypeDescriptor=typeDescroptor;
 			}
 		};
 
@@ -13118,204 +13300,6 @@ Value
 			public:
 				virtual bool					Serialize(const T& input, Value& output)=0;
 				virtual bool					Deserialize(const Value& input, T& output)=0;
-			};
-
-/***********************************************************************
-Collections
-***********************************************************************/
-
-			class IValueReadonlyList : public virtual IDescriptable, public Description<IValueReadonlyList>
-			{
-			public:
-				virtual vint					Count()=0;
-				virtual Value					Get(vint index)=0;
-				virtual bool					Contains(const Value& value)=0;
-				virtual vint					IndexOf(const Value& value)=0;
-
-				template<typename T>
-				collections::LazyList<T> GetLazyList()
-				{
-					return collections::Range(0, Count())
-						.Select([this](int i){return UnboxValue<T>(Get(i));});
-				}
-			};
-
-			class IValueList : public IValueReadonlyList, public Description<IValueList>
-			{
-			public:
-				virtual void					Set(vint index, const Value& value)=0;
-				virtual vint					Add(const Value& value)=0;
-				virtual vint					Insert(vint index, const Value& value)=0;
-				virtual bool					Remove(const Value& value)=0;
-				virtual bool					RemoveAt(vint index)=0;
-				virtual void					Clear()=0;
-
-				static Ptr<IValueList>			Create();
-				static Ptr<IValueList>			Create(Ptr<IValueReadonlyList> values);
-				static Ptr<IValueList>			Create(collections::LazyList<Value> values);
-			};
-
-			namespace trait_helper
-			{
-				template<typename T>
-				struct RemovePtr
-				{
-					typedef T					Type;
-				};
-				
-				template<typename T>
-				struct RemovePtr<T*>
-				{
-					typedef T					Type;
-				};
-				
-				template<typename T>
-				struct RemovePtr<Ptr<T>>
-				{
-					typedef T					Type;
-				};
-			}
-
-			template<typename T>
-			class ValueReadonlyListWrapper : public Object, public IValueReadonlyList
-			{
-			protected:
-				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
-				typedef typename ContainerType::ElementType				ElementType;
-				typedef typename KeyType<ElementType>::Type				ElementKeyType;
-
-				T								wrapperPointer;
-			public:
-				ValueReadonlyListWrapper(const T& _wrapperPointer)
-					:wrapperPointer(_wrapperPointer)
-				{
-				}
-
-				vint Count()override
-				{
-					return wrapperPointer->Count();
-				}
-
-				Value Get(vint index)override
-				{
-					return BoxValue<ElementType>(wrapperPointer->Get(index));
-				}
-
-				bool Contains(const Value& value)override
-				{
-					ElementKeyType item=UnboxValue<ElementKeyType>(value);
-					return wrapperPointer->Contains(item);
-				}
-
-				vint IndexOf(const Value& value)override
-				{
-					ElementKeyType item=UnboxValue<ElementKeyType>(value);
-					return wrapperPointer->IndexOf(item);
-				}
-			};
-
-			template<typename T>
-			class ValueListWrapper : public Object, public IValueList
-			{
-			protected:
-				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
-				typedef typename ContainerType::ElementType				ElementType;
-				typedef typename KeyType<ElementType>::Type				ElementKeyType;
-
-				T								wrapperPointer;
-			public:
-				ValueListWrapper(const T& _wrapperPointer)
-					:wrapperPointer(_wrapperPointer)
-				{
-				}
-
-				vint Count()override
-				{
-					return wrapperPointer->Count();
-				}
-
-				Value Get(vint index)override
-				{
-					return BoxValue<ElementType>(wrapperPointer->Get(index));
-				}
-
-				bool Contains(const Value& value)override
-				{
-					ElementKeyType item=UnboxValue<ElementKeyType>(value);
-					return wrapperPointer->Contains(item);
-				}
-
-				vint IndexOf(const Value& value)override
-				{
-					ElementKeyType item=UnboxValue<ElementKeyType>(value);
-					return wrapperPointer->IndexOf(item);
-				}
-
-				void Set(vint index, const Value& value)override
-				{
-					ElementType item=UnboxValue<ElementType>(value);
-					wrapperPointer->Set(index, item);
-				}
-
-				vint Add(const Value& value)override
-				{
-					ElementType item=UnboxValue<ElementType>(value);
-					return wrapperPointer->Add(item);
-				}
-
-				vint Insert(vint index, const Value& value)override
-				{
-					ElementType item=UnboxValue<ElementType>(value);
-					return wrapperPointer->Insert(index, item);
-				}
-
-				bool Remove(const Value& value)override
-				{
-					ElementKeyType item=UnboxValue<ElementKeyType>(value);
-					return wrapperPointer->Remove(item);
-				}
-
-				bool RemoveAt(vint index)override
-				{
-					return wrapperPointer->RemoveAt(index);
-				}
-
-				void Clear()override
-				{
-					wrapperPointer->Clear();
-				}
-			};
-
-/***********************************************************************
-Interface Implementation Proxy
-***********************************************************************/
-
-			class IValueInterfaceProxy : public virtual IDescriptable, public Description<IValueReadonlyList>
-			{
-			public:
-				virtual Value					Invoke(const WString& methodName, Ptr<IValueList> arguments)=0;
-			};
-
-			class IValueFunctionProxy : public virtual IDescriptable, public Description<IValueFunctionProxy>
-			{
-			public:
-				virtual Value					Invoke(Ptr<IValueList> arguments)=0;
-			};
-
-			class ValueInterfaceRoot : public virtual IDescriptable
-			{
-			protected:
-				Ptr<IValueInterfaceProxy>		proxy;
-			public:
-				ValueInterfaceRoot(Ptr<IValueInterfaceProxy> _proxy)
-					:proxy(_proxy)
-				{
-				}
-
-				Ptr<IValueInterfaceProxy> GetProxy()
-				{
-					return proxy;
-				}
 			};
 
 /***********************************************************************
@@ -13489,6 +13473,347 @@ ITypeManager
 			extern IValueSerializer*			GetValueSerializer(const WString& name);
 			extern ITypeDescriptor*				GetTypeDescriptor(const WString& name);
 			extern void							LogTypeManager(stream::TextWriter& writer);
+
+/***********************************************************************
+Collections
+***********************************************************************/
+
+			class IValueEnumerator : public virtual IDescriptable, public Description<IValueEnumerator>
+			{
+			public:
+				virtual Value					GetCurrent()=0;
+				virtual vint					GetIndex()=0;
+				virtual bool					Next()=0;
+			};
+
+			class IValueEnumerable : public virtual IDescriptable, public Description<IValueEnumerable>
+			{
+			public:
+				virtual Ptr<IValueEnumerator>	CreateEnumerator()=0;
+			};
+
+			class IValueReadonlyList : public virtual IValueEnumerable, public Description<IValueReadonlyList>
+			{
+			public:
+				virtual vint					GetCount()=0;
+				virtual Value					Get(vint index)=0;
+				virtual bool					Contains(const Value& value)=0;
+				virtual vint					IndexOf(const Value& value)=0;
+
+				template<typename T>
+				collections::LazyList<T> GetLazyList()
+				{
+					return collections::Range<vint>(0, GetCount())
+						.Select([this](vint i)
+						{
+							return UnboxValue<T>(Get(i));
+						});
+				}
+			};
+
+			class IValueList : public virtual IValueReadonlyList, public Description<IValueList>
+			{
+			public:
+				virtual void					Set(vint index, const Value& value)=0;
+				virtual vint					Add(const Value& value)=0;
+				virtual vint					Insert(vint index, const Value& value)=0;
+				virtual bool					Remove(const Value& value)=0;
+				virtual bool					RemoveAt(vint index)=0;
+				virtual void					Clear()=0;
+
+				static Ptr<IValueList>			Create();
+				static Ptr<IValueList>			Create(Ptr<IValueReadonlyList> values);
+				static Ptr<IValueList>			Create(collections::LazyList<Value> values);
+			};
+
+			class IValueReadonlyDictionary : public virtual IDescriptable, public Description<IValueReadonlyDictionary>
+			{
+			public:
+				virtual IValueReadonlyList*		GetKeys()=0;
+				virtual IValueReadonlyList*		GetValues()=0;
+				virtual vint					GetCount()=0;
+				virtual Value					Get(const Value& key)=0;
+
+				template<typename K, typename V>
+				collections::LazyList<collections::Pair<K, V>> GetLazyList()
+				{
+					return collections::Range<vint>(0, GetCount())
+						.Select([this](vint i)
+						{
+							return collections::Pair<K, V>(UnboxValue<K>(GetKeys()->Get(i)), UnboxValue<V>(GetValues()->Get(i)));
+						});
+				}
+			};
+
+			class IValueDictionary : public virtual IValueReadonlyDictionary, public Description<IValueDictionary>
+			{
+			public:
+				virtual void					Set(const Value& key, const Value& value)=0;
+				virtual bool					Remove(const Value& key)=0;
+				virtual void					Clear()=0;
+			};
+
+/***********************************************************************
+Collection Wrappers
+***********************************************************************/
+
+			namespace trait_helper
+			{
+				template<typename T>
+				struct RemovePtr
+				{
+					typedef T					Type;
+				};
+				
+				template<typename T>
+				struct RemovePtr<T*>
+				{
+					typedef T					Type;
+				};
+				
+				template<typename T>
+				struct RemovePtr<Ptr<T>>
+				{
+					typedef T					Type;
+				};
+			}
+
+#pragma warning(push)
+#pragma warning(disable:4250)
+			template<typename T>
+			class ValueEnumeratorWrapper : public Object, public virtual IValueEnumerator
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::ElementType				ElementType;
+				typedef typename KeyType<ElementType>::Type				ElementKeyType;
+
+				T								wrapperPointer;
+			public:
+				ValueEnumeratorWrapper(const T& _wrapperPointer)
+					:wrapperPointer(_wrapperPointer)
+				{
+				}
+
+				Value GetCurrent()override
+				{
+					return BoxValue<ElementType>(wrapperPointer->Current());
+				}
+
+				vint GetIndex()override
+				{
+					return wrapperPointer->Index();
+				}
+
+				bool Next()override
+				{
+					return wrapperPointer->Next();
+				}
+			};
+
+			template<typename T>
+			class ValueReadonlyListWrapper : public Object, public virtual IValueReadonlyList
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::ElementType				ElementType;
+				typedef typename KeyType<ElementType>::Type				ElementKeyType;
+
+				T								wrapperPointer;
+			public:
+				ValueReadonlyListWrapper(const T& _wrapperPointer)
+					:wrapperPointer(_wrapperPointer)
+				{
+				}
+
+				Ptr<IValueEnumerator> CreateEnumerator()override
+				{
+					return new ValueEnumeratorWrapper<Ptr<IEnumerator<ElementType>>>(wrapperPointer->CreateEnumerator());
+				}
+
+				vint GetCount()override
+				{
+					return wrapperPointer->Count();
+				}
+
+				Value Get(vint index)override
+				{
+					return BoxValue<ElementType>(wrapperPointer->Get(index));
+				}
+
+				bool Contains(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->Contains(item);
+				}
+
+				vint IndexOf(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->IndexOf(item);
+				}
+			};
+
+			template<typename T>
+			class ValueListWrapper : public ValueReadonlyListWrapper<T>, public virtual IValueList
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::ElementType				ElementType;
+				typedef typename KeyType<ElementType>::Type				ElementKeyType;
+
+			public:
+				ValueListWrapper(const T& _wrapperPointer)
+					:ValueReadonlyListWrapper(_wrapperPointer)
+				{
+				}
+
+				void Set(vint index, const Value& value)override
+				{
+					ElementType item=UnboxValue<ElementType>(value);
+					wrapperPointer->Set(index, item);
+				}
+
+				vint Add(const Value& value)override
+				{
+					ElementType item=UnboxValue<ElementType>(value);
+					return wrapperPointer->Add(item);
+				}
+
+				vint Insert(vint index, const Value& value)override
+				{
+					ElementType item=UnboxValue<ElementType>(value);
+					return wrapperPointer->Insert(index, item);
+				}
+
+				bool Remove(const Value& value)override
+				{
+					ElementKeyType item=UnboxValue<ElementKeyType>(value);
+					return wrapperPointer->Remove(item);
+				}
+
+				bool RemoveAt(vint index)override
+				{
+					return wrapperPointer->RemoveAt(index);
+				}
+
+				void Clear()override
+				{
+					wrapperPointer->Clear();
+				}
+			};
+
+			template<typename T>
+			class ValueReadonlyDictionaryWrapper : public virtual Object, public virtual IValueReadonlyDictionary
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::KeyContainer			KeyContainer;
+				typedef typename ContainerType::ValueContainer			ValueContainer;
+				typedef typename KeyContainer::ElementType				KeyValueType;
+				typedef typename KeyType<KeyValueType>::Type			KeyKeyType;
+				typedef typename ValueContainer::ElementType			ValueType;
+
+				T								wrapperPointer;
+				Ptr<IValueReadonlyList>			keys;
+				Ptr<IValueReadonlyList>			values;
+			public:
+				ValueReadonlyDictionaryWrapper(const T& _wrapperPointer)
+					:wrapperPointer(_wrapperPointer)
+				{
+				}
+
+				IValueReadonlyList* GetKeys()override
+				{
+					if(!keys)
+					{
+						keys=new ValueReadonlyListWrapper<const KeyContainer*>(&wrapperPointer->Keys());
+					}
+					return keys.Obj();
+				}
+
+				IValueReadonlyList* GetValues()override
+				{
+					if(!values)
+					{
+						values=new ValueReadonlyListWrapper<const ValueContainer*>(&wrapperPointer->Values());
+					}
+					return values.Obj();
+				}
+
+				vint GetCount()override
+				{
+					return wrapperPointer->Count();
+				}
+
+				Value Get(const Value& key)override
+				{
+					KeyKeyType item=UnboxValue<KeyKeyType>(key);
+					ValueType result=wrapperPointer->Get(item);
+					return BoxValue<ValueType>(result);
+				}
+			};
+			
+			template<typename T>
+			class ValueDictionaryWrapper : public virtual ValueReadonlyDictionaryWrapper<T>, public virtual IValueDictionary
+			{
+			public:
+				ValueDictionaryWrapper(const T& _wrapperPointer)
+					:ValueReadonlyDictionaryWrapper(_wrapperPointer)
+				{
+				}
+
+				void Set(const Value& key, const Value& value)override
+				{
+					KeyValueType item=UnboxValue<KeyValueType>(key);
+					ValueType result=UnboxValue<ValueType>(value);
+					wrapperPointer->Set(item, result);
+				}
+
+				bool Remove(const Value& key)override
+				{
+					KeyKeyType item=UnboxValue<KeyKeyType>(key);
+					return wrapperPointer->Remove(item);
+				}
+
+				void Clear()override
+				{
+					wrapperPointer->Clear();
+				}
+			};
+#pragma warning(pop)
+
+/***********************************************************************
+Interface Implementation Proxy
+***********************************************************************/
+
+			class IValueInterfaceProxy : public virtual IDescriptable, public Description<IValueInterfaceProxy>
+			{
+			public:
+				virtual Value					Invoke(const WString& methodName, Ptr<IValueList> arguments)=0;
+			};
+
+			class IValueFunctionProxy : public virtual IDescriptable, public Description<IValueFunctionProxy>
+			{
+			public:
+				virtual Value					Invoke(Ptr<IValueList> arguments)=0;
+			};
+
+			class ValueInterfaceRoot : public virtual IDescriptable
+			{
+			protected:
+				Ptr<IValueInterfaceProxy>		proxy;
+			public:
+				ValueInterfaceRoot(Ptr<IValueInterfaceProxy> _proxy)
+					:proxy(_proxy)
+				{
+				}
+
+				Ptr<IValueInterfaceProxy> GetProxy()
+				{
+					return proxy;
+				}
+			};
 
 /***********************************************************************
 Exceptions
@@ -13922,8 +14247,12 @@ Predefined Types
 			template<>struct TypeInfo<bool>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<wchar_t>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<WString>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueEnumerator>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueEnumerable>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueReadonlyList>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueList>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueReadonlyDictionary>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueDictionary>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueInterfaceProxy>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueFunctionProxy>{static const wchar_t* TypeName;};
 
@@ -14314,15 +14643,17 @@ TypeDescriptorImpl
 			};
 
 /***********************************************************************
-TypeFlagSelector
+TypeFlagTester
 ***********************************************************************/
 
-			struct TypeFlags
+			enum class TypeFlags
 			{
-				struct ReadonlyListType{};
-				struct ListType{};
-				struct FunctionType{};
-				struct NonGenericType{};
+				NonGenericType			=0,
+				FunctionType			=1<<0,
+				ReadonlyListType		=1<<1,
+				ListType				=1<<2,
+				ReadonlyDictionaryType	=1<<3,
+				DictionaryType			=1<<4,
 			};
 
 			template<typename T>
@@ -14337,85 +14668,128 @@ TypeFlagSelector
 				T* pointer;
 			};
 
-			template<typename TDerived>
-			struct IsInheritsFromEnumerable
+			template<typename TDerived, TypeFlags Flag>
+			struct TypeFlagTester
 			{
-				template<typename T>
-				static void* Inherit(collections::IEnumerable<T>* source){}
-				static char Inherit(void* source){}
-				static char Inherit(const void* source){}
-
-				static const bool										Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*);
+				static const TypeFlags									Result=TypeFlags::NonGenericType;
 			};
 
 			template<typename TDerived>
-			struct IsInheritsFromConstEnumerable
-			{
-				template<typename T>
-				static void* Inherit(const collections::IEnumerable<T>* source){}
-				static char Inherit(void* source){}
-				static char Inherit(const void* source){}
-
-				static const bool										Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*);
-			};
-
-			template<typename TDerived>
-			struct IsInheritsFromFunction
+			struct TypeFlagTester<TDerived, TypeFlags::FunctionType>
 			{
 				template<typename T>
 				static void* Inherit(Func<T>* source){}
 				static char Inherit(void* source){}
 				static char Inherit(const void* source){}
 
-				static const bool										Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*);
+				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::FunctionType:TypeFlags::NonGenericType;
 			};
 
-			template<typename T, bool IsEnumerable, bool IsConstEnumerable, bool IsFunction>
+			template<typename TDerived>
+			struct TypeFlagTester<TDerived, TypeFlags::ReadonlyListType>
+			{
+				template<typename T>
+				static void* Inherit(const collections::IEnumerable<T>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::ReadonlyListType:TypeFlags::NonGenericType;
+			};
+
+			template<typename TDerived>
+			struct TypeFlagTester<TDerived, TypeFlags::ListType>
+			{
+				template<typename T>
+				static void* Inherit(collections::IEnumerable<T>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::ListType:TypeFlags::NonGenericType;
+			};
+
+			template<typename TDerived>
+			struct TypeFlagTester<TDerived, TypeFlags::ReadonlyDictionaryType>
+			{
+				template<typename K, typename V>
+				static void* Inherit(const collections::Dictionary<K, V>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::ReadonlyDictionaryType:TypeFlags::NonGenericType;
+			};
+
+			template<typename TDerived>
+			struct TypeFlagTester<TDerived, TypeFlags::DictionaryType>
+			{
+				template<typename K, typename V>
+				static void* Inherit(collections::Dictionary<K, V>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::DictionaryType:TypeFlags::NonGenericType;
+			};
+
+/***********************************************************************
+TypeFlagSelector
+***********************************************************************/
+
+			template<typename T, TypeFlags Flag>
 			struct TypeFlagSelectorCase
 			{
-				typedef int												TypeFlag;
+				static const  TypeFlags									Result=TypeFlags::NonGenericType;
 			};
 
 			template<typename T>
-			struct TypeFlagSelectorCase<T, true, true, false>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::FunctionType)>
 			{
-				typedef TypeFlags::ListType								TypeFlag;
+				static const  TypeFlags									Result=TypeFlags::FunctionType;
 			};
 
 			template<typename T>
-			struct TypeFlagSelectorCase<T, false, true, false>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::ListType|(vint)TypeFlags::ReadonlyListType)>
 			{
-				typedef TypeFlags::ReadonlyListType						TypeFlag;
+				static const  TypeFlags									Result=TypeFlags::ListType;
 			};
 
 			template<typename T>
-			struct TypeFlagSelectorCase<T, false, false, true>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::ReadonlyListType)>
 			{
-				typedef TypeFlags::FunctionType							TypeFlag;
+				static const  TypeFlags									Result=TypeFlags::ReadonlyListType;
 			};
 
 			template<typename T>
-			struct TypeFlagSelectorCase<T, false, false, false>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::ListType|(vint)TypeFlags::ReadonlyListType|(vint)TypeFlags::DictionaryType|(vint)TypeFlags::ReadonlyDictionaryType)>
 			{
-				typedef TypeFlags::NonGenericType						TypeFlag;
+				static const  TypeFlags									Result=TypeFlags::DictionaryType;
+			};
+
+			template<typename T>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::ReadonlyListType|(vint)TypeFlags::ReadonlyDictionaryType)>
+			{
+				static const  TypeFlags									Result=TypeFlags::ReadonlyDictionaryType;
 			};
 
 			template<typename T>
 			struct TypeFlagSelector
 			{
-				typedef typename TypeFlagSelectorCase<
-					T,
-					IsInheritsFromEnumerable<T>::Result,
-					IsInheritsFromConstEnumerable<T>::Result,
-					IsInheritsFromFunction<T>::Result
-					>::TypeFlag											TypeFlag;
+				static const TypeFlags									Result =
+					TypeFlagSelectorCase<
+					T, 
+					(TypeFlags)
+					( (vint)TypeFlagTester<T, TypeFlags::FunctionType>::Result
+					| (vint)TypeFlagTester<T, TypeFlags::ReadonlyListType>::Result
+					| (vint)TypeFlagTester<T, TypeFlags::ListType>::Result
+					| (vint)TypeFlagTester<T, TypeFlags::ReadonlyDictionaryType>::Result
+					| (vint)TypeFlagTester<T, TypeFlags::DictionaryType>::Result
+					)
+					>::Result;
 			};
 
 /***********************************************************************
 TypeInfoRetriver
 ***********************************************************************/
 
-			template<typename T, typename TTypeFlag>
+			template<typename T, TypeFlags Flag>
 			struct DetailTypeInfoRetriver
 			{
 				static const ITypeInfo::Decorator						Decorator=ITypeInfo::TypeDescriptor;
@@ -14428,8 +14802,7 @@ TypeInfoRetriver
 			template<typename T>
 			struct TypeInfoRetriver
 			{
-				typedef typename TypeFlagSelector<T>::TypeFlag									TypeFlag;
-
+				static const TypeFlags															TypeFlag=TypeFlagSelector<T>::Result;
 				static const ITypeInfo::Decorator												Decorator=DetailTypeInfoRetriver<T, TypeFlag>::Decorator;
 
 				typedef typename DetailTypeInfoRetriver<T, TypeFlag>::Type						Type;
@@ -14614,6 +14987,72 @@ TypeInfoRetriver
 				}
 			};
 
+			template<typename T>
+			struct DetailTypeInfoRetriver<T, TypeFlags::ReadonlyDictionaryType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueReadonlyList										Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					typedef typename DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>::Type		ContainerType;
+					typedef typename ContainerType::KeyContainer									KeyContainer;
+					typedef typename ContainerType::ValueContainer									ValueContainer;
+					typedef typename KeyContainer::ElementType										KeyType;
+					typedef typename ValueContainer::ElementType									ValueType;
+
+					Ptr<TypeInfoImpl> arrayType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					arrayType->SetTypeDescriptor(Description<IValueReadonlyDictionary>::GetAssociatedTypeDescriptor());
+
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(arrayType);
+					genericType->AddGenericArgument(TypeInfoRetriver<KeyType>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<ValueType>::CreateTypeInfo());
+
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T, TypeFlags::DictionaryType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueReadonlyList										Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					typedef typename DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>::Type		ContainerType;
+					typedef typename ContainerType::KeyContainer									KeyContainer;
+					typedef typename ContainerType::ValueContainer									ValueContainer;
+					typedef typename KeyContainer::ElementType										KeyType;
+					typedef typename ValueContainer::ElementType									ValueType;
+
+					Ptr<TypeInfoImpl> arrayType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					arrayType->SetTypeDescriptor(Description<IValueDictionary>::GetAssociatedTypeDescriptor());
+
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(arrayType);
+					genericType->AddGenericArgument(TypeInfoRetriver<KeyType>::CreateTypeInfo());
+					genericType->AddGenericArgument(TypeInfoRetriver<ValueType>::CreateTypeInfo());
+
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
+				}
+			};
+
 /***********************************************************************
 TypeInfoRetriver Helper Functions (BoxValue, UnboxValue)
 ***********************************************************************/
@@ -14689,6 +15128,14 @@ TypeInfoRetriver Helper Functions (BoxValue, UnboxValue)
 				static T UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor, const WString& valueName)
 				{
 					ITypedValueSerializer<T>* serializer=dynamic_cast<ITypedValueSerializer<T>*>(value.GetTypeDescriptor()->GetValueSerializer());
+					if(!serializer)
+					{
+						if(!typeDescriptor)
+						{
+							typeDescriptor=GetTypeDescriptor<typename TypeInfoRetriver<T>::Type>();
+						}
+						serializer=dynamic_cast<ITypedValueSerializer<T>*>(typeDescriptor->GetValueSerializer());
+					}
 					T result;
 					if(!serializer->Deserialize(value, result))
 					{
@@ -14732,7 +15179,7 @@ TypeInfoRetriver Helper Functions (BoxValue, UnboxValue)
 TypeInfoRetriver Helper Functions (UnboxParameter)
 ***********************************************************************/
 
-			template<typename T, typename TTypeFlag>
+			template<typename T, TypeFlags Flag>
 			struct ParameterAccessor
 			{
 			};
@@ -14788,15 +15235,59 @@ TypeInfoRetriver Helper Functions (UnboxParameter)
 			};
 
 			template<typename T>
+			struct ParameterAccessor<T, TypeFlags::ReadonlyDictionaryType>
+			{
+				static Value BoxParameter(T& object, ITypeDescriptor* typeDescriptor)
+				{
+					Ptr<IValueReadonlyDictionary> result=new ValueReadonlyDictionaryWrapper<T*>(&object);
+					return BoxValue<Ptr<IValueReadonlyDictionary>>(result, Description<IValueReadonlyList>::GetAssociatedTypeDescriptor());
+				}
+
+				static void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef typename T::KeyContainer					KeyContainer;
+					typedef typename T::ValueContainer					ValueContainer;
+					typedef typename KeyContainer::ElementType			KeyType;
+					typedef typename ValueContainer::ElementType		ValueType;
+
+					Ptr<IValueReadonlyDictionary> dictionaryProxy=UnboxValue<Ptr<IValueReadonlyDictionary>>(value, typeDescriptor, valueName);
+					LazyList<Pair<KeyType, ValueType>> lazyList=dictionaryProxy->GetLazyList<KeyType, ValueType>();
+					collections::CopyFrom(result, lazyList);
+				}
+			};
+
+			template<typename T>
+			struct ParameterAccessor<T, TypeFlags::DictionaryType>
+			{
+				static Value BoxParameter(T& object, ITypeDescriptor* typeDescriptor)
+				{
+					Ptr<IValueDictionary> result=new ValueDictionaryWrapper<T*>(&object);
+					return BoxValue<Ptr<IValueDictionary>>(result, Description<IValueList>::GetAssociatedTypeDescriptor());
+				}
+
+				static void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef typename T::KeyContainer					KeyContainer;
+					typedef typename T::ValueContainer					ValueContainer;
+					typedef typename KeyContainer::ElementType			KeyType;
+					typedef typename ValueContainer::ElementType		ValueType;
+
+					Ptr<IValueDictionary> dictionaryProxy=UnboxValue<Ptr<IValueDictionary>>(value, typeDescriptor, valueName);
+					LazyList<Pair<KeyType, ValueType>> lazyList=dictionaryProxy->GetLazyList<KeyType, ValueType>();
+					collections::CopyFrom(result, lazyList);
+				}
+			};
+
+			template<typename T>
 			Value BoxParameter(typename TypeInfoRetriver<T>::ResultReferenceType object, ITypeDescriptor* typeDescriptor=0)
 			{
-				return ParameterAccessor<typename TypeInfoRetriver<T>::ResultNonReferenceType, typename TypeInfoRetriver<T>::TypeFlag>::BoxParameter(object, typeDescriptor);
+				return ParameterAccessor<typename TypeInfoRetriver<T>::ResultNonReferenceType, TypeInfoRetriver<T>::TypeFlag>::BoxParameter(object, typeDescriptor);
 			}
 
 			template<typename T>
 			void UnboxParameter(const Value& value, T& result, ITypeDescriptor* typeDescriptor=0, const WString& valueName=L"value")
 			{
-				ParameterAccessor<T, typename TypeInfoRetriver<T>::TypeFlag>::UnboxParameter(value, result, typeDescriptor, valueName);
+				ParameterAccessor<T, TypeInfoRetriver<T>::TypeFlag>::UnboxParameter(value, result, typeDescriptor, valueName);
 			}
 
 /***********************************************************************
@@ -18558,7 +19049,7 @@ Parameter Accessor: void()
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(arguments && arguments->Count()!=0) throw ArgumentCountMismtatchException();
+					if(arguments && arguments->GetCount()!=0) throw ArgumentCountMismtatchException();
 
 					  function();
 					return Value();
@@ -18621,7 +19112,7 @@ Parameter Accessor: R()
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(arguments && arguments->Count()!=0) throw ArgumentCountMismtatchException();
+					if(arguments && arguments->GetCount()!=0) throw ArgumentCountMismtatchException();
 
 					R result =  function();
 					return BoxParameter<R>(result);
@@ -18685,7 +19176,7 @@ Parameter Accessor: void(T0)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=1) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=1) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  
@@ -18751,7 +19242,7 @@ Parameter Accessor: R(T0)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=1) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=1) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  
@@ -18818,7 +19309,7 @@ Parameter Accessor: void(T0,T1)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=2) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=2) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -18887,7 +19378,7 @@ Parameter Accessor: R(T0,T1)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=2) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=2) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -18957,7 +19448,7 @@ Parameter Accessor: void(T0,T1,T2)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=3) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=3) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19029,7 +19520,7 @@ Parameter Accessor: R(T0,T1,T2)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=3) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=3) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19102,7 +19593,7 @@ Parameter Accessor: void(T0,T1,T2,T3)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=4) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=4) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19177,7 +19668,7 @@ Parameter Accessor: R(T0,T1,T2,T3)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=4) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=4) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19253,7 +19744,7 @@ Parameter Accessor: void(T0,T1,T2,T3,T4)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=5) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=5) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19331,7 +19822,7 @@ Parameter Accessor: R(T0,T1,T2,T3,T4)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=5) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=5) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19410,7 +19901,7 @@ Parameter Accessor: void(T0,T1,T2,T3,T4,T5)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=6) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=6) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19491,7 +19982,7 @@ Parameter Accessor: R(T0,T1,T2,T3,T4,T5)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=6) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=6) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19573,7 +20064,7 @@ Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=7) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=7) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19657,7 +20148,7 @@ Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=7) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=7) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19742,7 +20233,7 @@ Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6,T7)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=8) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=8) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19829,7 +20320,7 @@ Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6,T7)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=8) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=8) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -19917,7 +20408,7 @@ Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6,T7,T8)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=9) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=9) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -20007,7 +20498,7 @@ Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6,T7,T8)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=9) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=9) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -20098,7 +20589,7 @@ Parameter Accessor: void(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=10) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=10) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -20191,7 +20682,7 @@ Parameter Accessor: R(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9)
  
 				Value Invoke(Ptr<IValueList> arguments)override
 				{
-					if(!arguments || arguments->Count()!=10) throw ArgumentCountMismtatchException();
+					if(!arguments || arguments->GetCount()!=10) throw ArgumentCountMismtatchException();
 					typename TypeInfoRetriver<T0>::TempValueType p0;
 					UnboxParameter<typename TypeInfoRetriver<T0>::TempValueType>(arguments->Get(0), p0, 0, L"p0");
  					typename TypeInfoRetriver<T1>::TempValueType p1;
@@ -20316,7 +20807,6 @@ Type
 #define ADD_TYPE_INFO(TYPENAME)\
 			{\
 				Ptr<ITypeDescriptor> type=new CustomTypeDescriptorSelector<TYPENAME>::CustomTypeDescriptorImpl();\
-				Description<TYPENAME>::SetAssociatedTypeDescroptor(type.Obj());\
 				manager->SetTypeDescriptor(TypeInfo<TYPENAME>::TypeName, type);\
 			}
 
@@ -20409,6 +20899,11 @@ Class
 					CustomTypeDescriptorImpl()\
 						:TypeDescriptorImpl(TypeInfo<TYPENAME>::TypeName)\
 					{\
+						Description<TYPENAME>::SetAssociatedTypeDescroptor(this);\
+					}\
+					~CustomTypeDescriptorImpl()\
+					{\
+						Description<TYPENAME>::SetAssociatedTypeDescroptor(0);\
 					}\
 				protected:\
 					void LoadInternal()override\

@@ -1,4 +1,4 @@
-# Gaclib 0.5.0.0
+# Gaclib 0.5.1.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -15,9 +15,14 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Added 1 new demo
-
-    * **Persistant.DirectCode.SimpleWindow** that shows how to create a simple application totally using reflection, that is, without touching any types (symbols) of GacUI library.
+* Updated 1 demo
+    * **Template.Window.CustomizedBorder** Add an icon in the window title of the skin.
 * Added new features
 
-    * **Reflection** that can enumerate, create and execute types, methods, properties and events, with supporting to collection types.
+    * Parser generator supports ambiguous context-free grammar.
+    * Reflection supports dictionary type.
+    * Remove the old parser combinator library completely out of Gaclib.
+    * Upgrade Fpmacro to use the new parser generator.
+* Fixed bugs
+    * Parser generator crashes when the input grammar contains conflict errors.
+    * Reflection failed to unload and reload metadata.
