@@ -206,6 +206,11 @@ body
     text-decoration: underline;
 }
 
+.GuideTable tr.GuideTableBody img
+{
+    border: none;
+}
+
 /****************************************************/
 
 .CppCode

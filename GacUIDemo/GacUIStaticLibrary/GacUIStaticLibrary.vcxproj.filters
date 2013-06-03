@@ -90,6 +90,9 @@
     <Text Include="..\Resources\CalculatorDefinition.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="..\Resources\Chemical.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="..\Resources\document2.xml">

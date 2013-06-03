@@ -1206,20 +1206,6 @@ namespace vl
 GuiTabPage
 ***********************************************************************/
 
-			GuiTabPage::GuiTabPage()
-				:container(0)
-				,owner(0)
-			{
-			}
-
-			GuiTabPage::~GuiTabPage()
-			{
-				if(!container->GetParent())
-				{
-					delete container;
-				}
-			}
-
 			bool GuiTabPage::AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController)
 			{
 				if(owner)
@@ -1255,6 +1241,20 @@ GuiTabPage
 				else
 				{
 					return false;
+				}
+			}
+
+			GuiTabPage::GuiTabPage()
+				:container(0)
+				,owner(0)
+			{
+			}
+
+			GuiTabPage::~GuiTabPage()
+			{
+				if(!container->GetParent())
+				{
+					delete container;
 				}
 			}
 
@@ -1428,7 +1428,14 @@ GuiTab
 
 			bool GuiTab::SetSelectedPage(GuiTabPage* value)
 			{
-				if(value->GetOwnerTab()==this)
+				if(!value)
+				{
+					if(tabPages.Count()==0)
+					{
+						selectedPage=0;
+					}
+				}
+				else if(value->GetOwnerTab()==this)
 				{
 					if(selectedPage!=value)
 					{
@@ -1444,12 +1451,8 @@ GuiTab
 						}
 						SelectedPageChanged.Execute(GetNotifyEventArguments());
 					}
-					return true;
 				}
-				else
-				{
-					return false;
-				}
+				return selectedPage==value;
 			}
 
 /***********************************************************************
@@ -3143,6 +3146,1645 @@ GuiComboBoxListControl
 			GuiListControl::IItemProvider* GuiComboBoxListControl::GetItemProvider()
 			{
 				return containedListControl->GetItemProvider();
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\ListControlPackage\GuiDataGridControls.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			namespace list
+			{
+				using namespace compositions;
+
+				const wchar_t* const IDataProvider::Identifier = L"vl::presentation::controls::list::IDataProvider";
+
+/***********************************************************************
+DataGridItemProvider
+***********************************************************************/
+
+				void DataGridItemProvider::InvokeOnItemModified(vint start, vint count, vint newCount)
+				{
+					for(vint i=0;i<itemProviderCallbacks.Count();i++)
+					{
+						itemProviderCallbacks[i]->OnItemModified(start, count, newCount);
+					}
+				}
+
+				void DataGridItemProvider::InvokeOnColumnChanged()
+				{
+					for(vint i=0;i<columnItemViewCallbacks.Count();i++)
+					{
+						columnItemViewCallbacks[i]->OnColumnChanged();
+					}
+				}
+
+				void DataGridItemProvider::OnDataProviderColumnChanged()
+				{
+					InvokeOnColumnChanged();
+				}
+
+				void DataGridItemProvider::OnDataProviderItemModified(vint start, vint count, vint newCount)
+				{
+					InvokeOnItemModified(start, count, newCount);
+				}
+
+				DataGridItemProvider::DataGridItemProvider(IDataProvider* _dataProvider)
+					:dataProvider(_dataProvider)
+				{
+					dataProvider->SetCommandExecutor(this);
+				}
+
+				DataGridItemProvider::~DataGridItemProvider()
+				{
+				}
+
+				IDataProvider* DataGridItemProvider::GetDataProvider()
+				{
+					return dataProvider;
+				}
+
+				void DataGridItemProvider::SortByColumn(vint column, bool ascending)
+				{
+					dataProvider->SortByColumn(column, ascending);
+				}
+
+// ===================== GuiListControl::IItemProvider =====================
+
+				bool DataGridItemProvider::AttachCallback(GuiListControl::IItemProviderCallback* value)
+				{
+					if(itemProviderCallbacks.Contains(value))
+					{
+						return false;
+					}
+					else
+					{
+						itemProviderCallbacks.Add(value);
+						value->OnAttached(this);
+						return true;
+					}
+				}
+
+				bool DataGridItemProvider::DetachCallback(GuiListControl::IItemProviderCallback* value)
+				{
+					vint index=itemProviderCallbacks.IndexOf(value);
+					if(index==-1)
+					{
+						return false;
+					}
+					else
+					{
+						value->OnAttached(0);
+						itemProviderCallbacks.Remove(value);
+						return true;
+					}
+				}
+
+				vint DataGridItemProvider::Count()
+				{
+					return dataProvider->GetRowCount();
+				}
+
+				IDescriptable* DataGridItemProvider::RequestView(const WString& identifier)
+				{
+					if(identifier==IDataProvider::Identifier)
+					{
+						return dataProvider;
+					}
+					else if(identifier==ListViewItemStyleProvider::IListViewItemView::Identifier)
+					{
+						return (ListViewItemStyleProvider::IListViewItemView*)this;
+					}
+					else if(identifier==ListViewColumnItemArranger::IColumnItemView::Identifier)
+					{
+						return (ListViewColumnItemArranger::IColumnItemView*)this;
+					}
+					else if(identifier==GuiListControl::IItemPrimaryTextView::Identifier)
+					{
+						return (GuiListControl::IItemPrimaryTextView*)this;
+					}
+					else
+					{
+						return 0;
+					}
+				}
+
+				void DataGridItemProvider::ReleaseView(IDescriptable* view)
+				{
+				}
+
+// ===================== GuiListControl::IItemPrimaryTextView =====================
+
+				WString DataGridItemProvider::GetPrimaryTextViewText(vint itemIndex)
+				{
+					return GetText(itemIndex);
+				}
+
+				bool DataGridItemProvider::ContainsPrimaryText(vint itemIndex)
+				{
+					return true;
+				}
+
+// ===================== list::ListViewItemStyleProvider::IListViewItemView =====================
+
+				Ptr<GuiImageData> DataGridItemProvider::GetSmallImage(vint itemIndex)
+				{
+					return dataProvider->GetRowImage(itemIndex);
+				}
+
+				Ptr<GuiImageData> DataGridItemProvider::GetLargeImage(vint itemIndex)
+				{
+					return 0;
+				}
+
+				WString DataGridItemProvider::GetText(vint itemIndex)
+				{
+					return dataProvider->GetCellText(itemIndex, 0);
+				}
+
+				WString DataGridItemProvider::GetSubItem(vint itemIndex, vint index)
+				{
+					return dataProvider->GetCellText(itemIndex, index+1);
+				}
+
+				vint DataGridItemProvider::GetDataColumnCount()
+				{
+					return 0;
+				}
+
+				vint DataGridItemProvider::GetDataColumn(vint index)
+				{
+					return 0;
+				}
+
+// ===================== list::ListViewColumnItemArranger::IColumnItemView =====================
+						
+				bool DataGridItemProvider::AttachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)
+				{
+					if(columnItemViewCallbacks.Contains(value))
+					{
+						return false;
+					}
+					else
+					{
+						columnItemViewCallbacks.Add(value);
+						return true;
+					}
+				}
+
+				bool DataGridItemProvider::DetachCallback(ListViewColumnItemArranger::IColumnItemViewCallback* value)
+				{
+					vint index=columnItemViewCallbacks.IndexOf(value);
+					if(index==-1)
+					{
+						return false;
+					}
+					else
+					{
+						columnItemViewCallbacks.Remove(value);
+						return true;
+					}
+				}
+
+				vint DataGridItemProvider::GetColumnCount()
+				{
+					return dataProvider->GetColumnCount();
+				}
+
+				WString DataGridItemProvider::GetColumnText(vint index)
+				{
+					return dataProvider->GetColumnText(index);
+				}
+
+				vint DataGridItemProvider::GetColumnSize(vint index)
+				{
+					return dataProvider->GetColumnSize(index);
+				}
+
+				void DataGridItemProvider::SetColumnSize(vint index, vint value)
+				{
+					dataProvider->SetColumnSize(index, value);
+					for(vint i=0;i<columnItemViewCallbacks.Count();i++)
+					{
+						columnItemViewCallbacks[i]->OnColumnChanged();
+					}
+				}
+
+				GuiMenu* DataGridItemProvider::GetDropdownPopup(vint index)
+				{
+					return dataProvider->GetColumnPopup(index);
+				}
+
+				GuiListViewColumnHeader::ColumnSortingState DataGridItemProvider::GetSortingState(vint index)
+				{
+					if(index==dataProvider->GetSortedColumn())
+					{
+						return dataProvider->IsSortOrderAscending()
+							?GuiListViewColumnHeader::Ascending
+							:GuiListViewColumnHeader::Descending;
+					}
+					else
+					{
+						return GuiListViewColumnHeader::NotSorted;
+					}
+				}
+				
+/***********************************************************************
+DataGridContentProvider::ItemContent
+***********************************************************************/
+
+				void DataGridContentProvider::ItemContent::RemoveCellsAndDataVisualizers()
+				{
+					for(vint i=0;i<dataVisualizers.Count();i++)
+					{
+						IDataVisualizer* visualizer=dataVisualizers[i].Obj();
+						GuiGraphicsComposition* composition=visualizer->GetBoundsComposition();
+						if(composition->GetParent())
+						{
+							composition->GetParent()->RemoveChild(composition);
+						}
+						dataVisualizers[i]=0;
+					}
+					dataVisualizers.Resize(0);
+
+					for(vint i=0;i<textTable->GetColumns();i++)
+					{
+						GuiCellComposition* cell=textTable->GetSitedCell(0, i);
+						SafeDeleteComposition(cell);
+					}
+				}
+
+				IDataVisualizerFactory* DataGridContentProvider::ItemContent::GetDataVisualizerFactory(vint row, vint column)
+				{
+					IDataVisualizerFactory* factory=contentProvider->dataProvider->GetCellDataVisualizerFactory(row, column);
+					if(factory)
+					{
+						return factory;
+					}
+					else if(column==0)
+					{
+						return &contentProvider->mainColumnDataVisualizerFactory;
+					}
+					else
+					{
+						return &contentProvider->subColumnDataVisualizerFactory;
+					}
+				}
+
+				vint DataGridContentProvider::ItemContent::GetCellColumnIndex(compositions::GuiGraphicsComposition* composition)
+				{
+					for(vint i=0;i<textTable->GetColumns();i++)
+					{
+						GuiCellComposition* cell=textTable->GetSitedCell(0, i);
+						if(composition==cell)
+						{
+							return i;
+						}
+					}
+					return -1;
+				}
+
+				void DataGridContentProvider::ItemContent::OnCellMouseUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+				{
+					vint index=GetCellColumnIndex(sender);
+					if(index!=-1)
+					{
+						if(currentEditor && contentProvider->editingColumn==index)
+						{
+							return;
+						}
+						IDataEditorFactory* factory=contentProvider->dataProvider->GetCellDataEditorFactory(currentRow, index);
+						currentEditor=contentProvider->OpenEditor(currentRow, index, factory);
+						if(currentEditor)
+						{
+							GuiCellComposition* cell=dynamic_cast<GuiCellComposition*>(sender);
+							currentEditor->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+							cell->AddChild(currentEditor->GetBoundsComposition());
+						}
+					}
+				}
+
+				DataGridContentProvider::ItemContent::ItemContent(DataGridContentProvider* _contentProvider, const FontProperties& _font)
+					:contentComposition(0)
+					,contentProvider(_contentProvider)
+					,font(_font)
+					,currentRow(-1)
+					,currentEditor(0)
+				{
+					contentComposition=new GuiBoundsComposition;
+					contentComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+
+					textTable=new GuiTableComposition;
+					textTable->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					textTable->SetRowsAndColumns(1, 1);
+					textTable->SetRowOption(0, GuiCellOption::MinSizeOption());
+					textTable->SetColumnOption(0, GuiCellOption::AbsoluteOption(0));
+					contentComposition->AddChild(textTable);
+				}
+
+				DataGridContentProvider::ItemContent::~ItemContent()
+				{
+					RemoveCellsAndDataVisualizers();
+				}
+
+				compositions::GuiBoundsComposition* DataGridContentProvider::ItemContent::GetContentComposition()
+				{
+					return contentComposition;
+				}
+
+				compositions::GuiBoundsComposition* DataGridContentProvider::ItemContent::GetBackgroundDecorator()
+				{
+					return 0;
+				}
+
+				void DataGridContentProvider::ItemContent::UpdateSubItemSize()
+				{
+					vint columnCount=contentProvider->columnItemView->GetColumnCount();
+					for(vint i=0;i<columnCount;i++)
+					{
+						textTable->SetColumnOption(i, GuiCellOption::AbsoluteOption(contentProvider->columnItemView->GetColumnSize(i)));
+					}
+					textTable->UpdateCellBounds();
+				}
+
+				void DataGridContentProvider::ItemContent::NotifyCloseEditor()
+				{
+					if(currentEditor)
+					{
+						GuiGraphicsComposition* composition=currentEditor->GetBoundsComposition();
+						if(composition->GetParent())
+						{
+							composition->GetParent()->RemoveChild(composition);
+						}
+						currentEditor=0;
+					}
+				}
+
+				void DataGridContentProvider::ItemContent::Install(GuiListViewBase::IStyleProvider* styleProvider, ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)
+				{
+					currentRow=itemIndex;
+					bool refresh=false;
+					if(dataVisualizers.Count()!=contentProvider->columnItemView->GetColumnCount())
+					{
+						refresh=true;
+					}
+					else
+					{
+						for(vint i=0;i<dataVisualizers.Count();i++)
+						{
+							IDataVisualizerFactory* factory=dataVisualizers[i]->GetFactory();
+							if(factory!=GetDataVisualizerFactory(itemIndex, i))
+							{
+								refresh=true;
+								break;
+							}
+						}
+					}
+
+					if(refresh)
+					{
+						RemoveCellsAndDataVisualizers();
+						vint columnCount=contentProvider->columnItemView->GetColumnCount();
+
+						dataVisualizers.Resize(columnCount);
+						for(vint i=0;i<dataVisualizers.Count();i++)
+						{
+							IDataVisualizerFactory* factory=GetDataVisualizerFactory(itemIndex, i);
+							dataVisualizers[i]=factory->CreateVisualizer(font, styleProvider);
+						}
+
+						textTable->SetRowsAndColumns(1, columnCount);
+						for(vint i=0;i<columnCount;i++)
+						{
+							GuiCellComposition* cell=new GuiCellComposition;
+							textTable->AddChild(cell);
+							cell->SetSite(0, i, 1, 1);
+							cell->GetEventReceiver()->leftButtonUp.AttachMethod(this, &ItemContent::OnCellMouseUp);
+
+							GuiBoundsComposition* composition=dataVisualizers[i]->GetBoundsComposition();
+							composition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+							cell->AddChild(composition);
+						}
+					}
+
+					for(vint i=0;i<dataVisualizers.Count();i++)
+					{
+						IDataVisualizer* dataVisualizer=dataVisualizers[i].Obj();
+						dataVisualizer->BeforeVisualizerCell(contentProvider->dataProvider, itemIndex, i);
+						contentProvider->dataProvider->VisualizeCell(itemIndex, i, dataVisualizer);
+					}
+					UpdateSubItemSize();
+				}
+
+				void DataGridContentProvider::ItemContent::Uninstall()
+				{
+					if(currentEditor)
+					{
+						contentProvider->CloseEditor();
+					}
+					currentRow=-1;
+					currentEditor=0;
+				}
+				
+/***********************************************************************
+DataGridContentProvider
+***********************************************************************/
+
+				void DataGridContentProvider::OnColumnChanged()
+				{
+					vint count=listViewItemStyleProvider->GetCreatedItemStyles().Count();
+					for(vint i=0;i<count;i++)
+					{
+						GuiListControl::IItemStyleController* itemStyleController=listViewItemStyleProvider->GetCreatedItemStyles().Get(i);
+						ItemContent* itemContent=listViewItemStyleProvider->GetItemContent<ItemContent>(itemStyleController);
+						if(itemContent)
+						{
+							itemContent->UpdateSubItemSize();
+						}
+					}
+				}
+
+				void DataGridContentProvider::OnAttached(GuiListControl::IItemProvider* provider)
+				{
+				}
+
+				void DataGridContentProvider::OnItemModified(vint start, vint count, vint newCount)
+				{
+					if(!currentEditorRequestingSaveData)
+					{
+						CloseEditor();
+					}
+				}
+
+				void DataGridContentProvider::NotifyCloseEditor()
+				{
+					if(listViewItemStyleProvider)
+					{
+						vint count=listViewItemStyleProvider->GetCreatedItemStyles().Count();
+						for(vint i=0;i<count;i++)
+						{
+							GuiListControl::IItemStyleController* itemStyleController=listViewItemStyleProvider->GetCreatedItemStyles().Get(i);
+							ItemContent* itemContent=listViewItemStyleProvider->GetItemContent<ItemContent>(itemStyleController);
+							if(itemContent)
+							{
+								itemContent->NotifyCloseEditor();
+							}
+						}
+					}
+				}
+
+				void DataGridContentProvider::RequestSaveData()
+				{
+					if(currentEditor)
+					{
+						currentEditorRequestingSaveData=true;
+						dataProvider->SaveCellData(editingRow, editingColumn, currentEditor.Obj());
+						currentEditorRequestingSaveData=false;
+					}
+				}
+
+				IDataEditor* DataGridContentProvider::OpenEditor(vint row, vint column, IDataEditorFactory* editorFactory)
+				{
+					CloseEditor();
+					if(editorFactory)
+					{
+						editingRow=row;
+						editingColumn=column;
+						currentEditor=editorFactory->CreateEditor(this);
+						currentEditor->BeforeEditCell(dataProvider, row, column);
+						dataProvider->BeforeEditCell(row, column, currentEditor.Obj());
+					}
+					return currentEditor.Obj();
+				}
+
+				void DataGridContentProvider::CloseEditor()
+				{
+					if(currentEditor)
+					{
+						NotifyCloseEditor();
+
+						editingRow=-1;
+						editingColumn=-1;
+						currentEditor=0;
+					}
+				}
+
+				DataGridContentProvider::DataGridContentProvider()
+					:itemProvider(0)
+					,columnItemView(0)
+					,dataProvider(0)
+					,listViewItemStyleProvider(0)
+					,editingRow(-1)
+					,editingColumn(-1)
+					,currentEditorRequestingSaveData(false)
+				{
+				}
+
+				DataGridContentProvider::~DataGridContentProvider()
+				{
+					CloseEditor();
+				}
+
+				GuiListControl::IItemCoordinateTransformer* DataGridContentProvider::CreatePreferredCoordinateTransformer()
+				{
+					return new DefaultItemCoordinateTransformer;
+				}
+
+				GuiListControl::IItemArranger* DataGridContentProvider::CreatePreferredArranger()
+				{
+					return new ListViewColumnItemArranger;
+				}
+
+				ListViewItemStyleProvider::IListViewItemContent* DataGridContentProvider::CreateItemContent(const FontProperties& font)
+				{
+					return new ItemContent(this, font);
+				}
+
+				void DataGridContentProvider::AttachListControl(GuiListControl* value)
+				{
+					listViewItemStyleProvider=dynamic_cast<ListViewItemStyleProvider*>(value->GetStyleProvider());
+					itemProvider=value->GetItemProvider();
+					itemProvider->AttachCallback(this);
+					columnItemView=dynamic_cast<ListViewColumnItemArranger::IColumnItemView*>(itemProvider->RequestView(ListViewColumnItemArranger::IColumnItemView::Identifier));
+					if(columnItemView)
+					{
+						columnItemView->AttachCallback(this);
+					}
+					dataProvider=dynamic_cast<IDataProvider*>(itemProvider->RequestView(IDataProvider::Identifier));
+				}
+
+				void DataGridContentProvider::DetachListControl()
+				{
+					dataProvider=0;
+					if(columnItemView)
+					{
+						columnItemView->DetachCallback(this);
+						itemProvider->ReleaseView(columnItemView);
+						columnItemView=0;
+					}
+					itemProvider->DetachCallback(this);
+					itemProvider=0;
+					listViewItemStyleProvider=0;
+				}
+			}
+
+/***********************************************************************
+GuiVirtualDataGrid
+***********************************************************************/
+
+			using namespace list;
+
+			void GuiVirtualDataGrid::OnColumnClicked(compositions::GuiGraphicsComposition* sender, compositions::GuiItemEventArgs& arguments)
+			{
+				if(dataProvider->IsColumnSortable(arguments.itemIndex))
+				{
+					switch(itemProvider->GetSortingState(arguments.itemIndex))
+					{
+					case GuiListViewColumnHeader::NotSorted:
+						itemProvider->SortByColumn(arguments.itemIndex, true);
+						break;
+					case GuiListViewColumnHeader::Ascending:
+						itemProvider->SortByColumn(arguments.itemIndex, false);
+						break;
+					case GuiListViewColumnHeader::Descending:
+						itemProvider->SortByColumn(-1);
+						break;
+					}
+				}
+			}
+
+			void GuiVirtualDataGrid::Initialize()
+			{
+				itemProvider=dynamic_cast<DataGridItemProvider*>(GetItemProvider());
+				dataProvider=itemProvider->GetDataProvider();
+				structuredDataProvider=dataProvider.Cast<StructuredDataProvider>();
+
+				ChangeItemStyle(new DataGridContentProvider);
+				ColumnClicked.AttachMethod(this, &GuiVirtualDataGrid::OnColumnClicked);
+			}
+
+			GuiVirtualDataGrid::GuiVirtualDataGrid(IStyleProvider* _styleProvider, list::IDataProvider* _dataProvider)
+				:GuiVirtualListView(_styleProvider, new DataGridItemProvider(_dataProvider))
+			{
+				Initialize();
+			}
+
+			GuiVirtualDataGrid::GuiVirtualDataGrid(IStyleProvider* _styleProvider, list::IStructuredDataProvider* _dataProvider)
+				:GuiVirtualListView(_styleProvider, new DataGridItemProvider(new StructuredDataProvider(_dataProvider)))
+			{
+				Initialize();
+			}
+
+			GuiVirtualDataGrid::~GuiVirtualDataGrid()
+			{
+			}
+
+			list::IDataProvider* GuiVirtualDataGrid::GetDataProvider()
+			{
+				return dataProvider.Obj();
+			}
+
+			list::StructuredDataProvider* GuiVirtualDataGrid::GetStructuredDataProvider()
+			{
+				return structuredDataProvider.Obj();
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\ListControlPackage\GuiDataGridExtensions.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			namespace list
+			{
+				using namespace compositions;
+				using namespace elements;
+				using namespace theme;
+				
+/***********************************************************************
+DataVisualizerBase
+***********************************************************************/
+
+				DataVisualizerBase::DataVisualizerBase(Ptr<IDataVisualizer> _decoratedDataVisualizer)
+					:factory(0)
+					,styleProvider(0)
+					,boundsComposition(0)
+					,decoratedDataVisualizer(_decoratedDataVisualizer)
+				{
+				}
+
+				DataVisualizerBase::~DataVisualizerBase()
+				{
+					if(decoratedDataVisualizer)
+					{
+						GuiBoundsComposition* composition=decoratedDataVisualizer->GetBoundsComposition();
+						if(composition->GetParent())
+						{
+							composition->GetParent()->RemoveChild(composition);
+						}
+						decoratedDataVisualizer=0;
+					}
+					if(boundsComposition)
+					{
+						SafeDeleteComposition(boundsComposition);
+					}
+				}
+
+				IDataVisualizerFactory* DataVisualizerBase::GetFactory()
+				{
+					return factory;
+				}
+
+				compositions::GuiBoundsComposition* DataVisualizerBase::GetBoundsComposition()
+				{
+					if(!boundsComposition)
+					{
+						GuiBoundsComposition* decoratedComposition=0;
+						if(decoratedDataVisualizer)
+						{
+							decoratedComposition=decoratedDataVisualizer->GetBoundsComposition();
+						}
+						boundsComposition=CreateBoundsCompositionInternal(decoratedComposition);
+					}
+					return boundsComposition;
+				}
+
+				void DataVisualizerBase::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+				}
+
+				IDataVisualizer* DataVisualizerBase::GetDecoratedDataVisualizer()
+				{
+					return decoratedDataVisualizer.Obj();
+				}
+				
+/***********************************************************************
+ListViewMainColumnDataVisualizer
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* ListViewMainColumnDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+				{
+					GuiTableComposition* table=new GuiTableComposition;
+					table->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					table->SetRowsAndColumns(3, 2);
+					table->SetRowOption(0, GuiCellOption::PercentageOption(0.5));
+					table->SetRowOption(1, GuiCellOption::MinSizeOption());
+					table->SetRowOption(2, GuiCellOption::PercentageOption(0.5));
+					table->SetColumnOption(0, GuiCellOption::MinSizeOption());
+					table->SetColumnOption(1, GuiCellOption::PercentageOption(1.0));
+					table->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					table->SetCellPadding(2);
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(1, 0, 1, 1);
+						cell->SetPreferredMinSize(Size(16, 16));
+
+						image=GuiImageFrameElement::Create();
+						image->SetStretch(true);
+						cell->SetOwnedElement(image);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 1, 3, 1);
+						cell->SetMargin(Margin(0, 0, 8, 0));
+
+						text=GuiSolidLabelElement::Create();
+						cell->SetOwnedElement(text);
+					}
+					return table;
+				}
+
+				ListViewMainColumnDataVisualizer::ListViewMainColumnDataVisualizer()
+					:image(0)
+					,text(0)
+				{
+				}
+
+				void ListViewMainColumnDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					Ptr<GuiImageData> imageData=dataProvider->GetRowImage(row);
+					if(imageData)
+					{
+						image->SetImage(imageData->GetImage(), imageData->GetFrameIndex());
+					}
+					else
+					{
+						image->SetImage(0);
+					}
+
+					text->SetAlignments(Alignment::Left, Alignment::Center);
+					text->SetFont(font);
+					text->SetColor(styleProvider->GetPrimaryTextColor());
+					text->SetEllipse(true);
+					text->SetText(dataProvider->GetCellText(row, column));
+				}
+
+				elements::GuiSolidLabelElement* ListViewMainColumnDataVisualizer::GetTextElement()
+				{
+					return text;
+				}
+				
+/***********************************************************************
+ListViewSubColumnDataVisualizer
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* ListViewSubColumnDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+				{
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					composition->SetMargin(Margin(8, 0, 8, 0));
+
+					text=GuiSolidLabelElement::Create();
+					composition->SetOwnedElement(text);
+
+					return composition;
+				}
+
+				ListViewSubColumnDataVisualizer::ListViewSubColumnDataVisualizer()
+					:text(0)
+				{
+				}
+
+				void ListViewSubColumnDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					text->SetAlignments(Alignment::Left, Alignment::Center);
+					text->SetFont(font);
+					text->SetColor(styleProvider->GetSecondaryTextColor());
+					text->SetEllipse(true);
+					text->SetText(dataProvider->GetCellText(row, column));
+				}
+
+				elements::GuiSolidLabelElement* ListViewSubColumnDataVisualizer::GetTextElement()
+				{
+					return text;
+				}
+				
+/***********************************************************************
+CellBorderDataVisualizer
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* CellBorderDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+				{
+					GuiBoundsComposition* border1=0;
+					GuiBoundsComposition* border2=0;
+					{
+						GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+						element->SetColor(styleProvider->GetItemSeparatorColor());
+
+						border1=new GuiBoundsComposition;
+						border1->SetOwnedElement(element);
+						border1->SetAlignmentToParent(Margin(-1, 0, 0, 0));
+					}
+					{
+						GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+						element->SetColor(styleProvider->GetItemSeparatorColor());
+
+						border2=new GuiBoundsComposition;
+						border2->SetOwnedElement(element);
+						border2->SetAlignmentToParent(Margin(0, -1, 0, 0));
+					}
+					decoratedComposition->SetAlignmentToParent(Margin(0, 0, 1, 1));
+
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					composition->AddChild(border1);
+					composition->AddChild(border2);
+					composition->AddChild(decoratedComposition);
+
+					return composition;
+				}
+
+				CellBorderDataVisualizer::CellBorderDataVisualizer(Ptr<IDataVisualizer> decoratedDataVisualizer)
+					:DataVisualizerBase(decoratedDataVisualizer)
+				{
+				}
+
+				void CellBorderDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					decoratedDataVisualizer->BeforeVisualizerCell(dataProvider, row, column);
+				}
+				
+/***********************************************************************
+DataEditorBase
+***********************************************************************/
+
+				DataEditorBase::DataEditorBase()
+					:factory(0)
+					,callback(0)
+					,boundsComposition(0)
+				{
+				}
+
+				DataEditorBase::~DataEditorBase()
+				{
+					if(boundsComposition)
+					{
+						SafeDeleteComposition(boundsComposition);
+					}
+				}
+
+				IDataEditorFactory* DataEditorBase::GetFactory()
+				{
+					return factory;
+				}
+
+				compositions::GuiBoundsComposition* DataEditorBase::GetBoundsComposition()
+				{
+					if(!boundsComposition)
+					{
+						boundsComposition=CreateBoundsCompositionInternal();
+					}
+					return boundsComposition;
+				}
+
+				void DataEditorBase::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+				}
+				
+/***********************************************************************
+DataTextBoxEditor
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* DataTextBoxEditor::CreateBoundsCompositionInternal()
+				{
+					return textBox->GetBoundsComposition();
+				}
+
+				DataTextBoxEditor::DataTextBoxEditor()
+				{
+					textBox=g::NewTextBox();
+				}
+
+				void DataTextBoxEditor::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					DataEditorBase::BeforeEditCell(dataProvider, row, column);
+					textBox->SetText(L"");
+				}
+
+				GuiSinglelineTextBox* DataTextBoxEditor::GetTextBox()
+				{
+					return textBox;
+				}
+				
+/***********************************************************************
+DataTextComboBoxEditor
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* DataTextComboBoxEditor::CreateBoundsCompositionInternal()
+				{
+					return comboBox->GetBoundsComposition();
+				}
+
+				DataTextComboBoxEditor::DataTextComboBoxEditor()
+				{
+					textList=g::NewTextList();
+					comboBox=g::NewComboBox(textList);
+				}
+
+				void DataTextComboBoxEditor::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					DataEditorBase::BeforeEditCell(dataProvider, row, column);
+					textList->GetItems().Clear();
+				}
+
+				GuiComboBoxListControl* DataTextComboBoxEditor::GetComboBoxControl()
+				{
+					return comboBox;
+				}
+
+				GuiTextList* DataTextComboBoxEditor::GetTextListControl()
+				{
+					return textList;
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Controls\ListControlPackage\GuiDataGridStructured.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			namespace list
+			{
+				using namespace collections;
+				
+/***********************************************************************
+StructuredDataFilterBase
+***********************************************************************/
+
+				void StructuredDataFilterBase::InvokeOnFilterChanged()
+				{
+					if(commandExecutor)
+					{
+						commandExecutor->OnFilterChanged();
+					}
+				}
+
+				StructuredDataFilterBase::StructuredDataFilterBase()
+					:commandExecutor(0)
+				{
+				}
+
+				void StructuredDataFilterBase::SetCommandExecutor(IStructuredDataFilterCommandExecutor* value)
+				{
+					commandExecutor=value;
+				}
+				
+/***********************************************************************
+StructuredDataMultipleFilter
+***********************************************************************/
+
+				StructuredDataMultipleFilter::StructuredDataMultipleFilter()
+				{
+				}
+
+				bool StructuredDataMultipleFilter::AddSubFilter(Ptr<IStructuredDataFilter> value)
+				{
+					if(!value) return false;
+					if(filters.Contains(value.Obj())) return false;
+					filters.Add(value);
+					value->SetCommandExecutor(commandExecutor);
+					InvokeOnFilterChanged();
+					return true;
+				}
+
+				bool StructuredDataMultipleFilter::RemoveSubFilter(Ptr<IStructuredDataFilter> value)
+				{
+					if(!value) return false;
+					if(!filters.Contains(value.Obj())) return false;
+					value->SetCommandExecutor(0);
+					filters.Remove(value.Obj());
+					InvokeOnFilterChanged();
+					return true;
+				}
+
+				void StructuredDataMultipleFilter::SetCommandExecutor(IStructuredDataFilterCommandExecutor* value)
+				{
+					StructuredDataFilterBase::SetCommandExecutor(value);
+					for(vint i=0;i<filters.Count();i++)
+					{
+						filters[i]->SetCommandExecutor(value);
+					}
+				}
+				
+/***********************************************************************
+StructuredDataAndFilter
+***********************************************************************/
+
+				StructuredDataAndFilter::StructuredDataAndFilter()
+				{
+				}
+
+				bool StructuredDataAndFilter::Filter(vint row)
+				{
+					return From(filters)
+						.All([row](Ptr<IStructuredDataFilter> filter)
+						{
+							return filter->Filter(row);
+						});
+				}
+				
+/***********************************************************************
+StructuredDataOrFilter
+***********************************************************************/
+				
+				StructuredDataOrFilter::StructuredDataOrFilter()
+				{
+				}
+
+				bool StructuredDataOrFilter::Filter(vint row)
+				{
+					return From(filters)
+						.Any([row](Ptr<IStructuredDataFilter> filter)
+						{
+							return filter->Filter(row);
+						});
+				}
+				
+/***********************************************************************
+StructuredDataNotFilter
+***********************************************************************/
+				
+				StructuredDataNotFilter::StructuredDataNotFilter()
+				{
+				}
+
+				bool StructuredDataNotFilter::SetSubFilter(Ptr<IStructuredDataFilter> value)
+				{
+					if(filter==value) return false;
+					if(filter)
+					{
+						filter->SetCommandExecutor(0);
+					}
+					filter=value;
+					if(filter)
+					{
+						filter->SetCommandExecutor(commandExecutor);
+					}
+					InvokeOnFilterChanged();
+					return true;
+				}
+
+				void StructuredDataNotFilter::SetCommandExecutor(IStructuredDataFilterCommandExecutor* value)
+				{
+					StructuredDataFilterBase::SetCommandExecutor(value);
+					if(filter)
+					{
+						filter->SetCommandExecutor(value);
+					}
+				}
+
+				bool StructuredDataNotFilter::Filter(vint row)
+				{
+					return filter?true:!filter->Filter(row);
+				}
+				
+/***********************************************************************
+StructuredDataMultipleSorter
+***********************************************************************/
+
+				StructuredDataMultipleSorter::StructuredDataMultipleSorter()
+				{
+				}
+
+				bool StructuredDataMultipleSorter::SetLeftSorter(Ptr<IStructuredDataSorter> value)
+				{
+					if(leftSorter==value) return false;
+					leftSorter=value;
+					return true;
+				}
+
+				bool StructuredDataMultipleSorter::SetRightSorter(Ptr<IStructuredDataSorter> value)
+				{
+					if(rightSorter==value) return false;
+					rightSorter=value;
+					return true;
+				}
+
+				vint StructuredDataMultipleSorter::Compare(vint row1, vint row2)
+				{
+					if(leftSorter)
+					{
+						vint result=leftSorter->Compare(row1, row2);
+						if(result!=0) return result;
+					}
+					if(rightSorter)
+					{
+						vint result=rightSorter->Compare(row1, row2);
+						if(result!=0) return result;
+					}
+					return 0;
+				}
+				
+/***********************************************************************
+StructuredDataReverseSorter
+***********************************************************************/
+
+				StructuredDataReverseSorter::StructuredDataReverseSorter()
+				{
+				}
+
+				bool StructuredDataReverseSorter::SetSubSorter(Ptr<IStructuredDataSorter> value)
+				{
+					if(sorter==value) return false;
+					sorter=value;
+					return true;
+				}
+
+				vint StructuredDataReverseSorter::Compare(vint row1, vint row2)
+				{
+					return sorter?-sorter->Compare(row1, row2):0;
+				}
+				
+/***********************************************************************
+StructuredDataProvider
+***********************************************************************/
+
+				void StructuredDataProvider::OnDataProviderColumnChanged()
+				{
+					RebuildFilter();
+					ReorderRows();
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+				}
+
+				void StructuredDataProvider::OnDataProviderItemModified(vint start, vint count, vint newCount)
+				{
+					// optimized for cell editing
+					if(!currentSorter && !currentFilter)
+					{
+						if(count!=newCount)
+						{
+							ReorderRows();
+						}
+						commandExecutor->OnDataProviderItemModified(start, count, newCount);
+					}
+					else
+					{
+						ReorderRows();
+						commandExecutor->OnDataProviderItemModified(0, GetRowCount(), GetRowCount());
+					}
+				}
+
+				void StructuredDataProvider::OnFilterChanged()
+				{
+					ReorderRows();
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+				}
+
+				void StructuredDataProvider::RebuildFilter()
+				{
+					if(currentFilter)
+					{
+						currentFilter->SetCommandExecutor(0);
+						currentFilter=0;
+					}
+
+					List<Ptr<IStructuredDataFilter>> selectedFilters;
+					CopyFrom(
+						selectedFilters,
+						Range(0, GetColumnCount())
+							.Select([this](vint column){return structuredDataProvider->GetColumn(column)->GetInherentFilter();})
+							.Where([](Ptr<IStructuredDataFilter> filter){return (bool)filter;})
+						);
+					if(additionalFilter)
+					{
+						selectedFilters.Add(additionalFilter);
+					}
+					if(selectedFilters.Count()>0)
+					{
+						Ptr<StructuredDataAndFilter> andFilter=new StructuredDataAndFilter;
+						FOREACH(Ptr<IStructuredDataFilter>, filter, selectedFilters)
+						{
+							andFilter->AddSubFilter(filter);
+						}
+						currentFilter=andFilter;
+					}
+
+					if(currentFilter)
+					{
+						currentFilter->SetCommandExecutor(this);
+					}
+				}
+
+				void StructuredDataProvider::ReorderRows()
+				{
+					reorderedRows.Clear();
+					vint rowCount=structuredDataProvider->GetRowCount();
+
+					if(currentFilter)
+					{
+						for(vint i=0;i<rowCount;i++)
+						{
+							if(currentFilter->Filter(i))
+							{
+								reorderedRows.Add(i);
+							}
+						}
+					}
+					else
+					{
+						for(vint i=0;i<rowCount;i++)
+						{
+							reorderedRows.Add(i);
+						}
+					}
+
+					if(currentSorter && reorderedRows.Count()>0)
+					{
+						IStructuredDataSorter* sorter=currentSorter.Obj();
+						SortLambda(&reorderedRows[0], reorderedRows.Count(), [sorter](vint a, vint b){return sorter->Compare(a, b);});
+					}
+				}
+
+				vint StructuredDataProvider::TranslateRowNumber(vint row)
+				{
+					return reorderedRows[row];
+				}
+
+				Ptr<IStructuredDataFilter> StructuredDataProvider::GetAdditionalFilter()
+				{
+					return additionalFilter;
+				}
+
+				void StructuredDataProvider::SetAdditionalFilter(Ptr<IStructuredDataFilter> value)
+				{
+					additionalFilter=value;
+					RebuildFilter();
+					ReorderRows();
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+						commandExecutor->OnDataProviderItemModified(0, GetRowCount(), GetRowCount());
+					}
+				}
+
+				StructuredDataProvider::StructuredDataProvider(Ptr<IStructuredDataProvider> provider)
+					:structuredDataProvider(provider)
+					,commandExecutor(0)
+				{
+					structuredDataProvider->SetCommandExecutor(this);
+					RebuildFilter();
+					ReorderRows();
+				}
+
+				StructuredDataProvider::~StructuredDataProvider()
+				{
+				}
+
+				void StructuredDataProvider::SetCommandExecutor(IDataProviderCommandExecutor* value)
+				{
+					commandExecutor=value;
+				}
+
+				vint StructuredDataProvider::GetColumnCount()
+				{
+					return structuredDataProvider->GetColumnCount();
+				}
+
+				WString StructuredDataProvider::GetColumnText(vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetText();
+				}
+
+				vint StructuredDataProvider::GetColumnSize(vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetSize();
+				}
+
+				void StructuredDataProvider::SetColumnSize(vint column, vint value)
+				{
+					structuredDataProvider->GetColumn(column)->SetSize(value);
+				}
+
+				GuiMenu* StructuredDataProvider::GetColumnPopup(vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetPopup();
+				}
+
+				bool StructuredDataProvider::IsColumnSortable(vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetInherentSorter();
+				}
+
+				void StructuredDataProvider::SortByColumn(vint column, bool ascending)
+				{
+					if(0<=column && column<structuredDataProvider->GetColumnCount())
+					{
+						Ptr<IStructuredDataSorter> sorter=structuredDataProvider->GetColumn(column)->GetInherentSorter();
+						if(!sorter)
+						{
+							currentSorter=0;
+						}
+						else if(ascending)
+						{
+							currentSorter=sorter;
+						}
+						else
+						{
+							Ptr<StructuredDataReverseSorter> reverseSorter=new StructuredDataReverseSorter();
+							reverseSorter->SetSubSorter(sorter);
+							currentSorter=reverseSorter;
+						}
+					}
+					else
+					{
+						currentSorter=0;
+					}
+					for(vint i=0;i<structuredDataProvider->GetColumnCount();i++)
+					{
+						structuredDataProvider->GetColumn(i)->SetSortingState(
+							i!=column?GuiListViewColumnHeader::NotSorted:
+							ascending?GuiListViewColumnHeader::Ascending:
+							GuiListViewColumnHeader::Descending
+							);
+					}
+					ReorderRows();
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+						commandExecutor->OnDataProviderItemModified(0, GetRowCount(), GetRowCount());
+					}
+				}
+
+				vint StructuredDataProvider::GetSortedColumn()
+				{
+					for(vint i=0;i<structuredDataProvider->GetColumnCount();i++)
+					{
+						GuiListViewColumnHeader::ColumnSortingState state=structuredDataProvider->GetColumn(i)->GetSortingState();
+						if(state!=GuiListViewColumnHeader::NotSorted)
+						{
+							return i;
+						}
+					}
+					return -1;
+				}
+
+				bool StructuredDataProvider::IsSortOrderAscending()
+				{
+					for(vint i=0;i<structuredDataProvider->GetColumnCount();i++)
+					{
+						GuiListViewColumnHeader::ColumnSortingState state=structuredDataProvider->GetColumn(i)->GetSortingState();
+						if(state!=GuiListViewColumnHeader::NotSorted)
+						{
+							return state==GuiListViewColumnHeader::Ascending;
+						}
+					}
+					return true;
+				}
+					
+				vint StructuredDataProvider::GetRowCount()
+				{
+					return reorderedRows.Count();
+				}
+
+				Ptr<GuiImageData> StructuredDataProvider::GetRowImage(vint row)
+				{
+					return structuredDataProvider->GetRowImage(TranslateRowNumber(row));
+				}
+
+				WString StructuredDataProvider::GetCellText(vint row, vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetCellText(TranslateRowNumber(row));
+				}
+
+				IDataVisualizerFactory* StructuredDataProvider::GetCellDataVisualizerFactory(vint row, vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetCellDataVisualizerFactory(TranslateRowNumber(row));
+				}
+
+				void StructuredDataProvider::VisualizeCell(vint row, vint column, IDataVisualizer* dataVisualizer)
+				{
+					structuredDataProvider->GetColumn(column)->VisualizeCell(TranslateRowNumber(row), dataVisualizer);
+				}
+
+				IDataEditorFactory* StructuredDataProvider::GetCellDataEditorFactory(vint row, vint column)
+				{
+					return structuredDataProvider->GetColumn(column)->GetCellDataEditorFactory(TranslateRowNumber(row));
+				}
+
+				void StructuredDataProvider::BeforeEditCell(vint row, vint column, IDataEditor* dataEditor)
+				{
+					structuredDataProvider->GetColumn(column)->BeforeEditCell(TranslateRowNumber(row), dataEditor);
+				}
+
+				void StructuredDataProvider::SaveCellData(vint row, vint column, IDataEditor* dataEditor)
+				{
+					structuredDataProvider->GetColumn(column)->SaveCellData(TranslateRowNumber(row), dataEditor);
+				}
+				
+/***********************************************************************
+StructuredColummProviderBase
+***********************************************************************/
+
+				StructuredColummProviderBase::StructuredColummProviderBase()
+					:commandExecutor(0)
+					,size(0)
+					,sortingState(GuiListViewColumnHeader::NotSorted)
+					,popup(0)
+				{
+				}
+
+				StructuredColummProviderBase::~StructuredColummProviderBase()
+				{
+				}
+					
+				void StructuredColummProviderBase::SetCommandExecutor(IDataProviderCommandExecutor* value)
+				{
+					commandExecutor=value;
+				}
+
+				StructuredColummProviderBase* StructuredColummProviderBase::SetText(const WString& value)
+				{
+					text=value;
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+					return this;
+				}
+
+				StructuredColummProviderBase* StructuredColummProviderBase::SetPopup(GuiMenu* value)
+				{
+					popup=value;
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+					return this;
+				}
+
+				StructuredColummProviderBase* StructuredColummProviderBase::SetInherentFilter(Ptr<IStructuredDataFilter> value)
+				{
+					inherentFilter=value;
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+					return this;
+				}
+
+				StructuredColummProviderBase* StructuredColummProviderBase::SetInherentSorter(Ptr<IStructuredDataSorter> value)
+				{
+					inherentSorter=value;
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+					return this;
+				}
+
+				StructuredColummProviderBase* StructuredColummProviderBase::SetVisualizerFactory(Ptr<IDataVisualizerFactory> value)
+				{
+					visualizerFactory=value;
+					return this;
+				}
+
+				StructuredColummProviderBase* StructuredColummProviderBase::SetEditorFactory(Ptr<IDataEditorFactory> value)
+				{
+					editorFactory=value;
+					return this;
+				}
+
+				WString StructuredColummProviderBase::GetText()
+				{
+					return text;
+				}
+
+				vint StructuredColummProviderBase::GetSize()
+				{
+					return size;
+				}
+
+				void StructuredColummProviderBase::SetSize(vint value)
+				{
+					size=value;
+				}
+
+				GuiListViewColumnHeader::ColumnSortingState StructuredColummProviderBase::GetSortingState()
+				{
+					return sortingState;
+				}
+
+				void StructuredColummProviderBase::SetSortingState(GuiListViewColumnHeader::ColumnSortingState value)
+				{
+					sortingState=value;
+				}
+
+				GuiMenu* StructuredColummProviderBase::GetPopup()
+				{
+					return popup;
+				}
+
+				Ptr<IStructuredDataFilter> StructuredColummProviderBase::GetInherentFilter()
+				{
+					return inherentFilter;
+				}
+
+				Ptr<IStructuredDataSorter> StructuredColummProviderBase::GetInherentSorter()
+				{
+					return inherentSorter;
+				}
+					
+				IDataVisualizerFactory* StructuredColummProviderBase::GetCellDataVisualizerFactory(vint row)
+				{
+					return visualizerFactory.Obj();
+				}
+
+				void StructuredColummProviderBase::VisualizeCell(vint row, IDataVisualizer* dataVisualizer)
+				{
+				}
+
+				IDataEditorFactory* StructuredColummProviderBase::GetCellDataEditorFactory(vint row)
+				{
+					return editorFactory.Obj();
+				}
+
+				void StructuredColummProviderBase::BeforeEditCell(vint row, IDataEditor* dataEditor)
+				{
+				}
+
+				void StructuredColummProviderBase::SaveCellData(vint row, IDataEditor* dataEditor)
+				{
+				}
+				
+/***********************************************************************
+StructuredDataProviderBase
+***********************************************************************/
+
+				bool StructuredDataProviderBase::AddColumn(Ptr<StructuredColummProviderBase> value)
+				{
+					if(columns.Contains(value.Obj())) return false;
+					columns.Add(value);
+					value->SetCommandExecutor(commandExecutor);
+					if(commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
+					return true;
+				}
+
+				StructuredDataProviderBase::StructuredDataProviderBase()
+					:commandExecutor(0)
+				{
+				}
+
+				StructuredDataProviderBase::~StructuredDataProviderBase()
+				{
+				}
+
+				void StructuredDataProviderBase::SetCommandExecutor(IDataProviderCommandExecutor* value)
+				{
+					commandExecutor=value;
+					FOREACH(Ptr<StructuredColummProviderBase>, column, columns)
+					{
+						column->SetCommandExecutor(commandExecutor);
+					}
+				}
+
+				vint StructuredDataProviderBase::GetColumnCount()
+				{
+					return columns.Count();
+				}
+
+				IStructuredColumnProvider* StructuredDataProviderBase::GetColumn(vint column)
+				{
+					return columns[column].Obj();
+				}
+
+				Ptr<GuiImageData> StructuredDataProviderBase::GetRowImage(vint row)
+				{
+					return 0;
+				}
 			}
 		}
 	}
@@ -5385,6 +7027,12 @@ ListViewItemStyleProvider::ListViewContentItemStyleController
 				{
 				}
 
+				void ListViewItemStyleProvider::ListViewContentItemStyleController::OnUninstalled()
+				{
+					ListViewItemStyleController::OnUninstalled();
+					content->Uninstall();
+				}
+
 				ListViewItemStyleProvider::IListViewItemContent* ListViewItemStyleProvider::ListViewContentItemStyleController::GetItemContent()
 				{
 					return content.Obj();
@@ -5534,6 +7182,10 @@ ListViewBigIconContentProvider
 					text->SetColor(styleProvider->GetPrimaryTextColor());
 				}
 
+				void ListViewBigIconContentProvider::ItemContent::Uninstall()
+				{
+				}
+
 				ListViewBigIconContentProvider::ListViewBigIconContentProvider(Size _iconSize)
 					:iconSize(_iconSize)
 				{
@@ -5639,6 +7291,10 @@ ListViewSmallIconContentProvider
 					text->SetColor(styleProvider->GetPrimaryTextColor());
 				}
 
+				void ListViewSmallIconContentProvider::ItemContent::Uninstall()
+				{
+				}
+
 				ListViewSmallIconContentProvider::ListViewSmallIconContentProvider(Size _iconSize)
 					:iconSize(_iconSize)
 				{
@@ -5741,6 +7397,10 @@ ListViewListContentProvider
 					}
 					text->SetText(view->GetText(itemIndex));
 					text->SetColor(styleProvider->GetPrimaryTextColor());
+				}
+
+				void ListViewListContentProvider::ItemContent::Uninstall()
+				{
 				}
 
 				ListViewListContentProvider::ListViewListContentProvider(Size _iconSize)
@@ -5896,6 +7556,10 @@ ListViewTileContentProvider
 						dataTexts[i]->SetText(view->GetSubItem(itemIndex, view->GetDataColumn(i)));
 						dataTexts[i]->SetColor(styleProvider->GetSecondaryTextColor());
 					}
+				}
+
+				void ListViewTileContentProvider::ItemContent::Uninstall()
+				{
 				}
 
 				ListViewTileContentProvider::ListViewTileContentProvider(Size _iconSize)
@@ -6079,6 +7743,10 @@ ListViewInformationContentProvider
 					}
 				}
 
+				void ListViewInformationContentProvider::ItemContent::Uninstall()
+				{
+				}
+
 				ListViewInformationContentProvider::ListViewInformationContentProvider(Size _iconSize)
 					:iconSize(_iconSize)
 				{
@@ -6140,6 +7808,16 @@ ListViewColumnItemArranger
 					GuiItemEventArgs args(listView->ColumnClicked.GetAssociatedComposition());
 					args.itemIndex=index;
 					listView->ColumnClicked.Execute(args);
+				}
+
+				void ListViewColumnItemArranger::ColumnBoundsChanged(vint index, compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+				{
+					GuiBoundsComposition* buttonBounds=columnHeaderButtons[index]->GetBoundsComposition();
+					vint size=buttonBounds->GetBounds().Width();
+					if(size>columnItemView->GetColumnSize(index))
+					{
+						columnItemView->SetColumnSize(index, size);
+					}
 				}
 
 				void ListViewColumnItemArranger::ColumnHeaderSplitterLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
@@ -6269,6 +7947,7 @@ ListViewColumnItemArranger
 								button->SetColumnSortingState(columnItemView->GetSortingState(i));
 								button->GetBoundsComposition()->SetBounds(Rect(Point(0, 0), Size(columnItemView->GetColumnSize(i), 0)));
 								button->Clicked.AttachLambda(Curry(Func<void(vint, GuiGraphicsComposition*, GuiEventArgs&)>(this, &ListViewColumnItemArranger::ColumnClicked))(i));
+								button->GetBoundsComposition()->BoundsChanged.AttachLambda(Curry(Func<void(vint, GuiGraphicsComposition*, GuiEventArgs&)>(this, &ListViewColumnItemArranger::ColumnBoundsChanged))(i));
 								columnHeaderButtons.Add(button);
 								if(i>0)
 								{
@@ -6474,6 +8153,10 @@ ListViewDetailContentProvider
 						cell->SetOwnedElement(subText);
 					}
 					UpdateSubItemSize();
+				}
+
+				void ListViewDetailContentProvider::ItemContent::Uninstall()
+				{
 				}
 
 				void ListViewDetailContentProvider::OnColumnChanged()
@@ -9657,10 +11340,10 @@ Win8Theme
 				return new Win8GroupBoxStyle;
 			}
 
-			//controls::GuiTab::IStyleController* Win8Theme::CreateTabStyle()
-			//{
-			//	throw 0;
-			//}
+			controls::GuiTab::IStyleController* Win8Theme::CreateTabStyle()
+			{
+				return new Win8TabStyle;
+			}
 
 			controls::GuiComboBoxBase::IStyleController* Win8Theme::CreateComboBoxStyle()
 			{
@@ -13511,50 +15194,33 @@ Win7TabStyle
 			{
 				vint height=headerOverflowButton->GetBoundsComposition()->GetBounds().Height();
 				headerOverflowButton->GetBoundsComposition()->SetBounds(Rect(Point(0, 0), Size(height, 0)));
-				UpdateHeaderOverflowButtonVisibility();
+
+				UpdateHeaderLayout();
 			}
 
 			void Win7TabStyle::OnHeaderOverflowButtonClicked(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
 			{
-				for(vint i=headerOverflowMenuStack->GetStackItems().Count()-1;i>=0;i--)
-				{
-					GuiStackItemComposition* item=headerOverflowMenuStack->GetStackItems().Get(i);
-					GuiControl* button=item->Children().Get(0)->GetAssociatedControl();
-
-					headerOverflowMenuStack->RemoveChild(item);
-					item->RemoveChild(button->GetBoundsComposition());
-					delete button;
-					delete item;
-				}
-
-				for(vint i=0;i<headerButtons.Count();i++)
-				{
-					GuiStackItemComposition* item=new GuiStackItemComposition;
-					headerOverflowMenuStack->AddChild(item);
-
-					GuiMenuButton* button=new GuiMenuButton(new Win7MenuItemButtonStyle);
-					button->SetText(headerButtons[i]->GetText());
-					button->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-					button->Clicked.AttachMethod(this, &Win7TabStyle::OnHeaderOverflowMenuButtonClicked);
-					item->AddChild(button->GetBoundsComposition());
-				}
-
 				headerOverflowMenu->SetClientSize(Size(0, 0));
 				headerOverflowMenu->ShowPopup(headerOverflowButton, true);
 			}
 
 			void Win7TabStyle::OnHeaderOverflowMenuButtonClicked(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
 			{
-				vint index=headerOverflowMenuStack->GetStackItems().IndexOf(dynamic_cast<GuiStackItemComposition*>(sender->GetParent()));
-				if(index!=-1)
-				{
-					commandExecutor->ShowTab(index);
-				}
+				vint index=headerOverflowMenu->GetToolstripItems().IndexOf(sender->GetRelatedControl());
+				commandExecutor->ShowTab(index);
 			}
 
 			void Win7TabStyle::UpdateHeaderOverflowButtonVisibility()
 			{
-				headerOverflowButton->SetVisible(tabHeaderComposition->IsStackItemClipped());
+				if(tabHeaderComposition->IsStackItemClipped())
+				{
+					boundsComposition->SetColumnOption(1, GuiCellOption::MinSizeOption());
+				}
+				else
+				{
+					boundsComposition->SetColumnOption(1, GuiCellOption::AbsoluteOption(0));
+				}
+				boundsComposition->ForceCalculateSizeImmediately();
 			}
 
 			void Win7TabStyle::UpdateHeaderZOrder()
@@ -13574,17 +15240,45 @@ Win7TabStyle
 						item->SetExtraMargin(Margin(0, 0, 0, 0));
 					}
 				}
-				tabHeaderComposition->MoveChild(tabContentTopLineComposition, childCount-2);
+				if(childCount>1)
+				{
+					tabHeaderComposition->MoveChild(tabContentTopLineComposition, childCount-2);
+				}
 			}
 
-			Win7TabStyle::Win7TabStyle()
-				:commandExecutor(0)
+			void Win7TabStyle::UpdateHeaderVisibilityIndex()
+			{
+				vint itemCount=tabHeaderComposition->GetStackItems().Count();
+				vint selectedItem=-1;
+				for(vint i=0;i<itemCount;i++)
+				{
+					if(headerButtons[i]->GetSelected())
+					{
+						selectedItem=i;
+					}
+				}
+
+				if(selectedItem!=-1)
+				{
+					tabHeaderComposition->EnsureVisible(selectedItem);
+				}
+			}
+
+			void Win7TabStyle::UpdateHeaderLayout()
+			{
+				UpdateHeaderZOrder();
+				UpdateHeaderVisibilityIndex();
+				UpdateHeaderOverflowButtonVisibility();
+			}
+
+			void Win7TabStyle::Initialize()
 			{
 				boundsComposition=new GuiTableComposition;
-				boundsComposition->SetRowsAndColumns(2, 1);
+				boundsComposition->SetRowsAndColumns(2, 2);
 				boundsComposition->SetRowOption(0, GuiCellOption::MinSizeOption());
 				boundsComposition->SetRowOption(1, GuiCellOption::PercentageOption(1.0));
 				boundsComposition->SetColumnOption(0, GuiCellOption::PercentageOption(1.0));
+				boundsComposition->SetColumnOption(1, GuiCellOption::AbsoluteOption(0));
 				{
 					GuiCellComposition* cell=new GuiCellComposition;
 					boundsComposition->AddChild(cell);
@@ -13596,17 +15290,21 @@ Win7TabStyle
 					tabHeaderComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
 					tabHeaderComposition->BoundsChanged.AttachMethod(this, &Win7TabStyle::OnTabHeaderBoundsChanged);
 					cell->AddChild(tabHeaderComposition);
+				}
+				{
+					GuiCellComposition* cell=new GuiCellComposition;
+					boundsComposition->AddChild(cell);
+					cell->SetSite(0, 1, 1, 1);
 
-					headerOverflowButton=new GuiButton(new Win7ButtonStyle);
+					headerOverflowButton=new GuiButton(CreateMenuButtonStyleController());
 					headerOverflowButton->GetContainerComposition()->AddChild(common_styles::CommonFragmentBuilder::BuildDownArrow(headerOverflowArrowElement));
-					headerOverflowButton->SetVisible(false);
 					headerOverflowButton->GetBoundsComposition()->SetAlignmentToParent(Margin(-1, 0, 0, 0));
 					headerOverflowButton->Clicked.AttachMethod(this, &Win7TabStyle::OnHeaderOverflowButtonClicked);
 					cell->AddChild(headerOverflowButton->GetBoundsComposition());
 				}
 				{
 					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
-					element->SetColor(Win7ButtonColors::TabPageHeaderNormal().borderColor);
+					element->SetColor(GetBorderColor());
 
 					tabContentTopLineComposition=new GuiBoundsComposition;
 					tabContentTopLineComposition->SetOwnedElement(element);
@@ -13617,7 +15315,7 @@ Win7TabStyle
 				{
 					GuiCellComposition* cell=new GuiCellComposition;
 					boundsComposition->AddChild(cell);
-					cell->SetSite(1, 0, 1, 1);
+					cell->SetSite(1, 0, 1, 2);
 
 					containerComposition=new GuiBoundsComposition;
 					containerComposition->SetAlignmentToParent(Margin(1, 0, 1, 1));
@@ -13626,7 +15324,7 @@ Win7TabStyle
 
 					{
 						GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
-						element->SetColor(Win7ButtonColors::TabPageHeaderNormal().borderColor);
+						element->SetColor(GetBorderColor());
 						cell->SetOwnedElement(element);
 					}
 					{
@@ -13635,16 +15333,55 @@ Win7TabStyle
 						containerComposition->SetOwnedElement(element);
 					}
 				}
-				{
-					headerOverflowMenu=new GuiMenu(new Win7MenuStyle, 0);
-					headerOverflowMenuStack=new GuiStackComposition;
-					headerOverflowMenuStack->SetDirection(GuiStackComposition::Vertical);
-					headerOverflowMenuStack->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
-					headerOverflowMenuStack->SetAlignmentToParent(Margin(0, 0, 0, 0));
-					headerOverflowMenu->GetContainerComposition()->AddChild(headerOverflowMenuStack);
-				}
 
+				headerOverflowMenu=new GuiToolstripMenu(CreateMenuStyleController(), 0);
 				headerController=new GuiSelectableButton::MutexGroupController;
+			}
+			
+			controls::GuiSelectableButton::IStyleController* Win7TabStyle::CreateHeaderStyleController()
+			{
+				return new Win7TabPageHeaderStyle;
+			}
+
+			controls::GuiButton::IStyleController* Win7TabStyle::CreateMenuButtonStyleController()
+			{
+				return new Win7ButtonStyle;
+			}
+
+			controls::GuiToolstripMenu::IStyleController* Win7TabStyle::CreateMenuStyleController()
+			{
+				return new Win7MenuStyle;
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win7TabStyle::CreateMenuItemStyleController()
+			{
+				return new Win7MenuItemButtonStyle;
+			}
+
+			Color Win7TabStyle::GetBorderColor()
+			{
+				return Win7ButtonColors::TabPageHeaderNormal().borderColor;
+			}
+
+			Color Win7TabStyle::GetBackgroundColor()
+			{
+				return Win7GetSystemTabContentColor();
+			}
+
+			Win7TabStyle::Win7TabStyle(bool initialize)
+				:boundsComposition(0)
+				,containerComposition(0)
+				,tabHeaderComposition(0)
+				,tabContentTopLineComposition(0)
+				,commandExecutor(0)
+				,headerOverflowArrowElement(0)
+				,headerOverflowButton(0)
+				,headerOverflowMenu(0)
+			{
+				if(initialize)
+				{
+					Initialize();
+				}
 			}
 
 			Win7TabStyle::~Win7TabStyle()
@@ -13686,7 +15423,7 @@ Win7TabStyle
 
 			void Win7TabStyle::InsertTab(vint index)
 			{
-				GuiSelectableButton* button=new GuiSelectableButton(new Win7TabPageHeaderStyle);
+				GuiSelectableButton* button=new GuiSelectableButton(CreateHeaderStyleController());
 				button->SetAutoSelection(false);
 				button->SetFont(headerFont);
 				button->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
@@ -13697,13 +15434,20 @@ Win7TabStyle
 				item->AddChild(button->GetBoundsComposition());
 				tabHeaderComposition->InsertStackItem(index, item);
 				headerButtons.Insert(index, button);
-				UpdateHeaderZOrder();
+
+				GuiToolstripButton* menuItem=new GuiToolstripButton(CreateMenuItemStyleController());
+				menuItem->Clicked.AttachMethod(this, &Win7TabStyle::OnHeaderOverflowMenuButtonClicked);
+				headerOverflowMenu->GetToolstripItems().Insert(index, menuItem);
+
+				UpdateHeaderLayout();
 			}
 
 			void Win7TabStyle::SetTabText(vint index, const WString& value)
 			{
 				headerButtons[index]->SetText(value);
-				UpdateHeaderOverflowButtonVisibility();
+				headerOverflowMenu->GetToolstripItems().Get(index)->SetText(value);
+				
+				UpdateHeaderLayout();
 			}
 
 			void Win7TabStyle::RemoveTab(vint index)
@@ -13715,9 +15459,11 @@ Win7TabStyle
 				item->RemoveChild(button->GetBoundsComposition());
 				headerButtons.RemoveAt(index);
 
+				headerOverflowMenu->GetToolstripItems().RemoveAt(index);
 				delete item;
 				delete button;
-				UpdateHeaderOverflowButtonVisibility();
+				
+				UpdateHeaderLayout();
 			}
 
 			void Win7TabStyle::MoveTab(vint oldIndex, vint newIndex)
@@ -13729,20 +15475,20 @@ Win7TabStyle
 				GuiSelectableButton* button=headerButtons[oldIndex];
 				headerButtons.RemoveAt(oldIndex);
 				headerButtons.Insert(newIndex, button);
-				UpdateHeaderZOrder();
-				UpdateHeaderOverflowButtonVisibility();
+				
+				UpdateHeaderLayout();
 			}
 
 			void Win7TabStyle::SetSelectedTab(vint index)
 			{
 				headerButtons[index]->SetSelected(true);
-				UpdateHeaderZOrder();
-				UpdateHeaderOverflowButtonVisibility();
+				
+				UpdateHeaderLayout();
 			}
 
 			controls::GuiControl::IStyleController* Win7TabStyle::CreateTabPageStyleController()
 			{
-				GuiControl::IStyleController* style=new Win7EmptyStyle(Win7GetSystemTabContentColor());
+				GuiControl::IStyleController* style=new Win7EmptyStyle(GetBackgroundColor());
 				style->GetBoundsComposition()->SetAlignmentToParent(Margin(2, 2, 2, 2));
 				return style;
 			}
@@ -16612,6 +18358,42 @@ Win8ButtonColors
 				return colors;
 			}
 
+			Win8ButtonColors Win8ButtonColors::TabPageHeaderNormal()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(172, 172, 172),
+					Color(239, 239, 239),
+					Color(229, 229, 229),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::TabPageHeaderActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(126, 180, 234),
+					Color(236, 244, 252),
+					Color(221, 237, 252),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::TabPageHeaderSelected()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(172, 172, 172),
+					Color(255, 255, 255),
+					Color(255, 255, 255),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
 /***********************************************************************
 Win8ButtonElements
 ***********************************************************************/
@@ -16984,6 +18766,11 @@ Helpers
 			{
 				return Color(240, 240, 240);
 			}
+			
+			Color Win8GetSystemTabContentColor()
+			{
+				return Color(255, 255, 255);
+			}
 
 			Color Win8GetSystemBorderColor()
 			{
@@ -17049,6 +18836,100 @@ namespace vl
 	{
 		namespace win8
 		{
+			using namespace controls;
+
+/***********************************************************************
+Win8TabPageHeaderStyle
+***********************************************************************/
+
+			void Win8TabPageHeaderStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected)
+			{
+				if(selected)
+				{
+					transferringAnimation->Transfer(Win8ButtonColors::TabPageHeaderSelected());
+				}
+				else
+				{
+					switch(value)
+					{
+					case GuiButton::Normal:
+						transferringAnimation->Transfer(Win8ButtonColors::TabPageHeaderNormal());
+						break;
+					case GuiButton::Active:
+					case GuiButton::Pressed:
+						transferringAnimation->Transfer(Win8ButtonColors::TabPageHeaderActive());
+						break;
+					}
+				}
+			}
+
+			Win8TabPageHeaderStyle::Win8TabPageHeaderStyle()
+				:Win8ButtonStyleBase(Win8ButtonColors::TabPageHeaderNormal(), Alignment::Left, Alignment::Center)
+			{
+				transferringAnimation->SetEnableAnimation(false);
+				{
+					Margin margin=elements.backgroundComposition->GetAlignmentToParent();
+					margin.bottom=0;
+					elements.backgroundComposition->SetAlignmentToParent(margin);
+				}
+			}
+
+			Win8TabPageHeaderStyle::~Win8TabPageHeaderStyle()
+			{
+			}
+
+			void Win8TabPageHeaderStyle::SetFont(const FontProperties& value)
+			{
+				Win8ButtonStyleBase::SetFont(value);
+				Margin margin=elements.textComposition->GetMargin();
+				margin.left*=2;
+				margin.right*=2;
+				elements.textComposition->SetMargin(margin);
+			}
+
+/***********************************************************************
+Win8TabStyle
+***********************************************************************/
+
+			controls::GuiSelectableButton::IStyleController* Win8TabStyle::CreateHeaderStyleController()
+			{
+				return new Win8TabPageHeaderStyle;
+			}
+
+			controls::GuiButton::IStyleController* Win8TabStyle::CreateMenuButtonStyleController()
+			{
+				return new Win8ButtonStyle;
+			}
+
+			controls::GuiToolstripMenu::IStyleController* Win8TabStyle::CreateMenuStyleController()
+			{
+				return new Win8MenuStyle;
+			}
+
+			controls::GuiToolstripButton::IStyleController* Win8TabStyle::CreateMenuItemStyleController()
+			{
+				return new Win8MenuItemButtonStyle;
+			}
+
+			Color Win8TabStyle::GetBorderColor()
+			{
+				return Win8ButtonColors::TabPageHeaderNormal().borderColor;
+			}
+
+			Color Win8TabStyle::GetBackgroundColor()
+			{
+				return Win8GetSystemTabContentColor();
+			}
+
+			Win8TabStyle::Win8TabStyle()
+				:Win7TabStyle(false)
+			{
+				Initialize();
+			}
+
+			Win8TabStyle::~Win8TabStyle()
+			{
+			}
 		}
 	}
 }
@@ -19975,7 +21856,6 @@ GuiToolstripCollection
 
 			bool GuiToolstripCollection::RemoveAtInternal(vint index, GuiControl* const& control)
 			{
-				items.RemoveAt(index);
 				GuiStackItemComposition* stackItem=stackComposition->GetStackItems().Get(index);
 
 				stackComposition->RemoveChild(stackItem);
@@ -19998,6 +21878,7 @@ GuiToolstripCollection
 					}
 				}
 				delete control;
+				items.RemoveAt(index);
 				InvokeUpdateLayout();
 				return true;
 			}
@@ -21341,6 +23222,47 @@ GuiGraphicsSite
 			{
 				return GetBoundsInternal(Rect(Point(0, 0), GetMinPreferredClientSize()));
 			}
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+
+			void SafeDeleteControl(controls::GuiControl* value)
+			{
+				if(value)
+				{
+					GuiGraphicsComposition* bounds=value->GetBoundsComposition();
+					if(bounds->GetParent())
+					{
+						bounds->GetParent()->RemoveChild(bounds);
+					}
+					delete value;
+				}
+			}
+
+			void SafeDeleteComposition(GuiGraphicsComposition* value)
+			{
+				if(value)
+				{
+					if(value->GetParent())
+					{
+						value->GetParent()->RemoveChild(value);
+					}
+
+					if(value->GetAssociatedControl())
+					{
+						SafeDeleteControl(value->GetAssociatedControl());
+					}
+					else
+					{
+						for(vint i=value->Children().Count()-1;i>=0;i--)
+						{
+							SafeDeleteComposition(value->Children().Get(i));
+						}
+						delete value;
+					}
+				}
+			}
 		}
 	}
 }
@@ -21680,6 +23602,53 @@ GuiStackComposition
 					}
 					break;
 				}
+
+				vint index=stackItems.IndexOf(ensuringVisibleStackItem);
+				if(index!=-1)
+				{
+					Rect itemBounds=stackItemBounds[index];
+					Size size=previousBounds.GetSize();
+					Size offset;
+					switch(direction)
+					{
+					case Horizontal:
+						{
+							if(itemBounds.Left()<=0)
+							{
+								offset.x=-itemBounds.Left();
+							}
+							else if(itemBounds.Right()>=size.x)
+							{
+								offset.x=size.x-itemBounds.Right();
+							}
+						}
+						break;
+					case Vertical:
+						{
+							if(itemBounds.Top()<=0)
+							{
+								offset.y=-itemBounds.Top();
+							}
+							else if(itemBounds.Bottom()>=size.y)
+							{
+								offset.y=size.y-itemBounds.Bottom();
+							}
+						}
+						break;
+					}
+					for(vint i=0;i<stackItemBounds.Count();i++)
+					{
+						stackItemBounds[i].x1+=offset.x;
+						stackItemBounds[i].y1+=offset.y;
+						stackItemBounds[i].x2+=offset.x;
+						stackItemBounds[i].y2+=offset.y;
+					}
+				}
+			}
+
+			void GuiStackComposition::OnBoundsChanged(GuiGraphicsComposition* sender, GuiEventArgs& arguments)
+			{
+				UpdateStackItemBounds();
 			}
 
 			void GuiStackComposition::OnChildInserted(GuiGraphicsComposition* child)
@@ -21699,13 +23668,20 @@ GuiStackComposition
 				if(item)
 				{
 					stackItems.Remove(item);
+					if(item==ensuringVisibleStackItem)
+					{
+						ensuringVisibleStackItem=0;
+						UpdateStackItemBounds();
+					}
 				}
 			}
 
 			GuiStackComposition::GuiStackComposition()
 				:direction(Horizontal)
 				,padding(0)
+				,ensuringVisibleStackItem(0)
 			{
+				BoundsChanged.AttachMethod(this, &GuiStackComposition::OnBoundsChanged);
 			}
 
 			GuiStackComposition::~GuiStackComposition()
@@ -21814,6 +23790,20 @@ GuiStackComposition
 					}
 				}
 				return false;
+			}
+
+			bool GuiStackComposition::EnsureVisible(vint index)
+			{
+				if(0<=index && index<stackItems.Count())
+				{
+					ensuringVisibleStackItem=stackItems[index];
+					UpdateStackItemBounds();
+					return true;
+				}
+				else
+				{
+					return false;
+				}
 			}
 
 /***********************************************************************
@@ -22418,6 +24408,7 @@ GuiTableComposition
 			void GuiTableComposition::ForceCalculateSizeImmediately()
 			{
 				GuiBoundsComposition::ForceCalculateSizeImmediately();
+				UpdateCellBounds();
 				UpdateCellBounds();
 			}
 
@@ -27684,6 +29675,7 @@ Type Declaration
 
 				CLASS_MEMBER_METHOD(InsertStackItem, {L"index" _ L"item"})
 				CLASS_MEMBER_METHOD(IsStackItemClipped, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(EnsureVisible, {L"index"})
 			END_CLASS_MEMBER(GuiStackComposition)
 
 			BEGIN_ENUM_ITEM(GuiStackComposition::Direction)

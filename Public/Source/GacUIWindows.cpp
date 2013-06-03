@@ -195,6 +195,7 @@ using namespace vl::presentation::elements_windows_d2d;
 
 int WinMainDirect2D(HINSTANCE hInstance, void(*RendererMain)())
 {
+	EnableCrossKernelCrashing();
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	// create controller
 	INativeController* controller=CreateWindowsNativeController(hInstance);
@@ -2305,6 +2306,7 @@ using namespace vl::presentation::elements_windows_gdi;
 
 int WinMainGDI(HINSTANCE hInstance, void(*RendererMain)())
 {
+	EnableCrossKernelCrashing();
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	// create controller
 	INativeController* controller=CreateWindowsNativeController(hInstance);
@@ -4408,7 +4410,14 @@ WindowsForm
 					case WM_NCACTIVATE:
 						if(customFrameMode)
 						{
-							result=FALSE;
+							if(wParam==TRUE)
+							{
+								result=FALSE;
+							}
+							else
+							{
+								result=TRUE;
+							}
 							return true;
 						}
 						break;
@@ -5241,6 +5250,26 @@ Windows Platform Native Controller
 			void DestroyWindowsNativeController(INativeController* controller)
 			{
 				delete controller;
+			}
+
+			void EnableCrossKernelCrashing()
+			{
+				typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags); 
+				typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags); 
+				const DWORD EXCEPTION_SWALLOWING = 0x1;
+ 
+				HMODULE kernel32 = LoadLibrary(L"kernel32.dll"); 
+				tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, "GetProcessUserModeExceptionPolicy"); 
+				tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, "SetProcessUserModeExceptionPolicy"); 
+				if (pGetPolicy && pSetPolicy) 
+				{ 
+					DWORD dwFlags; 
+					if (pGetPolicy(&dwFlags)) 
+					{ 
+						// Turn off the filter 
+						pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING);
+					} 
+				} 
 			}
 		}
 	}
