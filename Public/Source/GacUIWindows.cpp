@@ -35,8 +35,11 @@ namespace vl
 					{
 						ID2D1HwndRenderTarget* renderTarget=0;
 						IWindowsForm* form=GetWindowsForm(window);
+						D2D1_RENDER_TARGET_PROPERTIES tp=D2D1::RenderTargetProperties();
+						tp.dpiX=96;
+						tp.dpiY=96;
 						HRESULT hr=d2dFactory->CreateHwndRenderTarget(
-							D2D1::RenderTargetProperties(),
+							tp,
 							D2D1::HwndRenderTargetProperties(
 								form->GetWindowHandle(),
 								D2D1::SizeU((int)size.x, (int)size.y)

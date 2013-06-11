@@ -105,6 +105,24 @@ DateTime
 		return SystemTimeToDateTime(utcTime);
 	}
 
+	DateTime DateTime::FromDateTime(vint _year, vint _month, vint _day, vint _hour, vint _minute, vint _second, vint _milliseconds)
+	{
+		SYSTEMTIME systemTime;
+		memset(&systemTime, 0, sizeof(systemTime));
+		systemTime.wYear=(WORD)_year;
+		systemTime.wMonth=(WORD)_month;
+		systemTime.wDay=(WORD)_day;
+		systemTime.wHour=(WORD)_hour;
+		systemTime.wMinute=(WORD)_minute;
+		systemTime.wSecond=(WORD)_second;
+		systemTime.wMilliseconds=(WORD)_milliseconds;
+
+		FILETIME fileTime;
+		SystemTimeToFileTime(&systemTime, &fileTime);
+		FileTimeToSystemTime(&fileTime, &systemTime);
+		return SystemTimeToDateTime(systemTime);
+	}
+
 	DateTime DateTime::FromFileTime(unsigned __int64 filetime)
 	{
 		ULARGE_INTEGER largeInteger;
@@ -792,6 +810,7 @@ Locale
 	{
 		SYSTEMTIME st=DateTimeToSystemTime(date);
 		int length=GetDateFormatEx(localeName.Buffer(), 0, &st, format.Buffer(), NULL, 0, NULL);
+		if(length==0) return L"";
 		Array<wchar_t> buffer(length);
 		GetDateFormatEx(localeName.Buffer(), 0, &st, format.Buffer(), &buffer[0], (int)buffer.Count(), NULL);
 		return &buffer[0];
@@ -801,6 +820,7 @@ Locale
 	{
 		SYSTEMTIME st=DateTimeToSystemTime(time);
 		int length=GetTimeFormatEx(localeName.Buffer(), 0, &st, format.Buffer(), NULL, 0);
+		if(length==0) return L"";
 		Array<wchar_t> buffer(length);
 		GetTimeFormatEx(localeName.Buffer(), 0, &st, format.Buffer(),&buffer[0], (int)buffer.Count());
 		return &buffer[0];
@@ -809,6 +829,7 @@ Locale
 	WString Locale::FormatNumber(const WString& number)
 	{
 		int length=GetNumberFormatEx(localeName.Buffer(), 0, number.Buffer(), NULL, NULL, 0);
+		if(length==0) return L"";
 		Array<wchar_t> buffer(length);
 		GetNumberFormatEx(localeName.Buffer(), 0, number.Buffer(), NULL, &buffer[0], (int)buffer.Count());
 		return &buffer[0];
@@ -817,9 +838,30 @@ Locale
 	WString Locale::FormatCurrency(const WString& currency)
 	{
 		int length=GetCurrencyFormatEx(localeName.Buffer(), 0, currency.Buffer(), NULL, NULL, 0);
+		if(length==0) return L"";
 		Array<wchar_t> buffer(length);
 		GetCurrencyFormatEx(localeName.Buffer(), 0, currency.Buffer(), NULL, &buffer[0], (int)buffer.Count());
 		return &buffer[0];
+	}
+
+	WString Locale::GetShortDayOfWeekName(vint dayOfWeek)
+	{
+		return FormatDate(L"ddd", DateTime::FromDateTime(2000, 1, 2+dayOfWeek));
+	}
+
+	WString Locale::GetLongDayOfWeekName(vint dayOfWeek)
+	{
+		return FormatDate(L"dddd", DateTime::FromDateTime(2000, 1, 2+dayOfWeek));
+	}
+
+	WString Locale::GetShortMonthName(vint month)
+	{
+		return FormatDate(L"MMM", DateTime::FromDateTime(2000, month, 1));
+	}
+
+	WString Locale::GetLongMonthName(vint month)
+	{
+		return FormatDate(L"MMMM", DateTime::FromDateTime(2000, month, 1));
 	}
 
 	WString Locale::ToFullWidth(const WString& str)
@@ -13677,6 +13719,7 @@ Reflection\GuiTypeDescriptorPredefined.cpp
 namespace vl
 {
 	using namespace collections;
+	using namespace regex;
 
 	namespace reflection
 	{
@@ -13808,6 +13851,8 @@ TypeName
 			const wchar_t* TypeInfo<bool>::TypeName						= L"system::Boolean";
 			const wchar_t* TypeInfo<wchar_t>::TypeName					= L"system::Char";
 			const wchar_t* TypeInfo<WString>::TypeName					= L"system::String";
+			const wchar_t* TypeInfo<DateTime>::TypeName					= L"system::DateTime";
+			const wchar_t* TypeInfo<Locale>::TypeName					= L"system::Locale";
 			const wchar_t* TypeInfo<IValueEnumerator>::TypeName			= L"system::Enumerator";
 			const wchar_t* TypeInfo<IValueEnumerable>::TypeName			= L"system::Enumerable";
 			const wchar_t* TypeInfo<IValueReadonlyList>::TypeName		= L"system::ReadableList";
@@ -14032,6 +14077,77 @@ BoolValueSerializer
 			};
 
 /***********************************************************************
+DateTimeValueSerializer
+***********************************************************************/
+
+			class DateTimeValueSerializer : public GeneralValueSeriaizer<DateTime>
+			{
+			protected:
+				Regex				regexDateTime;
+
+				bool Serialize(const DateTime& input, WString& output)override
+				{
+					WString ms=itow(input.milliseconds);
+					while(ms.Length()<3) ms=L"0"+ms;
+
+					output=INVLOC.FormatDate(L"yyyy-MM-dd", input)+L" "+INVLOC.FormatTime(L"HH:mm:ss", input)+L"."+ms;
+					return true;
+				}
+
+				bool Deserialize(const WString& input, DateTime& output)override
+				{
+					Ptr<RegexMatch> match=regexDateTime.Match(input);
+					if(!match) return false;
+					if(!match->Success()) return false;
+					if(match->Result().Start()!=0) return false;
+					if(match->Result().Length()!=input.Length()) return false;
+
+					vint year=wtoi(match->Groups()[L"Y"].Get(0).Value());
+					vint month=wtoi(match->Groups()[L"M"].Get(0).Value());
+					vint day=wtoi(match->Groups()[L"D"].Get(0).Value());
+					vint hour=wtoi(match->Groups()[L"h"].Get(0).Value());
+					vint minute=wtoi(match->Groups()[L"m"].Get(0).Value());
+					vint second=wtoi(match->Groups()[L"s"].Get(0).Value());
+					vint milliseconds=wtoi(match->Groups()[L"ms"].Get(0).Value());
+
+					output=DateTime::FromDateTime(year, month, day, hour, minute, second, milliseconds);
+					return true;
+				}
+			public:
+				DateTimeValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)
+					:GeneralValueSeriaizer(_ownerTypeDescriptor)
+					,regexDateTime(L"(<Y>/d/d/d/d)-(<M>/d/d)-(<D>/d/d) (<h>/d/d):(<m>/d/d):(<s>/d/d).(<ms>/d/d/d)")
+				{
+				}
+			};
+
+/***********************************************************************
+LocaleValueSerializer
+***********************************************************************/
+
+			class LocaleValueSerializer : public GeneralValueSeriaizer<Locale>
+			{
+			protected:
+
+				bool Serialize(const Locale& input, WString& output)override
+				{
+					output=input.GetName();
+					return true;
+				}
+
+				bool Deserialize(const WString& input, Locale& output)override
+				{
+					output=Locale(input);
+					return true;
+				}
+			public:
+				LocaleValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)
+					:GeneralValueSeriaizer(_ownerTypeDescriptor)
+				{
+				}
+			};
+
+/***********************************************************************
 Collections
 ***********************************************************************/
 
@@ -14132,6 +14248,8 @@ LoadPredefinedTypes
 					AddSerializableType<BoolValueSeriaizer>(manager);
 					AddSerializableType<TypedValueSerializer<wchar_t>>(manager);
 					AddSerializableType<TypedValueSerializer<WString>>(manager);
+					AddSerializableType<DateTimeValueSerializer>(manager);
+					AddSerializableType<LocaleValueSerializer>(manager);
 					ADD_TYPE_INFO(VoidValue)
 					ADD_TYPE_INFO(IDescriptable)
 					ADD_TYPE_INFO(IValueEnumerator)

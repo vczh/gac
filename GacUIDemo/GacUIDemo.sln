@@ -62,9 +62,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.DirectCode.Simpl
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.ChemicalElements", "Controls.DataGrid.ChemicalElements\Controls.DataGrid.ChemicalElements.vcxproj", "{D7996415-9D41-4679-9EC6-DDCF925C4B31}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.FileExplorer", "Controls.DataGrid.FileExplorer\Controls.DataGrid.FileExplorer.vcxproj", "{08387724-9751-4E0F-8195-6275084DB0CF}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 26
+		SccNumberOfProjects = 27
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -166,6 +168,10 @@ Global
 		SccProjectTopLevelParentUniqueName25 = GacUIDemo.sln
 		SccProjectName25 = Controls.DataGrid.ChemicalElements
 		SccLocalPath25 = Controls.DataGrid.ChemicalElements
+		SccProjectUniqueName26 = Controls.DataGrid.FileExplorer\\Controls.DataGrid.FileExplorer.vcxproj
+		SccProjectTopLevelParentUniqueName26 = GacUIDemo.sln
+		SccProjectName26 = Controls.DataGrid.FileExplorer
+		SccLocalPath26 = Controls.DataGrid.FileExplorer
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -272,6 +278,10 @@ Global
 		{D7996415-9D41-4679-9EC6-DDCF925C4B31}.Debug|Win32.Build.0 = Debug|Win32
 		{D7996415-9D41-4679-9EC6-DDCF925C4B31}.Release|Win32.ActiveCfg = Release|Win32
 		{D7996415-9D41-4679-9EC6-DDCF925C4B31}.Release|Win32.Build.0 = Release|Win32
+		{08387724-9751-4E0F-8195-6275084DB0CF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{08387724-9751-4E0F-8195-6275084DB0CF}.Debug|Win32.Build.0 = Debug|Win32
+		{08387724-9751-4E0F-8195-6275084DB0CF}.Release|Win32.ActiveCfg = Release|Win32
+		{08387724-9751-4E0F-8195-6275084DB0CF}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -295,6 +305,7 @@ Global
 		{937ABCE3-B803-49EB-B907-CE72C123435B} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{D7996415-9D41-4679-9EC6-DDCF925C4B31} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{08387724-9751-4E0F-8195-6275084DB0CF} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{ED487B28-E445-464D-A09A-97BC9E57FC8D} = {B05A7B62-D27C-48B3-9AA6-AC15ABC38BD8}
 		{1AAAFFB1-0E0C-4D06-B18E-AC3816F97217} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{FBAA9433-4B1B-44FF-8EC9-F7C037859ABC} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}

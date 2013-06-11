@@ -1,3 +1,4 @@
+#include <math.h>
 #include "FileSystemInformation.h"
 
 /***********************************************************************
@@ -55,6 +56,15 @@ void SearchDirectoriesAndFiles(const WString& path, List<WString>& directories, 
 	Func<vint(WString a, WString b)> comparer=[](WString a, WString b){return _wcsicmp(a.Buffer(), b.Buffer());};
 	CopyFrom(directories, From(directories).OrderBy(comparer));
 	CopyFrom(files, From(files).OrderBy(comparer));
+}
+
+bool IsFileDirectory(const WString& fullPath)
+{
+	// Get file attributes.
+	WIN32_FILE_ATTRIBUTE_DATA info;
+	BOOL result=GetFileAttributesEx(fullPath.Buffer(), GetFileExInfoStandard, &info);
+
+	return (info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)!=0;
 }
 
 Ptr<GuiImageData> GetFileIcon(const WString& fullPath, UINT uFlags)
@@ -143,17 +153,17 @@ WString FileSizeToString(LARGE_INTEGER filesize)
 	if(filesize.QuadPart>=1024*1024*1024)
 	{
 		unit=L" GB";
-		size=(double)filesize.QuadPart/(1024*1024*1024);
+		size=ceil((double)filesize.QuadPart/(1024*1024))/1024;
 	}
 	else if(filesize.QuadPart>=1024*1024)
 	{
 		unit=L" MB";
-		size=(double)filesize.QuadPart/(1024*1024);
+		size=ceil((double)filesize.QuadPart/(1024*1024));
 	}
 	else if(filesize.QuadPart>=1024)
 	{
 		unit=L" KB";
-		size=(double)filesize.QuadPart/1024;
+		size=ceil((double)filesize.QuadPart/1024);
 	}
 	else
 	{
@@ -186,15 +196,17 @@ void FileProperties::Load()
 		loaded=true;
 		smallIcon=GetFileIcon(fullPath, SHGFI_SMALLICON | SHGFI_ICON);
 		bigIcon=GetFileIcon(fullPath, SHGFI_LARGEICON | SHGFI_ICON);
+		isDirectory=IsFileDirectory(fullPath);
 		displayName=GetFileDisplayName(fullPath);
 		typeName=GetFileTypeName(fullPath);
 		lastWriteTime=GetFileLastWriteTime(fullPath);
 		size=GetFileSize(fullPath);
 	}
-	}
+}
 
 FileProperties::FileProperties(const WString& _fullPath)
 	:loaded(false)
+	,isDirectory(false)
 	,fullPath(_fullPath)
 {
 }
@@ -209,6 +221,12 @@ Ptr<GuiImageData> FileProperties::GetBigIcon()
 {
 	Load();
 	return bigIcon;
+}
+
+bool FileProperties::IsDirectory()
+{
+	Load();
+	return isDirectory;
 }
 
 WString FileProperties::GetDisplayName()

@@ -1875,6 +1875,512 @@ GuiScrollContainer
 }
 
 /***********************************************************************
+Controls\GuiDateTimeControls.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			using namespace collections;
+			using namespace compositions;
+			using namespace elements;
+
+/***********************************************************************
+GuiDatePicker::StyleController
+***********************************************************************/
+
+			vint GetDayCountForMonth(vint year, vint month)
+			{
+				bool isLeapYear=(year%100==0)?(year%400==0):(year%4==0);
+				switch(month)
+				{
+				case 1:case 3:case 5:case 7:case 8:case 10:case 12:
+					return 31;
+				case 4:case 6:case 9:case 11:
+					return 30;
+				default:
+					return isLeapYear?29:28;
+				}
+			}
+
+			void StepPreviousMonth(vint& year, vint& month)
+			{
+				if(month==1)
+				{
+					year--;
+					month=12;
+				}
+				else
+				{
+					month--;
+				}
+			}
+
+			void StepNextMonth(vint& year, vint& month)
+			{
+				if(month==12)
+				{
+					year++;
+					month=1;
+				}
+				else
+				{
+					month++;
+				}
+			}
+
+			void GuiDatePicker::StyleController::SetDay(const DateTime& day, vint& index, bool currentMonth)
+			{
+				dateDays[index]=day;
+				GuiSolidLabelElement* label=labelDays[index];
+				label->SetText(itow(day.day));
+				label->SetColor(currentMonth?styleProvider->GetPrimaryTextColor():styleProvider->GetSecondaryTextColor());
+				index++;
+			}
+
+			void GuiDatePicker::StyleController::comboYearMonth_SelectedIndexChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				if(!preventComboEvent)
+				{
+					if(comboYear->GetSelectedIndex()!=-1 && comboMonth->GetSelectedIndex()!=-1)
+					{
+						vint year=comboYear->GetSelectedIndex()+YearFirst;
+						vint month=comboMonth->GetSelectedIndex()+1;
+						SetDate(DateTime::FromDateTime(year, month, 1));
+						datePicker->NotifyDateChanged();
+					}
+				}
+			}
+
+			void GuiDatePicker::StyleController::buttonDay_SelectedChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				if(!preventButtonEvent)
+				{
+					GuiSelectableButton* button=dynamic_cast<GuiSelectableButton*>(sender->GetRelatedControl());
+					if(button->GetSelected())
+					{
+						vint index=buttonDays.IndexOf(button);
+						if(index!=-1)
+						{
+							DateTime day=dateDays[index];
+							if(day.year!=currentDate.year || day.month!=currentDate.month)
+							{
+								SetDate(day);
+							}
+							else
+							{
+								currentDate=day;
+							}
+							datePicker->NotifyDateChanged();
+						}
+					}
+				}
+			}
+
+			void GuiDatePicker::StyleController::DisplayMonth(vint year, vint month)
+			{
+				if(YearFirst<=year && year<=YearLast && 1<=month && month<=12)
+				{
+					preventComboEvent=true;
+					comboYear->SetSelectedIndex(year-YearFirst);
+					comboMonth->SetSelectedIndex(month-1);
+					preventComboEvent=false;
+				}
+
+				vint yearPrev=year, yearNext=year, monthPrev=month, monthNext=month;
+				StepPreviousMonth(yearPrev, monthPrev);
+				StepNextMonth(yearNext, monthNext);
+
+				vint countPrev=GetDayCountForMonth(yearPrev, monthPrev);
+				vint count=GetDayCountForMonth(year, month);
+				vint countNext=GetDayCountForMonth(yearNext, monthNext);
+
+				DateTime firstDay=DateTime::FromDateTime(year, month, 1);
+				vint showPrev=firstDay.dayOfWeek;
+				if(showPrev==0) showPrev=DaysOfWeek;
+				vint show=count;
+				vint showNext=DaysOfWeek*DayRows-showPrev-show;
+
+				vint index=0;
+				for(vint i=0;i<showPrev;i++)
+				{
+					DateTime day=DateTime::FromDateTime(yearPrev, monthPrev, countPrev-(showPrev-i-1));
+					SetDay(day, index, false);
+				}
+				for(vint i=0;i<show;i++)
+				{
+					DateTime day=DateTime::FromDateTime(year, month, i+1);
+					SetDay(day, index, true);
+				}
+				for(vint i=0;i<showNext;i++)
+				{
+					DateTime day=DateTime::FromDateTime(yearNext, monthNext, i+1);
+					SetDay(day, index, false);
+				}
+			}
+
+			void GuiDatePicker::StyleController::SelectDay(vint day)
+			{
+				for(vint i=0;i<dateDays.Count();i++)
+				{
+					const DateTime& dt=dateDays[i];
+					if(dt.year==currentDate.year && dt.month==currentDate.month && dt.day==day)
+					{
+						preventButtonEvent=true;
+						buttonDays[i]->SetSelected(true);
+						preventButtonEvent=false;
+						break;
+					}
+				}
+			}
+
+			GuiDatePicker::StyleController::StyleController(IStyleProvider* _styleProvider)
+				:styleProvider(_styleProvider)
+				,datePicker(0)
+				,preventComboEvent(false)
+				,preventButtonEvent(false)
+			{
+				GuiTableComposition* monthTable=0;
+				GuiTableComposition* dayTable=0;
+				{
+					listYears=styleProvider->CreateTextList();
+					listYears->SetHorizontalAlwaysVisible(false);
+					for(vint i=YearFirst;i<=YearLast;i++)
+					{
+						listYears->GetItems().Add(new list::TextItem(itow(i)));
+					}
+					comboYear=new GuiComboBoxListControl(styleProvider->CreateComboBoxStyle(), listYears);
+					comboYear->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 2, 0));
+					comboYear->SelectedIndexChanged.AttachMethod(this, &StyleController::comboYearMonth_SelectedIndexChanged);
+				}
+				{
+					listMonths=styleProvider->CreateTextList();
+					listMonths->SetHorizontalAlwaysVisible(false);
+					comboMonth=new GuiComboBoxListControl(styleProvider->CreateComboBoxStyle(), listMonths);
+					comboMonth->GetBoundsComposition()->SetAlignmentToParent(Margin(2, 0, 0, 0));
+					comboMonth->SelectedIndexChanged.AttachMethod(this, &StyleController::comboYearMonth_SelectedIndexChanged);
+				}
+				{
+					monthTable=new GuiTableComposition;
+					monthTable->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					monthTable->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					monthTable->SetRowsAndColumns(1, 2);
+					monthTable->SetRowOption(0, GuiCellOption::MinSizeOption());
+					monthTable->SetColumnOption(0, GuiCellOption::PercentageOption(0.5));
+					monthTable->SetColumnOption(1, GuiCellOption::PercentageOption(0.5));
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						monthTable->AddChild(cell);
+						cell->SetSite(0, 0, 1, 1);
+						cell->AddChild(comboYear->GetBoundsComposition());
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						monthTable->AddChild(cell);
+						cell->SetSite(0, 1, 1, 1);
+						cell->AddChild(comboMonth->GetBoundsComposition());
+					}
+				}
+				{
+					dayTable=new GuiTableComposition;
+					dayTable->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					dayTable->SetCellPadding(4);
+					dayTable->SetRowsAndColumns(DayRows+DayRowStart, DaysOfWeek);
+
+					for(vint i=0;i<DayRowStart;i++)
+					{
+						dayTable->SetRowOption(i, GuiCellOption::MinSizeOption());
+					}
+					for(vint i=0;i<DayRows;i++)
+					{
+						dayTable->SetRowOption(i+DayRowStart, GuiCellOption::PercentageOption(1.0));
+					}
+					for(vint i=0;i<DaysOfWeek;i++)
+					{
+						dayTable->SetColumnOption(i, GuiCellOption::PercentageOption(1.0));
+					}
+
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						dayTable->AddChild(cell);
+						cell->SetSite(0, 0, 1, DaysOfWeek);
+						cell->AddChild(monthTable);
+					}
+
+					labelDaysOfWeek.Resize(7);
+					for(vint i=0;i<DaysOfWeek;i++)
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						dayTable->AddChild(cell);
+						cell->SetSite(1, i, 1, 1);
+
+						GuiSolidLabelElement* element=GuiSolidLabelElement::Create();
+						element->SetAlignments(Alignment::Center, Alignment::Center);
+						labelDaysOfWeek[i]=element;
+						cell->SetOwnedElement(element);
+					}
+
+					buttonDays.Resize(DaysOfWeek*DayRows);
+					labelDays.Resize(DaysOfWeek*DayRows);
+					dateDays.Resize(DaysOfWeek*DayRows);
+					dayMutexController=new GuiSelectableButton::MutexGroupController;
+					for(vint i=0;i<DaysOfWeek;i++)
+					{
+						for(vint j=0;j<DayRows;j++)
+						{
+							GuiCellComposition* cell=new GuiCellComposition;
+							dayTable->AddChild(cell);
+							cell->SetSite(j+DayRowStart, i, 1, 1);
+
+							GuiSelectableButton* button=new GuiSelectableButton(styleProvider->CreateDateButtonStyle());
+							button->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+							button->SetGroupController(dayMutexController.Obj());
+							button->SelectedChanged.AttachMethod(this, &StyleController::buttonDay_SelectedChanged);
+							cell->AddChild(button->GetBoundsComposition());
+							buttonDays[j*DaysOfWeek+i]=button;
+
+							GuiSolidLabelElement* element=GuiSolidLabelElement::Create();
+							element->SetAlignments(Alignment::Center, Alignment::Center);
+							element->SetText(L"0");
+							labelDays[j*DaysOfWeek+i]=element;
+
+							GuiBoundsComposition* elementBounds=new GuiBoundsComposition;
+							elementBounds->SetOwnedElement(element);
+							elementBounds->SetAlignmentToParent(Margin(0, 0, 0, 0));
+							button->GetContainerComposition()->AddChild(elementBounds);
+						}
+					}
+				}
+				{
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(styleProvider->GetBackgroundColor());
+					dayTable->SetOwnedElement(element);
+				}
+
+				boundsComposition=dayTable;
+			}
+
+			GuiDatePicker::StyleController::~StyleController()
+			{
+				delete styleProvider;
+			}
+
+			compositions::GuiBoundsComposition* GuiDatePicker::StyleController::GetBoundsComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::GuiGraphicsComposition* GuiDatePicker::StyleController::GetContainerComposition()
+			{
+				return boundsComposition;
+			}
+
+			void GuiDatePicker::StyleController::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void GuiDatePicker::StyleController::SetText(const WString& value)
+			{
+			}
+
+			void GuiDatePicker::StyleController::SetFont(const FontProperties& value)
+			{
+				comboYear->SetFont(value);
+				listYears->SetFont(value);
+				comboMonth->SetFont(value);
+				listMonths->SetFont(value);
+				FOREACH(GuiSolidLabelElement*, label, From(labelDaysOfWeek).Concat(labelDays))
+				{
+					label->SetFont(value);
+				}
+			}
+
+			void GuiDatePicker::StyleController::SetVisuallyEnabled(bool value)
+			{
+			}
+					
+			void GuiDatePicker::StyleController::SetDatePicker(GuiDatePicker* _datePicker)
+			{
+				datePicker=_datePicker;
+			}
+
+			void GuiDatePicker::StyleController::SetDateLocale(const Locale& _dateLocale)
+			{
+				dateLocale=_dateLocale;
+				for(vint i=0;i<DaysOfWeek;i++)
+				{
+					labelDaysOfWeek[i]->SetText(dateLocale.GetShortDayOfWeekName(i));
+				}
+				
+				listMonths->GetItems().Clear();
+				for(vint i=1;i<=12;i++)
+				{
+					listMonths->GetItems().Add(new list::TextItem(dateLocale.GetLongMonthName(i)));
+				}
+
+				SetDate(currentDate, true);
+			}
+
+			const DateTime& GuiDatePicker::StyleController::GetDate()
+			{
+				return currentDate;
+			}
+
+			void GuiDatePicker::StyleController::SetDate(const DateTime& value, bool forceUpdate)
+			{
+				if(forceUpdate || currentDate.year!=value.year || currentDate.month!=value.month || currentDate.day!=value.day)
+				{
+					currentDate=value;
+					DisplayMonth(value.year, value.month);
+					SelectDay(value.day);
+				}
+			}
+
+/***********************************************************************
+GuiDatePicker
+***********************************************************************/
+
+			void GuiDatePicker::UpdateText()
+			{
+				GuiControl::SetText(dateLocale.FormatDate(dateFormat, styleController->GetDate()));
+			}
+
+			void GuiDatePicker::NotifyDateChanged()
+			{
+				UpdateText();
+				DateChanged.Execute(GetNotifyEventArguments());
+			}
+
+			GuiDatePicker::GuiDatePicker(IStyleProvider* _styleProvider)
+				:GuiControl(new StyleController(_styleProvider))
+			{
+				styleController=dynamic_cast<StyleController*>(GetStyleController());
+				styleController->SetDatePicker(this);
+
+				SetDateLocale(Locale::UserDefault());
+				SetDate(DateTime::LocalTime());
+
+				DateChanged.SetAssociatedComposition(GetBoundsComposition());
+				DateFormatChanged.SetAssociatedComposition(GetBoundsComposition());
+				DateLocaleChanged.SetAssociatedComposition(GetBoundsComposition());
+
+				NotifyDateChanged();
+			}
+
+			GuiDatePicker::~GuiDatePicker()
+			{
+			}
+
+			const DateTime& GuiDatePicker::GetDate()
+			{
+				return styleController->GetDate();
+			}
+
+			void GuiDatePicker::SetDate(const DateTime& value)
+			{
+				styleController->SetDate(value);
+			}
+
+			const WString& GuiDatePicker::GetDateFormat()
+			{
+				return dateFormat;
+			}
+
+			void GuiDatePicker::SetDateFormat(const WString& value)
+			{
+				dateFormat=value;
+				UpdateText();
+				DateFormatChanged.Execute(GetNotifyEventArguments());
+			}
+
+			const Locale& GuiDatePicker::GetDateLocale()
+			{
+				return dateLocale;
+			}
+
+			void GuiDatePicker::SetDateLocale(const Locale& value)
+			{
+				dateLocale=value;
+				List<WString> formats;
+				dateLocale.GetLongDateFormats(formats);
+				if(formats.Count()>0)
+				{
+					dateFormat=formats[0];
+				}
+				styleController->SetDateLocale(dateLocale);
+
+				UpdateText();
+				DateFormatChanged.Execute(GetNotifyEventArguments());
+				DateLocaleChanged.Execute(GetNotifyEventArguments());
+			}
+
+			void GuiDatePicker::SetText(const WString& value)
+			{
+			}
+
+/***********************************************************************
+GuiDateComboBox
+***********************************************************************/
+
+			void GuiDateComboBox::datePicker_TextChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				SetText(datePicker->GetText());
+			}
+
+			void GuiDateComboBox::datePicker_DateChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				popup->Hide();
+				SelectItem();
+				SelectedDateChanged.Execute(GetNotifyEventArguments());
+			}
+
+			GuiDateComboBox::GuiDateComboBox(IStyleController* _styleController, GuiDatePicker* _datePicker)
+				:GuiComboBoxBase(_styleController)
+				,datePicker(_datePicker)
+			{
+				SelectedDateChanged.SetAssociatedComposition(GetBoundsComposition());
+
+				datePicker->TextChanged.AttachMethod(this, &GuiDateComboBox::datePicker_TextChanged);
+				datePicker->DateChanged.AttachMethod(this, &GuiDateComboBox::datePicker_DateChanged);
+
+				datePicker->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				popup->GetContainerComposition()->AddChild(datePicker->GetBoundsComposition());
+				SetFont(GetFont());
+				SetText(datePicker->GetText());
+			}
+
+			GuiDateComboBox::~GuiDateComboBox()
+			{
+			}
+
+			void GuiDateComboBox::SetFont(const FontProperties& value)
+			{
+				GuiComboBoxBase::SetFont(value);
+				datePicker->SetFont(value);
+			}
+
+			const DateTime& GuiDateComboBox::GetSelectedDate()
+			{
+				return datePicker->GetDate();
+			}
+
+			void GuiDateComboBox::SetSelectedDate(const DateTime& value)
+			{
+				datePicker->SetDate(value);
+			}
+
+			GuiDatePicker* GuiDateComboBox::GetDatePicker()
+			{
+				return datePicker;
+			}
+		}
+	}
+}
+
+/***********************************************************************
 Controls\GuiWindowControls.cpp
 ***********************************************************************/
 
@@ -3000,7 +3506,6 @@ GuiComboBoxBase
 
 			void GuiComboBoxBase::SelectItem()
 			{
-				ItemSelecting.Execute(GetNotifyEventArguments());
 				styleController->OnItemSelected();
 				ItemSelected.Execute(GetNotifyEventArguments());
 			}
@@ -3033,7 +3538,6 @@ GuiComboBoxBase
 
 				PopupOpened.SetAssociatedComposition(boundsComposition);
 				PopupClosed.SetAssociatedComposition(boundsComposition);
-				ItemSelecting.SetAssociatedComposition(boundsComposition);
 				ItemSelected.SetAssociatedComposition(boundsComposition);
 
 				Clicked.AttachMethod(this, &GuiComboBoxBase::OnClicked);
@@ -3087,6 +3591,7 @@ GuiComboBoxListControl
 			void GuiComboBoxListControl::OnListControlSelectionChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
 			{
 				DisplaySelectedContent(GetSelectedIndex());
+				SelectItem();
 				SelectedIndexChanged.Execute(GetNotifyEventArguments());
 			}
 
@@ -3101,7 +3606,7 @@ GuiComboBoxListControl
 				SelectedIndexChanged.SetAssociatedComposition(GetBoundsComposition());
 
 				containedListControl->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-				popup->GetBoundsComposition()->AddChild(containedListControl->GetBoundsComposition());
+				popup->GetContainerComposition()->AddChild(containedListControl->GetBoundsComposition());
 				SetFont(GetFont());
 			}
 
@@ -3297,12 +3802,12 @@ DataGridItemProvider
 
 				Ptr<GuiImageData> DataGridItemProvider::GetSmallImage(vint itemIndex)
 				{
-					return dataProvider->GetRowImage(itemIndex);
+					return dataProvider->GetRowSmallImage(itemIndex);
 				}
 
 				Ptr<GuiImageData> DataGridItemProvider::GetLargeImage(vint itemIndex)
 				{
-					return 0;
+					return dataProvider->GetRowLargeImage(itemIndex);
 				}
 
 				WString DataGridItemProvider::GetText(vint itemIndex)
@@ -3887,7 +4392,6 @@ ListViewMainColumnDataVisualizer
 					table->SetRowOption(2, GuiCellOption::PercentageOption(0.5));
 					table->SetColumnOption(0, GuiCellOption::MinSizeOption());
 					table->SetColumnOption(1, GuiCellOption::PercentageOption(1.0));
-					table->SetAlignmentToParent(Margin(0, 0, 0, 0));
 					table->SetCellPadding(2);
 					{
 						GuiCellComposition* cell=new GuiCellComposition;
@@ -3919,7 +4423,7 @@ ListViewMainColumnDataVisualizer
 
 				void ListViewMainColumnDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
 				{
-					Ptr<GuiImageData> imageData=dataProvider->GetRowImage(row);
+					Ptr<GuiImageData> imageData=dataProvider->GetRowSmallImage(row);
 					if(imageData)
 					{
 						image->SetImage(imageData->GetImage(), imageData->GetFrameIndex());
@@ -3977,6 +4481,76 @@ ListViewSubColumnDataVisualizer
 				}
 				
 /***********************************************************************
+HyperlinkDataVisualizer
+***********************************************************************/
+
+				void HyperlinkDataVisualizer::label_MouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+				{
+					FontProperties font=text->GetFont();
+					font.underline=true;
+					text->SetFont(font);
+				}
+
+				void HyperlinkDataVisualizer::label_MouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+				{
+					FontProperties font=text->GetFont();
+					font.underline=false;
+					text->SetFont(font);
+				}
+
+				compositions::GuiBoundsComposition* HyperlinkDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+				{
+					GuiBoundsComposition* composition=ListViewSubColumnDataVisualizer::CreateBoundsCompositionInternal(decoratedComposition);
+					composition->GetEventReceiver()->mouseEnter.AttachMethod(this, &HyperlinkDataVisualizer::label_MouseEnter);
+					composition->GetEventReceiver()->mouseLeave.AttachMethod(this, &HyperlinkDataVisualizer::label_MouseLeave);
+					composition->SetAssociatedCursor(GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::Hand));
+					return composition;
+				}
+
+				HyperlinkDataVisualizer::HyperlinkDataVisualizer()
+				{
+				}
+
+				void HyperlinkDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					ListViewSubColumnDataVisualizer::BeforeVisualizerCell(dataProvider, row, column);
+					text->SetColor(Color(0, 0, 255));
+				}
+				
+/***********************************************************************
+ImageDataVisualizer
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* ImageDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+				{
+					GuiBoundsComposition* composition=new GuiBoundsComposition;
+					composition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					composition->SetMargin(Margin(2, 2, 2, 2));
+
+					image=GuiImageFrameElement::Create();
+					composition->SetOwnedElement(image);
+					return composition;
+				}
+
+				ImageDataVisualizer::ImageDataVisualizer()
+					:image(0)
+				{
+				}
+
+				void ImageDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					image->SetImage(0, -1);
+					image->SetAlignments(Alignment::Center, Alignment::Center);
+					image->SetStretch(false);
+					image->SetEnabled(true);
+				}
+
+				elements::GuiImageFrameElement* ImageDataVisualizer::GetImageElement()
+				{
+					return image;
+				}
+				
+/***********************************************************************
 CellBorderDataVisualizer
 ***********************************************************************/
 
@@ -4022,6 +4596,80 @@ CellBorderDataVisualizer
 				}
 				
 /***********************************************************************
+CellBorderDataVisualizer
+***********************************************************************/
+
+				compositions::GuiBoundsComposition* NotifyIconDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+				{
+					GuiTableComposition* table=new GuiTableComposition;
+					table->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					table->SetRowsAndColumns(1, 3);
+					table->SetRowOption(0, GuiCellOption::MinSizeOption());
+					table->SetColumnOption(0, GuiCellOption::MinSizeOption());
+					table->SetColumnOption(1, GuiCellOption::PercentageOption(1.0));
+					table->SetColumnOption(2, GuiCellOption::MinSizeOption());
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 0, 1, 1);
+						cell->SetInternalMargin(Margin(2, 2, 0, 2));
+
+						leftImage=GuiImageFrameElement::Create();
+						cell->SetOwnedElement(leftImage);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 1, 1, 1);
+
+						decoratedComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+						cell->AddChild(decoratedComposition);
+					}
+					{
+						GuiCellComposition* cell=new GuiCellComposition;
+						table->AddChild(cell);
+						cell->SetSite(0, 2, 1, 1);
+						cell->SetInternalMargin(Margin(0, 2, 2, 2));
+
+						rightImage=GuiImageFrameElement::Create();
+						cell->SetOwnedElement(rightImage);
+					}
+					return table;
+				}
+
+				NotifyIconDataVisualizer::NotifyIconDataVisualizer(Ptr<IDataVisualizer> decoratedDataVisualizer)
+					:DataVisualizerBase(decoratedDataVisualizer)
+					,leftImage(0)
+					,rightImage(0)
+				{
+				}
+
+				void NotifyIconDataVisualizer::BeforeVisualizerCell(IDataProvider* dataProvider, vint row, vint column)
+				{
+					decoratedDataVisualizer->BeforeVisualizerCell(dataProvider, row, column);
+
+					leftImage->SetImage(0, -1);
+					leftImage->SetAlignments(Alignment::Center, Alignment::Center);
+					leftImage->SetStretch(false);
+					leftImage->SetEnabled(true);
+
+					rightImage->SetImage(0, -1);
+					rightImage->SetAlignments(Alignment::Center, Alignment::Center);
+					rightImage->SetStretch(false);
+					rightImage->SetEnabled(true);
+				}
+
+				elements::GuiImageFrameElement* NotifyIconDataVisualizer::GetLeftImageElement()
+				{
+					return leftImage;
+				}
+
+				elements::GuiImageFrameElement* NotifyIconDataVisualizer::GetRightImageElement()
+				{
+					return rightImage;
+				}
+				
+/***********************************************************************
 DataEditorBase
 ***********************************************************************/
 
@@ -4059,57 +4707,57 @@ DataEditorBase
 				}
 				
 /***********************************************************************
-DataTextBoxEditor
+TextBoxDataEditor
 ***********************************************************************/
 
-				compositions::GuiBoundsComposition* DataTextBoxEditor::CreateBoundsCompositionInternal()
+				compositions::GuiBoundsComposition* TextBoxDataEditor::CreateBoundsCompositionInternal()
 				{
 					return textBox->GetBoundsComposition();
 				}
 
-				DataTextBoxEditor::DataTextBoxEditor()
+				TextBoxDataEditor::TextBoxDataEditor()
 				{
 					textBox=g::NewTextBox();
 				}
 
-				void DataTextBoxEditor::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
+				void TextBoxDataEditor::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
 				{
 					DataEditorBase::BeforeEditCell(dataProvider, row, column);
 					textBox->SetText(L"");
 				}
 
-				GuiSinglelineTextBox* DataTextBoxEditor::GetTextBox()
+				GuiSinglelineTextBox* TextBoxDataEditor::GetTextBox()
 				{
 					return textBox;
 				}
 				
 /***********************************************************************
-DataTextComboBoxEditor
+TextComboBoxDataEditor
 ***********************************************************************/
 
-				compositions::GuiBoundsComposition* DataTextComboBoxEditor::CreateBoundsCompositionInternal()
+				compositions::GuiBoundsComposition* TextComboBoxDataEditor::CreateBoundsCompositionInternal()
 				{
 					return comboBox->GetBoundsComposition();
 				}
 
-				DataTextComboBoxEditor::DataTextComboBoxEditor()
+				TextComboBoxDataEditor::TextComboBoxDataEditor()
 				{
 					textList=g::NewTextList();
 					comboBox=g::NewComboBox(textList);
 				}
 
-				void DataTextComboBoxEditor::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
+				void TextComboBoxDataEditor::BeforeEditCell(IDataProvider* dataProvider, vint row, vint column)
 				{
 					DataEditorBase::BeforeEditCell(dataProvider, row, column);
 					textList->GetItems().Clear();
 				}
 
-				GuiComboBoxListControl* DataTextComboBoxEditor::GetComboBoxControl()
+				GuiComboBoxListControl* TextComboBoxDataEditor::GetComboBoxControl()
 				{
 					return comboBox;
 				}
 
-				GuiTextList* DataTextComboBoxEditor::GetTextListControl()
+				GuiTextList* TextComboBoxDataEditor::GetTextListControl()
 				{
 					return textList;
 				}
@@ -4326,12 +4974,9 @@ StructuredDataProvider
 
 				void StructuredDataProvider::OnDataProviderColumnChanged()
 				{
-					RebuildFilter();
-					ReorderRows();
-					if(commandExecutor)
-					{
-						commandExecutor->OnDataProviderColumnChanged();
-					}
+					vint oldRowCount=GetRowCount();
+					RebuildFilter(true);
+					ReorderRows(true);
 				}
 
 				void StructuredDataProvider::OnDataProviderItemModified(vint start, vint count, vint newCount)
@@ -4341,27 +4986,26 @@ StructuredDataProvider
 					{
 						if(count!=newCount)
 						{
-							ReorderRows();
+							ReorderRows(false);
 						}
 						commandExecutor->OnDataProviderItemModified(start, count, newCount);
 					}
 					else
 					{
-						ReorderRows();
-						commandExecutor->OnDataProviderItemModified(0, GetRowCount(), GetRowCount());
+						ReorderRows(true);
 					}
 				}
 
 				void StructuredDataProvider::OnFilterChanged()
 				{
-					ReorderRows();
+					ReorderRows(true);
 					if(commandExecutor)
 					{
 						commandExecutor->OnDataProviderColumnChanged();
 					}
 				}
 
-				void StructuredDataProvider::RebuildFilter()
+				void StructuredDataProvider::RebuildFilter(bool invokeCallback)
 				{
 					if(currentFilter)
 					{
@@ -4394,10 +5038,16 @@ StructuredDataProvider
 					{
 						currentFilter->SetCommandExecutor(this);
 					}
+
+					if(invokeCallback && commandExecutor)
+					{
+						commandExecutor->OnDataProviderColumnChanged();
+					}
 				}
 
-				void StructuredDataProvider::ReorderRows()
+				void StructuredDataProvider::ReorderRows(bool invokeCallback)
 				{
+					vint oldRowCount=reorderedRows.Count();
 					reorderedRows.Clear();
 					vint rowCount=structuredDataProvider->GetRowCount();
 
@@ -4424,6 +5074,11 @@ StructuredDataProvider
 						IStructuredDataSorter* sorter=currentSorter.Obj();
 						SortLambda(&reorderedRows[0], reorderedRows.Count(), [sorter](vint a, vint b){return sorter->Compare(a, b);});
 					}
+
+					if(invokeCallback && commandExecutor)
+					{
+						commandExecutor->OnDataProviderItemModified(0, oldRowCount, GetRowCount());
+					}
 				}
 
 				vint StructuredDataProvider::TranslateRowNumber(vint row)
@@ -4439,13 +5094,8 @@ StructuredDataProvider
 				void StructuredDataProvider::SetAdditionalFilter(Ptr<IStructuredDataFilter> value)
 				{
 					additionalFilter=value;
-					RebuildFilter();
-					ReorderRows();
-					if(commandExecutor)
-					{
-						commandExecutor->OnDataProviderColumnChanged();
-						commandExecutor->OnDataProviderItemModified(0, GetRowCount(), GetRowCount());
-					}
+					RebuildFilter(true);
+					ReorderRows(true);
 				}
 
 				StructuredDataProvider::StructuredDataProvider(Ptr<IStructuredDataProvider> provider)
@@ -4453,8 +5103,8 @@ StructuredDataProvider
 					,commandExecutor(0)
 				{
 					structuredDataProvider->SetCommandExecutor(this);
-					RebuildFilter();
-					ReorderRows();
+					RebuildFilter(false);
+					ReorderRows(false);
 				}
 
 				StructuredDataProvider::~StructuredDataProvider()
@@ -4528,11 +5178,10 @@ StructuredDataProvider
 							GuiListViewColumnHeader::Descending
 							);
 					}
-					ReorderRows();
+					ReorderRows(true);
 					if(commandExecutor)
 					{
 						commandExecutor->OnDataProviderColumnChanged();
-						commandExecutor->OnDataProviderItemModified(0, GetRowCount(), GetRowCount());
 					}
 				}
 
@@ -4567,9 +5216,14 @@ StructuredDataProvider
 					return reorderedRows.Count();
 				}
 
-				Ptr<GuiImageData> StructuredDataProvider::GetRowImage(vint row)
+				Ptr<GuiImageData> StructuredDataProvider::GetRowLargeImage(vint row)
 				{
-					return structuredDataProvider->GetRowImage(TranslateRowNumber(row));
+					return structuredDataProvider->GetRowLargeImage(TranslateRowNumber(row));
+				}
+
+				Ptr<GuiImageData> StructuredDataProvider::GetRowSmallImage(vint row)
+				{
+					return structuredDataProvider->GetRowSmallImage(TranslateRowNumber(row));
 				}
 
 				WString StructuredDataProvider::GetCellText(vint row, vint column)
@@ -4781,7 +5435,12 @@ StructuredDataProviderBase
 					return columns[column].Obj();
 				}
 
-				Ptr<GuiImageData> StructuredDataProviderBase::GetRowImage(vint row)
+				Ptr<GuiImageData> StructuredDataProviderBase::GetRowLargeImage(vint row)
+				{
+					return 0;
+				}
+
+				Ptr<GuiImageData> StructuredDataProviderBase::GetRowSmallImage(vint row)
 				{
 					return 0;
 				}
@@ -8635,6 +9294,10 @@ TextItemStyleProvider
 					if(index!=-1)
 					{
 						textItemView->SetCheckedSilently(index, style->GetChecked());
+
+						GuiItemEventArgs arguments(style->GetBoundsComposition());
+						arguments.itemIndex=index;
+						listControl->ItemChecked.Execute(arguments);
 					}
 				}
 
@@ -8651,7 +9314,7 @@ TextItemStyleProvider
 
 				void TextItemStyleProvider::AttachListControl(GuiListControl* value)
 				{
-					listControl=value;;
+					listControl=dynamic_cast<GuiVirtualTextList*>(value);
 					textItemView=dynamic_cast<ITextItemView*>(value->GetItemProvider()->RequestView(ITextItemView::Identifier));
 				}
 
@@ -8759,6 +9422,7 @@ TextItemProvider
 				}
 
 				TextItemProvider::TextItemProvider()
+					:listControl(0)
 				{
 				}
 
@@ -8776,6 +9440,10 @@ TextItemProvider
 				{
 					SetCheckedSilently(itemIndex, value);
 					InvokeOnItemModified(itemIndex, 1, 1);
+
+					GuiItemEventArgs arguments;
+					arguments.itemIndex=itemIndex;
+					listControl->ItemChecked.Execute(arguments);
 				}
 
 				IDescriptable* TextItemProvider::RequestView(const WString& identifier)
@@ -8806,6 +9474,8 @@ GuiTextList
 			GuiVirtualTextList::GuiVirtualTextList(IStyleProvider* _styleProvider, list::TextItemStyleProvider::ITextItemStyleProvider* _itemStyleProvider, GuiListControl::IItemProvider* _itemProvider)
 				:GuiSelectableListControl(_styleProvider, _itemProvider)
 			{
+				ItemChecked.SetAssociatedComposition(boundsComposition);
+
 				ChangeItemStyle(_itemStyleProvider);
 				SetArranger(new list::FixedHeightItemArranger);
 			}
@@ -8846,6 +9516,7 @@ GuiTextList
 				:GuiVirtualTextList(_styleProvider, _itemStyleProvider, new list::TextItemProvider)
 			{
 				items=dynamic_cast<list::TextItemProvider*>(itemProvider.Obj());
+				items->listControl=this;
 			}
 
 			GuiTextList::~GuiTextList()
@@ -9804,7 +10475,7 @@ TreeViewItemRootProvider
 
 				Ptr<TreeViewItem> TreeViewItemRootProvider::GetTreeViewData(INodeProvider* node)
 				{
-					Ptr<MemoryNodeProvider> memoryNode=GetMemoryNode(node);
+					MemoryNodeProvider* memoryNode=GetMemoryNode(node);
 					if(memoryNode)
 					{
 						return memoryNode->GetData().Cast<TreeViewItem>();
@@ -9817,7 +10488,7 @@ TreeViewItemRootProvider
 
 				void TreeViewItemRootProvider::SetTreeViewData(INodeProvider* node, Ptr<TreeViewItem> value)
 				{
-					Ptr<MemoryNodeProvider> memoryNode=GetMemoryNode(node);
+					MemoryNodeProvider* memoryNode=GetMemoryNode(node);
 					if(memoryNode)
 					{
 						memoryNode->SetData(value);
@@ -9826,7 +10497,7 @@ TreeViewItemRootProvider
 				
 				void TreeViewItemRootProvider::UpdateTreeViewData(INodeProvider* node)
 				{
-					Ptr<MemoryNodeProvider> memoryNode=GetMemoryNode(node);
+					MemoryNodeProvider* memoryNode=GetMemoryNode(node);
 					if(memoryNode)
 					{
 						memoryNode->NotifyDataModified();
@@ -11012,6 +11683,16 @@ namespace vl
 					return new controls::GuiSelectableButton(GetCurrentTheme()->CreateRadioButtonStyle());
 				}
 
+				controls::GuiDatePicker* NewDatePicker()
+				{
+					return new controls::GuiDatePicker(GetCurrentTheme()->CreateDatePickerStyle());
+				}
+
+				controls::GuiDateComboBox* NewDateComboBox()
+				{
+					return new controls::GuiDateComboBox(GetCurrentTheme()->CreateComboBoxStyle(), NewDatePicker());
+				}
+
 				controls::GuiScroll* NewHScroll()
 				{
 					return new controls::GuiScroll(GetCurrentTheme()->CreateHScrollStyle());
@@ -11228,6 +11909,11 @@ Win7Theme
 			controls::GuiSelectableButton::IStyleController* Win7Theme::CreateRadioButtonStyle()
 			{
 				return new Win7CheckBoxStyle(Win7CheckBoxStyle::RadioButton);
+			}
+
+			controls::GuiDatePicker::IStyleProvider* Win7Theme::CreateDatePickerStyle()
+			{
+				return new Win7DatePickerStyle;
 			}
 
 			controls::GuiScroll::IStyleController* Win7Theme::CreateHScrollStyle()
@@ -11453,6 +12139,11 @@ Win8Theme
 			controls::GuiSelectableButton::IStyleController* Win8Theme::CreateRadioButtonStyle()
 			{
 				return new Win8CheckBoxStyle(Win8CheckBoxStyle::RadioButton);
+			}
+
+			controls::GuiDatePicker::IStyleProvider* Win8Theme::CreateDatePickerStyle()
+			{
+				return new Win8DatePickerStyle;
 			}
 
 			controls::GuiScroll::IStyleController* Win8Theme::CreateHScrollStyle()
@@ -12134,6 +12825,68 @@ Win7GroupBoxStyle
 				{
 					transferringAnimation->Transfer(Win7GetSystemTextColor(false));
 				}
+			}
+
+/***********************************************************************
+Win7DatePickerStyle
+***********************************************************************/
+
+			Win7DatePickerStyle::Win7DatePickerStyle()
+			{
+			}
+
+			Win7DatePickerStyle::~Win7DatePickerStyle()
+			{
+			}
+
+			void Win7DatePickerStyle::AssociateStyleController(controls::GuiControl::IStyleController* controller)
+			{
+			}
+
+			void Win7DatePickerStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win7DatePickerStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win7DatePickerStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win7DatePickerStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win7DatePickerStyle::CreateDateButtonStyle()
+			{
+				return new Win7SelectableItemStyle;
+			}
+
+			controls::GuiTextList* Win7DatePickerStyle::CreateTextList()
+			{
+				return new GuiTextList(new Win7MultilineTextBoxProvider, new Win7TextListProvider);
+			}
+
+			controls::GuiComboBoxListControl::IStyleController* Win7DatePickerStyle::CreateComboBoxStyle()
+			{
+				return new Win7DropDownComboBoxStyle;
+			}
+
+			Color Win7DatePickerStyle::GetBackgroundColor()
+			{
+				return Win7GetSystemWindowColor();
+			}
+
+			Color Win7DatePickerStyle::GetPrimaryTextColor()
+			{
+				return Win7GetSystemTextColor(true);
+			}
+
+			Color Win7DatePickerStyle::GetSecondaryTextColor()
+			{
+				return Win7GetSystemTextColor(false);
 			}
 		}
 	}
@@ -14790,12 +15543,12 @@ Win7CheckedButtonElements
 								button.bulletCheckElement=GuiSolidLabelElement::Create();
 								{
 									FontProperties font;
-									font.fontFamily=L"Wingdings 2";
+									font.fontFamily=L"Webdings";
 									font.size=16;
 									font.bold=true;
 									button.bulletCheckElement->SetFont(font);
 								}
-								button.bulletCheckElement->SetText(L"P");
+								button.bulletCheckElement->SetText(L"a");
 								button.bulletCheckElement->SetAlignments(Alignment::Center, Alignment::Center);
 
 								GuiBoundsComposition* composition=new GuiBoundsComposition;
@@ -16472,6 +17225,68 @@ Win8GroupBoxStyle
 				{
 					transferringAnimation->Transfer(Win8GetSystemTextColor(false));
 				}
+			}
+
+/***********************************************************************
+Win8DatePickerStyle
+***********************************************************************/
+
+			Win8DatePickerStyle::Win8DatePickerStyle()
+			{
+			}
+
+			Win8DatePickerStyle::~Win8DatePickerStyle()
+			{
+			}
+
+			void Win8DatePickerStyle::AssociateStyleController(controls::GuiControl::IStyleController* controller)
+			{
+			}
+
+			void Win8DatePickerStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			{
+			}
+
+			void Win8DatePickerStyle::SetText(const WString& value)
+			{
+			}
+
+			void Win8DatePickerStyle::SetFont(const FontProperties& value)
+			{
+			}
+
+			void Win8DatePickerStyle::SetVisuallyEnabled(bool value)
+			{
+			}
+
+			controls::GuiSelectableButton::IStyleController* Win8DatePickerStyle::CreateDateButtonStyle()
+			{
+				return new Win8SelectableItemStyle;
+			}
+
+			controls::GuiTextList* Win8DatePickerStyle::CreateTextList()
+			{
+				return new GuiTextList(new Win8MultilineTextBoxProvider, new Win8TextListProvider);
+			}
+
+			controls::GuiComboBoxListControl::IStyleController* Win8DatePickerStyle::CreateComboBoxStyle()
+			{
+				return new Win8DropDownComboBoxStyle;
+			}
+
+			Color Win8DatePickerStyle::GetBackgroundColor()
+			{
+				return Win8GetSystemWindowColor();
+			}
+
+			Color Win8DatePickerStyle::GetPrimaryTextColor()
+			{
+				return Win8GetSystemTextColor(true);
+			}
+
+			Color Win8DatePickerStyle::GetSecondaryTextColor()
+			{
+				return Win8GetSystemTextColor(false);
 			}
 		}
 	}
@@ -18525,12 +19340,12 @@ Win8CheckedButtonElements
 								button.bulletCheckElement=GuiSolidLabelElement::Create();
 								{
 									FontProperties font;
-									font.fontFamily=L"Wingdings 2";
+									font.fontFamily=L"Webdings";
 									font.size=16;
 									font.bold=true;
 									button.bulletCheckElement->SetFont(font);
 								}
-								button.bulletCheckElement->SetText(L"P");
+								button.bulletCheckElement->SetText(L"a");
 								button.bulletCheckElement->SetAlignments(Alignment::Center, Alignment::Center);
 
 								GuiBoundsComposition* composition=new GuiBoundsComposition;
@@ -30513,6 +31328,8 @@ Type Declaration
 				CLASS_MEMBER_BASE(GuiSelectableListControl)
 				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualTextList*(GuiSelectableListControl::IStyleProvider* _ TextItemStyleProvider::ITextItemStyleProvider* _ GuiListControl::IItemProvider*), {L"styleProvider" _ L"itemStyleProvider" _ L"itemProvider"})
 
+				CLASS_MEMBER_GUIEVENT(ItemChecked)
+
 				CLASS_MEMBER_METHOD(ChangeItemStyle, {L"itemStyleProvider"})
 			END_CLASS_MEMBER(GuiVirtualTextList)
 
@@ -30997,7 +31814,6 @@ Type Declaration
 
 				CLASS_MEMBER_GUIEVENT(PopupOpened)
 				CLASS_MEMBER_GUIEVENT(PopupClosed)
-				CLASS_MEMBER_GUIEVENT(ItemSelecting)
 				CLASS_MEMBER_GUIEVENT(ItemSelected)
 
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Popup)
@@ -31183,6 +31999,280 @@ Type Declaration
 
 				CLASS_MEMBER_METHOD(InstallBackground, {L"background"})
 			END_CLASS_MEMBER(GuiSinglelineTextBox::IStyleProvider)
+
+			BEGIN_CLASS_MEMBER(IDataVisualizerFactory)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IDataVisualizerFactory)
+
+				CLASS_MEMBER_METHOD(CreateVisualizer, {L"font" _ L"styleProvider"})
+			END_CLASS_MEMBER(IDataVisualizerFactory)
+
+			BEGIN_CLASS_MEMBER(IDataVisualizer)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IDataVisualizer)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Factory)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(BoundsComposition)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(DecoratedDataVisualizer)
+
+				CLASS_MEMBER_METHOD(BeforeVisualizerCell, {L"dataProvider" _ L"row" _ L"column"})
+			END_CLASS_MEMBER(IDataVisualizer)
+
+			BEGIN_CLASS_MEMBER(IDataEditorCallback)
+				CLASS_MEMBER_BASE(IDescriptable)
+
+				CLASS_MEMBER_METHOD(RequestSaveData, NO_PARAMETER);
+			END_CLASS_MEMBER(IDataEditorCallback)
+
+			BEGIN_CLASS_MEMBER(IDataEditorFactory)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IDataEditorFactory)
+
+				CLASS_MEMBER_METHOD(CreateEditor, {L"callback"})
+			END_CLASS_MEMBER(IDataEditorFactory)
+
+			BEGIN_CLASS_MEMBER(IDataEditor)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IDataEditor)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Factory)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(BoundsComposition)
+
+				CLASS_MEMBER_METHOD(BeforeEditCell, {L"dataProvider" _ L"row" _ L"column"})
+			END_CLASS_MEMBER(IDataEditor)
+
+			BEGIN_CLASS_MEMBER(IDataProviderCommandExecutor)
+				CLASS_MEMBER_BASE(IDescriptable)
+
+				CLASS_MEMBER_METHOD(OnDataProviderColumnChanged, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(OnDataProviderItemModified, {L"start" _ L"count" _ L"newCount"})
+			END_CLASS_MEMBER(IDataProviderCommandExecutor)
+
+			BEGIN_CLASS_MEMBER(IDataProvider)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IDataProvider)
+				INTERFACE_IDENTIFIER(IDataProvider)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(ColumnCount)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(SortedColumn)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowCount)
+
+				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
+				CLASS_MEMBER_METHOD(GetColumnText, {L"column"})
+				CLASS_MEMBER_METHOD(GetColumnSize, {L"column"})
+				CLASS_MEMBER_METHOD(SetColumnSize, {L"column" _ L"value"})
+				CLASS_MEMBER_METHOD(GetColumnPopup, {L"column"})
+				CLASS_MEMBER_METHOD(IsColumnSortable, {L"column"})
+				CLASS_MEMBER_METHOD(SortByColumn, {L"column" _ L"ascending"})
+				CLASS_MEMBER_METHOD(IsSortOrderAscending, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(GetRowLargeImage, {L"row" _ L"column"})
+				CLASS_MEMBER_METHOD(GetRowSmallImage, {L"row" _ L"column"})
+				CLASS_MEMBER_METHOD(GetCellText, {L"row" _ L"column"})
+				CLASS_MEMBER_METHOD(GetCellDataVisualizerFactory, {L"row" _ L"column"})
+				CLASS_MEMBER_METHOD(VisualizeCell, {L"row" _ L"column" _ L"dataVisualizer"})
+				CLASS_MEMBER_METHOD(GetCellDataEditorFactory, {L"row" _ L"column"})
+				CLASS_MEMBER_METHOD(BeforeEditCell, {L"row" _ L"column" _ L"dataEditor"})
+				CLASS_MEMBER_METHOD(SaveCellData, {L"row" _ L"column" _ L"dataEditor"})
+			END_CLASS_MEMBER(IDataProvider)
+
+			BEGIN_CLASS_MEMBER(IStructuredDataFilterCommandExecutor)
+				CLASS_MEMBER_BASE(IDescriptable)
+
+				CLASS_MEMBER_METHOD(OnFilterChanged, NO_PARAMETER)
+			END_CLASS_MEMBER(IStructuredDataFilterCommandExecutor)
+
+			BEGIN_CLASS_MEMBER(IStructuredDataFilter)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IStructuredDataFilter)
+
+				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
+				CLASS_MEMBER_METHOD(Filter, {L"row"})
+			END_CLASS_MEMBER(IStructuredDataFilter)
+
+			BEGIN_CLASS_MEMBER(IStructuredDataSorter)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IStructuredDataSorter)
+
+				CLASS_MEMBER_METHOD(Compare, {L"row1" _ L"row2"})
+			END_CLASS_MEMBER(IStructuredDataSorter)
+
+			BEGIN_CLASS_MEMBER(IStructuredColumnProvider)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IStructuredColumnProvider)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Text)
+				CLASS_MEMBER_PROPERTY_FAST(Size)
+				CLASS_MEMBER_PROPERTY_FAST(SortingState)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Popup)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(InherentFilter)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(InherentSorter)
+				CLASS_MEMBER_METHOD(GetCellText, {L"row"})
+				CLASS_MEMBER_METHOD(GetCellDataVisualizerFactory, {L"row"})
+				CLASS_MEMBER_METHOD(VisualizeCell, {L"row" _ L"dataVisualizer"})
+				CLASS_MEMBER_METHOD(GetCellDataEditorFactory, {L"row"})
+				CLASS_MEMBER_METHOD(BeforeEditCell, {L"row" _ L"dataEditor"})
+				CLASS_MEMBER_METHOD(SaveCellData, {L"row" _ L"dataEditor"})
+			END_CLASS_MEMBER(IStructuredColumnProvider)
+
+			BEGIN_CLASS_MEMBER(IStructuredDataProvider)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(list, IStructuredDataProvider)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(ColumnCount)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowCount)
+
+				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
+				CLASS_MEMBER_METHOD(GetColumn, {L"column"})
+				CLASS_MEMBER_METHOD(GetRowLargeImage, {L"row"})
+				CLASS_MEMBER_METHOD(GetRowSmallImage, {L"row"})
+			END_CLASS_MEMBER(IStructuredDataProvider)
+
+			BEGIN_CLASS_MEMBER(DataGridContentProvider)
+				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
+				CLASS_MEMBER_CONSTRUCTOR(DataGridContentProvider*(), NO_PARAMETER)
+			END_CLASS_MEMBER(DataGridContentProvider)
+
+			BEGIN_CLASS_MEMBER(GuiVirtualDataGrid)
+				CLASS_MEMBER_BASE(GuiVirtualListView)
+				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualDataGrid*(GuiVirtualListView::IStyleProvider* _ list::IDataProvider*), {L"styleProvider" _ L"dataProvider"})
+				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualDataGrid*(GuiVirtualListView::IStyleProvider* _ list::IStructuredDataProvider*), {L"styleProvider" _ L"dataProvider"})
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(DataProvider)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(StructuredDataProvider)
+			END_CLASS_MEMBER(GuiVirtualDataGrid)
+
+			BEGIN_CLASS_MEMBER(StructuredDataFilterBase)
+				CLASS_MEMBER_BASE(IStructuredDataFilter)
+			END_CLASS_MEMBER(StructuredDataFilterBase)
+
+			BEGIN_CLASS_MEMBER(StructuredDataMultipleFilter)
+				CLASS_MEMBER_BASE(StructuredDataFilterBase)
+
+				CLASS_MEMBER_METHOD(AddSubFilter, {L"value"})
+				CLASS_MEMBER_METHOD(RemoveSubFilter, {L"value"})
+			END_CLASS_MEMBER(StructuredDataMultipleFilter)
+
+			BEGIN_CLASS_MEMBER(StructuredDataAndFilter)
+				CLASS_MEMBER_BASE(StructuredDataMultipleFilter)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataAndFilter>(), NO_PARAMETER)
+			END_CLASS_MEMBER(StructuredDataAndFilter)
+
+			BEGIN_CLASS_MEMBER(StructuredDataOrFilter)
+				CLASS_MEMBER_BASE(StructuredDataMultipleFilter)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataOrFilter>(), NO_PARAMETER)
+			END_CLASS_MEMBER(StructuredDataOrFilter)
+
+			BEGIN_CLASS_MEMBER(StructuredDataNotFilter)
+				CLASS_MEMBER_BASE(StructuredDataFilterBase)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataNotFilter>(), NO_PARAMETER)
+
+				CLASS_MEMBER_METHOD(SetSubFilter, {L"value"})
+			END_CLASS_MEMBER(StructuredDataNotFilter)
+
+			BEGIN_CLASS_MEMBER(StructuredDataMultipleSorter)
+				CLASS_MEMBER_BASE(IStructuredDataSorter)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataMultipleSorter>(), NO_PARAMETER)
+
+				CLASS_MEMBER_METHOD(SetLeftSorter, {L"value"})
+				CLASS_MEMBER_METHOD(SetRightSorter, {L"value"})
+			END_CLASS_MEMBER(StructuredDataMultipleSorter)
+
+			BEGIN_CLASS_MEMBER(StructuredDataReverseSorter)
+				CLASS_MEMBER_BASE(IStructuredDataSorter)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataReverseSorter>(), NO_PARAMETER)
+				
+				CLASS_MEMBER_METHOD(SetSubSorter, {L"value"})
+			END_CLASS_MEMBER(StructuredDataReverseSorter)
+
+			BEGIN_CLASS_MEMBER(StructuredDataProvider)
+				CLASS_MEMBER_BASE(IDataProvider)
+
+				CLASS_MEMBER_PROPERTY_FAST(AdditionalFilter)
+			END_CLASS_MEMBER(StructuredDataProvider)
+
+			BEGIN_CLASS_MEMBER(ListViewMainColumnDataVisualizer)
+				CLASS_MEMBER_BASE(IDataVisualizer)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextElement)
+			END_CLASS_MEMBER(ListViewMainColumnDataVisualizer)
+
+			BEGIN_CLASS_MEMBER(ListViewMainColumnDataVisualizer::Factory)
+				CLASS_MEMBER_BASE(IDataVisualizerFactory)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewMainColumnDataVisualizer::Factory>(), NO_PARAMETER)
+			END_CLASS_MEMBER(ListViewMainColumnDataVisualizer::Factory)
+
+			BEGIN_CLASS_MEMBER(ListViewSubColumnDataVisualizer)
+				CLASS_MEMBER_BASE(IDataVisualizer)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextElement)
+			END_CLASS_MEMBER(ListViewSubColumnDataVisualizer)
+
+			BEGIN_CLASS_MEMBER(ListViewSubColumnDataVisualizer::Factory)
+				CLASS_MEMBER_BASE(IDataVisualizerFactory)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewSubColumnDataVisualizer::Factory>(), NO_PARAMETER)
+			END_CLASS_MEMBER(ListViewSubColumnDataVisualizer::Factory)
+
+			BEGIN_CLASS_MEMBER(CellBorderDataVisualizer)
+				CLASS_MEMBER_BASE(IDataVisualizer)
+			END_CLASS_MEMBER(CellBorderDataVisualizer)
+
+			BEGIN_CLASS_MEMBER(CellBorderDataVisualizer::Factory)
+				CLASS_MEMBER_BASE(IDataVisualizerFactory)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<CellBorderDataVisualizer::Factory>(Ptr<IDataVisualizerFactory>), {L"decoratedFactory"})
+			END_CLASS_MEMBER(CellBorderDataVisualizer::Factory)
+
+			BEGIN_CLASS_MEMBER(TextBoxDataEditor)
+				CLASS_MEMBER_BASE(IDataEditor)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextBox)
+			END_CLASS_MEMBER(TextBoxDataEditor)
+
+			BEGIN_CLASS_MEMBER(TextBoxDataEditor::Factory)
+				CLASS_MEMBER_BASE(IDataEditorFactory)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextBoxDataEditor::Factory>(), NO_PARAMETER)
+			END_CLASS_MEMBER(TextBoxDataEditor::Factory)
+
+			BEGIN_CLASS_MEMBER(TextComboBoxDataEditor)
+				CLASS_MEMBER_BASE(IDataEditor)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(ComboBoxControl)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextListControl)
+			END_CLASS_MEMBER(TextComboBoxDataEditor)
+
+			BEGIN_CLASS_MEMBER(TextComboBoxDataEditor::Factory)
+				CLASS_MEMBER_BASE(IDataEditorFactory)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextComboBoxDataEditor::Factory>(), NO_PARAMETER)
+			END_CLASS_MEMBER(TextComboBoxDataEditor::Factory)
+
+			BEGIN_CLASS_MEMBER(GuiDatePicker)
+				CLASS_MEMBER_BASE(GuiControl)
+				CONTROL_CONSTRUCTOR_PROVIDER(GuiDatePicker)
+
+				CLASS_MEMBER_PROPERTY_EVENT_FAST(Date, DateChanged)
+				CLASS_MEMBER_PROPERTY_EVENT_FAST(DateFormat, DateFormatChanged)
+				CLASS_MEMBER_PROPERTY_EVENT_FAST(DateLocale, DateLocaleChanged)
+			END_CLASS_MEMBER(GuiDatePicker)
+
+			BEGIN_CLASS_MEMBER(GuiDatePicker::IStyleProvider)
+				CLASS_MEMBER_BASE(GuiControl::IStyleProvider)
+				INTERFACE_EXTERNALCTOR(GuiDatePicker, IStyleProvider)
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(BackgroundColor)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(PrimaryTextColor)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(SecondaryTextColor)
+
+				CLASS_MEMBER_METHOD(CreateDateButtonStyle, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(CreateTextList, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(CreateComboBoxStyle, NO_PARAMETER)
+			END_CLASS_MEMBER(GuiDatePicker::IStyleProvider)
+
+			BEGIN_CLASS_MEMBER(GuiDateComboBox)
+				CLASS_MEMBER_BASE(GuiComboBoxBase)
+				CLASS_MEMBER_CONSTRUCTOR(GuiDateComboBox*(GuiDateComboBox::IStyleController* _ GuiDatePicker*), {L"styleController" _ L"datePicker"})
+
+				CLASS_MEMBER_PROPERTY_EVENT_FAST(SelectedDate, SelectedDateChanged)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(DatePicker)
+			END_CLASS_MEMBER(GuiDateComboBox)
 
 #undef INTERFACE_IDENTIFIER
 #undef CONTROL_CONSTRUCTOR_CONTROLLER

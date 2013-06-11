@@ -334,6 +334,7 @@ typedef signed __int64	pos_t;
 
 		static DateTime		LocalTime();
 		static DateTime		UtcTime();
+		static DateTime		FromDateTime(vint _year, vint _month, vint _day, vint _hour=0, vint _minute=0, vint _second=0, vint _milliseconds=0);
 		static DateTime		FromFileTime(unsigned __int64 filetime);
 
 		DateTime();
@@ -342,6 +343,13 @@ typedef signed __int64	pos_t;
 		DateTime			ToUtcTime();
 		DateTime			Forward(unsigned __int64 milliseconds);
 		DateTime			Backward(unsigned __int64 milliseconds);
+
+		bool operator==(const DateTime& value)const { return filetime==value.filetime; }
+		bool operator!=(const DateTime& value)const { return filetime!=value.filetime; }
+		bool operator<(const DateTime& value)const { return filetime<value.filetime; }
+		bool operator<=(const DateTime& value)const { return filetime<=value.filetime; }
+		bool operator>(const DateTime& value)const { return filetime>value.filetime; }
+		bool operator>=(const DateTime& value)const { return filetime>=value.filetime; }
 	};
 
 /***********************************************************************
@@ -2770,6 +2778,13 @@ namespace vl
 		Locale(const WString& _localeName=WString::Empty);
 		~Locale();
 
+		bool operator==(const Locale& value)const { return localeName==value.localeName; }
+		bool operator!=(const Locale& value)const { return localeName!=value.localeName; }
+		bool operator<(const Locale& value)const { return localeName<value.localeName; }
+		bool operator<=(const Locale& value)const { return localeName<=value.localeName; }
+		bool operator>(const Locale& value)const { return localeName>value.localeName; }
+		bool operator>=(const Locale& value)const { return localeName>=value.localeName; }
+
 		static Locale				Invariant();
 		static Locale				SystemDefault();
 		static Locale				UserDefault();
@@ -2782,10 +2797,16 @@ namespace vl
 		void						GetYearMonthDateFormats(collections::List<WString>& formats);
 		void						GetLongTimeFormats(collections::List<WString>& formats);
 		void						GetShortTimeFormats(collections::List<WString>& formats);
+
 		WString						FormatDate(const WString& format, DateTime date);
 		WString						FormatTime(const WString& format, DateTime time);
 		WString						FormatNumber(const WString& number);
 		WString						FormatCurrency(const WString& currency);
+
+		WString						GetShortDayOfWeekName(vint dayOfWeek);
+		WString						GetLongDayOfWeekName(vint dayOfWeek);
+		WString						GetShortMonthName(vint month);
+		WString						GetLongMonthName(vint month);
 
 		WString						ToFullWidth(const WString& str);
 		WString						ToHalfWidth(const WString& str);
@@ -14253,6 +14274,8 @@ Predefined Types
 			template<>struct TypeInfo<bool>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<wchar_t>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<WString>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<DateTime>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<Locale>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueEnumerator>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueEnumerable>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueReadonlyList>{static const wchar_t* TypeName;};
