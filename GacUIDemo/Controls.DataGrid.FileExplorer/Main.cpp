@@ -316,7 +316,7 @@ public:
 		AddChild(dataGrid);
 
 		// set the preferred minimum client size
-		this->GetBoundsComposition()->SetPreferredMinSize(Size(900, 600));
+		this->GetBoundsComposition()->SetPreferredMinSize(Size(640, 480));
 		// call this to calculate the size immediately if any indirect content in the table changes
 		// so that the window can calcaulte its correct size before calling the MoveToScreenCenter()
 		this->ForceCalculateSizeImmediately();

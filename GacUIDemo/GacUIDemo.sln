@@ -64,9 +64,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.ChemicalE
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.FileExplorer", "Controls.DataGrid.FileExplorer\Controls.DataGrid.FileExplorer.vcxproj", "{08387724-9751-4E0F-8195-6275084DB0CF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DatePicker.DateAndLocale", "Controls.DatePicker.DateAndLocale\Controls.DatePicker.DateAndLocale.vcxproj", "{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.TableEditor", "Controls.DataGrid.TableEditor\Controls.DataGrid.TableEditor.vcxproj", "{DBC36C55-96C5-403A-AACC-D71B6D841A4D}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 27
+		SccNumberOfProjects = 29
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -172,6 +176,14 @@ Global
 		SccProjectTopLevelParentUniqueName26 = GacUIDemo.sln
 		SccProjectName26 = Controls.DataGrid.FileExplorer
 		SccLocalPath26 = Controls.DataGrid.FileExplorer
+		SccProjectUniqueName27 = Controls.DatePicker.DateAndLocale\\Controls.DatePicker.DateAndLocale.vcxproj
+		SccProjectTopLevelParentUniqueName27 = GacUIDemo.sln
+		SccProjectName27 = Controls.DatePicker.DateAndLocale
+		SccLocalPath27 = Controls.DatePicker.DateAndLocale
+		SccProjectUniqueName28 = Controls.DataGrid.TableEditor\\Controls.DataGrid.TableEditor.vcxproj
+		SccProjectTopLevelParentUniqueName28 = GacUIDemo.sln
+		SccProjectName28 = Controls.DataGrid.TableEditor
+		SccLocalPath28 = Controls.DataGrid.TableEditor
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -282,6 +294,14 @@ Global
 		{08387724-9751-4E0F-8195-6275084DB0CF}.Debug|Win32.Build.0 = Debug|Win32
 		{08387724-9751-4E0F-8195-6275084DB0CF}.Release|Win32.ActiveCfg = Release|Win32
 		{08387724-9751-4E0F-8195-6275084DB0CF}.Release|Win32.Build.0 = Release|Win32
+		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8}.Debug|Win32.Build.0 = Debug|Win32
+		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8}.Release|Win32.ActiveCfg = Release|Win32
+		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8}.Release|Win32.Build.0 = Release|Win32
+		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Debug|Win32.Build.0 = Debug|Win32
+		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Release|Win32.ActiveCfg = Release|Win32
+		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -306,6 +326,8 @@ Global
 		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{D7996415-9D41-4679-9EC6-DDCF925C4B31} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{08387724-9751-4E0F-8195-6275084DB0CF} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{DBC36C55-96C5-403A-AACC-D71B6D841A4D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{ED487B28-E445-464D-A09A-97BC9E57FC8D} = {B05A7B62-D27C-48B3-9AA6-AC15ABC38BD8}
 		{1AAAFFB1-0E0C-4D06-B18E-AC3816F97217} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{FBAA9433-4B1B-44FF-8EC9-F7C037859ABC} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}

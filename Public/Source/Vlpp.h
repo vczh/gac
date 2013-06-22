@@ -71,8 +71,6 @@ typedef signed __int64	pos_t;
 #define abstract
 #endif
 
-#define VCZH_NO_OLD_OS
-
 /***********************************************************************
 基础
 ***********************************************************************/
@@ -2792,33 +2790,33 @@ namespace vl
 
 		const WString&				GetName()const;
 
-		void						GetShortDateFormats(collections::List<WString>& formats);
-		void						GetLongDateFormats(collections::List<WString>& formats);
-		void						GetYearMonthDateFormats(collections::List<WString>& formats);
-		void						GetLongTimeFormats(collections::List<WString>& formats);
-		void						GetShortTimeFormats(collections::List<WString>& formats);
+		void						GetShortDateFormats(collections::List<WString>& formats)const;
+		void						GetLongDateFormats(collections::List<WString>& formats)const;
+		void						GetYearMonthDateFormats(collections::List<WString>& formats)const;
+		void						GetLongTimeFormats(collections::List<WString>& formats)const;
+		void						GetShortTimeFormats(collections::List<WString>& formats)const;
 
-		WString						FormatDate(const WString& format, DateTime date);
-		WString						FormatTime(const WString& format, DateTime time);
-		WString						FormatNumber(const WString& number);
-		WString						FormatCurrency(const WString& currency);
+		WString						FormatDate(const WString& format, DateTime date)const;
+		WString						FormatTime(const WString& format, DateTime time)const;
+		WString						FormatNumber(const WString& number)const;
+		WString						FormatCurrency(const WString& currency)const;
 
-		WString						GetShortDayOfWeekName(vint dayOfWeek);
-		WString						GetLongDayOfWeekName(vint dayOfWeek);
-		WString						GetShortMonthName(vint month);
-		WString						GetLongMonthName(vint month);
+		WString						GetShortDayOfWeekName(vint dayOfWeek)const;
+		WString						GetLongDayOfWeekName(vint dayOfWeek)const;
+		WString						GetShortMonthName(vint month)const;
+		WString						GetLongMonthName(vint month)const;
 
-		WString						ToFullWidth(const WString& str);
-		WString						ToHalfWidth(const WString& str);
-		WString						ToHiragana(const WString& str);
-		WString						ToKatagana(const WString& str);
-		WString						ToLower(const WString& str);
-		WString						ToUpper(const WString& str);
-		WString						ToLinguisticLower(const WString& str);
-		WString						ToLinguisticUpper(const WString& str);
-		WString						ToSimplifiedChinese(const WString& str);
-		WString						ToTraditionalChinese(const WString& str);
-		WString						ToTileCase(const WString& str);
+		WString						ToFullWidth(const WString& str)const;
+		WString						ToHalfWidth(const WString& str)const;
+		WString						ToHiragana(const WString& str)const;
+		WString						ToKatagana(const WString& str)const;
+		WString						ToLower(const WString& str)const;
+		WString						ToUpper(const WString& str)const;
+		WString						ToLinguisticLower(const WString& str)const;
+		WString						ToLinguisticUpper(const WString& str)const;
+		WString						ToSimplifiedChinese(const WString& str)const;
+		WString						ToTraditionalChinese(const WString& str)const;
+		WString						ToTileCase(const WString& str)const;
 
 		enum Normalization
 		{
@@ -2832,13 +2830,13 @@ namespace vl
 			DigitsAsNumbers=64,
 			StringSoft=128,
 		};
-		vint									Compare(const WString& s1, const WString& s2, Normalization normalization);
-		vint									CompareOrdinal(const WString& s1, const WString& s2);
-		vint									CompareOrdinalIgnoreCase(const WString& s1, const WString& s2);
-		collections::Pair<vint, vint>			FindFirst(const WString& text, const WString& find, Normalization normalization);
-		collections::Pair<vint, vint>			FindLast(const WString& text, const WString& find, Normalization normalization);
-		bool									StartsWith(const WString& text, const WString& find, Normalization normalization);
-		bool									EndsWidth(const WString& text, const WString& find, Normalization normalization);
+		vint									Compare(const WString& s1, const WString& s2, Normalization normalization)const;
+		vint									CompareOrdinal(const WString& s1, const WString& s2)const;
+		vint									CompareOrdinalIgnoreCase(const WString& s1, const WString& s2)const;
+		collections::Pair<vint, vint>			FindFirst(const WString& text, const WString& find, Normalization normalization)const;
+		collections::Pair<vint, vint>			FindLast(const WString& text, const WString& find, Normalization normalization)const;
+		bool									StartsWith(const WString& text, const WString& find, Normalization normalization)const;
+		bool									EndsWidth(const WString& text, const WString& find, Normalization normalization)const;
 	};
 
 #define INVLOC vl::Locale::Invariant()
@@ -21974,9 +21972,7 @@ namespace vl
 	class CriticalSection : public Object, public NotCopyable
 	{
 	private:
-#ifdef VCZH_NO_OLD_OS
 		friend class ConditionVariable;
-#endif
 		threading_internal::CriticalSectionData*	internalData;
 	public:
 		CriticalSection();
@@ -21996,8 +21992,6 @@ namespace vl
 			~Scope();
 		};
 	};
-
-#ifdef VCZH_NO_OLD_OS
 
 	class ReaderWriterLock : public Object, public NotCopyable
 	{
@@ -22051,7 +22045,6 @@ namespace vl
 		void										WakeOnePending();
 		void										WakeAllPendings();
 	};
-#endif
 
 /***********************************************************************
 用户模式对象

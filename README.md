@@ -1,4 +1,4 @@
-# Gaclib 0.5.1.0
+# Gaclib 0.5.2.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -15,14 +15,17 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Updated 1 demo
-    * **Template.Window.CustomizedBorder** Add an icon in the window title of the skin.
+* Add 4 demos
+    * **Controls.DataGrid.ChemicalElements** This demo shows how to display data in a GuiVirtualDataGrid control using different styles for different cells.
+    * **Controls.DataGrid.FileExplorer** This demo shows how to use GuiVirtualDataGrid with IStructuredDataProvider to do strong typed sorting and filtering.
+    * **Controls.DataGrid.TableEditor** This demo shows how to use GuiStringGrid to perform simple table editing.
+    * **Controls.DatePicker.DateAndLocale** This demo shows how to use GuiDatePicker and GuiDateComboBox to select a date under different locales and date formats.
 * Added new features
-
-    * Parser generator supports ambiguous context-free grammar.
-    * Reflection supports dictionary type.
-    * Remove the old parser combinator library completely out of Gaclib.
-    * Upgrade Fpmacro to use the new parser generator.
+    * **VirtualDateGrid**
+    * **StringGrid**
+    * **DatePicker**
+    * **DateComboBox**
 * Fixed bugs
-    * Parser generator crashes when the input grammar contains conflict errors.
-    * Reflection failed to unload and reload metadata.
+    * Direct2D renderer uses the wrong scale under larget DPI setting
+    * GetTreeViewData crashes in tree view control
+    * Change the CheckBox graph because some users do not have "Windings" font
