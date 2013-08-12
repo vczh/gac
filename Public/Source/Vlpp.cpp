@@ -1198,6 +1198,105 @@ namespace vl
 		namespace json
 		{
 /***********************************************************************
+ParserText
+***********************************************************************/
+
+const wchar_t parserTextBuffer[] = 
+L"\r\n"L""
+L"\r\n"L"class Node"
+L"\r\n"L"{"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Literal:Node"
+L"\r\n"L"{"
+L"\r\n"L"\tenum Value"
+L"\r\n"L"\t{"
+L"\r\n"L"\t\tTrue,"
+L"\r\n"L"\t\tFalse,"
+L"\r\n"L"\t\tNull,"
+L"\r\n"L"\t}"
+L"\r\n"L""
+L"\r\n"L"\tValue value;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class String:Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken content(JsonUnescapingString);"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Number:Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken content;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Array:Node"
+L"\r\n"L"{"
+L"\r\n"L"\tNode[] items;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class ObjectField:Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken name(JsonUnescapingString)\t\t\t\t@Color(\"AttName\");"
+L"\r\n"L"\tNode value;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Object:Node"
+L"\r\n"L"{"
+L"\r\n"L"\tObjectField[] fields;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"token TRUEVALUE = \"true\"\t\t\t\t\t\t\t@Color(\"Keyword\");"
+L"\r\n"L"token FALSEVALUE = \"false\"\t\t\t\t\t\t\t@Color(\"Keyword\");"
+L"\r\n"L"token NULLVALUE = \"null\"\t\t\t\t\t\t\t@Color(\"Keyword\");"
+L"\r\n"L"token OBJOPEN = \"\\{\"\t\t\t\t\t\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token OBJCLOSE = \"\\}\"\t\t\t\t\t\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token ARROPEN = \"\\[\"\t\t\t\t\t\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token ARRCLOSE = \"\\]\"\t\t\t\t\t\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token COMMA = \",\";"
+L"\r\n"L"token COLON = \":\";"
+L"\r\n"L"token NUMBER = \"[\\-]?\\d+(.\\d+)?([eE][+\\-]?\\d+)?\"\t@Color(\"Number\");"
+L"\r\n"L"token STRING = \"\"\"([^\\\\\"\"]|\\\\[^u]|\\\\u\\d{4})*\"\"\"\t\t@ContextColor(\"String\");"
+L"\r\n"L""
+L"\r\n"L"discardtoken SPACE = \"\\s+\";"
+L"\r\n"L""
+L"\r\n"L"rule Node JLiteral"
+L"\r\n"L"\t= STRING:content as String"
+L"\r\n"L"\t= NUMBER:content as Number"
+L"\r\n"L"\t= \"true\" as Literal with {value = \"True\"}"
+L"\r\n"L"\t= \"false\" as Literal with {value = \"False\"}"
+L"\r\n"L"\t= \"null\" as Literal with {value = \"Null\"}"
+L"\r\n"L"\t;"
+L"\r\n"L""
+L"\r\n"L"rule ObjectField JField"
+L"\r\n"L"\t= STRING:name \":\" JValue:value as ObjectField"
+L"\r\n"L"\t;"
+L"\r\n"L""
+L"\r\n"L"rule Object JObject"
+L"\r\n"L"\t= \"{\" [JField:fields {\",\" JField:fields} ] \"}\" as Object"
+L"\r\n"L"\t;"
+L"\r\n"L""
+L"\r\n"L"rule Array JArray"
+L"\r\n"L"\t= \"[\" [JValue:items {\",\" JValue:items} ] \"]\" as Array"
+L"\r\n"L"\t;"
+L"\r\n"L""
+L"\r\n"L"rule Node JValue"
+L"\r\n"L"\t= !JLiteral"
+L"\r\n"L"\t= !JObject"
+L"\r\n"L"\t= !JArray"
+L"\r\n"L"\t;"
+L"\r\n"L""
+L"\r\n"L"rule Node JRoot"
+L"\r\n"L"\t= !JObject"
+L"\r\n"L"\t= !JArray"
+L"\r\n"L"\t;"
+;
+
+			vl::WString JsonGetParserTextBuffer()
+			{
+				return parserTextBuffer;
+			}
+
+/***********************************************************************
 Unescaping Function Foward Declarations
 ***********************************************************************/
 
@@ -1272,6 +1371,7 @@ Parsing Tree Conversion Driver Implementation
 					if(obj->GetType()==L"Literal")
 					{
 						vl::Ptr<JsonLiteral> tree = new JsonLiteral;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<JsonNode>(), obj, tokens);
 						return tree;
@@ -1279,6 +1379,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"String")
 					{
 						vl::Ptr<JsonString> tree = new JsonString;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<JsonNode>(), obj, tokens);
 						return tree;
@@ -1286,6 +1387,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Number")
 					{
 						vl::Ptr<JsonNumber> tree = new JsonNumber;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<JsonNode>(), obj, tokens);
 						return tree;
@@ -1293,6 +1395,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Array")
 					{
 						vl::Ptr<JsonArray> tree = new JsonArray;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<JsonNode>(), obj, tokens);
 						return tree;
@@ -1300,6 +1403,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"ObjectField")
 					{
 						vl::Ptr<JsonObjectField> tree = new JsonObjectField;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<JsonNode>(), obj, tokens);
 						return tree;
@@ -1307,6 +1411,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Object")
 					{
 						vl::Ptr<JsonObject> tree = new JsonObject;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<JsonNode>(), obj, tokens);
 						return tree;
@@ -1400,7 +1505,7 @@ Parser Function
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"JRoot");
-				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
 				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				return node;
@@ -1410,7 +1515,7 @@ Parser Function
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"JRoot");
-				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
 				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				if(node)
@@ -1426,954 +1531,12 @@ Table Generation
 
 			vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable()
 			{
-				vl::Ptr<vl::parsing::tabling::ParsingTable> table=new vl::parsing::tabling::ParsingTable(14-vl::parsing::tabling::ParsingTable::UserTokenStart, 1, 36, 6);
-				#define SET_TOKEN_INFO(INDEX, NAME, REGEX) table->SetTokenInfo(INDEX, vl::parsing::tabling::ParsingTable::TokenInfo(NAME, REGEX));
-				#define SET_DISCARD_TOKEN_INFO(INDEX, NAME, REGEX) table->SetDiscardTokenInfo(INDEX, vl::parsing::tabling::ParsingTable::TokenInfo(NAME, REGEX));
-				#define SET_STATE_INFO(INDEX, RULE, STATE, EXPR) table->SetStateInfo(INDEX, vl::parsing::tabling::ParsingTable::StateInfo(RULE, STATE, EXPR));
-				#define SET_RULE_INFO(INDEX, NAME, TYPE, STARTSTATE) table->SetRuleInfo(INDEX, vl::parsing::tabling::ParsingTable::RuleInfo(NAME, TYPE, L"", STARTSTATE));
-				#define SET_AMBIGUOUS_RULE_INFO(INDEX, NAME, TYPE, AMBIGUOUSTYPE, STARTSTATE) table->SetRuleInfo(INDEX, vl::parsing::tabling::ParsingTable::RuleInfo(NAME, TYPE, AMBIGUOUSTYPE, STARTSTATE));
-				#define BEGIN_TRANSITION_BAG(STATE, TOKEN) {vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag; table->SetTransitionBag(STATE, TOKEN, bag);
-				#define BEGIN_TRANSITION_ITEM(TOKEN, TARGETSTATE) {vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(TOKEN, TARGETSTATE); bag->transitionItems.Add(item);
-				#define END_TRANSITION_ITEM }
-				#define END_TRANSITION_BAG }
-				#define ITEM_STACK_PATTERN(STATE) item->stackPattern.Add(STATE);
-				#define ITEM_INSTRUCTION(TYPE, STATE, NAME, VALUE) item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::TYPE, STATE, NAME, VALUE));
-				#define BEGIN_LOOK_AHEAD(STATE) {vl::Ptr<vl::parsing::tabling::ParsingTable::LookAheadInfo> lookAheadInfo=new vl::Ptr<vl::parsing::tabling::ParsingTable::LookAheadInfo; item->lookAheads.Add(lookAheadInfo); lookAheadInfo->state=STATE;
-				#define LOOK_AHEAD(TOKEN) lookAheadInfo->tokens.Add(TOKEN);
-				#define END_LOOK_AHEAD }
-
-				SET_TOKEN_INFO(0, L"", L"")
-				SET_TOKEN_INFO(1, L"", L"")
-				SET_TOKEN_INFO(2, L"", L"")
-				SET_TOKEN_INFO(3, L"TRUEVALUE", L"true")
-				SET_TOKEN_INFO(4, L"FALSEVALUE", L"false")
-				SET_TOKEN_INFO(5, L"NULLVALUE", L"null")
-				SET_TOKEN_INFO(6, L"OBJOPEN", L"\\{")
-				SET_TOKEN_INFO(7, L"OBJCLOSE", L"\\}")
-				SET_TOKEN_INFO(8, L"ARROPEN", L"\\[")
-				SET_TOKEN_INFO(9, L"ARRCLOSE", L"\\]")
-				SET_TOKEN_INFO(10, L"COMMA", L",")
-				SET_TOKEN_INFO(11, L"COLON", L":")
-				SET_TOKEN_INFO(12, L"NUMBER", L"[\\-]?\\d+(.\\d+)?([eE][+\\-]?\\d+)?")
-				SET_TOKEN_INFO(13, L"STRING", L"\"([^\\\\\"]|\\\\[^u]|\\\\u\\d{4})*\"")
-
-				SET_DISCARD_TOKEN_INFO(0, L"SPACE", L"\\s+")
-
-				SET_STATE_INFO(0, L"JLiteral", L"JLiteral.RootStart", L"● $<JLiteral>")
-				SET_STATE_INFO(1, L"JLiteral", L"JLiteral.Start", L"· <JLiteral>")
-				SET_STATE_INFO(2, L"JLiteral", L"JLiteral.1", L"<JLiteral>: STRING : content as String●\r\n<JLiteral>: NUMBER : content as Number●\r\n<JLiteral>: \"true\" as Literal● with { value = \"True\" }\r\n<JLiteral>: \"false\" as Literal● with { value = \"False\" }\r\n<JLiteral>: \"null\" as Literal● with { value = \"Null\" }")
-				SET_STATE_INFO(3, L"JLiteral", L"JLiteral.RootEnd", L"$<JLiteral> ●")
-				SET_STATE_INFO(4, L"JField", L"JField.RootEnd", L"$<JField> ●")
-				SET_STATE_INFO(5, L"JObject", L"JObject.3", L"<JObject>: \"{\" [ JField : fields { \",\" JField : fields } ] \"}\" as Object●")
-				SET_STATE_INFO(6, L"JObject", L"JObject.4", L"<JObject>: \"{\" [ JField : fields { \",\"● JField : fields } ] \"}\" as Object")
-				SET_STATE_INFO(7, L"JArray", L"JArray.3", L"<JArray>: \"[\" [ JValue : items { \",\" JValue : items } ] \"]\" as Array●")
-				SET_STATE_INFO(8, L"JArray", L"JArray.4", L"<JArray>: \"[\" [ JValue : items { \",\"● JValue : items } ] \"]\" as Array")
-				SET_STATE_INFO(9, L"JValue", L"JValue.RootEnd", L"$<JValue> ●")
-				SET_STATE_INFO(10, L"JObject", L"JObject.RootEnd", L"$<JObject> ●")
-				SET_STATE_INFO(11, L"JRoot", L"JRoot.RootEnd", L"$<JRoot> ●")
-				SET_STATE_INFO(12, L"JField", L"JField.1", L"<JField>: STRING : name● \":\" JValue : value as ObjectField")
-				SET_STATE_INFO(13, L"JArray", L"JArray.RootEnd", L"$<JArray> ●")
-				SET_STATE_INFO(14, L"JObject", L"JObject.1", L"<JObject>: \"{\"● [ JField : fields { \",\" JField : fields } ] \"}\" as Object")
-				SET_STATE_INFO(15, L"JArray", L"JArray.1", L"<JArray>: \"[\"● [ JValue : items { \",\" JValue : items } ] \"]\" as Array")
-				SET_STATE_INFO(16, L"JField", L"JField.2", L"<JField>: STRING : name \":\"● JValue : value as ObjectField")
-				SET_STATE_INFO(17, L"JField", L"JField.RootStart", L"● $<JField>")
-				SET_STATE_INFO(18, L"JField", L"JField.Start", L"· <JField>")
-				SET_STATE_INFO(19, L"JObject", L"JObject.RootStart", L"● $<JObject>")
-				SET_STATE_INFO(20, L"JObject", L"JObject.Start", L"· <JObject>")
-				SET_STATE_INFO(21, L"JArray", L"JArray.RootStart", L"● $<JArray>")
-				SET_STATE_INFO(22, L"JArray", L"JArray.Start", L"· <JArray>")
-				SET_STATE_INFO(23, L"JValue", L"JValue.RootStart", L"● $<JValue>")
-				SET_STATE_INFO(24, L"JValue", L"JValue.Start", L"· <JValue>")
-				SET_STATE_INFO(25, L"JRoot", L"JRoot.RootStart", L"● $<JRoot>")
-				SET_STATE_INFO(26, L"JRoot", L"JRoot.Start", L"· <JRoot>")
-				SET_STATE_INFO(27, L"JLiteral", L"JLiteral.2", L"<JLiteral>: STRING : content as String●\r\n<JLiteral>: NUMBER : content as Number●\r\n<JLiteral>: \"true\" as Literal with { value = \"True\" }●\r\n<JLiteral>: \"false\" as Literal with { value = \"False\" }●\r\n<JLiteral>: \"null\" as Literal with { value = \"Null\" }●")
-				SET_STATE_INFO(28, L"JField", L"JField.3", L"<JField>: STRING : name \":\" JValue : value as ObjectField●")
-				SET_STATE_INFO(29, L"JField", L"JField.4", L"<JField>: STRING : name \":\" JValue : value as ObjectField●")
-				SET_STATE_INFO(30, L"JObject", L"JObject.2", L"<JObject>: \"{\" [ JField : fields● { \",\" JField : fields } ] \"}\" as Object\r\n<JObject>: \"{\" [ JField : fields ●{ \",\" JField : fields } ] \"}\" as Object")
-				SET_STATE_INFO(31, L"JObject", L"JObject.5", L"<JObject>: \"{\" [ JField : fields { \",\" JField : fields } ] \"}\" as Object●")
-				SET_STATE_INFO(32, L"JArray", L"JArray.2", L"<JArray>: \"[\" [ JValue : items● { \",\" JValue : items } ] \"]\" as Array\r\n<JArray>: \"[\" [ JValue : items ●{ \",\" JValue : items } ] \"]\" as Array")
-				SET_STATE_INFO(33, L"JArray", L"JArray.5", L"<JArray>: \"[\" [ JValue : items { \",\" JValue : items } ] \"]\" as Array●")
-				SET_STATE_INFO(34, L"JValue", L"JValue.1", L"<JValue>: !JLiteral●\r\n<JValue>: !JObject●\r\n<JValue>: !JArray●")
-				SET_STATE_INFO(35, L"JRoot", L"JRoot.1", L"<JRoot>: !JObject●\r\n<JRoot>: !JArray●")
-
-				SET_RULE_INFO(0, L"JLiteral", L"Node", 0)
-				SET_RULE_INFO(1, L"JField", L"ObjectField", 17)
-				SET_RULE_INFO(2, L"JObject", L"Object", 19)
-				SET_RULE_INFO(3, L"JArray", L"Array", 21)
-				SET_RULE_INFO(4, L"JValue", L"Node", 23)
-				SET_RULE_INFO(5, L"JRoot", L"Node", 25)
-
-				BEGIN_TRANSITION_BAG(0, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 1)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(1, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 2)
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"True");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(1, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 2)
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"False");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(1, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 2)
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"Null");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(1, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 2)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Number", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(1, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 2)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"String", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(2, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 3)
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 4)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 9)
-					ITEM_STACK_PATTERN(24)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(2, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(14)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 14, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(6)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 6, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(2, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(15)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 15, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(8)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 8, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(2, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 6)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(14)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 14, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 6)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(6)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 6, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(15)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 15, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(8)
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 8, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(5, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 10)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 11)
-					ITEM_STACK_PATTERN(26)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 26, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 4)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 9)
-					ITEM_STACK_PATTERN(24)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(5, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(14)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 14, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(6)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 6, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(5, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(15)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 15, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(8)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 8, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(5, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 6)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(14)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 14, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 6)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(6)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 6, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(15)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 15, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(8)
-					ITEM_INSTRUCTION(Create, 0, L"Object", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 8, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_INSTRUCTION(Shift, 6, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 13)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 11)
-					ITEM_STACK_PATTERN(26)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 26, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 4)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 9)
-					ITEM_STACK_PATTERN(24)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(14)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 14, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(6)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 6, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(15)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 15, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(8)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 8, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 6)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(14)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 14, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 6)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(16)
-					ITEM_STACK_PATTERN(6)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 16, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					ITEM_INSTRUCTION(Create, 0, L"ObjectField", L"");
-					ITEM_INSTRUCTION(Reduce, 6, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"fields", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(15)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 15, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_STACK_PATTERN(8)
-					ITEM_INSTRUCTION(Create, 0, L"Array", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 8, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"items", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 2)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"True");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 2)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"False");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 2)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"Null");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 14)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 15)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 2)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Number", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 2)
-					ITEM_INSTRUCTION(Shift, 8, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"String", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 16)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(14, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 5)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(14, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_INSTRUCTION(Shift, 14, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 2)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"True");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 2)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"False");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 2)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"Null");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 14)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 15)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 7)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 2)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Number", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(15, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 2)
-					ITEM_INSTRUCTION(Shift, 15, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"String", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 2)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"True");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 2)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"False");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 2)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"Null");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 14)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 15)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 2)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Number", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(16, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 2)
-					ITEM_INSTRUCTION(Shift, 16, L"", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"String", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(17, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 18)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(18, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(19, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 20)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(20, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 14)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(21, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 22)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(22, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 15)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(23, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 24)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 2)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"True");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 2)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"False");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 2)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Setter, 0, L"value", L"Null");
-					ITEM_INSTRUCTION(Create, 0, L"Literal", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 14)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 15)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 2)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Number", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 2)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					ITEM_INSTRUCTION(Create, 0, L"String", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(25, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 26)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(26, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 14)
-					ITEM_INSTRUCTION(Shift, 26, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(26, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 15)
-					ITEM_INSTRUCTION(Shift, 26, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				table->Initialize();
-				return table;
-
-				#undef SET_TOKEN_INFO
-				#undef SET_DISCARD_TOKEN_INFO
-				#undef SET_STATE_INFO
-				#undef SET_RULE_INFO
-				#undef SET_AMBIGUOUS_RULE_INFO
-				#undef BEGIN_TRANSITION_BAG
-				#undef BEGIN_TRANSITION_ITEM
-				#undef END_TRANSITION_ITEM
-				#undef END_TRANSITION_BAG
-				#undef ITEM_STACK_PATTERN
-				#undef ITEM_INSTRUCTION
-				#undef BEGIN_LOOK_AHEAD
-				#undef LOOK_AHEAD
-				#undef END_LOOK_AHEAD
+			    vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateBootstrapStrictParser();
+			    vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+			    vl::Ptr<vl::parsing::ParsingTreeNode> definitionNode=parser->Parse(parserTextBuffer, L"ParserDecl", errors);
+			    vl::Ptr<vl::parsing::definitions::ParsingDefinition> definition=vl::parsing::definitions::DeserializeDefinition(definitionNode);
+			    vl::Ptr<vl::parsing::tabling::ParsingTable> table=vl::parsing::analyzing::GenerateTable(definition, false, errors);
+			    return table;
 			}
 
 		}
@@ -2408,6 +1571,11 @@ ParsingGeneralParser
 			{
 			}
 
+			Ptr<ParsingTable> ParsingGeneralParser::GetTable()
+			{
+				return table;
+			}
+
 			void ParsingGeneralParser::BeginParse()
 			{
 			}
@@ -2437,13 +1605,27 @@ ParsingGeneralParser
 						errors.Add(new ParsingError(token, L"Internal error when parsing."));
 						return 0;
 					}
-					if(!builder.Run(result))
+					else if(result.transitionType==ParsingState::TransitionResult::SkipToken)
+					{
+						if(result.tableTokenIndex==ParsingTable::TokenFinish)
+						{
+							const RegexToken* token=state.GetToken(state.GetCurrentToken());
+							errors.Add(new ParsingError(token, L"Failed to recover error when reaching the end of the input."));
+							return 0;
+						}
+						else
+						{
+							state.SkipCurrentToken();
+							continue;
+						}
+					}
+					else if(!builder.Run(result))
 					{
 						const RegexToken* token=state.GetToken(state.GetCurrentToken());
 						errors.Add(new ParsingError(token, L"Internal error when building the parsing tree."));
 						return 0;
 					}
-					if(result.tableTokenIndex==ParsingTable::TokenFinish)
+					if(result.tableTokenIndex==ParsingTable::TokenFinish && !builder.GetProcessingAmbiguityBranch())
 					{
 						break;
 					}
@@ -2473,10 +1655,10 @@ ParsingGeneralParser
 ParsingStrictParser
 ***********************************************************************/
 
-			ParsingState::TransitionResult ParsingStrictParser::OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)
+			ParsingState::TransitionResult ParsingStrictParser::OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)
 			{
 				const RegexToken* token=state.GetToken(state.GetCurrentToken());
-				errors.Add(new ParsingError(token, (token==0?L"Error happened during parsing when reaching to the end of the input.":L"Error happened during parsing.")));
+				errors.Add(new ParsingError(token, (token==0?L"Error happened during parsing when reaching the end of the input.":L"Error happened during parsing.")));
 				return ParsingState::TransitionResult();
 			}
 
@@ -2494,8 +1676,9 @@ ParsingStrictParser
 				ParsingState::TransitionResult result=state.ReadToken();
 				if(!result)
 				{
-					const RegexToken* token=state.GetToken(state.GetCurrentToken());
-					result=OnErrorRecover(state, token, errors);
+					const RegexToken* currentToken=state.GetToken(state.GetCurrentToken());
+					vint currentTokenIndex=(currentToken?table->GetTableTokenIndex(currentToken->token):ParsingTable::TokenFinish);
+					result=OnErrorRecover(state, currentTokenIndex, currentToken, errors);
 				}
 				return result;
 			}
@@ -2504,14 +1687,13 @@ ParsingStrictParser
 ParsingAutoRecoverParser
 ***********************************************************************/
 
-			ParsingState::TransitionResult ParsingAutoRecoverParser::OnErrorRecover(ParsingState& state, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)
+			ParsingState::TransitionResult ParsingAutoRecoverParser::OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)
 			{
-				vint targetTableTokenIndex=(currentToken?table->GetTableTokenIndex(currentToken->token):ParsingTable::TokenFinish);
 				if(recoveringFutureIndex==-1)
 				{
 					vint processingFutureIndex=-1;
 					vint usedFutureCount=0;
-					while(true)
+					while(processingFutureIndex<usedFutureCount)
 					{
 						ParsingState::Future* previous=0;
 						if(processingFutureIndex!=-1)
@@ -2519,6 +1701,7 @@ ParsingAutoRecoverParser
 							previous=&recoverFutures[processingFutureIndex];
 						}
 						processingFutureIndex++;
+						if(previous && previous->currentState==-1) continue;
 
 						vint currentTableTokenIndex=0;
 						while(currentTableTokenIndex<table->GetTokenCount() && usedFutureCount<recoverFutures.Count())
@@ -2526,15 +1709,22 @@ ParsingAutoRecoverParser
 							ParsingState::Future* now=&recoverFutures[usedFutureCount];
 							if(state.ReadTokenInFuture(currentTableTokenIndex, previous, now, 0))
 							{
-								if(currentTableTokenIndex==targetTableTokenIndex)
+								if(currentTableTokenIndex==currentTokenIndex)
 								{
-									ParsingState::Future* future=previous;
-									while(future->previous)
+									if(previous)
 									{
-										future->previous->next=future;
-										future=future->previous;
+										ParsingState::Future* future=previous;
+										while(future->previous)
+										{
+											future->previous->next=future;
+											future=future->previous;
+										}
+										recoveringFutureIndex=future-&recoverFutures[0];
 									}
-									recoveringFutureIndex=future-&recoverFutures[0];
+									else
+									{
+										recoveringFutureIndex=0;
+									}
 									goto FOUND_ERROR_RECOVER_SOLUTION;
 								}
 								else
@@ -2568,7 +1758,7 @@ ParsingAutoRecoverParser
 				}
 				else
 				{
-					return ParsingState::TransitionResult();
+					return ParsingState::TransitionResult(ParsingState::TransitionResult::SkipToken);
 				}
 			}
 
@@ -2584,7 +1774,7 @@ ParsingAutoRecoverParser
 			}
 
 /***********************************************************************
-ParsingStrictParser
+ParsingAmbiguousParser
 ***********************************************************************/
 
 			ParsingAmbiguousParser::ParsingAmbiguousParser(Ptr<ParsingTable> _table)
@@ -2595,6 +1785,13 @@ ParsingStrictParser
 
 			ParsingAmbiguousParser::~ParsingAmbiguousParser()
 			{
+			}
+
+			void ParsingAmbiguousParser::OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<ParsingState::Future*>& futures, vint& begin, vint& end, vint& insertedTokenCount, vint& skippedTokenCount, collections::List<Ptr<ParsingError>>& errors)
+			{
+				insertedTokenCount=0;
+				skippedTokenCount=0;
+				begin=end;
 			}
 
 			vint ParsingAmbiguousParser::GetResolvableFutureLevels(collections::List<ParsingState::Future*>& futures, vint begin, vint end)
@@ -2653,6 +1850,7 @@ ParsingStrictParser
 				vint previousBegin=0;
 				vint previousEnd=1;
 				vint resolvableFutureLevels=0;
+				bool errorRecovered=false;
 
 				while(true)
 				{
@@ -2661,18 +1859,45 @@ ParsingStrictParser
 					{
 						state.ExploreTryReduce(futures, previousBegin, previousEnd-previousBegin, futures);
 					}
+					if(futures.Count()==previousEnd)
+					{
+						vint insertedTokenCount=0;
+						vint skippedTokenCount=0;
+						vint tokenIndex=(token?table->GetTableTokenIndex(token->token):ParsingTable::TokenFinish);
+						OnErrorRecover(state, tokenIndex, token, futures, previousBegin, previousEnd, insertedTokenCount, skippedTokenCount, errors);
+						if(previousBegin==previousEnd)
+						{
+							break;
+						}
 
-					if(futures.Count()>previousEnd && token)
-					{
-						tokens.Add(token);
+						errorRecovered=true;
+						for(vint i=0;i<insertedTokenCount;i++)
+						{
+							tokens.Add(0);
+						}
+						for(vint i=0;i=skippedTokenCount;i++)
+						{
+							state.SkipCurrentToken();
+						}
+						if(skippedTokenCount>0)
+						{
+							continue;
+						}
 					}
-					previousBegin=previousEnd;
-					previousEnd=futures.Count();
-					
-					resolvableFutureLevels=GetResolvableFutureLevels(futures, previousBegin, previousEnd);
-					if(resolvableFutureLevels!=0)
+					else
 					{
-						break;
+						if(futures.Count()>previousEnd && token)
+						{
+							tokens.Add(token);
+						}
+						previousBegin=previousEnd;
+						previousEnd=futures.Count();
+
+						resolvableFutureLevels=GetResolvableFutureLevels(futures, previousBegin, previousEnd);
+						if(resolvableFutureLevels!=0)
+						{
+							break;
+						}
 					}
 				}
 
@@ -2874,15 +2099,14 @@ ParsingStrictParser
 						stateGroup=state.TakeSnapshot();
 					}
 					{
-						ParsingState::TransitionResult result;
+						ParsingState::TransitionResult result(
+							i==0
+							?ParsingState::TransitionResult::AmbiguityBegin
+							:ParsingState::TransitionResult::AmbiguityBranch
+							);
 						if(i==0)
 						{
-							result.transitionType=ParsingState::TransitionResult::AmbiguityBegin;
 							result.ambiguityAffectedStackNodeCount=affectedStackNodeCount;
-						}
-						else
-						{
-							result.transitionType=ParsingState::TransitionResult::AmbiguityBranch;
 						}
 						decisions.Add(result);
 					}
@@ -2891,8 +2115,7 @@ ParsingStrictParser
 
 						if(i==resolvingFutures.Count()-1)
 						{
-							ParsingState::TransitionResult result;
-							result.transitionType=ParsingState::TransitionResult::AmbiguityEnd;
+							ParsingState::TransitionResult result(ParsingState::TransitionResult::AmbiguityEnd);
 							result.ambiguityNodeType=ambiguityNodeType;
 							decisions.Add(result);
 
@@ -2975,6 +2198,69 @@ ParsingStrictParser
 			}
 
 /***********************************************************************
+ParsingAutoRecoverAmbiguousParser
+***********************************************************************/
+
+			void ParsingAutoRecoverAmbiguousParser::OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<ParsingState::Future*>& futures, vint& begin, vint& end, vint& insertedTokenCount, vint& skippedTokenCount, collections::List<Ptr<ParsingError>>& errors)
+			{
+				insertedTokenCount=0;
+				skippedTokenCount=0;
+				vint oldFutureCount=futures.Count();
+				while(futures.Count()-oldFutureCount<65536 && begin<end)
+				{
+					for(vint i=begin;i<end;i++)
+					{
+						if(state.TestExplore(currentTokenIndex, futures[i]))
+						{
+							goto FINISH_ERROR_RECOVERY;
+						}
+					}
+					
+					for(vint j=ParsingTable::UserTokenStart;j<table->GetTokenCount();j++)
+					{
+						if(j!=currentTokenIndex)
+						{
+							for(vint i=begin;i<end;i++)
+							{
+								ParsingState::Future* now=futures[i];
+								state.Explore(j, now, futures);
+							}
+						}
+					}
+					if(futures.Count()==end)
+					{
+						for(vint i=begin;i<end;i++)
+						{
+							ParsingState::Future* now=futures[i];
+							state.Explore(ParsingTable::TryReduce, now, futures);
+						}
+					}
+					else
+					{
+						insertedTokenCount++;
+					}
+
+					begin=end;
+					end=futures.Count();
+				}
+
+			FINISH_ERROR_RECOVERY:
+				if(begin==end && currentTokenIndex>=ParsingTable::UserTokenStart)
+				{
+					skippedTokenCount=1;
+				}
+			}
+
+			ParsingAutoRecoverAmbiguousParser::ParsingAutoRecoverAmbiguousParser(Ptr<ParsingTable> _table)
+				:ParsingAmbiguousParser(_table)
+			{
+			}
+
+			ParsingAutoRecoverAmbiguousParser::~ParsingAutoRecoverAmbiguousParser()
+			{
+			}
+
+/***********************************************************************
 辅助函数
 ***********************************************************************/
 
@@ -3001,7 +2287,14 @@ ParsingStrictParser
 			{
 				if(table)
 				{
-					return new ParsingAutoRecoverParser(table);
+					if(table->GetAmbiguity())
+					{
+						return new ParsingAutoRecoverAmbiguousParser(table);
+					}
+					else
+					{
+						return new ParsingAutoRecoverParser(table);
+					}
 				}
 				else
 				{
@@ -3245,17 +2538,14 @@ ParsingSymbol
 ParsingSymbolManager
 ***********************************************************************/
 
-			ParsingSymbol* ParsingSymbolManager::TryAddSubSymbol(Ptr<ParsingSymbol> subSymbol, ParsingSymbol* parentSymbol)
+			bool ParsingSymbolManager::TryAddSubSymbol(Ptr<ParsingSymbol> subSymbol, ParsingSymbol* parentSymbol)
 			{
 				if(parentSymbol->AddSubSymbol(subSymbol.Obj()))
 				{
 					createdSymbols.Add(subSymbol);
-					return subSymbol.Obj();
+					return true;
 				}
-				else
-				{
-					return 0;
-				}
+				return false;
 			}
 
 			ParsingSymbolManager::ParsingSymbolManager()
@@ -3297,17 +2587,18 @@ ParsingSymbolManager
 				}
 			}
 
-			ParsingSymbol* ParsingSymbolManager::AddClass(const WString& name, ParsingSymbol* baseType, ParsingSymbol* parentType)
+			ParsingSymbol* ParsingSymbolManager::AddClass(definitions::ParsingDefinitionClassDefinition* classDef, ParsingSymbol* baseType, ParsingSymbol* parentType)
 			{
 				if((!baseType || baseType->GetType()==ParsingSymbol::ClassType) && (!parentType || parentType->IsType()))
 				{
-					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::ClassType, name, baseType, L"");
-					return TryAddSubSymbol(symbol, parentType?parentType:globalSymbol);
+					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::ClassType, classDef->name, baseType, L"");
+					if(TryAddSubSymbol(symbol, parentType?parentType:globalSymbol))
+					{
+						symbolClassDefinitionCache.Add(symbol, classDef);
+						return symbol;
+					}
 				}
-				else
-				{
-					return 0;
-				}
+				return 0;
 			}
 
 			ParsingSymbol* ParsingSymbolManager::AddField(const WString& name, ParsingSymbol* classType, ParsingSymbol* fieldType)
@@ -3315,12 +2606,12 @@ ParsingSymbolManager
 				if(classType && classType->GetType()==ParsingSymbol::ClassType && fieldType && fieldType->IsType())
 				{
 					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::ClassField, name, fieldType, L"");
-					return TryAddSubSymbol(symbol, classType);
+					if(TryAddSubSymbol(symbol, classType))
+					{
+						return symbol;
+					}
 				}
-				else
-				{
-					return 0;
-				}
+				return 0;
 			}
 
 			ParsingSymbol* ParsingSymbolManager::AddEnum(const WString& name, ParsingSymbol* parentType)
@@ -3328,12 +2619,12 @@ ParsingSymbolManager
 				if(!parentType || parentType->GetType()==ParsingSymbol::ClassType)
 				{
 					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::EnumType, name, 0, L"");
-					return TryAddSubSymbol(symbol, parentType?parentType:globalSymbol);
+					if(TryAddSubSymbol(symbol, parentType?parentType:globalSymbol))
+					{
+						return symbol;
+					}
 				}
-				else
-				{
-					return 0;
-				}
+				return 0;
 			}
 
 			ParsingSymbol* ParsingSymbolManager::AddEnumItem(const WString& name, ParsingSymbol* enumType)
@@ -3341,18 +2632,22 @@ ParsingSymbolManager
 				if(enumType && enumType->GetType()==ParsingSymbol::EnumType)
 				{
 					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::EnumItem, name, enumType, L"");
-					return TryAddSubSymbol(symbol, enumType);
+					if(TryAddSubSymbol(symbol, enumType))
+					{
+						return symbol;
+					}
 				}
-				else
-				{
-					return 0;
-				}
+				return 0;
 			}
 
 			ParsingSymbol* ParsingSymbolManager::AddTokenDefinition(const WString& name, const WString& regex)
 			{
 				ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::TokenDef, name, tokenTypeSymbol, regex);
-				return TryAddSubSymbol(symbol, globalSymbol);
+				if(TryAddSubSymbol(symbol, globalSymbol))
+				{
+					return symbol;
+				}
+				return 0;
 			}
 
 			ParsingSymbol* ParsingSymbolManager::AddRuleDefinition(const WString& name, ParsingSymbol* ruleType)
@@ -3360,12 +2655,18 @@ ParsingSymbolManager
 				if(ruleType && ruleType->IsType())
 				{
 					ParsingSymbol* symbol=new ParsingSymbol(this, ParsingSymbol::RuleDef, name, ruleType, L"");
-					return TryAddSubSymbol(symbol, globalSymbol);
+					if(TryAddSubSymbol(symbol, globalSymbol))
+					{
+						return symbol;
+					}
 				}
-				else
-				{
-					return 0;
-				}
+				return 0;
+			}
+
+			ParsingSymbolManager::ClassDefinition* ParsingSymbolManager::CacheGetClassDefinition(ParsingSymbol* type)
+			{
+				vint index=symbolClassDefinitionCache.Keys().IndexOf(type);
+				return index==-1?0:symbolClassDefinitionCache.Values().Get(index);
 			}
 
 			ParsingSymbol* ParsingSymbolManager::CacheGetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope)
@@ -3601,7 +2902,7 @@ PrepareSymbols
 						{
 							baseType=FindType(node->parentType.Obj(), manager, scope, errors);
 						}
-						ParsingSymbol* classType=manager->AddClass(node->name, baseType, (scope->GetType()==ParsingSymbol::Global?0:scope));
+						ParsingSymbol* classType=manager->AddClass(node, baseType, (scope->GetType()==ParsingSymbol::Global?0:scope));
 						if(classType)
 						{
 							PrepareSymbolsTypeDefinitionVisitor visitor(manager, classType, errors);
@@ -4387,6 +3688,7 @@ Action
 				:actionType(Create)
 				,actionSource(0)
 				,actionTarget(0)
+				,creatorRule(0)
 				,shiftReduceSource(0)
 				,shiftReduceTarget(0)
 			{
@@ -4822,13 +4124,15 @@ CreateEpsilonPDAVisitor
 			{
 			public:
 				Ptr<Automaton>						automaton;
+				ParsingDefinitionRuleDefinition*	rule;
 				ParsingDefinitionGrammar*			ruleGrammar;
 				State*								startState;
 				State*								endState;
 				Transition*							result;
 
-				CreateEpsilonPDAVisitor(Ptr<Automaton> _automaton, ParsingDefinitionGrammar* _ruleGrammar, State* _startState, State* _endState)
+				CreateEpsilonPDAVisitor(Ptr<Automaton> _automaton, ParsingDefinitionRuleDefinition* _rule, ParsingDefinitionGrammar* _ruleGrammar, State* _startState, State* _endState)
 					:automaton(_automaton)
+					,rule(_rule)
 					,ruleGrammar(_ruleGrammar)
 					,startState(_startState)
 					,endState(_endState)
@@ -4836,16 +4140,16 @@ CreateEpsilonPDAVisitor
 				{
 				}
 
-				static Transition* Create(ParsingDefinitionGrammar* grammar, Ptr<Automaton> automaton, ParsingDefinitionGrammar* ruleGrammar, State* startState, State* endState)
+				static Transition* Create(ParsingDefinitionGrammar* grammar, Ptr<Automaton> automaton, ParsingDefinitionRuleDefinition* rule, ParsingDefinitionGrammar* ruleGrammar, State* startState, State* endState)
 				{
-					CreateEpsilonPDAVisitor visitor(automaton, ruleGrammar, startState, endState);
+					CreateEpsilonPDAVisitor visitor(automaton, rule, ruleGrammar, startState, endState);
 					grammar->Accept(&visitor);
 					return visitor.result;
 				}
 
 				Transition* Create(ParsingDefinitionGrammar* grammar, State* startState, State* endState)
 				{
-					return Create(grammar, automaton, ruleGrammar, startState, endState);
+					return Create(grammar, automaton, rule, ruleGrammar, startState, endState);
 				}
 
 				void Visit(ParsingDefinitionPrimitiveGrammar* node)override
@@ -4894,6 +4198,7 @@ CreateEpsilonPDAVisitor
 					Ptr<Action> action=new Action;
 					action->actionType=Action::Create;
 					action->actionSource=automaton->symbolManager->CacheGetType(node->type.Obj(), 0);
+					action->creatorRule=rule;
 					transition->actions.Add(action);
 				}
 
@@ -4913,6 +4218,7 @@ CreateEpsilonPDAVisitor
 
 					Ptr<Action> action=new Action;
 					action->actionType=Action::Using;
+					action->creatorRule=rule;
 					transition->actions.Add(action);
 				}
 
@@ -4953,7 +4259,7 @@ CreateRuleEpsilonPDA
 					automaton->Epsilon(ruleInfo->startState, grammarStartState);
 					automaton->TokenFinish(grammarEndState, ruleInfo->rootRuleEndState);
 					ruleInfo->endStates.Add(grammarEndState);
-					CreateEpsilonPDAVisitor::Create(grammar.Obj(), automaton, grammar.Obj(), grammarStartState, grammarEndState);
+					CreateEpsilonPDAVisitor::Create(grammar.Obj(), automaton, rule.Obj(), grammar.Obj(), grammarStartState, grammarEndState);
 				}
 			}
 
@@ -5098,13 +4404,179 @@ CreateLookAhead
 			}
 
 /***********************************************************************
+CollectAttribute
+***********************************************************************/
+
+			void CollectType(ParsingSymbol* symbol, List<ParsingSymbol*>& types)
+			{
+				if(symbol->GetType()==ParsingSymbol::ClassType)
+				{
+					types.Add(symbol);
+				}
+				vint count=symbol->GetSubSymbolCount();
+				for(vint i=0;i<count;i++)
+				{
+					CollectType(symbol->GetSubSymbol(i), types);
+				}
+			}
+
+			void CollectAttributeInfo(Ptr<ParsingTable::AttributeInfoList> att, List<Ptr<definitions::ParsingDefinitionAttribute>>& atts)
+			{
+				FOREACH(Ptr<definitions::ParsingDefinitionAttribute>, datt, atts)
+				{
+					Ptr<ParsingTable::AttributeInfo> tatt=new ParsingTable::AttributeInfo(datt->name);
+					CopyFrom(tatt->arguments, datt->arguments);
+					att->attributes.Add(tatt);
+				}
+			}
+
+			Ptr<ParsingTable::AttributeInfoList> CreateAttributeInfo(List<Ptr<definitions::ParsingDefinitionAttribute>>& atts)
+			{
+				Ptr<ParsingTable::AttributeInfoList> att=new ParsingTable::AttributeInfoList;
+				CollectAttributeInfo(att, atts);
+				return att;
+			}
+
+/***********************************************************************
 GenerateTable
 ***********************************************************************/
 
-			Ptr<tabling::ParsingTable> GenerateTableFromPDA(Ptr<definitions::ParsingDefinition> definition, Ptr<Automaton> jointPDA, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors)
+			Ptr<tabling::ParsingTable> GenerateTableFromPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, Ptr<Automaton> jointPDA, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors)
 			{
+				List<Ptr<ParsingTable::AttributeInfoList>> atts;
+
+				/***********************************************************************
+				find all class types
+				***********************************************************************/
+				List<ParsingSymbol*> types;
+				Dictionary<WString, vint> typeAtts;
+				Dictionary<Pair<WString, WString>, vint> treeFieldAtts;
+				Dictionary<ParsingSymbol*, Ptr<List<ParsingSymbol*>>> childTypes;
+
+				// find all class types
+				CollectType(manager->GetGlobal(), types);
+				FOREACH(ParsingSymbol*, type, types)
+				{
+					Ptr<ParsingTable::AttributeInfoList> typeAtt=new ParsingTable::AttributeInfoList;
+					ParsingSymbol* parent=type;
+					while(parent)
+					{
+						ParsingDefinitionClassDefinition* classDef=manager->CacheGetClassDefinition(parent);
+						CollectAttributeInfo(typeAtt, classDef->attributes);
+
+						Ptr<List<ParsingSymbol*>> children;
+						vint index=childTypes.Keys().IndexOf(parent);
+						if(index==-1)
+						{
+							children=new List<ParsingSymbol*>;
+							childTypes.Add(parent, children);
+						}
+						else
+						{
+							children=childTypes.Values().Get(index);
+						}
+
+						children->Add(type);
+						parent=parent->GetDescriptorSymbol();
+					}
+
+					if(typeAtt->attributes.Count()>0)
+					{
+						typeAtts.Add(GetTypeFullName(type), atts.Count());
+						atts.Add(typeAtt);
+					}
+					else
+					{
+						typeAtts.Add(GetTypeFullName(type), -1);
+					}
+				}
+
+				// find all class fields
+				for(vint i=0;i<childTypes.Count();i++)
+				{
+					ParsingSymbol* type=childTypes.Keys().Get(i);
+					List<ParsingSymbol*>& children=*childTypes.Values().Get(i).Obj();
+					
+					ParsingDefinitionClassDefinition* classDef=manager->CacheGetClassDefinition(type);
+					List<vint> fieldAtts;
+					FOREACH_INDEXER(Ptr<ParsingDefinitionClassMemberDefinition>, field, index, classDef->members)
+					{
+						if(field->attributes.Count()>0)
+						{
+							fieldAtts.Add(atts.Count());
+							atts.Add(CreateAttributeInfo(field->attributes));
+						}
+						else
+						{
+							fieldAtts.Add(-1);
+						}
+					}
+
+					FOREACH(ParsingSymbol*, child, children)
+					{
+						WString type=GetTypeFullName(child);
+						FOREACH_INDEXER(Ptr<ParsingDefinitionClassMemberDefinition>, field, index, classDef->members)
+						{
+							treeFieldAtts.Add(Pair<WString, WString>(type, field->name), fieldAtts[index]);
+						}
+					}
+				}
+				
+				/***********************************************************************
+				find all tokens
+				***********************************************************************/
+				vint tokenCount=0;
+				vint discardTokenCount=0;
 				Dictionary<ParsingSymbol*, vint> tokenIds;
 				List<WString> discardTokens;
+
+				Dictionary<WString, vint> tokenAtts;
+				Dictionary<WString, vint> ruleAtts;
+
+				FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
+				{
+					if(token->attributes.Count()>0)
+					{
+						tokenAtts.Add(token->name, atts.Count());
+						atts.Add(CreateAttributeInfo(token->attributes));
+					}
+					else
+					{
+						tokenAtts.Add(token->name, -1);
+					}
+
+					if(token->discard)
+					{
+						discardTokens.Add(token->name);
+						discardTokenCount++;
+					}
+					else
+					{
+						ParsingSymbol* tokenSymbol=jointPDA->symbolManager->GetGlobal()->GetSubSymbolByName(token->name);
+						tokenIds.Add(tokenSymbol, tokenIds.Count()+ParsingTable::UserTokenStart);
+						tokenCount++;
+					}
+				}
+				
+				/***********************************************************************
+				find all rules
+				***********************************************************************/
+				FOREACH(Ptr<ParsingDefinitionRuleDefinition>, rule, definition->rules)
+				{
+					if(rule->attributes.Count()>0)
+					{
+						ruleAtts.Add(rule->name, atts.Count());
+						atts.Add(CreateAttributeInfo(rule->attributes));
+					}
+					else
+					{
+						ruleAtts.Add(rule->name, -1);
+					}
+				}
+				
+				/***********************************************************************
+				find all available states
+				***********************************************************************/
 				List<State*> stateIds;
 				vint availableStateCount=0;
 				{
@@ -5143,32 +4615,45 @@ GenerateTable
 						stateIds.Add(state.Obj());
 					}
 				}
-
-				vint tokenCount=0;
-				vint discardTokenCount=0;
 				vint stateCount=stateIds.Count();
 
-				FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
-				{
-					if(token->discard)
-					{
-						discardTokens.Add(token->name);
-						discardTokenCount++;
-					}
-					else
-					{
-						ParsingSymbol* tokenSymbol=jointPDA->symbolManager->GetGlobal()->GetSubSymbolByName(token->name);
-						tokenIds.Add(tokenSymbol, tokenIds.Count()+ParsingTable::UserTokenStart);
-						tokenCount++;
-					}
-				}
-				Ptr<ParsingTable> table=new ParsingTable(tokenCount, discardTokenCount, stateCount, definition->rules.Count());
+				Ptr<ParsingTable> table=new ParsingTable(atts.Count(), typeAtts.Count(), treeFieldAtts.Count(), tokenCount, discardTokenCount, stateCount, definition->rules.Count());
 
+				/***********************************************************************
+				fill attribute infos
+				***********************************************************************/
+				FOREACH_INDEXER(Ptr<ParsingTable::AttributeInfoList>, att, index, atts)
+				{
+					table->SetAttributeInfo(index, att);
+				}
+
+				/***********************************************************************
+				fill tree type infos
+				***********************************************************************/
+				typedef Pair<WString, vint> TreeTypeAttsPair;
+				FOREACH_INDEXER(TreeTypeAttsPair, type, index, typeAtts)
+				{
+					table->SetTreeTypeInfo(index, ParsingTable::TreeTypeInfo(type.key, type.value));
+				}
+
+				/***********************************************************************
+				fill tree field infos
+				***********************************************************************/
+				typedef Pair<Pair<WString, WString>, vint> TreeFieldAttsPair;
+				FOREACH_INDEXER(TreeFieldAttsPair, field, index, treeFieldAtts)
+				{
+					table->SetTreeFieldInfo(index, ParsingTable::TreeFieldInfo(field.key.key, field.key.value, field.value));
+				}
+
+				/***********************************************************************
+				fill token infos
+				***********************************************************************/
 				FOREACH(ParsingSymbol*, symbol, tokenIds.Keys())
 				{
 					ParsingTable::TokenInfo info;
 					info.name=symbol->GetName();
 					info.regex=symbol->GetDescriptorString();
+					info.attributeIndex=tokenAtts[info.name];
 
 					vint id=tokenIds[symbol];
 					table->SetTokenInfo(id, info);
@@ -5181,9 +4666,13 @@ GenerateTable
 					ParsingTable::TokenInfo info;
 					info.name=symbol->GetName();
 					info.regex=symbol->GetDescriptorString();
+					info.attributeIndex=tokenAtts[info.name];
 					table->SetDiscardTokenInfo(i, info);
 				}
 
+				/***********************************************************************
+				fill rule infos
+				***********************************************************************/
 				FOREACH_INDEXER(ParsingDefinitionRuleDefinition*, rule, i, jointPDA->ruleInfos.Keys())
 				{
 					Ptr<RuleInfo> pdaRuleInfo=jointPDA->ruleInfos[rule];
@@ -5191,6 +4680,7 @@ GenerateTable
 					info.name=rule->name;
 					info.type=TypeToString(rule->type.Obj());
 					info.rootStartState=stateIds.IndexOf(pdaRuleInfo->rootRuleStartState);
+					info.attributeIndex=ruleAtts[info.name];
 					
 					if(Ptr<ParsingDefinitionPrimitiveType> classType=rule->type.Cast<ParsingDefinitionPrimitiveType>())
 					{
@@ -5210,6 +4700,9 @@ GenerateTable
 					table->SetRuleInfo(i, info);
 				}
 
+				/***********************************************************************
+				fill state infos
+				***********************************************************************/
 				FOREACH_INDEXER(State*, state, i, stateIds)
 				{
 					ParsingTable::StateInfo info;
@@ -5219,6 +4712,9 @@ GenerateTable
 					table->SetStateInfo(i, info);
 				}
 
+				/***********************************************************************
+				fill transition table
+				***********************************************************************/
 				FOREACH_INDEXER(State*, state, stateIndex, stateIds)
 				{
 					// if this state is not necessary, stop building the table
@@ -5264,11 +4760,13 @@ GenerateTable
 								{
 									ins.instructionType=ParsingTable::Instruction::Create;
 									ins.nameParameter=GetTypeNameForCreateInstruction(action->actionSource);
+									ins.creatorRule=action->creatorRule->name;
 								}
 								break;
 							case Action::Using:
 								{
 									ins.instructionType=ParsingTable::Instruction::Using;
+									ins.creatorRule=action->creatorRule->name;
 								}
 								break;
 							case Action::Assign:
@@ -5316,6 +4814,9 @@ GenerateTable
 					}
 				}
 
+				/***********************************************************************
+				check conflict and build look ahead table
+				***********************************************************************/
 				for(vint i=0;i<table->GetStateCount();i++)
 				{
 					for(vint j=0;j<table->GetTokenCount();j++)
@@ -5346,7 +4847,10 @@ GenerateTable
 						}
 					}
 				}
-				
+
+				/***********************************************************************
+				initialize table
+				***********************************************************************/
 				if(errors.Count()>0)
 				{
 					table->SetAmbiguity(true);
@@ -5370,7 +4874,7 @@ GenerateTable
 					MarkLeftRecursiveInJointPDA(jointPDA, errors);
 					if(errors.Count()==0)
 					{
-						Ptr<ParsingTable> table=GenerateTableFromPDA(definition, jointPDA, enableAmbiguity, errors);
+						Ptr<ParsingTable> table=GenerateTableFromPDA(definition, &symbolManager, jointPDA, enableAmbiguity, errors);
 						if(enableAmbiguity || errors.Count()==0)
 						{
 							return table;
@@ -5688,6 +5192,7 @@ MarkLeftRecursiveInJointPDA
 									newAction->actionType=Action::LeftRecursiveReduce;
 									newAction->actionSource=action->actionSource;
 									newAction->actionTarget=action->actionTarget;
+									newAction->creatorRule=action->creatorRule;
 									newAction->shiftReduceSource=action->shiftReduceSource;
 									newAction->shiftReduceTarget=action->shiftReduceTarget;
 
@@ -6186,6 +5691,37 @@ ParsingDefinitionGrammar(Visitor)
 ParsingDefinitionTypeWriter
 ***********************************************************************/
 
+			ParsingDefinitionAttributeWriter::ParsingDefinitionAttributeWriter(const WString& name)
+			{
+				attribute=new ParsingDefinitionAttribute;
+				attribute->name=name;
+			}
+
+			ParsingDefinitionAttributeWriter::ParsingDefinitionAttributeWriter(const ParsingDefinitionAttributeWriter& attributeWriter)
+			{
+				attribute=attributeWriter.attribute;
+			}
+
+			ParsingDefinitionAttributeWriter& ParsingDefinitionAttributeWriter::Argument(const WString& argument)
+			{
+				attribute->arguments.Add(argument);
+				return *this;
+			}
+
+			Ptr<ParsingDefinitionAttribute> ParsingDefinitionAttributeWriter::Attribute()const
+			{
+				return attribute;
+			}
+
+			ParsingDefinitionAttributeWriter Attribute(const WString& name)
+			{
+				return ParsingDefinitionAttributeWriter(name);
+			}
+
+/***********************************************************************
+ParsingDefinitionTypeWriter
+***********************************************************************/
+
 			ParsingDefinitionTypeWriter::ParsingDefinitionTypeWriter(Ptr<ParsingDefinitionType> internalType)
 			{
 				type=internalType;
@@ -6242,6 +5778,7 @@ ParsingDefinitionClassDefinitionWriter
 			{
 				definition=new ParsingDefinitionClassDefinition;
 				definition->name=name;
+				currentDefinition=definition;
 			}
 
 			ParsingDefinitionClassDefinitionWriter::ParsingDefinitionClassDefinitionWriter(const WString& name, const ParsingDefinitionTypeWriter& parentType)
@@ -6249,6 +5786,13 @@ ParsingDefinitionClassDefinitionWriter
 				definition=new ParsingDefinitionClassDefinition;
 				definition->name=name;
 				definition->parentType=parentType.Type();
+				currentDefinition=definition;
+			}
+
+			ParsingDefinitionClassDefinitionWriter& ParsingDefinitionClassDefinitionWriter::AmbiguousType(const WString& ambiguousType)
+			{
+				definition->ambiguousType=ambiguousType;
+				return *this;
 			}
 
 			ParsingDefinitionClassDefinitionWriter& ParsingDefinitionClassDefinitionWriter::Member(const WString& name, const ParsingDefinitionTypeWriter& type, const WString& unescapingFunction)
@@ -6258,12 +5802,19 @@ ParsingDefinitionClassDefinitionWriter
 				member->type=type.Type();
 				member->unescapingFunction=unescapingFunction;
 				definition->members.Add(member);
+				currentDefinition=member;
 				return *this;
 			}
 
 			ParsingDefinitionClassDefinitionWriter& ParsingDefinitionClassDefinitionWriter::SubType(const ParsingDefinitionTypeDefinitionWriter& type)
 			{
 				definition->subTypes.Add(type.Definition());
+				return *this;
+			}
+
+			ParsingDefinitionClassDefinitionWriter& ParsingDefinitionClassDefinitionWriter::Attribute(const ParsingDefinitionAttributeWriter& attribute)
+			{
+				currentDefinition->attributes.Add(attribute.Attribute());
 				return *this;
 			}
 
@@ -6290,6 +5841,7 @@ ParsingDefinitionEnumDefinitionWriter
 			{
 				definition=new ParsingDefinitionEnumDefinition;
 				definition->name=name;
+				currentDefinition=definition;
 			}
 
 			ParsingDefinitionEnumDefinitionWriter& ParsingDefinitionEnumDefinitionWriter::Member(const WString& name)
@@ -6297,6 +5849,13 @@ ParsingDefinitionEnumDefinitionWriter
 				Ptr<ParsingDefinitionEnumMemberDefinition> member=new ParsingDefinitionEnumMemberDefinition;
 				member->name=name;
 				definition->members.Add(member);
+				currentDefinition=member;
+				return *this;
+			}
+
+			ParsingDefinitionEnumDefinitionWriter& ParsingDefinitionEnumDefinitionWriter::Attribute(const ParsingDefinitionAttributeWriter& attribute)
+			{
+				currentDefinition->attributes.Add(attribute.Attribute());
 				return *this;
 			}
 
@@ -6406,6 +5965,27 @@ ParsingDefinitionGrammarWriter
 			}
 
 /***********************************************************************
+ParsingDefinitionTokenDefinitionWriter
+***********************************************************************/
+
+			ParsingDefinitionTokenDefinitionWriter::ParsingDefinitionTokenDefinitionWriter(ParsingDefinitionWriter& _owner, Ptr<ParsingDefinitionTokenDefinition> _token)
+				:owner(_owner)
+				,token(_token)
+			{
+			}
+
+			ParsingDefinitionTokenDefinitionWriter& ParsingDefinitionTokenDefinitionWriter::Attribute(const ParsingDefinitionAttributeWriter& attribute)
+			{
+				token->attributes.Add(attribute.Attribute());
+				return *this;
+			}
+
+			ParsingDefinitionWriter& ParsingDefinitionTokenDefinitionWriter::EndToken()
+			{
+				return owner;
+			}
+
+/***********************************************************************
 ParsingDefinitionRuleDefinitionWriter
 ***********************************************************************/
 
@@ -6418,6 +5998,12 @@ ParsingDefinitionRuleDefinitionWriter
 			ParsingDefinitionRuleDefinitionWriter& ParsingDefinitionRuleDefinitionWriter::Imply(const ParsingDefinitionGrammarWriter& grammar)
 			{
 				rule->grammars.Add(grammar.Grammar());
+				return *this;
+			}
+
+			ParsingDefinitionRuleDefinitionWriter& ParsingDefinitionRuleDefinitionWriter::Attribute(const ParsingDefinitionAttributeWriter& attribute)
+			{
+				rule->attributes.Add(attribute.Attribute());
 				return *this;
 			}
 
@@ -6443,12 +6029,17 @@ ParsingDefinitionWriter
 
 			ParsingDefinitionWriter& ParsingDefinitionWriter::Token(const WString& name, const WString& regex)
 			{
+				return TokenAtt(name, regex).EndToken();
+			}
+
+			ParsingDefinitionTokenDefinitionWriter ParsingDefinitionWriter::TokenAtt(const WString& name, const WString& regex)
+			{
 				Ptr<ParsingDefinitionTokenDefinition> token=new ParsingDefinitionTokenDefinition;
 				token->name=name;
 				token->regex=regex;
 				token->discard=false;
 				definition->tokens.Add(token);
-				return *this;
+				return ParsingDefinitionTokenDefinitionWriter(*this, token);
 			}
 
 			ParsingDefinitionWriter& ParsingDefinitionWriter::Discard(const WString& name, const WString& regex)
@@ -6500,12 +6091,25 @@ namespace vl
 
 				definitionWriter
 					.Type(
+						Class(L"AttributeDef")
+							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"Color").Argument(L"Attribute"))
+							.Member(L"arguments", TokenType().Array())
+						)
+					.Type(
+						Class(L"DefBase")
+							.Member(L"attributes", Type(L"AttributeDef").Array())
+						)
+					//-------------------------------------
+					.Type(
 						Class(L"TypeObj")
 						)
 
 					.Type(
 						Class(L"PrimitiveTypeObj", Type(L"TypeObj"))
 							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"SemanticColor").Argument(L"Type"))
+								.Attribute(Attribute(L"AutoComplete").Argument(L"Type"))
 						)
 
 					.Type(
@@ -6516,6 +6120,8 @@ namespace vl
 						Class(L"SubTypeObj", Type(L"TypeObj"))
 							.Member(L"parentType", Type(L"TypeObj"))
 							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"SemanticColor").Argument(L"Type"))
+								.Attribute(Attribute(L"AutoComplete").Argument(L"SubType"))
 						)
 
 					.Type(
@@ -6524,12 +6130,13 @@ namespace vl
 						)
 					//-------------------------------------
 					.Type(
-						Class(L"TypeDef")
+						Class(L"TypeDef", Type(L"DefBase"))
 							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"Color").Argument(L"Type"))
 						)
 
 					.Type(
-						Class(L"ClassMemberDef")
+						Class(L"ClassMemberDef", Type(L"DefBase"))
 							.Member(L"type", Type(L"TypeObj"))
 							.Member(L"name", TokenType())
 							.Member(L"unescapingFunction", TokenType())
@@ -6538,13 +6145,14 @@ namespace vl
 					.Type(
 						Class(L"ClassTypeDef", Type(L"TypeDef"))								
 							.Member(L"ambiguousType", TokenType())
+								.Attribute(Attribute(L"AutoComplete").Argument(L"Type"))
 							.Member(L"parentType", Type(L"TypeObj"))
 							.Member(L"members", Type(L"ClassMemberDef").Array())
 							.Member(L"subTypes", Type(L"TypeDef").Array())
 						)
 
 					.Type(
-						Class(L"EnumMemberDef")
+						Class(L"EnumMemberDef", Type(L"DefBase"))
 							.Member(L"name", TokenType())
 						)
 
@@ -6560,11 +6168,14 @@ namespace vl
 					.Type(
 						Class(L"PrimitiveGrammarDef", Type(L"GrammarDef"))
 							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"SemanticColor").Argument(L"Grammar"))
+								.Attribute(Attribute(L"AutoComplete").Argument(L"Grammar"))
 						)
 
 					.Type(
 						Class(L"TextGrammarDef", Type(L"GrammarDef"))
 							.Member(L"text", TokenType())
+								.Attribute(Attribute(L"AutoComplete").Argument(L"Text"))
 						)
 
 					.Type(
@@ -6599,6 +6210,7 @@ namespace vl
 						Class(L"AssignGrammarDef", Type(L"GrammarDef"))
 							.Member(L"grammar", Type(L"GrammarDef"))
 							.Member(L"memberName", TokenType())
+								.Attribute(Attribute(L"AutoComplete").Argument(L"Field"))
 						)
 
 					.Type(
@@ -6610,43 +6222,61 @@ namespace vl
 						Class(L"SetterGrammarDef", Type(L"GrammarDef"))
 							.Member(L"grammar", Type(L"GrammarDef"))
 							.Member(L"memberName", TokenType())
+								.Attribute(Attribute(L"AutoComplete").Argument(L"EnumField"))
 							.Member(L"value", TokenType())
+								.Attribute(Attribute(L"AutoComplete").Argument(L"EnumValue"))
 						)
 					//-------------------------------------
 					.Type(
-						Class(L"TokenDef")
+						Class(L"TokenDef", Type(L"DefBase"))
 							.SubType(
 								Enum(L"DiscardOption")
 									.Member(L"DiscardToken")
 									.Member(L"KeepToken")
 								)
 							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"Color").Argument(L"Token"))
 							.Member(L"regex", TokenType())
 							.Member(L"discard", Type(L"DiscardOption"))
 						)
 
 					.Type(
-						Class(L"RuleDef")
+						Class(L"RuleDef", Type(L"DefBase"))
 							.Member(L"name", TokenType())
+								.Attribute(Attribute(L"Color").Argument(L"Rule"))
 							.Member(L"type", Type(L"TypeObj"))
 							.Member(L"grammars", Type(L"GrammarDef").Array())
 						)
 
 					.Type(
 						Class(L"ParserDef")
-							.Member(L"types", Type(L"TypeDef").Array())
-							.Member(L"tokens", Type(L"TokenDef").Array())
-							.Member(L"rules", Type(L"RuleDef").Array())
+							.Member(L"definitions", Type(L"DefBase").Array())
 						)
 					//-------------------------------------
-					.Token(L"CLASS",		L"class")
-					.Token(L"AMBIGUOUS",	L"ambiguous")
-					.Token(L"ENUM",			L"enum")
-					.Token(L"TOKEN",		L"token")
-					.Token(L"DISCARDTOKEN",	L"discardtoken")
-					.Token(L"RULE",			L"rule")
-					.Token(L"AS",			L"as")
-					.Token(L"WITH",			L"with")
+					.TokenAtt(L"CLASS",		L"class")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"AMBIGUOUS",	L"ambiguous")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"ENUM",			L"enum")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"TOKEN",		L"token")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"DISCARDTOKEN",	L"discardtoken")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"RULE",			L"rule")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"AS",			L"as")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
+					.TokenAtt(L"WITH",			L"with")
+						.Attribute(Attribute(L"Color").Argument(L"Keyword"))
+						.EndToken()
 
 					.Token(L"OPEN",			L"/{")
 					.Token(L"CLOSE",		L"/}")
@@ -6657,14 +6287,28 @@ namespace vl
 					.Token(L"ASSIGN",		L"/=")
 					.Token(L"USING",		L"/!")
 					.Token(L"OR",			L"/|")
-					.Token(L"OPTOPEN"	,	L"/[")
-					.Token(L"OPTCLOSE"	,	L"/]")
-					.Token(L"PREOPEN"	,	L"/(")
-					.Token(L"PRECLOSE"	,	L"/)")
+					.Token(L"OPTOPEN",		L"/[")
+					.Token(L"OPTCLOSE",		L"/]")
+					.Token(L"PREOPEN",		L"/(")
+					.Token(L"PRECLOSE",		L"/)")
+					.TokenAtt(L"ATT",			L"@")
+						.Attribute(Attribute(L"Color").Argument(L"Attribute"))
+						.EndToken()
 
-					.Token(L"NAME",			L"[a-zA-Z_]/w*")
-					.Token(L"STRING",		L"\"([^\"]|\"\")*\"")
+					.TokenAtt(L"NAME",			L"[a-zA-Z_]/w*")
+						.Attribute(Attribute(L"ContextColor").Argument(L"Default"))
+						.EndToken()
+					.TokenAtt(L"STRING",		L"\"([^\"]|\"\")*\"")
+						.Attribute(Attribute(L"Color").Argument(L"String"))
+						.EndToken()
 					.Discard(L"SPACE",		L"/s+")
+					//-------------------------------------
+					.Rule(L"Attribute", Type(L"AttributeDef"))
+						.Imply(
+							(Text(L"@") + Rule(L"NAME")[L"name"] + Text(L"(") + Opt(Rule(L"STRING")[L"arguments"] + *(Text(L",") + Rule(L"STRING")[L"arguments"])) + Text(L")"))
+								.As(Type(L"AttributeDef"))
+							)
+						.EndRule()
 					//-------------------------------------
 					.Rule(L"Type", Type(L"TypeObj"))
 						.Imply(
@@ -6687,19 +6331,34 @@ namespace vl
 					//-------------------------------------
 					.Rule(L"EnumMember", Type(L"EnumMemberDef"))
 						.Imply(
-							(Rule(L"NAME")[L"name"] + Text(L","))
+							(
+								Rule(L"NAME")[L"name"]
+								+ Opt(Rule(L"Attribute")[L"attributes"] + *(Text(L",") + Rule(L"Attribute")[L"attributes"]))
+								+ Text(L",")
+								)
 								.As(Type(L"EnumMemberDef"))
 							)
 						.EndRule()
 					.Rule(L"Enum", Type(L"EnumTypeDef"))
 						.Imply(
-							(Text(L"enum") + Rule(L"NAME")[L"name"] + Text(L"{") + *(Rule(L"EnumMember")[L"members"]) + Text(L"}"))
+							(
+								Text(L"enum") + Rule(L"NAME")[L"name"]
+								+ Opt(Rule(L"Attribute")[L"attributes"] + *(Text(L",") + Rule(L"Attribute")[L"attributes"]))
+								+ Text(L"{")
+								+ *(Rule(L"EnumMember")[L"members"])
+								+ Text(L"}")
+								)
 								.As(Type(L"EnumTypeDef"))
 							)
 						.EndRule()
 					.Rule(L"ClassMember", Type(L"ClassMemberDef"))
 						.Imply(
-							(Rule(L"Type")[L"type"] + Rule(L"NAME")[L"name"] + Opt(Text(L"(") + Rule(L"NAME")[L"unescapingFunction"] + Text(L")")) + Text(L";"))
+							(
+								Rule(L"Type")[L"type"] + Rule(L"NAME")[L"name"]
+								+ Opt(Text(L"(") + Rule(L"NAME")[L"unescapingFunction"] + Text(L")"))
+								+ Opt(Rule(L"Attribute")[L"attributes"] + *(Text(L",") + Rule(L"Attribute")[L"attributes"]))
+								+ Text(L";")
+								)
 								.As(Type(L"ClassMemberDef"))
 							)
 						.EndRule()
@@ -6708,7 +6367,9 @@ namespace vl
 							(
 								Text(L"class") + Rule(L"NAME")[L"name"]
 								+ Opt(Text(L"ambiguous") + Text(L"(") + Rule(L"NAME")[L"ambiguousType"] + Text(L")"))
-								+ Opt(Text(L":") + Rule(L"Type")[L"parentType"]) + Text(L"{")
+								+ Opt(Text(L":") + Rule(L"Type")[L"parentType"])
+								+ Opt(Rule(L"Attribute")[L"attributes"] + *(Text(L",") + Rule(L"Attribute")[L"attributes"]))
+								+ Text(L"{")
 								+ *(Rule(L"ClassMember")[L"members"] | Rule(L"TypeDecl")[L"subTypes"])
 								+ Text(L"}")
 								)
@@ -6785,7 +6446,12 @@ namespace vl
 					//------------------------------------
 					.Rule(L"TokenDecl", Type(L"TokenDef"))
 						.Imply(
-							(Text(L"token") + Rule(L"NAME")[L"name"] + Text(L"=") + Rule(L"STRING")[L"regex"] + Text(L";"))
+							(
+								Text(L"token") + Rule(L"NAME")[L"name"]
+								+ Text(L"=") + Rule(L"STRING")[L"regex"]
+								+ Opt(Rule(L"Attribute")[L"attributes"] + *(Text(L",") + Rule(L"Attribute")[L"attributes"]))
+								+ Text(L";")
+								)
 								.As(Type(L"TokenDef"))
 								.Set(L"discard", L"KeepToken")
 							)
@@ -6796,15 +6462,14 @@ namespace vl
 							)
 						.EndRule()
 
-					.Rule(L"RuleFragmentDecl", Type(L"GrammarDef"))
-						.Imply(
-							Text(L"=") + !Rule(L"Grammar") + Text(L";")
-							)
-						.EndRule()
-
 					.Rule(L"RuleDecl", Type(L"RuleDef"))
 						.Imply(
-							(Text(L"rule") + Rule(L"Type")[L"type"] + Rule(L"NAME")[L"name"] + *(Text(L"=") + Rule(L"Grammar")[L"grammars"]) + Text(L";"))
+							(
+								Text(L"rule") + Rule(L"Type")[L"type"] + Rule(L"NAME")[L"name"]
+								+ Opt(Rule(L"Attribute")[L"attributes"] + *(Text(L",") + Rule(L"Attribute")[L"attributes"]))
+								+ *(Text(L"=") + Rule(L"Grammar")[L"grammars"])
+								+ Text(L";")
+								)
 								.As(Type(L"RuleDef"))
 							)
 						.EndRule()
@@ -6813,14 +6478,14 @@ namespace vl
 						.Imply(
 							(
 								*(
-									Rule(L"TypeDecl")[L"types"] |
-									Rule(L"TokenDecl")[L"tokens"] |
-									Rule(L"RuleDecl")[L"rules"]
+									Rule(L"TypeDecl")[L"definitions"] |
+									Rule(L"TokenDecl")[L"definitions"] |
+									Rule(L"RuleDecl")[L"definitions"]
 									)
 								+(
-									Rule(L"TypeDecl")[L"types"] |
-									Rule(L"TokenDecl")[L"tokens"] |
-									Rule(L"RuleDecl")[L"rules"]
+									Rule(L"TypeDecl")[L"definitions"] |
+									Rule(L"TokenDecl")[L"definitions"] |
+									Rule(L"RuleDecl")[L"definitions"]
 									)
 								)
 								.As(Type(L"ParserDef"))
@@ -6831,9 +6496,8 @@ namespace vl
 				return definitionWriter.Definition();
 			}
 
-			WString DeserializeString(Ptr<ParsingTreeToken> token)
+			WString DeserializeString(const WString& value)
 			{
-				const WString& value=token->GetValue();
 				if(value.Length()>=2 && value[0]==L'"' && value[value.Length()-1]==L'"')
 				{
 					Array<wchar_t> chars(value.Length());
@@ -6859,6 +6523,12 @@ namespace vl
 					return &chars[0];
 				}
 				return L"";
+			}
+
+			WString DeserializeString(Ptr<ParsingTreeToken> token)
+			{
+				const WString& value=token->GetValue();
+				return DeserializeString(value);
 			}
 
 			void SetName(WString& target, Ptr<ParsingTreeNode> node)
@@ -6892,6 +6562,20 @@ namespace vl
 				}
 			}
 
+			void SetArray(List<WString>& target, Ptr<ParsingTreeNode> node)
+			{
+				Ptr<ParsingTreeArray> source=node.Cast<ParsingTreeArray>();
+				if(source)
+				{
+					for(vint i=0;i<source->Count();i++)
+					{
+						WString name;
+						SetName(name, source->GetItem(i));
+						target.Add(name);
+					}
+				}
+			}
+
 			template<typename T>
 			void SetMember(Ptr<T>& target, Ptr<ParsingTreeNode> node)
 			{
@@ -6907,6 +6591,17 @@ namespace vl
 				if(!node)
 				{
 					return 0;
+				}
+				else if(node->GetType()==L"AttributeDef")
+				{
+					Ptr<ParsingDefinitionAttribute> target=new ParsingDefinitionAttribute;
+					SetName(target->name, node->GetMember(L"name"));
+					SetArray(target->arguments, node->GetMember(L"arguments"));
+					for(vint i=0;i<target->arguments.Count();i++)
+					{
+						target->arguments[i]=DeserializeString(target->arguments[i]);
+					}
+					return target;
 				}
 				else if(node->GetType()==L"PrimitiveTypeObj")
 				{
@@ -6935,6 +6630,7 @@ namespace vl
 				else if(node->GetType()==L"ClassMemberDef")
 				{
 					Ptr<ParsingDefinitionClassMemberDefinition> target=new ParsingDefinitionClassMemberDefinition;
+					SetArray(target->attributes, node->GetMember(L"attributes"));
 					SetMember(target->type, node->GetMember(L"type"));
 					SetName(target->name, node->GetMember(L"name"));
 					SetName(target->unescapingFunction, node->GetMember(L"unescapingFunction"));
@@ -6943,6 +6639,7 @@ namespace vl
 				else if(node->GetType()==L"ClassTypeDef")
 				{
 					Ptr<ParsingDefinitionClassDefinition> target=new ParsingDefinitionClassDefinition;
+					SetArray(target->attributes, node->GetMember(L"attributes"));
 					SetName(target->ambiguousType, node->GetMember(L"ambiguousType"));
 					SetMember(target->parentType, node->GetMember(L"parentType"));
 					SetName(target->name, node->GetMember(L"name"));
@@ -6953,12 +6650,14 @@ namespace vl
 				else if(node->GetType()==L"EnumMemberDef")
 				{
 					Ptr<ParsingDefinitionEnumMemberDefinition> target=new ParsingDefinitionEnumMemberDefinition;
+					SetArray(target->attributes, node->GetMember(L"attributes"));
 					SetName(target->name, node->GetMember(L"name"));
 					return target;
 				}
 				else if(node->GetType()==L"EnumTypeDef")
 				{
 					Ptr<ParsingDefinitionEnumDefinition> target=new ParsingDefinitionEnumDefinition;
+					SetArray(target->attributes, node->GetMember(L"attributes"));
 					SetName(target->name, node->GetMember(L"name"));
 					SetArray(target->members, node->GetMember(L"members"));
 					return target;
@@ -7032,6 +6731,7 @@ namespace vl
 				else if(node->GetType()==L"TokenDef")
 				{
 					Ptr<ParsingDefinitionTokenDefinition> target=new ParsingDefinitionTokenDefinition;
+					SetArray(target->attributes, node->GetMember(L"attributes"));
 					SetName(target->name, node->GetMember(L"name"));
 					SetText(target->regex, node->GetMember(L"regex"));
 
@@ -7042,6 +6742,7 @@ namespace vl
 				else if(node->GetType()==L"RuleDef")
 				{
 					Ptr<ParsingDefinitionRuleDefinition> target=new ParsingDefinitionRuleDefinition;
+					SetArray(target->attributes, node->GetMember(L"attributes"));
 					SetName(target->name, node->GetMember(L"name"));
 					SetMember(target->type, node->GetMember(L"type"));
 					SetArray(target->grammars, node->GetMember(L"grammars"));
@@ -7050,9 +6751,28 @@ namespace vl
 				else if(node->GetType()==L"ParserDef")
 				{
 					Ptr<ParsingDefinition> target=new ParsingDefinition;
-					SetArray(target->types, node->GetMember(L"types"));
-					SetArray(target->tokens, node->GetMember(L"tokens"));
-					SetArray(target->rules, node->GetMember(L"rules"));
+					Ptr<ParsingTreeArray> defs=node->GetMember(L"definitions").Cast<ParsingTreeArray>();
+					if(defs)
+					{
+						vint count=defs->Count();
+						for(vint i=0;i<count;i++)
+						{
+							Ptr<ParsingTreeObject> def=defs->GetItem(i).Cast<ParsingTreeObject>();
+							Ptr<ParsingTreeCustomBase> defObject=Deserialize(def);
+							if(Ptr<ParsingDefinitionTypeDefinition> defType=defObject.Cast<ParsingDefinitionTypeDefinition>())
+							{
+								target->types.Add(defType);
+							}
+							else if(Ptr<ParsingDefinitionTokenDefinition> defToken=defObject.Cast<ParsingDefinitionTokenDefinition>())
+							{
+								target->tokens.Add(defToken);
+							}
+							else if(Ptr<ParsingDefinitionRuleDefinition> defRule=defObject.Cast<ParsingDefinitionRuleDefinition>())
+							{
+								target->rules.Add(defRule);
+							}
+						}
+					}
 					return target;
 				}
 				else
@@ -7099,9 +6819,27 @@ namespace vl
 				writer.WriteChar(L'\"');
 			}
 
-/***********************************************************************
-Logger (ParsingDefinitionType)
-***********************************************************************/
+			void LogAttributeList(ParsingDefinitionBase* definition, TextWriter& writer)
+			{
+				for(vint i=0;i<definition->attributes.Count();i++)
+				{
+					ParsingDefinitionAttribute* att=definition->attributes[i].Obj();
+					if(i>0) writer.WriteChar(L',');
+					writer.WriteString(L" @");
+					writer.WriteString(att->name);
+					writer.WriteChar(L'(');
+					for(vint j=0;j<att->arguments.Count();j++)
+					{
+						if(j>0) writer.WriteString(L", ");
+						LogString(att->arguments[j], writer);
+					}
+					writer.WriteChar(L')');
+				}
+			}
+
+			/***********************************************************************
+			Logger (ParsingDefinitionType)
+			***********************************************************************/
 
 			class ParsingDefinitionTypeLogger : public Object, public ParsingDefinitionType::IVisitor
 			{
@@ -7148,9 +6886,9 @@ Logger (ParsingDefinitionType)
 				ParsingDefinitionTypeLogger::LogInternal(type, writer);
 			}
 
-/***********************************************************************
-Logger (ParsingDefinitionTypeDefinition)
-***********************************************************************/
+			/***********************************************************************
+			Logger (ParsingDefinitionTypeDefinition)
+			***********************************************************************/
 
 			class ParsingDefinitionTypeDefinitionLogger : public Object, public ParsingDefinitionTypeDefinition::IVisitor
 			{
@@ -7182,6 +6920,7 @@ Logger (ParsingDefinitionTypeDefinition)
 						writer.WriteString(node->unescapingFunction);
 						writer.WriteString(L")");
 					}
+					LogAttributeList(node, writer);
 					writer.WriteLine(L";");
 				}
 
@@ -7201,6 +6940,7 @@ Logger (ParsingDefinitionTypeDefinition)
 						writer.WriteString(L" : ");
 						Log(node->parentType.Obj(), writer);
 					}
+					LogAttributeList(node, writer);
 					writer.WriteLine(L"");
 
 					writer.WriteString(prefix);
@@ -7225,6 +6965,7 @@ Logger (ParsingDefinitionTypeDefinition)
 				{
 					writer.WriteString(prefix);
 					writer.WriteString(node->name);
+					LogAttributeList(node, writer);
 					writer.WriteLine(L",");
 				}
 
@@ -7232,7 +6973,9 @@ Logger (ParsingDefinitionTypeDefinition)
 				{
 					writer.WriteString(prefix);
 					writer.WriteString(L"enum ");
-					writer.WriteLine(node->name);
+					writer.WriteString(node->name);
+					LogAttributeList(node, writer);
+					writer.WriteLine(L"");
 
 					writer.WriteString(prefix);
 					writer.WriteLine(L"{");
@@ -7252,9 +6995,9 @@ Logger (ParsingDefinitionTypeDefinition)
 				ParsingDefinitionTypeDefinitionLogger::LogInternal(definition, prefix, writer);
 			}
 
-/***********************************************************************
-Logger (ParsingDefinitionGrammar)
-***********************************************************************/
+			/***********************************************************************
+			Logger (ParsingDefinitionGrammar)
+			***********************************************************************/
 
 #define PRIORITY_NONE			0
 #define PRIORITY_CREATE			1
@@ -7440,9 +7183,9 @@ Logger (ParsingDefinitionGrammar)
 #undef PRIORITY_USE
 #undef PRIORITY_ASSIGN
 
-/***********************************************************************
-FindAppropriateGrammarState
-***********************************************************************/
+			/***********************************************************************
+			FindAppropriateGrammarState
+			***********************************************************************/
 
 			class FindAppropriateGrammarStateVisitor : public Object, public ParsingDefinitionGrammar::IVisitor
 			{
@@ -7537,9 +7280,9 @@ FindAppropriateGrammarState
 				}
 			};
 
-/***********************************************************************
-Logger (ParsingDefinitionGrammar)
-***********************************************************************/
+			/***********************************************************************
+			Logger (ParsingDefinitionGrammar)
+			***********************************************************************/
 
 			WString TypeToString(ParsingDefinitionType* type)
 			{
@@ -7586,7 +7329,7 @@ Logger (ParsingDefinitionGrammar)
 					Log(type.Obj(), L"", writer);
 					writer.WriteLine(L"");
 				}
-				
+
 				FOREACH(Ptr<ParsingDefinitionTokenDefinition>, token, definition->tokens)
 				{
 					if(token->discard)
@@ -7600,16 +7343,20 @@ Logger (ParsingDefinitionGrammar)
 					writer.WriteString(token->name);
 					writer.WriteString(L" = ");
 					LogString(token->regex, writer);
+					LogAttributeList(token.Obj(), writer);
 					writer.WriteLine(L";");
 				}
 				writer.WriteLine(L"");
-				
+
 				FOREACH(Ptr<ParsingDefinitionRuleDefinition>, rule, definition->rules)
 				{
 					writer.WriteString(L"rule ");
 					Log(rule->type.Obj(), writer);
 					writer.WriteString(L" ");
-					writer.WriteLine(rule->name);
+					writer.WriteString(rule->name);
+					LogAttributeList(rule.Obj(), writer);
+					writer.WriteLine(L"");
+
 					FOREACH(Ptr<ParsingDefinitionGrammar>, grammar, rule->grammars)
 					{
 						writer.WriteString(L"        = ");
@@ -7623,9 +7370,9 @@ Logger (ParsingDefinitionGrammar)
 
 		namespace analyzing
 		{
-/***********************************************************************
-Logger (Automaton)
-***********************************************************************/
+			/***********************************************************************
+			Logger (Automaton)
+			***********************************************************************/
 
 			void LogTransitionSymbol(ParsingSymbol* symbol, stream::TextWriter& writer)
 			{
@@ -7793,9 +7540,30 @@ Logger (Automaton)
 
 		namespace tabling
 		{
-/***********************************************************************
-Logger (ParsingTable)
-***********************************************************************/
+			/***********************************************************************
+			Logger (ParsingTable)
+			***********************************************************************/
+
+			void LogAttributeList(Ptr<ParsingTable> table, vint attributeIndex, const WString& prefix, stream::TextWriter& writer)
+			{
+				if(attributeIndex!=-1)
+				{
+					Ptr<ParsingTable::AttributeInfoList> atts=table->GetAttributeInfo(attributeIndex);
+					FOREACH(Ptr<ParsingTable::AttributeInfo>, att, atts->attributes)
+					{
+						writer.WriteString(prefix);
+						writer.WriteString(L"@");
+						writer.WriteString(att->name);
+						writer.WriteString(L"(");
+						for(vint i=0;i<att->arguments.Count();i++)
+						{
+							if(i>0) writer.WriteString(L", ");
+							definitions::LogString(att->arguments[i], writer);
+						}
+						writer.WriteLine(L")");
+					}
+				}
+			}
 
 			void Log(Ptr<ParsingTable> table, stream::TextWriter& writer)
 			{
@@ -7819,7 +7587,7 @@ Logger (ParsingTable)
 						itow(column)+L": "+table->GetTokenInfo(column).name+L"\r\n  "+table->GetTokenInfo(column).regex;
 					stringTable[column+1]=content;
 				}
-				
+
 				for(vint row=0; row<table->GetStateCount();row++)
 				{
 					for(vint column=0;column<table->GetTokenCount();column++)
@@ -7886,7 +7654,7 @@ Logger (ParsingTable)
 						}
 					}
 				}
-				
+
 				writer.WriteLine(L"Target-State : Stack-Pattern ...");
 				writer.WriteLine(L"> Look-Ahead ...");
 				writer.WriteLine(L"C: Create");
@@ -7917,15 +7685,59 @@ Logger (ParsingTable)
 					writer.WriteChar(L']');
 					writer.WriteLine(L"");
 				}
-				writer.WriteLine(L"");
 
 				writer.WriteMonospacedEnglishTable(stringTable, rows, columns);
+				writer.WriteLine(L"");
+
+				writer.WriteLine(L"Metadata(Tokens):");
+				for(vint i=0;i<table->GetTokenCount();i++)
+				{
+					const ParsingTable::TokenInfo& info=table->GetTokenInfo(i);
+					writer.WriteString(L"    ");
+					writer.WriteString(info.name);
+					writer.WriteString(L"=");
+					writer.WriteLine(info.regex);
+					LogAttributeList(table, info.attributeIndex, L"        ", writer);
+				}
+				writer.WriteLine(L"");
+
+				writer.WriteLine(L"Metadata(Rules):");
+				for(vint i=0;i<table->GetRuleCount();i++)
+				{
+					const ParsingTable::RuleInfo& info=table->GetRuleInfo(i);
+					writer.WriteString(L"    ");
+					writer.WriteLine(info.name);
+					LogAttributeList(table, info.attributeIndex, L"        ", writer);
+				}
+				writer.WriteLine(L"");
+
+				writer.WriteLine(L"Metadata(Classes):");
+				for(vint i=0;i<table->GetTreeTypeInfoCount();i++)
+				{
+					const ParsingTable::TreeTypeInfo& info=table->GetTreeTypeInfo(i);
+					writer.WriteString(L"    ");
+					writer.WriteLine(info.type);
+					LogAttributeList(table, info.attributeIndex, L"        ", writer);
+				}
+				writer.WriteLine(L"");
+
+				writer.WriteLine(L"Metadata(Class Members):");
+				for(vint i=0;i<table->GetTreeFieldInfoCount();i++)
+				{
+					const ParsingTable::TreeFieldInfo& info=table->GetTreeFieldInfo(i);
+					writer.WriteString(L"    ");
+					writer.WriteString(info.type);
+					writer.WriteString(L".");
+					writer.WriteLine(info.field);
+					LogAttributeList(table, info.attributeIndex, L"        ", writer);
+				}
+				writer.WriteLine(L"");
 			}
 		}
 
-/***********************************************************************
-Logger (ParsingTreeNode)
-***********************************************************************/
+		/***********************************************************************
+		Logger (ParsingTreeNode)
+		***********************************************************************/
 
 		class LogParsingTreeNodeVisitor : public Object, public ParsingTreeNode::IVisitor
 		{
@@ -7984,7 +7796,13 @@ Logger (ParsingTreeNode)
 			{
 				WString oldPrefix=prefix;
 				writer.WriteString(node->GetType());
-				writer.WriteString(L" {");
+				writer.WriteString(L" <");
+				for(vint i=0;i<node->GetCreatorRules().Count();i++)
+				{
+					if(i!=0) writer.WriteString(L", ");
+					writer.WriteString(node->GetCreatorRules()[i]);
+				}
+				writer.WriteString(L"> {");
 				WriteInput(node);
 				writer.WriteLine(L"");
 				prefix+=L"    ";
@@ -8322,6 +8140,11 @@ ParsingState
 				return stateGroup->currentState;
 			}
 
+			void ParsingState::SkipCurrentToken()
+			{
+				walker->Move();
+			}
+
 			bool ParsingState::TestTransitionItemInFuture(vint tableTokenIndex, Future* future, ParsingTable::TransitionItem* item, const collections::IEnumerable<vint>* lookAheadTokens)
 			{
 				bool passLookAheadTest=true;
@@ -8590,6 +8413,27 @@ ParsingState
 				return result;
 			}
 
+			bool ParsingState::TestExplore(vint tableTokenIndex, Future* previous)
+			{
+				Future fakePrevious;
+				fakePrevious.currentState=stateGroup->currentState;
+				Future* realPrevious=previous?previous:&fakePrevious;
+
+				ParsingTable::TransitionBag* bag=table->GetTransitionBag(realPrevious->currentState, tableTokenIndex).Obj();
+				if(bag)
+				{
+					for(vint i=0;i<bag->transitionItems.Count();i++)
+					{
+						ParsingTable::TransitionItem* item=bag->transitionItems[i].Obj();
+						if(TestTransitionItemInFuture(tableTokenIndex, realPrevious, item, 0))
+						{
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+
 			void ParsingState::Explore(vint tableTokenIndex, Future* previous, collections::List<Future*>& possibilities)
 			{
 				Future fakePrevious;
@@ -8629,8 +8473,12 @@ ParsingState
 				if(possibilities.Count()>oldPossibilitiesCount)
 				{
 					walker->Move();
+					return regexToken;
 				}
-				return regexToken;
+				else
+				{
+					return 0;
+				}
 			}
 
 			void ParsingState::ExploreTryReduce(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities)
@@ -8769,6 +8617,7 @@ ParsingTreeBuilder
 										return false;
 									}
 									operationTarget->SetType(ins.nameParameter);
+									operationTarget->GetCreatorRules().Add(ins.creatorRule);
 								}
 								break;
 							case ParsingTable::Instruction::Using:
@@ -8789,6 +8638,7 @@ ParsingTreeBuilder
 										obj->SetMember(name, value);
 									}
 									operationTarget=obj;
+									operationTarget->GetCreatorRules().Add(ins.creatorRule);
 									createdObject=0;
 								}
 								break;
@@ -8927,9 +8777,16 @@ ParsingTreeBuilder
 						}
 					}
 					break;
+				default:
+					return false;
 				}
 				
 				return true;
+			}
+
+			bool ParsingTreeBuilder::GetProcessingAmbiguityBranch()
+			{
+				return processingAmbiguityBranch;
 			}
 
 			Ptr<ParsingTreeObject> ParsingTreeBuilder::GetNode()
@@ -8959,6 +8816,22 @@ namespace vl
 		{
 			using namespace collections;
 			using namespace regex;
+
+/***********************************************************************
+ParsingTable::AttributeInfoList
+***********************************************************************/
+
+			Ptr<ParsingTable::AttributeInfo> ParsingTable::AttributeInfoList::FindFirst(const WString& name)
+			{
+				for(vint i=0;i<attributes.Count();i++)
+				{
+					if(attributes[i]->name==name)
+					{
+						return attributes[i];
+					}
+				}
+				return 0;
+			}
 
 /***********************************************************************
 ParsingTable::LookAheadInfo
@@ -9108,10 +8981,13 @@ ParsingTable::TransitionItem
 ParsingTable
 ***********************************************************************/
 
-			ParsingTable::ParsingTable(vint _tokenCount, vint discardTokenCount, vint _stateCount, vint _ruleCount)
+			ParsingTable::ParsingTable(vint _attributeInfoCount, vint _treeTypeInfoCount, vint _treeFieldInfoCount, vint _tokenCount, vint discardTokenCount, vint _stateCount, vint _ruleCount)
 				:ambiguity(false)
 				,tokenCount(_tokenCount+UserTokenStart)
 				,stateCount(_stateCount)
+				,attributeInfos(_attributeInfoCount)
+				,treeTypeInfos(_treeTypeInfoCount)
+				,treeFieldInfos(_treeFieldInfoCount)
 				,tokenInfos(_tokenCount+UserTokenStart)
 				,discardTokenInfos(discardTokenCount)
 				,stateInfos(_stateCount)
@@ -9132,6 +9008,66 @@ ParsingTable
 			void ParsingTable::SetAmbiguity(bool value)
 			{
 				ambiguity=value;
+			}
+
+			vint ParsingTable::GetAttributeInfoCount()
+			{
+				return attributeInfos.Count();
+			}
+
+			Ptr<ParsingTable::AttributeInfoList> ParsingTable::GetAttributeInfo(vint index)
+			{
+				return attributeInfos[index];
+			}
+
+			void ParsingTable::SetAttributeInfo(vint index, Ptr<AttributeInfoList> info)
+			{
+				attributeInfos[index]=info;
+			}
+
+			vint ParsingTable::GetTreeTypeInfoCount()
+			{
+				return treeTypeInfos.Count();
+			}
+
+			const ParsingTable::TreeTypeInfo& ParsingTable::GetTreeTypeInfo(vint index)
+			{
+				return treeTypeInfos[index];
+			}
+
+			const ParsingTable::TreeTypeInfo& ParsingTable::GetTreeTypeInfo(const WString& type)
+			{
+				vint index=treeTypeInfoMap.Keys().IndexOf(type);
+				if(index==-1) return *(const TreeTypeInfo*)0;
+				return treeTypeInfos[treeTypeInfoMap.Values().Get(index)];
+			}
+
+			void ParsingTable::SetTreeTypeInfo(vint index, const TreeTypeInfo& info)
+			{
+				treeTypeInfos[index]=info;
+			}
+
+			vint ParsingTable::GetTreeFieldInfoCount()
+			{
+				return treeFieldInfos.Count();
+			}
+
+			const ParsingTable::TreeFieldInfo& ParsingTable::GetTreeFieldInfo(vint index)
+			{
+				return treeFieldInfos[index];
+			}
+
+			const ParsingTable::TreeFieldInfo& ParsingTable::GetTreeFieldInfo(const WString& type, const WString& field)
+			{
+				Pair<WString, WString> key(type, field);
+				vint index=treeFieldInfoMap.Keys().IndexOf(key);
+				if(index==-1) return *(const TreeFieldInfo*)0;
+				return treeFieldInfos[treeFieldInfoMap.Values().Get(index)];
+			}
+
+			void ParsingTable::SetTreeFieldInfo(vint index, const TreeFieldInfo& info)
+			{
+				treeFieldInfos[index]=info;
 			}
 
 			vint ParsingTable::GetTokenCount()
@@ -9248,6 +9184,19 @@ ParsingTable
 				{
 					StateInfo& info=stateInfos[i];
 					info.ruleAmbiguousType=ruleInfos[ruleMap[info.ruleName]].ambiguousType;
+				}
+
+				treeTypeInfoMap.Clear();
+				FOREACH_INDEXER(TreeTypeInfo, info, index, treeTypeInfos)
+				{
+					treeTypeInfoMap.Add(info.type, index);
+				}
+
+				treeFieldInfoMap.Clear();
+				FOREACH_INDEXER(TreeFieldInfo, info, index, treeFieldInfos)
+				{
+					Pair<WString, WString> key(info.type, info.field);
+					treeFieldInfoMap.Add(key, index);
 				}
 			}
 
@@ -9642,6 +9591,11 @@ ParsingTreeObject
 			return members.Keys();
 		}
 
+		ParsingTreeObject::RuleList& ParsingTreeObject::GetCreatorRules()
+		{
+			return rules;
+		}
+
 /***********************************************************************
 ParsingTreeArray
 ***********************************************************************/
@@ -9751,19 +9705,19 @@ ParsingTreeArray
 			return false;
 		}
 
-		bool ParsingTreeArray::RemoveItem(Ptr<ParsingTreeNode> node)
+		bool ParsingTreeArray::RemoveItem(ParsingTreeNode* node)
 		{
-			return RemoveItem(items.IndexOf(node.Obj()));
+			return RemoveItem(items.IndexOf(node));
 		}
 
-		vint ParsingTreeArray::IndexOfItem(Ptr<ParsingTreeNode> node)
+		vint ParsingTreeArray::IndexOfItem(ParsingTreeNode* node)
 		{
-			return items.IndexOf(node.Obj());
+			return items.IndexOf(node);
 		}
 
-		bool ParsingTreeArray::ContainsItem(Ptr<ParsingTreeNode> node)
+		bool ParsingTreeArray::ContainsItem(ParsingTreeNode* node)
 		{
-			return items.Contains(node.Obj());
+			return items.Contains(node);
 		}
 
 		vint ParsingTreeArray::Count()
@@ -10296,6 +10250,88 @@ namespace vl
 		namespace xml
 		{
 /***********************************************************************
+ParserText
+***********************************************************************/
+
+const wchar_t parserTextBuffer[] = 
+L"\r\n"L""
+L"\r\n"L"class Node"
+L"\r\n"L"{"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Text : Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken content;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class CData : Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken content (XmlUnescapeCData);"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Attribute : Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken name\t\t\t\t\t\t\t\t\t@Color(\"AttName\");"
+L"\r\n"L"\ttoken value (XmlUnescapeAttributeValue)\t\t@Color(\"AttValue\");"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Comment : Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken content (XmlUnescapeComment);"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Element : Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken name\t\t\t\t\t\t\t\t\t@Color(\"TagName\");"
+L"\r\n"L"\ttoken closingName\t\t\t\t\t\t\t@Color(\"TagName\");"
+L"\r\n"L"\tAttribute[] attributes;"
+L"\r\n"L"\tNode[] subNodes (XmlMergeTextFragment);"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Instruction : Node"
+L"\r\n"L"{"
+L"\r\n"L"\ttoken name\t\t\t\t\t\t\t\t\t@Color(\"TagName\");"
+L"\r\n"L"\tAttribute[] attributes;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"class Document : Node"
+L"\r\n"L"{"
+L"\r\n"L"\tNode[] prologs;"
+L"\r\n"L"\tElement rootElement;"
+L"\r\n"L"}"
+L"\r\n"L""
+L"\r\n"L"token INSTRUCTION_OPEN = \"/</?\"\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token INSTRUCTION_CLOSE = \"/?/>\"\t\t@Color(\"Boundary\");"
+L"\r\n"L"token COMPLEX_ELEMENT_OPEN = \"/<//\"\t\t@Color(\"Boundary\");"
+L"\r\n"L"token SINGLE_ELEMENT_CLOSE = \"///>\"\t\t@Color(\"Boundary\");"
+L"\r\n"L"token ELEMENT_OPEN = \"/<\"\t\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token ELEMENT_CLOSE = \"/>\"\t\t\t\t@Color(\"Boundary\");"
+L"\r\n"L"token EQUAL = \"/=\";"
+L"\r\n"L""
+L"\r\n"L"token NAME = \"[a-zA-Z0-9:._/-]+\"\t\t\t\t\t\t\t\t@ContextColor(\"Default\");"
+L"\r\n"L"token ATTVALUE = \"\"\"[^<>\"\"]*\"\"|\'[^<>\']*\'\"\t\t\t\t\t\t@ContextColor(\"Default\");"
+L"\r\n"L"token COMMENT = \"/</!--([^/->]|-[^/->]|--[^>])*--/>\"\t\t\t@Color(\"Comment\");"
+L"\r\n"L"token CDATA = \"/</!/[CDATA/[([^/]]|/][^/]]|/]/][^>])*/]/]/>\";"
+L"\r\n"L"token TEXT = \"([^<>=\"\"\' /r/n/ta-zA-Z0-9:._/-])+|\"\"|\'\";"
+L"\r\n"L""
+L"\r\n"L"discardtoken SPACE = \"/s+\";"
+L"\r\n"L""
+L"\r\n"L"rule Attribute XAttribute = NAME:name \"=\" ATTVALUE:value as Attribute;"
+L"\r\n"L"rule Text XText = (NAME:content | EQUAL:content | ATTVALUE:content | TEXT:content) as Text;"
+L"\r\n"L"rule CData XCData = CDATA:content as CData;"
+L"\r\n"L"rule Comment XComment = COMMENT:content as Comment;"
+L"\r\n"L"rule Element XElement = \"<\" NAME:name {XAttribute:attributes} (\"/>\" | \">\" {XSubNode:subNodes} \"</\" NAME:closingName \">\") as Element;"
+L"\r\n"L"rule Node XSubNode = !XText | !XCData | !XComment | !XElement;"
+L"\r\n"L"rule Instruction XInstruction = \"<?\" NAME:name {XAttribute:attributes} \"?>\" as Instruction;"
+L"\r\n"L"rule Document XDocument = {XInstruction:prologs | XComment:prologs} XElement:rootElement as Document;"
+;
+
+			vl::WString XmlGetParserTextBuffer()
+			{
+				return parserTextBuffer;
+			}
+
+/***********************************************************************
 Unescaping Function Foward Declarations
 ***********************************************************************/
 
@@ -10375,6 +10411,7 @@ Parsing Tree Conversion Driver Implementation
 					if(obj->GetType()==L"Text")
 					{
 						vl::Ptr<XmlText> tree = new XmlText;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10382,6 +10419,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"CData")
 					{
 						vl::Ptr<XmlCData> tree = new XmlCData;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10389,6 +10427,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Attribute")
 					{
 						vl::Ptr<XmlAttribute> tree = new XmlAttribute;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10396,6 +10435,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Comment")
 					{
 						vl::Ptr<XmlComment> tree = new XmlComment;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10403,6 +10443,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Element")
 					{
 						vl::Ptr<XmlElement> tree = new XmlElement;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10410,6 +10451,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Instruction")
 					{
 						vl::Ptr<XmlInstruction> tree = new XmlInstruction;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10417,6 +10459,7 @@ Parsing Tree Conversion Driver Implementation
 					else if(obj->GetType()==L"Document")
 					{
 						vl::Ptr<XmlDocument> tree = new XmlDocument;
+						vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
 						Fill(tree, obj, tokens);
 						Fill(tree.Cast<XmlNode>(), obj, tokens);
 						return tree;
@@ -10520,7 +10563,7 @@ Parser Function
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XDocument");
-				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
 				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				return node;
@@ -10530,7 +10573,7 @@ Parser Function
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XDocument");
-				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
 				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				if(node)
@@ -10544,7 +10587,7 @@ Parser Function
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XElement");
-				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
 				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				return node;
@@ -10554,7 +10597,7 @@ Parser Function
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XElement");
-				vl::Ptr<vl::parsing::tabling::ParsingStrictParser> parser=new vl::parsing::tabling::ParsingStrictParser;
+				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
 				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				if(node)
@@ -10570,1281 +10613,12 @@ Table Generation
 
 			vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable()
 			{
-				vl::Ptr<vl::parsing::tabling::ParsingTable> table=new vl::parsing::tabling::ParsingTable(15-vl::parsing::tabling::ParsingTable::UserTokenStart, 1, 49, 8);
-				#define SET_TOKEN_INFO(INDEX, NAME, REGEX) table->SetTokenInfo(INDEX, vl::parsing::tabling::ParsingTable::TokenInfo(NAME, REGEX));
-				#define SET_DISCARD_TOKEN_INFO(INDEX, NAME, REGEX) table->SetDiscardTokenInfo(INDEX, vl::parsing::tabling::ParsingTable::TokenInfo(NAME, REGEX));
-				#define SET_STATE_INFO(INDEX, RULE, STATE, EXPR) table->SetStateInfo(INDEX, vl::parsing::tabling::ParsingTable::StateInfo(RULE, STATE, EXPR));
-				#define SET_RULE_INFO(INDEX, NAME, TYPE, STARTSTATE) table->SetRuleInfo(INDEX, vl::parsing::tabling::ParsingTable::RuleInfo(NAME, TYPE, L"", STARTSTATE));
-				#define SET_AMBIGUOUS_RULE_INFO(INDEX, NAME, TYPE, AMBIGUOUSTYPE, STARTSTATE) table->SetRuleInfo(INDEX, vl::parsing::tabling::ParsingTable::RuleInfo(NAME, TYPE, AMBIGUOUSTYPE, STARTSTATE));
-				#define BEGIN_TRANSITION_BAG(STATE, TOKEN) {vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionBag> bag=new vl::parsing::tabling::ParsingTable::TransitionBag; table->SetTransitionBag(STATE, TOKEN, bag);
-				#define BEGIN_TRANSITION_ITEM(TOKEN, TARGETSTATE) {vl::Ptr<vl::parsing::tabling::ParsingTable::TransitionItem> item=new vl::parsing::tabling::ParsingTable::TransitionItem(TOKEN, TARGETSTATE); bag->transitionItems.Add(item);
-				#define END_TRANSITION_ITEM }
-				#define END_TRANSITION_BAG }
-				#define ITEM_STACK_PATTERN(STATE) item->stackPattern.Add(STATE);
-				#define ITEM_INSTRUCTION(TYPE, STATE, NAME, VALUE) item->instructions.Add(vl::parsing::tabling::ParsingTable::Instruction(vl::parsing::tabling::ParsingTable::Instruction::InstructionType::TYPE, STATE, NAME, VALUE));
-				#define BEGIN_LOOK_AHEAD(STATE) {vl::Ptr<vl::parsing::tabling::ParsingTable::LookAheadInfo> lookAheadInfo=new vl::Ptr<vl::parsing::tabling::ParsingTable::LookAheadInfo; item->lookAheads.Add(lookAheadInfo); lookAheadInfo->state=STATE;
-				#define LOOK_AHEAD(TOKEN) lookAheadInfo->tokens.Add(TOKEN);
-				#define END_LOOK_AHEAD }
-
-				SET_TOKEN_INFO(0, L"", L"")
-				SET_TOKEN_INFO(1, L"", L"")
-				SET_TOKEN_INFO(2, L"", L"")
-				SET_TOKEN_INFO(3, L"INSTRUCTION_OPEN", L"/</?")
-				SET_TOKEN_INFO(4, L"INSTRUCTION_CLOSE", L"/?/>")
-				SET_TOKEN_INFO(5, L"COMPLEX_ELEMENT_OPEN", L"/<//")
-				SET_TOKEN_INFO(6, L"SINGLE_ELEMENT_CLOSE", L"///>")
-				SET_TOKEN_INFO(7, L"ELEMENT_OPEN", L"/<")
-				SET_TOKEN_INFO(8, L"ELEMENT_CLOSE", L"/>")
-				SET_TOKEN_INFO(9, L"EQUAL", L"/=")
-				SET_TOKEN_INFO(10, L"NAME", L"[a-zA-Z0-9:._/-]+")
-				SET_TOKEN_INFO(11, L"ATTVALUE", L"\"[^<>\"]*\"|\'[^<>\']*\'")
-				SET_TOKEN_INFO(12, L"COMMENT", L"/</!--([^/->]|-[^/->]|--[^>])*--/>")
-				SET_TOKEN_INFO(13, L"CDATA", L"/</!/[CDATA/[([^/]]|/][^/]]|/]/][^>])*/]/]/>")
-				SET_TOKEN_INFO(14, L"TEXT", L"([^<>=\"\' /r/n/ta-zA-Z0-9:._/-])+|\"|\'")
-
-				SET_DISCARD_TOKEN_INFO(0, L"SPACE", L"/s+")
-
-				SET_STATE_INFO(0, L"XAttribute", L"XAttribute.RootStart", L"● $<XAttribute>")
-				SET_STATE_INFO(1, L"XAttribute", L"XAttribute.Start", L"· <XAttribute>")
-				SET_STATE_INFO(2, L"XAttribute", L"XAttribute.1", L"<XAttribute>: NAME : name● \"=\" ATTVALUE : value as Attribute")
-				SET_STATE_INFO(3, L"XAttribute", L"XAttribute.2", L"<XAttribute>: NAME : name \"=\"● ATTVALUE : value as Attribute")
-				SET_STATE_INFO(4, L"XAttribute", L"XAttribute.3", L"<XAttribute>: NAME : name \"=\" ATTVALUE : value as Attribute●")
-				SET_STATE_INFO(5, L"XAttribute", L"XAttribute.RootEnd", L"$<XAttribute> ●")
-				SET_STATE_INFO(6, L"XElement", L"XElement.3", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element●")
-				SET_STATE_INFO(7, L"XElement", L"XElement.4", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\"● { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element\r\n<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" ●{ XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element")
-				SET_STATE_INFO(8, L"XInstruction", L"XInstruction.3", L"<XInstruction>: \"<?\" NAME : name { XAttribute : attributes } \"?>\" as Instruction●")
-				SET_STATE_INFO(9, L"XElement", L"XElement.RootEnd", L"$<XElement> ●")
-				SET_STATE_INFO(10, L"XElement", L"XElement.6", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\"● NAME : closingName \">\" ) as Element")
-				SET_STATE_INFO(11, L"XText", L"XText.1", L"<XText>: NAME : content | EQUAL : content | ATTVALUE : content | TEXT : content as Text●")
-				SET_STATE_INFO(12, L"XCData", L"XCData.1", L"<XCData>: CDATA : content as CData●")
-				SET_STATE_INFO(13, L"XComment", L"XComment.1", L"<XComment>: COMMENT : content as Comment●")
-				SET_STATE_INFO(14, L"XElement", L"XElement.1", L"<XElement>: \"<\"● NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element")
-				SET_STATE_INFO(15, L"XSubNode", L"XSubNode.RootEnd", L"$<XSubNode> ●")
-				SET_STATE_INFO(16, L"XDocument", L"XDocument.RootEnd", L"$<XDocument> ●")
-				SET_STATE_INFO(17, L"XInstruction", L"XInstruction.RootEnd", L"$<XInstruction> ●")
-				SET_STATE_INFO(18, L"XInstruction", L"XInstruction.1", L"<XInstruction>: \"<?\"● NAME : name { XAttribute : attributes } \"?>\" as Instruction")
-				SET_STATE_INFO(19, L"XElement", L"XElement.7", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName● \">\" ) as Element")
-				SET_STATE_INFO(20, L"XText", L"XText.RootEnd", L"$<XText> ●")
-				SET_STATE_INFO(21, L"XCData", L"XCData.RootEnd", L"$<XCData> ●")
-				SET_STATE_INFO(22, L"XComment", L"XComment.RootEnd", L"$<XComment> ●")
-				SET_STATE_INFO(23, L"XElement", L"XElement.2", L"<XElement>: \"<\" NAME : name● { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element\r\n<XElement>: \"<\" NAME : name ●{ XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element")
-				SET_STATE_INFO(24, L"XInstruction", L"XInstruction.2", L"<XInstruction>: \"<?\" NAME : name● { XAttribute : attributes } \"?>\" as Instruction\r\n<XInstruction>: \"<?\" NAME : name ●{ XAttribute : attributes } \"?>\" as Instruction")
-				SET_STATE_INFO(25, L"XText", L"XText.RootStart", L"● $<XText>")
-				SET_STATE_INFO(26, L"XText", L"XText.Start", L"· <XText>")
-				SET_STATE_INFO(27, L"XCData", L"XCData.RootStart", L"● $<XCData>")
-				SET_STATE_INFO(28, L"XCData", L"XCData.Start", L"· <XCData>")
-				SET_STATE_INFO(29, L"XComment", L"XComment.RootStart", L"● $<XComment>")
-				SET_STATE_INFO(30, L"XComment", L"XComment.Start", L"· <XComment>")
-				SET_STATE_INFO(31, L"XElement", L"XElement.RootStart", L"● $<XElement>")
-				SET_STATE_INFO(32, L"XElement", L"XElement.Start", L"· <XElement>")
-				SET_STATE_INFO(33, L"XSubNode", L"XSubNode.RootStart", L"● $<XSubNode>")
-				SET_STATE_INFO(34, L"XSubNode", L"XSubNode.Start", L"· <XSubNode>")
-				SET_STATE_INFO(35, L"XInstruction", L"XInstruction.RootStart", L"● $<XInstruction>")
-				SET_STATE_INFO(36, L"XInstruction", L"XInstruction.Start", L"· <XInstruction>")
-				SET_STATE_INFO(37, L"XDocument", L"XDocument.RootStart", L"● $<XDocument>")
-				SET_STATE_INFO(38, L"XDocument", L"XDocument.Start", L"· <XDocument>")
-				SET_STATE_INFO(39, L"XAttribute", L"XAttribute.4", L"<XAttribute>: NAME : name \"=\" ATTVALUE : value as Attribute●")
-				SET_STATE_INFO(40, L"XText", L"XText.2", L"<XText>: NAME : content | EQUAL : content | ATTVALUE : content | TEXT : content as Text●")
-				SET_STATE_INFO(41, L"XCData", L"XCData.2", L"<XCData>: CDATA : content as CData●")
-				SET_STATE_INFO(42, L"XComment", L"XComment.2", L"<XComment>: COMMENT : content as Comment●")
-				SET_STATE_INFO(43, L"XElement", L"XElement.5", L"<XElement>: \"<\" NAME : name { XAttribute : attributes } ( \"/>\" | \">\" { XSubNode : subNodes } \"</\" NAME : closingName \">\" ) as Element●")
-				SET_STATE_INFO(44, L"XSubNode", L"XSubNode.1", L"<XSubNode>: !XText | !XCData | !XComment | !XElement●")
-				SET_STATE_INFO(45, L"XInstruction", L"XInstruction.4", L"<XInstruction>: \"<?\" NAME : name { XAttribute : attributes } \"?>\" as Instruction●")
-				SET_STATE_INFO(46, L"XDocument", L"XDocument.1", L"<XDocument>: { XInstruction : prologs | XComment : prologs } XElement : rootElement as Document●")
-				SET_STATE_INFO(47, L"XDocument", L"XDocument.2", L"<XDocument>: ●{ XInstruction : prologs | XComment : prologs } XElement : rootElement as Document")
-				SET_STATE_INFO(48, L"XDocument", L"XDocument.3", L"<XDocument>: { XInstruction : prologs | XComment : prologs } XElement : rootElement as Document●")
-
-				SET_RULE_INFO(0, L"XAttribute", L"Attribute", 0)
-				SET_RULE_INFO(1, L"XText", L"Text", 25)
-				SET_RULE_INFO(2, L"XCData", L"CData", 27)
-				SET_RULE_INFO(3, L"XComment", L"Comment", 29)
-				SET_RULE_INFO(4, L"XElement", L"Element", 31)
-				SET_RULE_INFO(5, L"XSubNode", L"Node", 33)
-				SET_RULE_INFO(6, L"XInstruction", L"Instruction", 35)
-				SET_RULE_INFO(7, L"XDocument", L"Document", 37)
-
-				BEGIN_TRANSITION_BAG(0, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 1)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(1, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 2)
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(2, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 3)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(3, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 4)
-					ITEM_INSTRUCTION(Assign, 0, L"value", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(4, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 5)
-					ITEM_INSTRUCTION(Create, 0, L"Attribute", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(4, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 8)
-					ITEM_STACK_PATTERN(24)
-					ITEM_INSTRUCTION(Create, 0, L"Attribute", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"attributes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(4, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 6)
-					ITEM_STACK_PATTERN(23)
-					ITEM_INSTRUCTION(Create, 0, L"Attribute", L"");
-					ITEM_INSTRUCTION(Reduce, 23, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"attributes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(4, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 7)
-					ITEM_STACK_PATTERN(23)
-					ITEM_INSTRUCTION(Create, 0, L"Attribute", L"");
-					ITEM_INSTRUCTION(Reduce, 23, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"attributes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(4, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 2)
-					ITEM_STACK_PATTERN(24)
-					ITEM_INSTRUCTION(Create, 0, L"Attribute", L"");
-					ITEM_INSTRUCTION(Reduce, 24, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"attributes", L"");
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(10, 2)
-					ITEM_STACK_PATTERN(23)
-					ITEM_INSTRUCTION(Create, 0, L"Attribute", L"");
-					ITEM_INSTRUCTION(Reduce, 23, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"attributes", L"");
-					ITEM_INSTRUCTION(Shift, 23, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 9)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 16)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"rootElement", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Document", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 16)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"rootElement", L"");
-					ITEM_INSTRUCTION(Create, 0, L"Document", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 15)
-					ITEM_STACK_PATTERN(34)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 10)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(6, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Element", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 10)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(7, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 17)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 18)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(3, 18)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(8, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Instruction", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(10, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 19)
-					ITEM_INSTRUCTION(Assign, 0, L"closingName", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 20)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 15)
-					ITEM_STACK_PATTERN(34)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 10)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(11, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Text", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 21)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 15)
-					ITEM_STACK_PATTERN(34)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 10)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(12, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"CData", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 1)
-
-					BEGIN_TRANSITION_ITEM(1, 22)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(1, 15)
-					ITEM_STACK_PATTERN(34)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 18)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(3, 18)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 5)
-
-					BEGIN_TRANSITION_ITEM(5, 10)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(47)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 47, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(38)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 38, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"prologs", L"");
-					ITEM_INSTRUCTION(Shift, 47, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(13, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_STACK_PATTERN(34)
-					ITEM_STACK_PATTERN(7)
-					ITEM_INSTRUCTION(Create, 0, L"Comment", L"");
-					ITEM_INSTRUCTION(Reduce, 34, L"", L"");
-					ITEM_INSTRUCTION(Using, 0, L"", L"");
-					ITEM_INSTRUCTION(Reduce, 7, L"", L"");
-					ITEM_INSTRUCTION(Item, 0, L"subNodes", L"");
-					ITEM_INSTRUCTION(Shift, 7, L"", L"");
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(14, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 23)
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(18, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 24)
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(19, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 6)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(23, 6)
-
-					BEGIN_TRANSITION_ITEM(6, 6)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(23, 8)
-
-					BEGIN_TRANSITION_ITEM(8, 7)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(23, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 2)
-					ITEM_INSTRUCTION(Shift, 23, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 4)
-
-					BEGIN_TRANSITION_ITEM(4, 8)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(24, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 2)
-					ITEM_INSTRUCTION(Shift, 24, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"name", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(25, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 26)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(26, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(26, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(26, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(26, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(27, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 28)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(28, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(29, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 30)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(30, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(31, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 32)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(32, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(33, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 34)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 9)
-
-					BEGIN_TRANSITION_ITEM(9, 11)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 10)
-
-					BEGIN_TRANSITION_ITEM(10, 11)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 11)
-
-					BEGIN_TRANSITION_ITEM(11, 11)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 13)
-
-					BEGIN_TRANSITION_ITEM(13, 12)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(34, 14)
-
-					BEGIN_TRANSITION_ITEM(14, 11)
-					ITEM_INSTRUCTION(Shift, 34, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(35, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 36)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(36, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 18)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(37, 0)
-
-					BEGIN_TRANSITION_ITEM(0, 38)
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(38, 3)
-
-					BEGIN_TRANSITION_ITEM(3, 18)
-					ITEM_INSTRUCTION(Shift, 38, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(38, 7)
-
-					BEGIN_TRANSITION_ITEM(7, 14)
-					ITEM_INSTRUCTION(Shift, 38, L"", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				BEGIN_TRANSITION_BAG(38, 12)
-
-					BEGIN_TRANSITION_ITEM(12, 13)
-					ITEM_INSTRUCTION(Shift, 38, L"", L"");
-					ITEM_INSTRUCTION(Assign, 0, L"content", L"");
-					END_TRANSITION_ITEM
-
-				END_TRANSITION_BAG
-
-				table->Initialize();
-				return table;
-
-				#undef SET_TOKEN_INFO
-				#undef SET_DISCARD_TOKEN_INFO
-				#undef SET_STATE_INFO
-				#undef SET_RULE_INFO
-				#undef SET_AMBIGUOUS_RULE_INFO
-				#undef BEGIN_TRANSITION_BAG
-				#undef BEGIN_TRANSITION_ITEM
-				#undef END_TRANSITION_ITEM
-				#undef END_TRANSITION_BAG
-				#undef ITEM_STACK_PATTERN
-				#undef ITEM_INSTRUCTION
-				#undef BEGIN_LOOK_AHEAD
-				#undef LOOK_AHEAD
-				#undef END_LOOK_AHEAD
+			    vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateBootstrapStrictParser();
+			    vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+			    vl::Ptr<vl::parsing::ParsingTreeNode> definitionNode=parser->Parse(parserTextBuffer, L"ParserDecl", errors);
+			    vl::Ptr<vl::parsing::definitions::ParsingDefinition> definition=vl::parsing::definitions::DeserializeDefinition(definitionNode);
+			    vl::Ptr<vl::parsing::tabling::ParsingTable> table=vl::parsing::analyzing::GenerateTable(definition, false, errors);
+			    return table;
 			}
 
 		}
@@ -11867,7 +10641,9 @@ DescriptableObject
 ***********************************************************************/
 
 		DescriptableObject::DescriptableObject()
-			:objectSize(0)
+			:referenceCounter(0)
+			,sharedPtrDestructorProc(0)
+			,objectSize(0)
 			,typeDescriptor(0)
 		{
 		}
@@ -12066,8 +10842,6 @@ description::Value
 				case Null:
 					return targetValueType!=Text;
 				case RawPtr:
-					if(targetValueType!=RawPtr) return false;
-					break;
 				case SharedPtr:
 					if(targetValueType!=RawPtr && targetValueType!=SharedPtr) return false;
 					break;
@@ -20959,7 +19733,7 @@ Thread
 			{
 				return thread;
 			}
-			else if(deleteAfterStopped)
+			else
 			{
 				delete thread;
 			}

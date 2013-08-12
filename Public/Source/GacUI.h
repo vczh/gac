@@ -3101,6 +3101,8 @@ Basic Construction
 				
 				virtual void								SetAssociatedControl(controls::GuiControl* control);
 				virtual void								SetAssociatedHost(GuiGraphicsHost* host);
+
+				static void									SharedPtrDestructorProc(DescriptableObject* obj);
 			public:
 				GuiGraphicsComposition();
 				~GuiGraphicsComposition();
@@ -4026,6 +4028,8 @@ Basic Construction
 				virtual void							OnBeforeReleaseGraphicsHost();
 				virtual void							UpdateVisuallyEnabled();
 				void									SetFocusableComposition(compositions::GuiGraphicsComposition* value);
+
+				static void								SharedPtrDestructorProc(DescriptableObject* obj);
 			public:
 				GuiControl(IStyleController* _styleController);
 				~GuiControl();
@@ -7323,6 +7327,7 @@ Common Operations
 				virtual void							Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)=0;
 				virtual void							Detach()=0;
 				virtual void							TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)=0;
+				virtual void							TextEditFinished()=0;
 			};
 		}
 	}
@@ -7353,7 +7358,7 @@ namespace vl
 		{
 
 /***********************************************************************
-Colorizer
+GuiTextBoxColorizerBase
 ***********************************************************************/
 			
 			class GuiTextBoxColorizerBase : public Object, public ICommonTextEditCallback
@@ -7371,7 +7376,8 @@ Colorizer
 				static void									ColorizerThreadProc(void* argument);
 
 				void										StartColorizer();
-				void										StopColorizer();
+				void										StopColorizer(bool forever);
+				void										StopColorizerForever();
 			public:
 				GuiTextBoxColorizerBase();
 				~GuiTextBoxColorizerBase();
@@ -7379,6 +7385,7 @@ Colorizer
 				void										Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)override;
 				void										Detach()override;
 				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
+				void										TextEditFinished()override;
 				void										RestartColorizer();
 
 				virtual vint								GetLexerStartState()=0;
@@ -7386,6 +7393,10 @@ Colorizer
 				virtual void								ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)=0;
 				virtual const ColorArray&					GetColors()=0;
 			};
+
+/***********************************************************************
+GuiTextBoxRegexColorizer
+***********************************************************************/
 
 			class GuiTextBoxRegexColorizer : public GuiTextBoxColorizerBase
 			{
@@ -7413,13 +7424,99 @@ Colorizer
 				bool														SetDefaultColor(elements::text::ColorEntry value);
 				vint														AddToken(const WString& regex, elements::text::ColorEntry color);
 				vint														AddExtraToken(elements::text::ColorEntry color);
-				bool														Setup();
+				void														ClearTokens();
+				void														Setup();
 				virtual void												ColorizeTokenContextSensitive(vint lineIndex, const wchar_t* text, vint start, vint length, vint& token, vint& contextState);
 
 				vint														GetLexerStartState()override;
 				vint														GetContextStartState()override;
 				void														ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)override;
 				const ColorArray&											GetColors()override;
+			};
+
+/***********************************************************************
+RepeatingParsingExecutor
+***********************************************************************/
+
+			class RepeatingParsingExecutor : public RepeatingTaskExecutor<WString>
+			{
+			public:
+				class ICallback : public virtual Interface
+				{
+				public:
+					virtual void											OnParsingFinished(bool generatedNewNode, RepeatingParsingExecutor* parsingExecutor)=0;
+				};
+			private:
+				Ptr<parsing::tabling::ParsingGeneralParser>					grammarParser;
+				WString														grammarRule;
+				SpinLock													parsingTreeLock;
+				Ptr<parsing::ParsingTreeObject>								parsingTreeNode;
+				collections::List<ICallback*>								callbacks;
+
+			protected:
+
+				void														Execute(const WString& input)override;
+			public:
+				RepeatingParsingExecutor(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule);
+				~RepeatingParsingExecutor();
+				
+				Ptr<parsing::ParsingTreeObject>								ThreadSafeGetTreeNode();
+				void														ThreadSafeReturnTreeNode();
+				Ptr<parsing::tabling::ParsingGeneralParser>					GetParser();
+				bool														AttachCallback(ICallback* value);
+				bool														DetachCallback(ICallback* value);
+			};
+
+/***********************************************************************
+GuiGrammarColorizer
+***********************************************************************/
+
+			class GuiGrammarColorizer abstract : public GuiTextBoxRegexColorizer, private RepeatingParsingExecutor::ICallback
+			{
+				typedef collections::Pair<WString, WString>					FieldDesc;
+				typedef collections::Dictionary<FieldDesc, vint>			FieldContextColors;
+				typedef collections::Dictionary<FieldDesc, vint>			FieldSemanticColors;
+				typedef elements::text::ColorEntry							ColorEntry;
+			private:
+				Ptr<RepeatingParsingExecutor>								parsingExecutor;
+				collections::Dictionary<WString, ColorEntry>				colorSettings;
+				collections::Dictionary<WString, vint>						colorIndices;
+				collections::List<bool>										colorContext;
+				FieldContextColors											fieldContextColors;
+				FieldSemanticColors											fieldSemanticColors;
+				collections::Dictionary<WString, vint>						semanticIndices;
+
+				Ptr<parsing::tabling::ParsingTable::AttributeInfo>			GetAttribute(vint index, const WString& name, vint argumentCount);
+				Ptr<parsing::tabling::ParsingTable::AttributeInfo>			GetColorAttribute(vint index);
+				Ptr<parsing::tabling::ParsingTable::AttributeInfo>			GetContextColorAttribute(vint index);
+				Ptr<parsing::tabling::ParsingTable::AttributeInfo>			GetSemanticColorAttribute(vint index);
+
+			protected:
+				void														Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)override;
+				void														Detach()override;
+				void														TextEditFinished()override;
+				void														OnParsingFinished(bool generatedNewNode, RepeatingParsingExecutor* parsingExecutor)override;
+
+				virtual void												OnSemanticColorize(parsing::ParsingTreeToken* foundToken, parsing::ParsingTreeObject* tokenParent, const WString& type, const WString& field, vint semantic, vint& token);
+
+				void														EnsureColorizerFinished();
+			public:
+				GuiGrammarColorizer(Ptr<RepeatingParsingExecutor> _parsingExecutor);
+				GuiGrammarColorizer(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule);
+				~GuiGrammarColorizer();
+
+				void														SubmitCode(const WString& code);
+				vint														GetTokenId(const WString& token);
+				vint														GetSemanticId(const WString& semantic);
+				void														BeginSetColors();
+				const collections::SortedList<WString>&						GetColorNames();
+				ColorEntry													GetColor(const WString& name);
+				void														SetColor(const WString& name, const ColorEntry& entry);
+				void														SetColor(const WString& name, const Color& color);
+				void														EndSetColors();
+				void														ColorizeTokenContextSensitive(int lineIndex, const wchar_t* text, vint start, vint length, vint& token, int& contextState)override;
+
+				Ptr<RepeatingParsingExecutor>								GetParsingExecutor();
 			};
 		}
 	}
@@ -7509,9 +7606,10 @@ Undo Redo
 				GuiTextBoxUndoRedoProcessor(GuiTextBoxCommonInterface* _textBoxCommonInterface);
 				~GuiTextBoxUndoRedoProcessor();
 
-				void										Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock);
-				void										Detach();
-				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText);
+				void										Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)override;
+				void										Detach()override;
+				void										TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)override;
+				void										TextEditFinished()override;
 			};
 		}
 	}

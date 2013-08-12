@@ -68,9 +68,19 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DatePicker.DateAnd
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.TableEditor", "Controls.DataGrid.TableEditor\Controls.DataGrid.TableEditor.vcxproj", "{DBC36C55-96C5-403A-AACC-D71B6D841A4D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TextBox.ContextColorizer", "Controls.TextBox.ContextColorizer\Controls.TextBox.ContextColorizer.vcxproj", "{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Editor", "Editor", "{EBECB34C-801E-43D7-9FDF-EDE249CF053D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.Colorizer.Xml", "Editor.Colorizer.Xml\Editor.Colorizer.Xml.vcxproj", "{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.Colorizer.Json", "Editor.Colorizer.Json\Editor.Colorizer.Json.vcxproj", "{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.Colorizer.Grammar", "Editor.Colorizer.Grammar\Editor.Colorizer.Grammar.vcxproj", "{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 29
+		SccNumberOfProjects = 33
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -184,6 +194,22 @@ Global
 		SccProjectTopLevelParentUniqueName28 = GacUIDemo.sln
 		SccProjectName28 = Controls.DataGrid.TableEditor
 		SccLocalPath28 = Controls.DataGrid.TableEditor
+		SccProjectUniqueName29 = Controls.TextBox.ContextColorizer\\Controls.TextBox.ContextColorizer.vcxproj
+		SccProjectTopLevelParentUniqueName29 = GacUIDemo.sln
+		SccProjectName29 = Controls.TextBox.ContextColorizer
+		SccLocalPath29 = Controls.TextBox.ContextColorizer
+		SccProjectUniqueName30 = Editor.Colorizer.Xml\\Editor.Colorizer.Xml.vcxproj
+		SccProjectTopLevelParentUniqueName30 = GacUIDemo.sln
+		SccProjectName30 = Editor.Colorizer.Xml
+		SccLocalPath30 = Editor.Colorizer.Xml
+		SccProjectUniqueName31 = Editor.Colorizer.Json\\Editor.Colorizer.Json.vcxproj
+		SccProjectTopLevelParentUniqueName31 = GacUIDemo.sln
+		SccProjectName31 = Editor.Colorizer.Json
+		SccLocalPath31 = Editor.Colorizer.Json
+		SccProjectUniqueName32 = Editor.Colorizer.Grammar\\Editor.Colorizer.Grammar.vcxproj
+		SccProjectTopLevelParentUniqueName32 = GacUIDemo.sln
+		SccProjectName32 = Editor.Colorizer.Grammar
+		SccLocalPath32 = Editor.Colorizer.Grammar
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -302,6 +328,22 @@ Global
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Debug|Win32.Build.0 = Debug|Win32
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Release|Win32.ActiveCfg = Release|Win32
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Release|Win32.Build.0 = Release|Win32
+		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Debug|Win32.ActiveCfg = Debug|Win32
+		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Debug|Win32.Build.0 = Debug|Win32
+		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Release|Win32.ActiveCfg = Release|Win32
+		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Release|Win32.Build.0 = Release|Win32
+		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Debug|Win32.Build.0 = Debug|Win32
+		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Release|Win32.ActiveCfg = Release|Win32
+		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Release|Win32.Build.0 = Release|Win32
+		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4}.Debug|Win32.Build.0 = Debug|Win32
+		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4}.Release|Win32.ActiveCfg = Release|Win32
+		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4}.Release|Win32.Build.0 = Release|Win32
+		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Debug|Win32.Build.0 = Debug|Win32
+		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Release|Win32.ActiveCfg = Release|Win32
+		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -328,10 +370,14 @@ Global
 		{08387724-9751-4E0F-8195-6275084DB0CF} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
+		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{ED487B28-E445-464D-A09A-97BC9E57FC8D} = {B05A7B62-D27C-48B3-9AA6-AC15ABC38BD8}
 		{1AAAFFB1-0E0C-4D06-B18E-AC3816F97217} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{FBAA9433-4B1B-44FF-8EC9-F7C037859ABC} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{6AB710A6-1530-4D9B-B954-E772B69E7373} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{AAC4B8ED-F725-4563-9D41-3857D8B32CB4} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
+		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
+		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 	EndGlobalSection
 EndGlobal

@@ -446,6 +446,15 @@ GuiControl
 				}
 			}
 
+			void GuiControl::SharedPtrDestructorProc(DescriptableObject* obj)
+			{
+				GuiControl* value=dynamic_cast<GuiControl*>(obj);
+				if(value->GetBoundsComposition()->GetParent()==0)
+				{
+					SafeDeleteControl(value);
+				}
+			}
+
 			GuiControl::GuiControl(IStyleController* _styleController)
 				:styleController(_styleController)
 				,boundsComposition(_styleController->GetBoundsComposition())
@@ -469,6 +478,8 @@ GuiControl
 				styleController->SetFont(font);
 				styleController->SetText(text);
 				styleController->SetVisuallyEnabled(isVisuallyEnabled);
+				
+				sharedPtrDestructorProc=&GuiControl::SharedPtrDestructorProc;
 			}
 
 			GuiControl::~GuiControl()
@@ -21089,9 +21100,13 @@ namespace vl
 			using namespace elements;
 			using namespace elements::text;
 			using namespace compositions;
+			using namespace parsing;
+			using namespace parsing::tabling;
+			using namespace collections;
+			using namespace theme;
 
 /***********************************************************************
-GuiTextBoxColorizer
+GuiTextBoxColorizerBase
 ***********************************************************************/
 
 			void GuiTextBoxColorizerBase::ColorizerThreadProc(void* argument)
@@ -21157,13 +21172,21 @@ GuiTextBoxColorizer
 				}
 			}
 
-			void GuiTextBoxColorizerBase::StopColorizer()
+			void GuiTextBoxColorizerBase::StopColorizer(bool forever)
 			{
 				isFinalizing=true;
 				colorizerRunningEvent.Enter();
 				colorizerRunningEvent.Leave();
 				colorizedLineCount=0;
-				isFinalizing=false;
+				if(!forever)
+				{
+					isFinalizing=false;
+				}
+			}
+
+			void GuiTextBoxColorizerBase::StopColorizerForever()
+			{
+				StopColorizer(true);
 			}
 
 			GuiTextBoxColorizerBase::GuiTextBoxColorizerBase()
@@ -21177,7 +21200,7 @@ GuiTextBoxColorizer
 
 			GuiTextBoxColorizerBase::~GuiTextBoxColorizerBase()
 			{
-				StopColorizer();
+				StopColorizerForever();
 			}
 
 			void GuiTextBoxColorizerBase::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)
@@ -21195,7 +21218,7 @@ GuiTextBoxColorizer
 			{
 				if(element && elementModifyLock)
 				{
-					StopColorizer();
+					StopColorizer(false);
 					SpinLock::Scope scope(*elementModifyLock);
 					element=0;
 					elementModifyLock=0;
@@ -21216,11 +21239,18 @@ GuiTextBoxColorizer
 				}
 			}
 
+			void GuiTextBoxColorizerBase::TextEditFinished()
+			{
+			}
+
 			void GuiTextBoxColorizerBase::RestartColorizer()
 			{
-				SpinLock::Scope scope(*elementModifyLock);
-				colorizedLineCount=0;
-				StartColorizer();
+				if(element && elementModifyLock)
+				{
+					SpinLock::Scope scope(*elementModifyLock);
+					colorizedLineCount=0;
+					StartColorizer();
+				}
 			}
 
 /***********************************************************************
@@ -21230,10 +21260,10 @@ GuiTextBoxRegexColorizer
 			struct GuiTextBoxRegexColorizerProcData
 			{
 				GuiTextBoxRegexColorizer*		colorizer;
-				vint								lineIndex;
+				vint							lineIndex;
 				const wchar_t*					text;
 				unsigned __int32*				colors;
-				vint								contextState;
+				vint							contextState;
 			};
 
 			void GuiTextBoxRegexColorizer::ColorizerProc(void* argument, vint start, vint length, vint token)
@@ -21253,6 +21283,7 @@ GuiTextBoxRegexColorizer
 
 			GuiTextBoxRegexColorizer::~GuiTextBoxRegexColorizer()
 			{
+				StopColorizerForever();
 			}
 
 			elements::text::ColorEntry GuiTextBoxRegexColorizer::GetDefaultColor()
@@ -21327,11 +21358,20 @@ GuiTextBoxRegexColorizer
 				}
 			}
 
-			bool GuiTextBoxRegexColorizer::Setup()
+			void GuiTextBoxRegexColorizer::ClearTokens()
+			{
+				tokenRegexes.Clear();
+				tokenColors.Clear();
+				extraTokenColors.Clear();
+				lexer=0;
+			}
+
+			void GuiTextBoxRegexColorizer::Setup()
 			{
 				if(lexer || tokenRegexes.Count()==0)
 				{
-					return false;
+					colors.Resize(1);
+					colors[0]=defaultColor;
 				}
 				else
 				{
@@ -21347,7 +21387,6 @@ GuiTextBoxRegexColorizer
 						colors[i+1+tokenColors.Count()]=extraTokenColors[i];
 					}
 					colorizer=new regex::RegexLexerColorizer(lexer->Colorize());
-					return true;
 				}
 			}
 
@@ -21367,6 +21406,7 @@ GuiTextBoxRegexColorizer
 
 			void GuiTextBoxRegexColorizer::ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)
 			{
+				memset(colors, 0, sizeof(*colors)*length);
 				if(lexer)
 				{
 					GuiTextBoxRegexColorizerProcData data;
@@ -21376,7 +21416,6 @@ GuiTextBoxRegexColorizer
 					data.colors=colors;
 					data.contextState=contextState;
 
-					memset(colors, 0, sizeof(*colors)*length);
 					colorizer->Reset(lexerState);
 					colorizer->Colorize(text, length, &GuiTextBoxRegexColorizer::ColorizerProc, &data);
 
@@ -21393,6 +21432,348 @@ GuiTextBoxRegexColorizer
 			const GuiTextBoxRegexColorizer::ColorArray& GuiTextBoxRegexColorizer::GetColors()
 			{
 				return colors;
+			}
+
+/***********************************************************************
+RepeatingParsingExecutor
+***********************************************************************/
+
+			void RepeatingParsingExecutor::Execute(const WString& input)
+			{
+				List<Ptr<ParsingError>> errors;
+				Ptr<ParsingTreeObject> node=grammarParser->Parse(input, grammarRule, errors).Cast<ParsingTreeObject>();
+				if(node)
+				{
+					node->InitializeQueryCache();
+
+					SpinLock::Scope scope(parsingTreeLock);
+					parsingTreeNode=node;
+				}
+
+				bool generatedNewNode=node;
+				node=0;
+				FOREACH(ICallback*, callback, callbacks)
+				{
+					callback->OnParsingFinished(generatedNewNode, this);
+				}
+			}
+
+			RepeatingParsingExecutor::RepeatingParsingExecutor(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule)
+				:grammarParser(_grammarParser)
+				,grammarRule(_grammarRule)
+			{
+			}
+
+			RepeatingParsingExecutor::~RepeatingParsingExecutor()
+			{
+				EnsureTaskFinished();
+				SpinLock::Scope scope(parsingTreeLock);
+				parsingTreeNode=0;
+			}
+
+			Ptr<parsing::ParsingTreeObject> RepeatingParsingExecutor::ThreadSafeGetTreeNode()
+			{
+				parsingTreeLock.Enter();
+				return parsingTreeNode;
+			}
+
+			void RepeatingParsingExecutor::ThreadSafeReturnTreeNode()
+			{
+				parsingTreeLock.Leave();
+			}
+
+			Ptr<parsing::tabling::ParsingGeneralParser> RepeatingParsingExecutor::GetParser()
+			{
+				return grammarParser;
+			}
+
+			bool RepeatingParsingExecutor::AttachCallback(ICallback* value)
+			{
+				if(callbacks.Contains(value)) return false;
+				callbacks.Add(value);
+				return true;
+			}
+
+			bool RepeatingParsingExecutor::DetachCallback(ICallback* value)
+			{
+				if(!callbacks.Contains(value)) return false;
+				callbacks.Remove(value);
+				return true;
+			}
+
+/***********************************************************************
+GuiGrammarColorizer
+***********************************************************************/
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetAttribute(vint index, const WString& name, vint argumentCount)
+			{
+				if(index!=-1)
+				{
+					Ptr<ParsingTable::AttributeInfo> att=parsingExecutor->GetParser()->GetTable()->GetAttributeInfo(index)->FindFirst(name);
+					if(att && att->arguments.Count()==argumentCount)
+					{
+						return att;
+					}
+				}
+				return 0;
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetColorAttribute(vint index)
+			{
+				return GetAttribute(index, L"Color", 1);
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetContextColorAttribute(vint index)
+			{
+				return GetAttribute(index, L"ContextColor", 1);
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetSemanticColorAttribute(vint index)
+			{
+				return GetAttribute(index, L"SemanticColor", 1);
+			}
+
+			void GuiGrammarColorizer::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)
+			{
+				GuiTextBoxRegexColorizer::Attach(_element, _elementModifyLock);
+				if(element && elementModifyLock)
+				{
+					SpinLock::Scope scope(*elementModifyLock);
+					WString text=element->GetLines().GetText();
+					parsingExecutor->SubmitTask(text.Buffer());
+				}
+			}
+
+			void GuiGrammarColorizer::Detach()
+			{
+				GuiTextBoxRegexColorizer::Detach();
+				if(element && elementModifyLock)
+				{
+					parsingExecutor->EnsureTaskFinished();
+					StopColorizer(false);
+				}
+			}
+
+			void GuiGrammarColorizer::TextEditFinished()
+			{
+				GuiTextBoxRegexColorizer::TextEditFinished();
+				if(element && elementModifyLock)
+				{
+					SpinLock::Scope scope(*elementModifyLock);
+					WString text=element->GetLines().GetText();
+					parsingExecutor->SubmitTask(text.Buffer());
+				}
+			}
+
+			void GuiGrammarColorizer::OnParsingFinished(bool generatedNewNode, RepeatingParsingExecutor* parsingExecutor)
+			{
+				RestartColorizer();
+			}
+
+			void GuiGrammarColorizer::OnSemanticColorize(parsing::ParsingTreeToken* foundToken, parsing::ParsingTreeObject* tokenParent, const WString& type, const WString& field, vint semantic, vint& token)
+			{
+			}
+
+			void GuiGrammarColorizer::EnsureColorizerFinished()
+			{
+				parsingExecutor->EnsureTaskFinished();
+				StopColorizerForever();
+			}
+
+			GuiGrammarColorizer::GuiGrammarColorizer(Ptr<RepeatingParsingExecutor> _parsingExecutor)
+				:parsingExecutor(_parsingExecutor)
+			{
+				parsingExecutor->AttachCallback(this);
+				BeginSetColors();
+			}
+
+			GuiGrammarColorizer::GuiGrammarColorizer(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule)
+				:parsingExecutor(new RepeatingParsingExecutor(_grammarParser, _grammarRule))
+			{
+				parsingExecutor->AttachCallback(this);
+				BeginSetColors();
+			}
+
+			GuiGrammarColorizer::~GuiGrammarColorizer()
+			{
+				EnsureColorizerFinished();
+				parsingExecutor->DetachCallback(this);
+			}
+
+			void GuiGrammarColorizer::SubmitCode(const WString& code)
+			{
+				parsingExecutor->SubmitTask(code.Buffer());
+			}
+
+			vint GuiGrammarColorizer::GetTokenId(const WString& token)
+			{
+				vint index=colorIndices.Keys().IndexOf(token);
+				return index==-1?-1:colorIndices.Values().Get(index);
+			}
+
+			vint GuiGrammarColorizer::GetSemanticId(const WString& semantic)
+			{
+				vint index=semanticIndices.Keys().IndexOf(semantic);
+				return index==-1?-1:semanticIndices.Values().Get(index);
+			}
+
+			void GuiGrammarColorizer::BeginSetColors()
+			{
+				ClearTokens();
+				colorSettings.Clear();
+				text::ColorEntry entry=GetCurrentTheme()->GetDefaultTextBoxColorEntry();
+				SetDefaultColor(entry);
+				colorSettings.Add(L"Default", entry);
+			}
+
+			const collections::SortedList<WString>& GuiGrammarColorizer::GetColorNames()
+			{
+				return colorSettings.Keys();
+			}
+
+			GuiGrammarColorizer::ColorEntry GuiGrammarColorizer::GetColor(const WString& name)
+			{
+				vint index=colorSettings.Keys().IndexOf(name);
+				return index==-1?GetDefaultColor():colorSettings.Values().Get(index);
+			}
+
+			void GuiGrammarColorizer::SetColor(const WString& name, const ColorEntry& entry)
+			{
+				colorSettings.Set(name, entry);
+			}
+
+			void GuiGrammarColorizer::SetColor(const WString& name, const Color& color)
+			{
+				text::ColorEntry entry=GetDefaultColor();
+				entry.normal.text=color;
+				SetColor(name, entry);
+			}
+
+			void GuiGrammarColorizer::EndSetColors()
+			{
+				SortedList<WString> tokenColors;
+				Ptr<ParsingTable> table=parsingExecutor->GetParser()->GetTable();
+				colorIndices.Clear();
+				colorContext.Clear();
+				fieldContextColors.Clear();
+				fieldSemanticColors.Clear();
+				semanticIndices.Clear();
+
+				// prepare tokens
+				{
+					vint tokenCount=table->GetTokenCount();
+					for(vint token=ParsingTable::UserTokenStart;token<tokenCount;token++)
+					{
+						const ParsingTable::TokenInfo& tokenInfo=table->GetTokenInfo(token);
+						if(Ptr<ParsingTable::AttributeInfo> att=GetColorAttribute(tokenInfo.attributeIndex))
+						{
+							tokenColors.Add(att->arguments[0]);
+							vint tokenId=AddToken(tokenInfo.regex, GetColor(att->arguments[0]));
+							colorIndices.Set(att->arguments[0], tokenId);
+							colorContext.Add(false);
+						}
+						else if(Ptr<ParsingTable::AttributeInfo> att=GetContextColorAttribute(tokenInfo.attributeIndex))
+						{
+							tokenColors.Add(att->arguments[0]);
+							vint tokenId=AddToken(tokenInfo.regex, GetColor(att->arguments[0]));
+							colorIndices.Set(att->arguments[0], tokenId);
+							colorContext.Add(true);
+						}
+						else
+						{
+							AddToken(tokenInfo.regex, GetDefaultColor());
+							colorContext.Add(false);
+						}
+					}
+				}
+
+				// prepare extra tokens
+				FOREACH_INDEXER(WString, color, index, colorSettings.Keys())
+				{
+					if(!tokenColors.Contains(color))
+					{
+						vint tokenId=AddExtraToken(colorSettings.Values().Get(index));
+						colorIndices.Set(color, tokenId+colorContext.Count());
+					}
+				}
+
+				// prepare fields
+				{
+					vint fieldCount=table->GetTreeFieldInfoCount();
+					for(vint field=0;field<fieldCount;field++)
+					{
+						const ParsingTable::TreeFieldInfo& fieldInfo=table->GetTreeFieldInfo(field);
+						if(Ptr<ParsingTable::AttributeInfo> att=GetColorAttribute(fieldInfo.attributeIndex))
+						{
+							vint index=colorIndices.Keys().IndexOf(att->arguments[0]);
+							if(index!=-1)
+							{
+								fieldContextColors.Add(FieldDesc(fieldInfo.type, fieldInfo.field), colorIndices.Values().Get(index));
+							}
+						}
+						else if(Ptr<ParsingTable::AttributeInfo> att=GetSemanticColorAttribute(fieldInfo.attributeIndex))
+						{
+							FieldDesc key(fieldInfo.type, fieldInfo.field);
+							vint semantic=-1;
+							vint index=semanticIndices.Keys().IndexOf(att->arguments[0]);
+							if(index==-1)
+							{
+								semantic=semanticIndices.Count();
+								semanticIndices.Add(att->arguments[0], semantic);
+							}
+							else
+							{
+								semantic=semanticIndices.Values().Get(index);
+							}
+							fieldSemanticColors.Add(key, semantic);
+						}
+					}
+				}
+				Setup();
+			}
+
+			void GuiGrammarColorizer::ColorizeTokenContextSensitive(int lineIndex, const wchar_t* text, vint start, vint length, vint& token, int& contextState)
+			{
+				Ptr<ParsingTreeNode> node=parsingExecutor->ThreadSafeGetTreeNode();
+				if(node && token!=-1 && colorContext[token])
+				{
+					ParsingTextPos pos(lineIndex, start);
+					ParsingTreeNode* foundNode=node->FindDeepestNode(pos);
+					if(!foundNode) goto EXIT_COLORIZING;
+					ParsingTreeToken* foundToken=dynamic_cast<ParsingTreeToken*>(foundNode);
+					if(!foundToken) goto EXIT_COLORIZING;
+					ParsingTreeObject* tokenParent=dynamic_cast<ParsingTreeObject*>(foundNode->GetParent());
+					if(!tokenParent) goto EXIT_COLORIZING;
+					vint index=tokenParent->GetMembers().Values().IndexOf(foundNode);
+					if(index==-1) goto EXIT_COLORIZING;
+
+					WString type=tokenParent->GetType();
+					WString field=tokenParent->GetMembers().Keys().Get(index);
+					FieldDesc key(type, field);
+
+					index=fieldContextColors.Keys().IndexOf(key);
+					if(index!=-1)
+					{
+						token=fieldContextColors.Values().Get(index);
+						goto EXIT_COLORIZING;
+					}
+
+					index=fieldSemanticColors.Keys().IndexOf(key);
+					if(index!=-1)
+					{
+						vint semantic=fieldSemanticColors.Values().Get(index);
+						OnSemanticColorize(foundToken, tokenParent, type, field, semantic, token);
+						goto EXIT_COLORIZING;
+					}
+				}
+			EXIT_COLORIZING:
+				node=0;
+				parsingExecutor->ThreadSafeReturnTreeNode();
+			}
+
+			Ptr<RepeatingParsingExecutor> GuiGrammarColorizer::GetParsingExecutor()
+			{
+				return parsingExecutor;
 			}
 		}
 	}
@@ -21584,7 +21965,11 @@ GuiTextBoxCommonInterface
 						textEditCallbacks[i]->TextEditNotify(originalStart, originalEnd, originalText, start, end, inputText);
 					}
 					Move(end, false);
-
+					
+					for(vint i=0;i<textEditCallbacks.Count();i++)
+					{
+						textEditCallbacks[i]->TextEditFinished();
+					}
 					textControl->TextChanged.Execute(textControl->GetNotifyEventArguments());
 				}
 			}
@@ -22846,6 +23231,10 @@ GuiTextBoxUndoRedoProcessor
 				step->inputEnd=inputEnd;
 				step->inputText=inputText;
 				PushStep(step);
+			}
+
+			void GuiTextBoxUndoRedoProcessor::TextEditFinished()
+			{
 			}
 		}
 	}
@@ -24307,6 +24696,15 @@ GuiGraphicsComposition
 				}
 			}
 
+			void GuiGraphicsComposition::SharedPtrDestructorProc(DescriptableObject* obj)
+			{
+				GuiGraphicsComposition* value=dynamic_cast<GuiGraphicsComposition*>(obj);
+				if(value->parent==0)
+				{
+					SafeDeleteComposition(value);
+				}
+			}
+
 			GuiGraphicsComposition::GuiGraphicsComposition()
 				:parent(0)
 				,visible(true)
@@ -24317,6 +24715,7 @@ GuiGraphicsComposition
 				,associatedCursor(0)
 				,associatedHitTestResult(INativeWindowListener::NoDecision)
 			{
+				sharedPtrDestructorProc=&GuiGraphicsComposition::SharedPtrDestructorProc;
 			}
 
 			GuiGraphicsComposition::~GuiGraphicsComposition()

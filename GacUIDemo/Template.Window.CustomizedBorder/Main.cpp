@@ -275,6 +275,7 @@ public:
 		if(window->GetNativeWindow())
 		{
 			window->GetNativeWindow()->EnableCustomFrameMode();
+			window->GetNativeWindow()->SetBorder(false);
 		}
 	}
 

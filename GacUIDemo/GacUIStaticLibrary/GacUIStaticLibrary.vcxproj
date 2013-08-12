@@ -110,6 +110,7 @@
   <ItemGroup>
     <Text Include="..\Resources\CalculatorDefinition.txt" />
     <Text Include="..\Resources\Chemical.txt" />
+    <Text Include="..\Resources\JsonSample.txt" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="..\Resources\document2.xml" />
