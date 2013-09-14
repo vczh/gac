@@ -6,6 +6,7 @@ using namespace vl;
 using namespace vl::collections;
 using namespace vl::stream;
 using namespace vl::regex;
+using namespace vl::regex_internal;
 using namespace vl::parsing;
 using namespace vl::parsing::tabling;
 using namespace vl::parsing::definitions;
@@ -19,90 +20,244 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 SymbolLookup
 ***********************************************************************/
 
-class TypeSymbol : public Object
+Ptr<ParsingScopeSymbol> CreateSymbolFromNode(Ptr<ParsingTreeObject> obj, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder);
+void CreateSubSymbols(ParsingScopeSymbol* symbol, Ptr<ParsingTreeObject> node, const WString& memberName, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder);
+
+class GrammarSymbol : public ParsingScopeSymbol
 {
 public:
-	WString									typeName;
-	Dictionary<WString, Ptr<TypeSymbol>>	subTypes;
-	TypeSymbol*								parent;
+	GrammarSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder, const WString& semantic)
+		:ParsingScopeSymbol(finder->Node(node->GetMember(L"name")).Cast<ParsingTreeToken>()->GetValue(), executor->GetSemanticId(semantic))
+	{
+		SetNode(node);
+	}
+};
 
-	TypeSymbol()
-		:parent(0)
+class EnumFieldSymbol : public GrammarSymbol
+{
+protected:
+	WString GetDisplayInternal(vint semanticId)
+	{
+		return literalString;
+	}
+public:
+	WString literalString;
+
+	EnumFieldSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:GrammarSymbol(node, executor, finder, L"EnumValue")
+	{
+		WString value=finder->Node(node->GetMember(L"name")).Cast<ParsingTreeToken>()->GetValue();
+		literalString=SerializeString(value);
+	}
+};
+
+class ClassFieldSymbol : public GrammarSymbol
+{
+public:
+	ClassFieldSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:GrammarSymbol(node, executor, finder, L"Field")
 	{
 	}
+};
 
-	void CollectSubTypes(Ptr<ParsingTreeArray> types, Dictionary<ParsingTreeNode*, TypeSymbol*>& nodeTypeMap)
+class TypeSymbol : public GrammarSymbol
+{
+public:
+	TypeSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:GrammarSymbol(node, executor, finder, L"Type")
 	{
-		if(types)
-		{
-			for(int i=0;i<types->Count();i++)
-			{
-				Ptr<ParsingTreeObject> type=types->GetItem(i).Cast<ParsingTreeObject>();
-				if(type)
-				{
-					CollectSubType(type, nodeTypeMap);
-				}
-			}
-		}
 	}
+};
 
-	void CollectSubType(Ptr<ParsingTreeObject> type, Dictionary<ParsingTreeNode*, TypeSymbol*>& nodeTypeMap)
+class EnumSymbol : public TypeSymbol
+{
+public:
+	EnumSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:TypeSymbol(node, executor, finder)
 	{
-		Ptr<ParsingTreeToken> name=type->GetMember(L"name").Cast<ParsingTreeToken>();
-		if(name && !subTypes.Keys().Contains(name->GetValue()))
+		CreateScope();
+		CreateSubSymbols(this, node, L"members", executor, finder);
+	}
+};
+
+class ClassSymbol : public TypeSymbol
+{
+public:
+	ClassSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:TypeSymbol(node, executor, finder)
+	{
+		CreateScope();
+		CreateSubSymbols(this, node, L"members", executor, finder);
+		CreateSubSymbols(this, node, L"subTypes", executor, finder);
+	}
+};
+
+class TokenSymbol : public GrammarSymbol
+{
+protected:
+	WString GetDisplayInternal(vint semanticId)
+	{
+		return semanticId==literalId?literalString:ParsingScopeSymbol::GetDisplayInternal(semanticId);
+	}
+public:
+	vint literalId;
+	WString literalString;
+
+	TokenSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:GrammarSymbol(node, executor, finder, L"Token")
+		,literalId(-1)
+	{
+		WString value=finder->Node(node->GetMember(L"regex")).Cast<ParsingTreeToken>()->GetValue();
+		WString regex=DeserializeString(value);
+		if(IsRegexEscapedListeralString(regex))
 		{
-			Ptr<TypeSymbol> symbol=new TypeSymbol;
-			symbol->typeName=name->GetValue();
-			symbol->parent=this;
-			subTypes.Add(symbol->typeName, symbol);
-			symbol->CollectSubTypes(type->GetMember(L"subTypes").Cast<ParsingTreeArray>(), nodeTypeMap);
-			nodeTypeMap.Add(type.Obj(), symbol.Obj());
+			literalString=SerializeString(UnescapeTextForRegex(regex));
+			AddSemanticId(literalId=executor->GetSemanticId(L"Literal"));
 		}
 	}
 };
 
-class ParserDecl : public TypeSymbol
+class RuleSymbol : public GrammarSymbol
 {
 public:
-	SortedList<WString>							tokens;
-	SortedList<WString>							rules;
-	Dictionary<ParsingTreeNode*, TypeSymbol*>	nodeTypeMap;
-
-	ParserDecl(Ptr<ParsingTreeObject> parserDecl)
+	RuleSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+		:GrammarSymbol(node, executor, finder, L"Rule")
 	{
-		nodeTypeMap.Add(parserDecl.Obj(), this);
-		Ptr<ParsingTreeArray> defs=parserDecl->GetMember(L"definitions").Cast<ParsingTreeArray>();
-		if(defs)
+	}
+};
+
+class ParserDefSymbol : public ParsingScopeSymbol
+{
+public:
+	ParserDefSymbol(Ptr<ParsingTreeObject> node, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+	{
+		SetNode(node.Obj());
+		CreateScope();
+		CreateSubSymbols(this, node, L"definitions", executor, finder);
+	}
+};
+
+
+void CreateSubSymbols(ParsingScopeSymbol* symbol, Ptr<ParsingTreeObject> node, const WString& memberName, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+{
+	if(Ptr<ParsingTreeArray> members=finder->Node(node->GetMember(memberName)).Cast<ParsingTreeArray>())
+	{
+		FOREACH(Ptr<ParsingTreeNode>, node, members->GetItems())
 		{
-			vint count=defs->Count();
-			for(vint i=0;i<count;i++)
+			if(Ptr<ParsingTreeObject> obj=finder->Node(node).Cast<ParsingTreeObject>())
 			{
-				Ptr<ParsingTreeObject> defObject=defs->GetItem(i).Cast<ParsingTreeObject>();
-				if(defObject)
-				{
-					if(defObject->GetType()==L"TokenDef")
-					{
-						Ptr<ParsingTreeToken> name=defObject->GetMember(L"name").Cast<ParsingTreeToken>();
-						if(name)
-						{
-							tokens.Add(name->GetValue());
-						}
-					}
-					else if(defObject->GetType()==L"RuleDef")
-					{
-						Ptr<ParsingTreeToken> name=defObject->GetMember(L"name").Cast<ParsingTreeToken>();
-						if(name)
-						{
-							rules.Add(name->GetValue());
-						}
-					}
-					else
-					{
-						CollectSubType(defObject, nodeTypeMap);
-					}
-				}
+				symbol->GetScope()->AddSymbol(CreateSymbolFromNode(obj, executor, finder));
 			}
 		}
+	}
+}
+
+Ptr<ParsingScopeSymbol> CreateSymbolFromNode(Ptr<ParsingTreeObject> obj, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+{
+	if(obj->GetType()==L"EnumMemberDef")
+	{
+		return new EnumFieldSymbol(obj, executor, finder);
+	}
+	else if(obj->GetType()==L"EnumTypeDef")
+	{
+		return new EnumSymbol(obj, executor, finder);
+	}
+	else if(obj->GetType()==L"ClassMemberDef")
+	{
+		return new ClassFieldSymbol(obj, executor, finder);
+	}
+	else if(obj->GetType()==L"ClassTypeDef")
+	{
+		return new ClassSymbol(obj, executor, finder);
+	}
+	else if(obj->GetType()==L"TokenDef")
+	{
+		return new TokenSymbol(obj, executor, finder);
+	}
+	else if(obj->GetType()==L"RuleDef")
+	{
+		return new RuleSymbol(obj, executor, finder);
+	}
+	else if(obj->GetType()==L"ParserDef")
+	{
+		return new ParserDefSymbol(obj, executor, finder);
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+LazyList<Ptr<ParsingScopeSymbol>> FindReferencedSymbols(ParsingTreeObject* obj, ParsingScopeFinder* finder)
+{
+	ParsingScope* scope=finder->GetScopeFromNode(obj);
+	if(obj->GetType()==L"PrimitiveTypeObj")
+	{
+		WString name=obj->GetMember(L"name").Cast<ParsingTreeToken>()->GetValue();
+		return finder->GetSymbolsRecursively(scope, name);
+	}
+	else if(obj->GetType()==L"SubTypeObj")
+	{
+		if(Ptr<ParsingTreeObject> parentType=obj->GetMember(L"parentType").Cast<ParsingTreeObject>())
+		{
+			WString name=obj->GetMember(L"name").Cast<ParsingTreeToken>()->GetValue();
+			LazyList<Ptr<ParsingScopeSymbol>> types=FindReferencedSymbols(parentType.Obj(), finder);
+			return types
+				.SelectMany([=](Ptr<ParsingScopeSymbol> type)
+				{
+					return finder->GetSymbols(type->GetScope(), name);
+				});
+		}
+	}
+	else if(obj->GetType()==L"PrimitiveGrammarDef")
+	{
+		WString name=obj->GetMember(L"name").Cast<ParsingTreeToken>()->GetValue();
+		return finder->GetSymbolsRecursively(scope, name);
+	}
+	return LazyList<Ptr<ParsingScopeSymbol>>();
+}
+
+/***********************************************************************
+GrammarLanguageProvider
+***********************************************************************/
+
+class GrammarLanguageProvider : public Object, public ILanguageProvider
+{
+public:
+	Ptr<ParsingScopeSymbol> CreateSymbolFromNode(Ptr<ParsingTreeObject> obj, RepeatingParsingExecutor* executor, ParsingScopeFinder* finder)
+	{
+		return ::CreateSymbolFromNode(obj, executor, finder);
+	}
+
+	LazyList<Ptr<ParsingScopeSymbol>> FindReferencedSymbols(ParsingTreeObject* obj, parsing::ParsingScopeFinder* finder)
+	{
+		return ::FindReferencedSymbols(obj, finder);
+	}
+
+	LazyList<Ptr<ParsingScopeSymbol>> FindPossibleSymbols(ParsingTreeObject* obj, const WString& field, ParsingScopeFinder* finder)
+	{
+		return LazyList<Ptr<ParsingScopeSymbol>>();
+	}
+};
+
+/***********************************************************************
+ParserGrammarExecutor
+***********************************************************************/
+
+class ParserGrammarExecutor : public RepeatingParsingExecutor
+{
+protected:
+
+	void OnContextFinishedAsync(RepeatingParsingOutput& context)override
+	{
+		context.finder=new ParsingScopeFinder();
+		context.symbol=CreateSymbolFromNode(context.node, this, context.finder.Obj());
+		context.finder->InitializeQueryCache(context.symbol.Obj());
+	}
+public:
+	ParserGrammarExecutor()
+		:RepeatingParsingExecutor(CreateBootstrapAutoRecoverParser(), L"ParserDecl", new GrammarLanguageProvider)
+	{
 	}
 };
 
@@ -112,94 +267,9 @@ ParserGrammarColorizer
 
 class ParserGrammarColorizer : public GuiGrammarColorizer
 {
-protected:
-	Ptr<ParserDecl>							parsingTreeDecl;
-	vint									tokenIdType;
-	vint									tokenIdToken;
-	vint									tokenIdRule;
-	vint									semanticType;
-	vint									semanticGrammar;
-
-	TypeSymbol* FindScope(ParsingTreeNode* node)
-	{
-		if(!node) return 0;
-		int index=parsingTreeDecl->nodeTypeMap.Keys().IndexOf(node);
-		return index==-1?FindScope(node->GetParent()):parsingTreeDecl->nodeTypeMap.Values().Get(index);
-	}
-
-	TypeSymbol* FindType(TypeSymbol* scope, const WString& name)
-	{
-		if(!scope) return 0;
-		if(name==L"") return 0;
-		int index=scope->subTypes.Keys().IndexOf(name);
-		if(index!=-1) return scope->subTypes.Values().Get(index).Obj();
-		return FindType(scope->parent, name);
-	}
-
-	TypeSymbol* FindType(TypeSymbol* scope, ParsingTreeObject* object)
-	{
-		if(scope && object)
-		{
-			Ptr<ParsingTreeToken> name=object->GetMember(L"name").Cast<ParsingTreeToken>();
-			if(name)
-			{
-				WString typeName=name->GetValue();
-				if(object->GetType()==L"PrimitiveTypeObj")
-				{
-					return FindType(scope, typeName);
-				}
-				else if(object->GetType()==L"SubTypeObj")
-				{
-					TypeSymbol* type=FindType(scope, object->GetMember(L"parentType").Cast<ParsingTreeObject>().Obj());
-					if(type)
-					{
-						int index=type->subTypes.Keys().IndexOf(typeName);
-						if(index!=-1) return type->subTypes.Values().Get(index).Obj();
-					}
-				}
-			}
-		}
-		return 0;
-	}
-
-	void OnParsingFinished(bool generatedNewNode, RepeatingParsingExecutor* parsingExecutor)override
-	{
-		if(generatedNewNode)
-		{
-			Ptr<ParsingTreeObject> node=parsingExecutor->ThreadSafeGetTreeNode();
-			parsingTreeDecl=new ParserDecl(node);
-			node=0;
-			parsingExecutor->ThreadSafeReturnTreeNode();
-		}
-		GuiGrammarColorizer::OnParsingFinished(generatedNewNode, parsingExecutor);
-	}
-
-	void OnSemanticColorize(ParsingTreeToken* foundToken, ParsingTreeObject* tokenParent, const WString& type, const WString& field, vint semantic, vint& token)override
-	{
-		if(semantic==semanticType)
-		{
-			TypeSymbol* scope=FindScope(tokenParent);
-			if(FindType(scope, tokenParent))
-			{
-				token=tokenIdType;
-			}
-		}
-		else if(semantic==semanticGrammar)
-		{
-			WString name=foundToken->GetValue();
-			if(parsingTreeDecl->tokens.Contains(name))
-			{
-				token=tokenIdToken;
-			}
-			else if(parsingTreeDecl->rules.Contains(name))
-			{
-				token=tokenIdRule;
-			}
-		}
-	}
 public:
-	ParserGrammarColorizer()
-		:GuiGrammarColorizer(CreateBootstrapAutoRecoverParser(), L"ParserDecl")
+	ParserGrammarColorizer(Ptr<ParserGrammarExecutor> executor)
+		:GuiGrammarColorizer(executor)
 	{
 		SetColor(L"Keyword", Color(0, 0, 255));
 		SetColor(L"Attribute", Color(0, 0, 255));
@@ -208,17 +278,6 @@ public:
 		SetColor(L"Token", Color(163, 73, 164));
 		SetColor(L"Rule", Color(255, 127, 39));
 		EndSetColors();
-
-		tokenIdType=GetTokenId(L"Type");
-		tokenIdToken=GetTokenId(L"Token");
-		tokenIdRule=GetTokenId(L"Rule");
-		semanticType=GetSemanticId(L"Type");
-		semanticGrammar=GetSemanticId(L"Grammar");
-	}
-
-	~ParserGrammarColorizer()
-	{
-		EnsureColorizerFinished();
 	}
 };
 
@@ -242,7 +301,7 @@ public:
 		textBoxEditor->SetVerticalAlwaysVisible(false);
 		textBoxEditor->SetHorizontalAlwaysVisible(false);
 		textBoxEditor->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
-		textBoxEditor->SetColorizer(new ParserGrammarColorizer);
+		textBoxEditor->SetColorizer(new ParserGrammarColorizer(new ParserGrammarExecutor));
 		this->GetBoundsComposition()->AddChild(textBoxEditor->GetBoundsComposition());
 
 		{

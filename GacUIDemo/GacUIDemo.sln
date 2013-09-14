@@ -52,8 +52,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rendering.RawAPI.Direct2D",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rendering.TextLayout.RichText", "Rendering.TextLayout.RichText\Rendering.TextLayout.RichText.vcxproj", "{6AB710A6-1530-4D9B-B954-E772B69E7373}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TextBox.AdvancedColorizer", "Controls.TextBox.AdvancedColorizer\Controls.TextBox.AdvancedColorizer.vcxproj", "{937ABCE3-B803-49EB-B907-CE72C123435B}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.Tooltip.RichTextAndResource", "Controls.Tooltip.RichTextAndResource\Controls.Tooltip.RichTextAndResource.vcxproj", "{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Persistant", "Persistant", "{52446C02-0696-4691-95FD-5E737EECBE67}"
@@ -68,8 +66,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DatePicker.DateAnd
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.DataGrid.TableEditor", "Controls.DataGrid.TableEditor\Controls.DataGrid.TableEditor.vcxproj", "{DBC36C55-96C5-403A-AACC-D71B6D841A4D}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Controls.TextBox.ContextColorizer", "Controls.TextBox.ContextColorizer\Controls.TextBox.ContextColorizer.vcxproj", "{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Editor", "Editor", "{EBECB34C-801E-43D7-9FDF-EDE249CF053D}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.Colorizer.Xml", "Editor.Colorizer.Xml\Editor.Colorizer.Xml.vcxproj", "{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}"
@@ -78,9 +74,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.Colorizer.Json", "Ed
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.Colorizer.Grammar", "Editor.Colorizer.Grammar\Editor.Colorizer.Grammar.vcxproj", "{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Editor.AutoComplete.Grammar", "Editor.AutoComplete.Grammar\Editor.AutoComplete.Grammar.vcxproj", "{35F9BA10-1A66-4120-8E0E-749979249C8D}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 33
+		SccNumberOfProjects = 32
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -166,50 +164,46 @@ Global
 		SccProjectTopLevelParentUniqueName21 = GacUIDemo.sln
 		SccProjectName21 = Rendering.TextLayout.RichText
 		SccLocalPath21 = Rendering.TextLayout.RichText
-		SccProjectUniqueName22 = Controls.TextBox.AdvancedColorizer\\Controls.TextBox.AdvancedColorizer.vcxproj
+		SccProjectUniqueName22 = Controls.Tooltip.RichTextAndResource\\Controls.Tooltip.RichTextAndResource.vcxproj
 		SccProjectTopLevelParentUniqueName22 = GacUIDemo.sln
-		SccProjectName22 = Controls.TextBox.AdvancedColorizer
-		SccLocalPath22 = Controls.TextBox.AdvancedColorizer
-		SccProjectUniqueName23 = Controls.Tooltip.RichTextAndResource\\Controls.Tooltip.RichTextAndResource.vcxproj
+		SccProjectName22 = Controls.Tooltip.RichTextAndResource
+		SccLocalPath22 = Controls.Tooltip.RichTextAndResource
+		SccProjectUniqueName23 = Persistant.DirectCode.SimpleWindow\\Persistant.DirectCode.SimpleWindow.vcxproj
 		SccProjectTopLevelParentUniqueName23 = GacUIDemo.sln
-		SccProjectName23 = Controls.Tooltip.RichTextAndResource
-		SccLocalPath23 = Controls.Tooltip.RichTextAndResource
-		SccProjectUniqueName24 = Persistant.DirectCode.SimpleWindow\\Persistant.DirectCode.SimpleWindow.vcxproj
+		SccProjectName23 = Persistant.DirectCode.SimpleWindow
+		SccLocalPath23 = Persistant.DirectCode.SimpleWindow
+		SccProjectUniqueName24 = Controls.DataGrid.ChemicalElements\\Controls.DataGrid.ChemicalElements.vcxproj
 		SccProjectTopLevelParentUniqueName24 = GacUIDemo.sln
-		SccProjectName24 = Persistant.DirectCode.SimpleWindow
-		SccLocalPath24 = Persistant.DirectCode.SimpleWindow
-		SccProjectUniqueName25 = Controls.DataGrid.ChemicalElements\\Controls.DataGrid.ChemicalElements.vcxproj
+		SccProjectName24 = Controls.DataGrid.ChemicalElements
+		SccLocalPath24 = Controls.DataGrid.ChemicalElements
+		SccProjectUniqueName25 = Controls.DataGrid.FileExplorer\\Controls.DataGrid.FileExplorer.vcxproj
 		SccProjectTopLevelParentUniqueName25 = GacUIDemo.sln
-		SccProjectName25 = Controls.DataGrid.ChemicalElements
-		SccLocalPath25 = Controls.DataGrid.ChemicalElements
-		SccProjectUniqueName26 = Controls.DataGrid.FileExplorer\\Controls.DataGrid.FileExplorer.vcxproj
+		SccProjectName25 = Controls.DataGrid.FileExplorer
+		SccLocalPath25 = Controls.DataGrid.FileExplorer
+		SccProjectUniqueName26 = Controls.DatePicker.DateAndLocale\\Controls.DatePicker.DateAndLocale.vcxproj
 		SccProjectTopLevelParentUniqueName26 = GacUIDemo.sln
-		SccProjectName26 = Controls.DataGrid.FileExplorer
-		SccLocalPath26 = Controls.DataGrid.FileExplorer
-		SccProjectUniqueName27 = Controls.DatePicker.DateAndLocale\\Controls.DatePicker.DateAndLocale.vcxproj
+		SccProjectName26 = Controls.DatePicker.DateAndLocale
+		SccLocalPath26 = Controls.DatePicker.DateAndLocale
+		SccProjectUniqueName27 = Controls.DataGrid.TableEditor\\Controls.DataGrid.TableEditor.vcxproj
 		SccProjectTopLevelParentUniqueName27 = GacUIDemo.sln
-		SccProjectName27 = Controls.DatePicker.DateAndLocale
-		SccLocalPath27 = Controls.DatePicker.DateAndLocale
-		SccProjectUniqueName28 = Controls.DataGrid.TableEditor\\Controls.DataGrid.TableEditor.vcxproj
+		SccProjectName27 = Controls.DataGrid.TableEditor
+		SccLocalPath27 = Controls.DataGrid.TableEditor
+		SccProjectUniqueName28 = Editor.Colorizer.Xml\\Editor.Colorizer.Xml.vcxproj
 		SccProjectTopLevelParentUniqueName28 = GacUIDemo.sln
-		SccProjectName28 = Controls.DataGrid.TableEditor
-		SccLocalPath28 = Controls.DataGrid.TableEditor
-		SccProjectUniqueName29 = Controls.TextBox.ContextColorizer\\Controls.TextBox.ContextColorizer.vcxproj
+		SccProjectName28 = Editor.Colorizer.Xml
+		SccLocalPath28 = Editor.Colorizer.Xml
+		SccProjectUniqueName29 = Editor.Colorizer.Json\\Editor.Colorizer.Json.vcxproj
 		SccProjectTopLevelParentUniqueName29 = GacUIDemo.sln
-		SccProjectName29 = Controls.TextBox.ContextColorizer
-		SccLocalPath29 = Controls.TextBox.ContextColorizer
-		SccProjectUniqueName30 = Editor.Colorizer.Xml\\Editor.Colorizer.Xml.vcxproj
+		SccProjectName29 = Editor.Colorizer.Json
+		SccLocalPath29 = Editor.Colorizer.Json
+		SccProjectUniqueName30 = Editor.Colorizer.Grammar\\Editor.Colorizer.Grammar.vcxproj
 		SccProjectTopLevelParentUniqueName30 = GacUIDemo.sln
-		SccProjectName30 = Editor.Colorizer.Xml
-		SccLocalPath30 = Editor.Colorizer.Xml
-		SccProjectUniqueName31 = Editor.Colorizer.Json\\Editor.Colorizer.Json.vcxproj
+		SccProjectName30 = Editor.Colorizer.Grammar
+		SccLocalPath30 = Editor.Colorizer.Grammar
+		SccProjectUniqueName31 = Editor.AutoComplete.Grammar\\Editor.AutoComplete.Grammar.vcxproj
 		SccProjectTopLevelParentUniqueName31 = GacUIDemo.sln
-		SccProjectName31 = Editor.Colorizer.Json
-		SccLocalPath31 = Editor.Colorizer.Json
-		SccProjectUniqueName32 = Editor.Colorizer.Grammar\\Editor.Colorizer.Grammar.vcxproj
-		SccProjectTopLevelParentUniqueName32 = GacUIDemo.sln
-		SccProjectName32 = Editor.Colorizer.Grammar
-		SccLocalPath32 = Editor.Colorizer.Grammar
+		SccProjectName31 = Editor.AutoComplete.Grammar
+		SccLocalPath31 = Editor.AutoComplete.Grammar
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -300,10 +294,6 @@ Global
 		{6AB710A6-1530-4D9B-B954-E772B69E7373}.Debug|Win32.Build.0 = Debug|Win32
 		{6AB710A6-1530-4D9B-B954-E772B69E7373}.Release|Win32.ActiveCfg = Release|Win32
 		{6AB710A6-1530-4D9B-B954-E772B69E7373}.Release|Win32.Build.0 = Release|Win32
-		{937ABCE3-B803-49EB-B907-CE72C123435B}.Debug|Win32.ActiveCfg = Debug|Win32
-		{937ABCE3-B803-49EB-B907-CE72C123435B}.Debug|Win32.Build.0 = Debug|Win32
-		{937ABCE3-B803-49EB-B907-CE72C123435B}.Release|Win32.ActiveCfg = Release|Win32
-		{937ABCE3-B803-49EB-B907-CE72C123435B}.Release|Win32.Build.0 = Release|Win32
 		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Debug|Win32.ActiveCfg = Debug|Win32
 		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Debug|Win32.Build.0 = Debug|Win32
 		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2}.Release|Win32.ActiveCfg = Release|Win32
@@ -328,10 +318,6 @@ Global
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Debug|Win32.Build.0 = Debug|Win32
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Release|Win32.ActiveCfg = Release|Win32
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D}.Release|Win32.Build.0 = Release|Win32
-		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Debug|Win32.ActiveCfg = Debug|Win32
-		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Debug|Win32.Build.0 = Debug|Win32
-		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Release|Win32.ActiveCfg = Release|Win32
-		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34}.Release|Win32.Build.0 = Release|Win32
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Debug|Win32.ActiveCfg = Debug|Win32
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Debug|Win32.Build.0 = Debug|Win32
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6}.Release|Win32.ActiveCfg = Release|Win32
@@ -344,6 +330,10 @@ Global
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Debug|Win32.Build.0 = Debug|Win32
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Release|Win32.ActiveCfg = Release|Win32
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F}.Release|Win32.Build.0 = Release|Win32
+		{35F9BA10-1A66-4120-8E0E-749979249C8D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{35F9BA10-1A66-4120-8E0E-749979249C8D}.Debug|Win32.Build.0 = Debug|Win32
+		{35F9BA10-1A66-4120-8E0E-749979249C8D}.Release|Win32.ActiveCfg = Release|Win32
+		{35F9BA10-1A66-4120-8E0E-749979249C8D}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -364,13 +354,11 @@ Global
 		{C390D034-C335-409E-92E6-41740D71349D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{EA1C16BF-1A9D-4DB1-8F9A-B32C53047164} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{1BFCF112-1FA5-404B-9CDD-77F9D8E38BE3} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
-		{937ABCE3-B803-49EB-B907-CE72C123435B} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{1678389A-7D53-4B43-AE3A-BBDA38D69DE2} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{D7996415-9D41-4679-9EC6-DDCF925C4B31} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{08387724-9751-4E0F-8195-6275084DB0CF} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{83460DD2-D59B-46FC-89AC-EAB90CD4B7D8} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{DBC36C55-96C5-403A-AACC-D71B6D841A4D} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
-		{00583C2B-BEDD-4582-B9AD-DC26F2A7CB34} = {4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}
 		{ED487B28-E445-464D-A09A-97BC9E57FC8D} = {B05A7B62-D27C-48B3-9AA6-AC15ABC38BD8}
 		{1AAAFFB1-0E0C-4D06-B18E-AC3816F97217} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{FBAA9433-4B1B-44FF-8EC9-F7C037859ABC} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
@@ -379,5 +367,6 @@ Global
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
+		{35F9BA10-1A66-4120-8E0E-749979249C8D} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 	EndGlobalSection
 EndGlobal

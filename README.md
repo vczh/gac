@@ -1,4 +1,4 @@
-# Gaclib 0.5.3.0
+# Gaclib 0.5.4.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -15,12 +15,7 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Add 4 demos
-    * **Controls.TextBox.ContextColorizer**
-    * **Editor.Colorizer.Xml**
-    * **Editor.Colorizer.Json**
-    * **Editor.Colorizer.Grammar**
+* Add 1 demos
+    * **Editor.AutoComplete.Grammar**
 * Added new features
-    * **GuiGrammarColorizer**
-* Fixed bugs
-    * Reflectable classes owns reference counter
+    * **GuiGrammarAutoComplete**

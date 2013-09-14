@@ -269,6 +269,21 @@ GuiApplication
 				return GetCurrentController()->AsyncService()->DelayExecuteInMainThread(proc, milliseconds);
 			}
 
+			void GuiApplication::RunGuiTask(const Func<void()>& proc)
+			{
+				if(IsInMainThread())
+				{
+					return proc();
+				}
+				else
+				{
+					InvokeInMainThreadAndWait([&proc]()
+					{
+						proc();
+					});
+				}
+			}
+
 /***********************************************************************
 Helpers
 ***********************************************************************/
@@ -298,6 +313,7 @@ Helpers
 				}
 
 				description::LoadPredefinedTypes();
+				description::LoadParsingTypes();
 				description::LoadGuiBasicTypes();
 				description::LoadGuiElementTypes();
 				description::LoadGuiCompositionTypes();
@@ -2624,6 +2640,7 @@ GuiControlHost
 
 				host=new GuiGraphicsHost;
 				host->GetMainComposition()->AddChild(GetStyleController()->GetBoundsComposition());
+				sharedPtrDestructorProc=0;
 			}
 
 			GuiControlHost::~GuiControlHost()
@@ -3362,6 +3379,57 @@ GuiPopup
 					ShowDeactivated();
 				}
 			}
+			
+			void GuiPopup::ShowPopup(GuiControl* control, Rect bounds, bool preferredTopBottomSide)
+			{
+				INativeWindow* window=GetNativeWindow();
+				if(window)
+				{
+					Point locations[4];
+					Size size=window->GetBounds().GetSize();
+
+					GuiControlHost* controlHost=control->GetBoundsComposition()->GetRelatedControlHost();
+					if(controlHost)
+					{
+						INativeWindow* controlWindow=controlHost->GetNativeWindow();
+						if(controlWindow)
+						{
+							Point controlClientOffset=control->GetBoundsComposition()->GetGlobalBounds().LeftTop();
+							Point controlWindowOffset=controlWindow->GetClientBoundsInScreen().LeftTop();
+							bounds.x1+=controlClientOffset.x+controlWindowOffset.x;
+							bounds.x2+=controlClientOffset.x+controlWindowOffset.x;
+							bounds.y1+=controlClientOffset.y+controlWindowOffset.y;
+							bounds.y2+=controlClientOffset.y+controlWindowOffset.y;
+
+							if(preferredTopBottomSide)
+							{
+								locations[0]=Point(bounds.x1, bounds.y2);
+								locations[1]=Point(bounds.x2-size.x, bounds.y2);
+								locations[2]=Point(bounds.x1, bounds.y1-size.y);
+								locations[3]=Point(bounds.x2-size.x, bounds.y1-size.y);
+							}
+							else
+							{
+								locations[0]=Point(bounds.x2, bounds.y1);
+								locations[1]=Point(bounds.x2, bounds.y2-size.y);
+								locations[2]=Point(bounds.x1-size.x, bounds.y1);
+								locations[3]=Point(bounds.x1-size.x, bounds.y2-size.y);
+							}
+
+							window->SetParent(controlWindow);
+							for(vint i=0;i<4;i++)
+							{
+								if(!IsClippedByScreen(locations[i]))
+								{
+									ShowPopup(locations[i]);
+									return;
+								}
+							}
+							ShowPopup(locations[0]);
+						}
+					}
+				}
+			}
 
 			void GuiPopup::ShowPopup(GuiControl* control, Point location)
 			{
@@ -3393,49 +3461,9 @@ GuiPopup
 				INativeWindow* window=GetNativeWindow();
 				if(window)
 				{
-					Point locations[4];
 					Size size=window->GetBounds().GetSize();
-					Rect controlBounds=control->GetBoundsComposition()->GetGlobalBounds();
-
-					GuiControlHost* controlHost=control->GetBoundsComposition()->GetRelatedControlHost();
-					if(controlHost)
-					{
-						INativeWindow* controlWindow=controlHost->GetNativeWindow();
-						if(controlWindow)
-						{
-							Point controlClientOffset=controlWindow->GetClientBoundsInScreen().LeftTop();
-							controlBounds.x1+=controlClientOffset.x;
-							controlBounds.x2+=controlClientOffset.x;
-							controlBounds.y1+=controlClientOffset.y;
-							controlBounds.y2+=controlClientOffset.y;
-
-							if(preferredTopBottomSide)
-							{
-								locations[0]=Point(controlBounds.x1, controlBounds.y2);
-								locations[1]=Point(controlBounds.x2-size.x, controlBounds.y2);
-								locations[2]=Point(controlBounds.x1, controlBounds.y1-size.y);
-								locations[3]=Point(controlBounds.x2-size.x, controlBounds.y1-size.y);
-							}
-							else
-							{
-								locations[0]=Point(controlBounds.x2, controlBounds.y1);
-								locations[1]=Point(controlBounds.x2, controlBounds.y2-size.y);
-								locations[2]=Point(controlBounds.x1-size.x, controlBounds.y1);
-								locations[3]=Point(controlBounds.x1-size.x, controlBounds.y2-size.y);
-							}
-
-							window->SetParent(controlWindow);
-							for(vint i=0;i<4;i++)
-							{
-								if(!IsClippedByScreen(locations[i]))
-								{
-									ShowPopup(locations[i]);
-									return;
-								}
-							}
-							ShowPopup(locations[0]);
-						}
-					}
+					Rect bounds(Point(0, 0), control->GetBoundsComposition()->GetBounds().GetSize());
+					ShowPopup(control, bounds, preferredTopBottomSide);
 				}
 			}
 
@@ -21088,6 +21116,1326 @@ GuiDocumentLabel
 }
 
 /***********************************************************************
+Controls\TextEditorPackage\GuiTextAutoComplete.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+			using namespace elements;
+			using namespace elements::text;
+			using namespace compositions;
+			using namespace regex;
+			using namespace parsing;
+			using namespace parsing::tabling;
+			using namespace collections;
+
+/***********************************************************************
+GuiTextBoxAutoCompleteBase
+***********************************************************************/
+
+			bool GuiTextBoxAutoCompleteBase::IsPrefix(const WString& prefix, const WString& candidate)
+			{
+				if(candidate.Length()>=prefix.Length())
+				{
+					if(INVLOC.Compare(prefix, candidate.Sub(0, prefix.Length()), Locale::IgnoreCase)==0)
+					{
+						return true;
+					}
+				}
+				return false;
+			}
+
+			GuiTextBoxAutoCompleteBase::GuiTextBoxAutoCompleteBase()
+				:element(0)
+				,elementModifyLock(0)
+				,ownerComposition(0)
+			{
+				autoCompleteList=new GuiTextList(theme::GetCurrentTheme()->CreateTextListStyle(), theme::GetCurrentTheme()->CreateTextListItemStyle());
+				autoCompleteList->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
+				autoCompleteList->SetHorizontalAlwaysVisible(false);
+				autoCompleteList->SetVerticalAlwaysVisible(false);
+
+				autoCompletePopup=new GuiPopup(theme::GetCurrentTheme()->CreateMenuStyle());
+				autoCompletePopup->AddChild(autoCompleteList);
+			}
+
+			GuiTextBoxAutoCompleteBase::~GuiTextBoxAutoCompleteBase()
+			{
+				delete autoCompletePopup;
+			}
+
+			void GuiTextBoxAutoCompleteBase::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock, compositions::GuiGraphicsComposition* _ownerComposition, vuint editVersion)
+			{
+				if(_element)
+				{
+					SPIN_LOCK(_elementModifyLock)
+					{
+						element=_element;
+						elementModifyLock=&_elementModifyLock;
+						ownerComposition=_ownerComposition;
+					}
+				}
+			}
+
+			void GuiTextBoxAutoCompleteBase::Detach()
+			{
+				if(element && elementModifyLock)
+				{
+					SPIN_LOCK(*elementModifyLock)
+					{
+						element=0;
+						elementModifyLock=0;
+					}
+				}
+			}
+
+			void GuiTextBoxAutoCompleteBase::TextEditPreview(TextEditPreviewStruct& arguments)
+			{
+			}
+
+			void GuiTextBoxAutoCompleteBase::TextEditNotify(const TextEditNotifyStruct& arguments)
+			{
+				if(element && elementModifyLock)
+				{
+					if(IsListOpening())
+					{
+						TextPos begin=GetListStartPosition();
+						TextPos end=arguments.inputEnd;
+						WString editingText=element->GetLines().GetText(begin, end);
+						HighlightList(editingText);
+					}
+				}
+			}
+
+			void GuiTextBoxAutoCompleteBase::TextCaretChanged(const TextCaretChangedStruct& arguments)
+			{
+			}
+
+			void GuiTextBoxAutoCompleteBase::TextEditFinished(vuint editVersion)
+			{
+			}
+
+			bool GuiTextBoxAutoCompleteBase::IsListOpening()
+			{
+				return autoCompletePopup->GetOpening();
+			}
+
+			void GuiTextBoxAutoCompleteBase::OpenList(TextPos startPosition)
+			{
+				if(element && elementModifyLock)
+				{
+					autoCompleteStartPosition=startPosition;
+					Rect bounds=element->GetLines().GetRectFromTextPos(startPosition);
+					Point viewPosition=element->GetViewPosition();
+					GuiControl* ownerControl=ownerComposition->GetRelatedControl();
+					Rect compositionBounds=ownerComposition->GetGlobalBounds();
+					Rect controlBounds=ownerControl->GetBoundsComposition()->GetGlobalBounds();
+					vint px=compositionBounds.x1-controlBounds.x1-viewPosition.x;
+					vint py=compositionBounds.y1-controlBounds.y1-viewPosition.y;
+					bounds.x1+=px;
+					bounds.x2+=px;
+					bounds.y1+=py+5;
+					bounds.y2+=py+5;
+					autoCompletePopup->ShowPopup(ownerControl, bounds, true);
+				}
+			}
+
+			void GuiTextBoxAutoCompleteBase::CloseList()
+			{
+				autoCompletePopup->Close();
+			}
+
+			void GuiTextBoxAutoCompleteBase::SetListContent(const collections::SortedList<WString>& items)
+			{
+				if(items.Count()==0)
+				{
+					CloseList();
+				}
+				List<WString> sortedItems;
+				CopyFrom(
+					sortedItems,
+					From(items)
+						.OrderBy([](const WString& a, const WString& b)
+						{
+							return INVLOC.Compare(a, b, Locale::IgnoreCase);
+						})
+					);
+
+				autoCompleteList->GetItems().Clear();
+				CopyFrom(
+					autoCompleteList->GetItems(),
+					From(sortedItems)
+						.Select([](const WString& item)
+						{
+							return new list::TextItem(item);
+						})
+					);
+				autoCompleteList->GetBoundsComposition()->SetPreferredMinSize(Size(200, 200));
+			}
+
+			TextPos GuiTextBoxAutoCompleteBase::GetListStartPosition()
+			{
+				return autoCompleteStartPosition;
+			}
+
+			bool GuiTextBoxAutoCompleteBase::SelectPreviousListItem()
+			{
+				if(!IsListOpening()) return false;
+				if(autoCompleteList->GetSelectedItems().Count()==0)
+				{
+					autoCompleteList->SetSelected(0, true);
+				}
+				else
+				{
+					vint index=autoCompleteList->GetSelectedItems()[0];
+					if(index>0) index--;
+					autoCompleteList->SetSelected(index, true);
+				}
+				return true;
+			}
+
+			bool GuiTextBoxAutoCompleteBase::SelectNextListItem()
+			{
+				if(!IsListOpening()) return false;
+				if(autoCompleteList->GetSelectedItems().Count()==0)
+				{
+					autoCompleteList->SetSelected(0, true);
+				}
+				else
+				{
+					vint index=autoCompleteList->GetSelectedItems()[0];
+					if(index<autoCompleteList->GetItems().Count()-1) index++;
+					autoCompleteList->SetSelected(index, true);
+				}
+				return true;
+			}
+
+			bool GuiTextBoxAutoCompleteBase::ApplySelectedListItem()
+			{
+				if(!IsListOpening()) return false;
+				if(!ownerComposition) return false;
+				if(autoCompleteList->GetSelectedItems().Count()==0) return false;
+				GuiTextBoxCommonInterface* ci=dynamic_cast<GuiTextBoxCommonInterface*>(ownerComposition->GetRelatedControl());
+				if(!ci) return false;
+
+				vint index=autoCompleteList->GetSelectedItems()[0];
+				WString selectedItem=autoCompleteList->GetItems()[index]->GetText();
+				TextPos begin=autoCompleteStartPosition;
+				TextPos end=ci->GetCaretEnd();
+				ci->Select(begin, end);
+				ci->SetSelectionText(selectedItem);
+				CloseList();
+				return true;
+			}
+
+			WString GuiTextBoxAutoCompleteBase::GetSelectedListItem()
+			{
+				if(!IsListOpening()) return L"";
+				if(autoCompleteList->GetSelectedItems().Count()==0) return L"";
+				vint index=autoCompleteList->GetSelectedItems()[0];
+				return autoCompleteList->GetItems()[index]->GetText();
+			}
+
+			void GuiTextBoxAutoCompleteBase::HighlightList(const WString& editingText)
+			{
+				if(IsListOpening())
+				{
+					vint first=0;
+					vint last=autoCompleteList->GetItems().Count()-1;
+					vint selected=-1;
+
+					while(first<=last)
+					{
+						vint middle=(first+last)/2;
+						WString text=autoCompleteList->GetItems()[middle]->GetText();
+						if(IsPrefix(editingText, text))
+						{
+							selected=middle;
+							break;
+						}
+
+						vint result=INVLOC.Compare(editingText, text, Locale::IgnoreCase);
+						if(result<=0)
+						{
+							last=middle-1;
+						}
+						else
+						{
+							first=middle+1;
+						}
+					}
+
+					while(selected>0)
+					{
+						WString text=autoCompleteList->GetItems()[selected-1]->GetText();
+						if(IsPrefix(editingText, text))
+						{
+							selected--;
+						}
+						else
+						{
+							break;
+						}
+					}
+
+					if(selected!=-1)
+					{
+						autoCompleteList->SetSelected(selected, true);
+					}
+				}
+			}
+
+/***********************************************************************
+GuiGrammarAutoComplete
+***********************************************************************/
+
+			void GuiGrammarAutoComplete::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock, compositions::GuiGraphicsComposition* _ownerComposition, vuint editVersion)
+			{
+				GuiTextBoxAutoCompleteBase::Attach(_element, _elementModifyLock, _ownerComposition, editVersion);
+				RepeatingParsingExecutor::CallbackBase::Attach(_element, _elementModifyLock, _ownerComposition, editVersion);
+			}
+
+			void GuiGrammarAutoComplete::Detach()
+			{
+				GuiTextBoxAutoCompleteBase::Detach();
+				RepeatingParsingExecutor::CallbackBase::Detach();
+				if(element && elementModifyLock)
+				{
+					EnsureAutoCompleteFinished();
+				}
+			}
+
+			void GuiGrammarAutoComplete::TextEditPreview(TextEditPreviewStruct& arguments)
+			{
+				GuiTextBoxAutoCompleteBase::TextEditPreview(arguments);
+				RepeatingParsingExecutor::CallbackBase::TextEditPreview(arguments);
+
+				if(element && elementModifyLock)
+				{
+					if(IsListOpening() && arguments.keyInput && arguments.originalText==L"" && arguments.inputText!=L"")
+					{
+						WString selectedItem=GetSelectedListItem();
+						if(selectedItem!=L"")
+						{
+							TextPos begin=GetListStartPosition();
+							TextPos end=arguments.originalStart;
+							WString editingText=element->GetLines().GetText(begin, end);
+							editingText+=arguments.inputText;
+							if(grammarParser->GetTable()->GetLexer().Walk().IsClosedToken(editingText))
+							{
+								arguments.originalStart=begin;
+								arguments.inputText=selectedItem+arguments.inputText;
+								CloseList();
+							}
+						}
+					}
+				}
+			}
+
+			void GuiGrammarAutoComplete::TextEditNotify(const TextEditNotifyStruct& arguments)
+			{
+				GuiTextBoxAutoCompleteBase::TextEditNotify(arguments);
+				RepeatingParsingExecutor::CallbackBase::TextEditNotify(arguments);
+				if(element && elementModifyLock)
+				{
+					editing=true;
+					SPIN_LOCK(editTraceLock)
+					{
+						editTrace.Add(arguments);
+					}
+				}
+			}
+
+			void GuiGrammarAutoComplete::TextCaretChanged(const TextCaretChangedStruct& arguments)
+			{
+				GuiTextBoxAutoCompleteBase::TextCaretChanged(arguments);
+				RepeatingParsingExecutor::CallbackBase::TextCaretChanged(arguments);
+				if(element && elementModifyLock)
+				{
+					SPIN_LOCK(editTraceLock)
+					{
+						// queue a fake TextEditNotifyStruct
+						// a fake struct can be detected by (trace.originalText==L"" && trace.inputText==L"")
+						TextEditNotifyStruct trace;
+						trace.editVersion=arguments.editVersion;
+						trace.originalStart=arguments.oldBegin;
+						trace.originalEnd=arguments.oldEnd;
+						trace.inputStart=arguments.newBegin;
+						trace.inputEnd=arguments.newEnd;
+
+						// ensure trace.originalStart<=trace.originalEnd
+						if(trace.originalStart>trace.originalEnd)
+						{
+							TextPos temp=trace.originalStart;
+							trace.originalStart=trace.originalEnd;
+							trace.originalEnd=temp;
+						}
+						// ensure trace.inputStart<=trace.inputEnd
+						if(trace.inputStart>trace.inputEnd)
+						{
+							TextPos temp=trace.inputStart;
+							trace.inputStart=trace.inputEnd;
+							trace.inputEnd=temp;
+						}
+						editTrace.Add(trace);
+					}
+
+					SPIN_LOCK(contextLock)
+					{
+						if(context.input.node)
+						{
+							if(editing)
+							{
+								// if the current caret changing is caused by editing
+								// submit a task with valid editVersion and invalid node and code
+								RepeatingParsingOutput input;
+								input.editVersion=context.input.editVersion;
+								SubmitTask(input);
+							}
+							else if(context.input.editVersion=arguments.editVersion)
+							{
+								// if the current caret changing is not caused by editing
+								// submit a task with the previous input
+								SubmitTask(context.input);
+							}
+						}
+					}
+				}
+			}
+
+			void GuiGrammarAutoComplete::TextEditFinished(vuint editVersion)
+			{
+				GuiTextBoxAutoCompleteBase::TextEditFinished(editVersion);
+				RepeatingParsingExecutor::CallbackBase::TextEditFinished(editVersion);
+				if(element && elementModifyLock)
+				{
+					editing=false;
+				}
+			}
+
+			void GuiGrammarAutoComplete::OnParsingFinishedAsync(const RepeatingParsingOutput& arguments)
+			{
+				if(element && elementModifyLock)
+				{
+					GetApplication()->InvokeInMainThread([=]()
+					{
+						// submit a task if the RepeatingParsingExecutor notices a new parsing result
+						SubmitTask(arguments);
+					});
+				}
+			}
+
+			void GuiGrammarAutoComplete::CollectLeftRecursiveRules()
+			{
+				leftRecursiveRules.Clear();
+				Ptr<ParsingGeneralParser> parser=parsingExecutor->GetParser();
+				Ptr<ParsingTable> table=parser->GetTable();
+				vint stateCount=table->GetStateCount();
+				vint tokenCount=table->GetTokenCount();
+				for(vint i=0;i<stateCount;i++)
+				{
+					for(vint j=0;j<tokenCount;j++)
+					{
+						Ptr<ParsingTable::TransitionBag> bag=table->GetTransitionBag(i, j);
+						if(bag)
+						{
+							FOREACH(Ptr<ParsingTable::TransitionItem>, item, bag->transitionItems)
+							{
+								FOREACH(ParsingTable::Instruction, ins, item->instructions)
+								{
+									if(ins.instructionType==ParsingTable::Instruction::LeftRecursiveReduce)
+									{
+										if(!leftRecursiveRules.Contains(ins.creatorRule))
+										{
+											leftRecursiveRules.Add(ins.creatorRule);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			vint GuiGrammarAutoComplete::UnsafeGetEditTraceIndex(vuint editVersion)
+			{
+				// get the index of the latest TextEditNotifyStruct of a specified edit version
+				// this function should be called inside SPIN_LOCK(editTraceLock)
+				// perform a binary search
+				vint start=0;
+				vint end=editTrace.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					TextEditNotifyStruct& trace=editTrace[middle];
+
+					if(editVersion<trace.editVersion)
+					{
+						end=middle-1;
+					}
+					else if(editVersion>trace.editVersion)
+					{
+						start=middle+1;
+					}
+					else
+					{
+						// if multiple TextEditNotifyStruct is found, choose the latest one
+						while(middle<editTrace.Count()-1)
+						{
+							if(editTrace[middle+1].editVersion==editTrace[middle].editVersion)
+							{
+								middle++;
+							}
+							else
+							{
+								break;
+							}
+						}
+						return middle;
+					}
+				}
+				return -1;
+			}
+
+			TextPos GuiGrammarAutoComplete::ChooseCorrectTextPos(TextPos pos, const regex::RegexTokens& tokens)
+			{
+				Ptr<ParsingTable> table=grammarParser->GetTable();
+				RegexToken lastToken;
+				lastToken.reading=0;
+
+				FOREACH(RegexToken, token, tokens)
+				{
+					// we treat "class| Name" as editing the first token
+					if(TextPos(token.rowEnd, token.columnEnd+1)>=pos)
+					{
+						if(table->GetTableTokenIndex(token.token)!=-1 && lastToken.reading)
+						{
+							pos=TextPos(lastToken.rowStart, lastToken.columnStart);
+						}
+						break;
+					}
+					lastToken=token;
+				}
+				return pos;
+			}
+
+			void GuiGrammarAutoComplete::ExecuteRefresh(Context& newContext)
+			{
+				// process the input of a task is submitted not by text editing
+				// find the text selection by the edit version of the input
+				TextPos startPos, endPos;
+				{
+					SPIN_LOCK(editTraceLock)
+					{
+						vint traceIndex=UnsafeGetEditTraceIndex(newContext.input.editVersion);
+						if(traceIndex==-1) return;
+
+						TextEditNotifyStruct& trace=editTrace[traceIndex];
+						startPos=trace.inputStart;
+						endPos=trace.inputEnd;
+					}
+
+					const RegexLexer& lexer=grammarParser->GetTable()->GetLexer();
+					RegexTokens tokens=lexer.Parse(newContext.input.code);
+					startPos=ChooseCorrectTextPos(startPos, tokens);
+				}
+
+				// locate the deepest node using the text selection
+				ParsingTextPos start(startPos.row, startPos.column);
+				ParsingTextPos end(endPos.row, endPos.column);
+				ParsingTextRange range(start, end);
+				ParsingTreeNode* found=newContext.input.node->FindDeepestNode(range);
+				ParsingTreeObject* selectedNode=0;
+
+				// if the location failed, choose the root node
+				if(!found || startPos==TextPos(0, 0))
+				{
+					found=newContext.input.node.Obj();
+				}
+
+				if(!selectedNode)
+				{
+					// from the deepest node, traverse towards the root node
+					// find the deepest node whose created rule is a left recursive rule and whose parent is not
+					ParsingTreeObject* lrec=0;
+					ParsingTreeNode* current=found;
+					while(current)
+					{
+						ParsingTreeObject* obj=dynamic_cast<ParsingTreeObject*>(current);
+						if(obj)
+						{
+							FOREACH(WString, rule, obj->GetCreatorRules())
+							{
+								if(leftRecursiveRules.Contains(rule))
+								{
+									lrec=obj;
+									break;
+								}
+							}
+							if(obj && lrec && lrec!=obj)
+							{
+								selectedNode=lrec;
+								break;
+							}
+						}
+						current=current->GetParent();
+					}
+				}
+
+				if(!selectedNode)
+				{
+					// if there is no left recursive rule that creates the deepest node and all indirect parents
+					// choose the deepest ParsingTreeObject
+					ParsingTreeNode* current=found;
+					while(current)
+					{
+						ParsingTreeObject* obj=dynamic_cast<ParsingTreeObject*>(current);
+						if(obj)
+						{
+							selectedNode=obj;
+							break;
+						}
+						current=current->GetParent();
+					}
+				}
+
+				if(selectedNode)
+				{
+					// get the code range of the selected node
+					start=selectedNode->GetCodeRange().start;
+					end=selectedNode->GetCodeRange().end;
+
+					// get all properties from the selected node
+					newContext.rule=selectedNode->GetCreatorRules()[selectedNode->GetCreatorRules().Count()-1];
+					newContext.originalRange=selectedNode->GetCodeRange();
+					newContext.originalNode=dynamic_cast<ParsingTreeObject*>(selectedNode);
+					newContext.modifiedNode=newContext.originalNode;
+					newContext.modifiedEditVersion=newContext.input.editVersion;
+
+					// get the corresponding code of the selected node
+					if(start.index>=0 && end.index>=0)
+					{
+						newContext.modifiedCode=newContext.input.code.Sub(start.index, end.index-start.index+1).Buffer();
+					}
+				}
+			}
+
+			bool GuiGrammarAutoComplete::NormalizeTextPos(Context& newContext, elements::text::TextLines& lines, TextPos& pos)
+			{
+				// get the start position
+				TextPos start(newContext.originalRange.start.row, newContext.originalRange.start.column);
+
+				// get the end position of the end of lines
+				TextPos end
+					=lines.GetCount()<=1
+					?TextPos(start.row, start.column+lines.GetLine(0).dataLength)
+					:TextPos(start.row+lines.GetCount()-1, lines.GetLine(lines.GetCount()-1).dataLength)
+					;
+
+				if(start<=pos && pos<=end)
+				{
+					// if the pos is inside the range
+					// normalize the pos to a new coordinate that the beginning position of lines is (row=0, column=0)
+					pos.row-=start.row;
+					if(pos.row==0)
+					{
+						pos.column-=start.column;
+					}
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void GuiGrammarAutoComplete::ExecuteEdit(Context& newContext)
+			{
+				// process the input of a task is submitted by text editing
+				// this function make an approximiation to the context if the RepeatingParsingExecutor is not fast enough
+				// copy all TextEditNotifyStruct that is caused by a text editing before (and including) the edit version of the input
+				List<TextEditNotifyStruct> usedTrace;
+				{
+					SPIN_LOCK(editTraceLock)
+					{
+						CopyFrom(
+							usedTrace,
+							From(editTrace)
+								.Where([&newContext](const TextEditNotifyStruct& value)
+								{
+									return (value.originalText!=L"" || value.inputText!=L"") && value.editVersion>newContext.modifiedEditVersion;
+								})
+							);
+					}
+				}
+
+				// apply all modification to get the new modifiedCode
+				bool failed=false;
+				if(usedTrace.Count()>0)
+				{
+					if(usedTrace[0].editVersion!=newContext.modifiedEditVersion+1)
+					{
+						// failed if any TextEditNotifyStruct is missing 
+						failed=true;
+					}
+					else
+					{
+						// initialize a TextLines with the latest modifiedCode
+						text::TextLines lines;
+						lines.SetText(newContext.modifiedCode);
+						FOREACH(TextEditNotifyStruct, trace, usedTrace)
+						{
+							// apply a modification to lines
+							TextPos start=trace.originalStart;
+							TextPos end=trace.originalEnd;
+
+							// only if the modification is meaningful
+							if(NormalizeTextPos(newContext, lines, start) && NormalizeTextPos(newContext, lines, end))
+							{
+								lines.Modify(start, end, trace.inputText);
+							}
+							else
+							{
+								// otherwise, failed
+								failed=true;
+								break;
+							}
+						}
+						
+						if(!failed)
+						{
+							newContext.modifiedCode=lines.GetText();
+						}
+					}
+				}
+
+				if(failed)
+				{
+					// clear originalNode to notify that the current context goes wrong
+					newContext.originalNode=0;
+				}
+
+				if(usedTrace.Count()>0)
+				{
+					// update the edit version
+					newContext.modifiedEditVersion=usedTrace[usedTrace.Count()-1].editVersion;
+				}
+			}
+
+			void GuiGrammarAutoComplete::DeleteFutures(collections::List<parsing::tabling::ParsingState::Future*>& futures)
+			{
+				// delete all futures and clear the list
+				FOREACH(ParsingState::Future*, future, futures)
+				{
+					delete future;
+				}
+				futures.Clear();
+			}
+
+			regex::RegexToken* GuiGrammarAutoComplete::TraverseTransitions(
+				parsing::tabling::ParsingState& state,
+				parsing::tabling::ParsingTransitionCollector& transitionCollector,
+				TextPos stopPosition,
+				collections::List<parsing::tabling::ParsingState::Future*>& nonRecoveryFutures,
+				collections::List<parsing::tabling::ParsingState::Future*>& recoveryFutures
+				)
+			{
+				const List<ParsingState::TransitionResult>& transitions=transitionCollector.GetTransitions();
+				for(vint index=0;index<transitions.Count();index++)
+				{
+					const ParsingState::TransitionResult& transition=transitions[index];
+					switch(transition.transitionType)
+					{
+					case ParsingState::TransitionResult::AmbiguityBegin:
+						break;
+					case ParsingState::TransitionResult::AmbiguityBranch:
+						// ambiguity branches are not nested
+						// tokens in different braches are the same
+						// so we only need to run one branch, and skip the others
+						index=transitionCollector.GetAmbiguityEndFromBegin(transitionCollector.GetAmbiguityBeginFromBranch(index));
+						break;
+					case ParsingState::TransitionResult::AmbiguityEnd:
+						break;
+					case ParsingState::TransitionResult::ExecuteInstructions:
+						{
+							// test does the token reach the stop position
+							if(transition.token)
+							{
+								// we treat "A|B" as editing A if token A is endless, otherwise treated as editing B
+								TextPos tokenEnd(transition.token->rowEnd, transition.token->columnEnd+1);
+
+								// if the caret is not at the end of the token
+								if(tokenEnd>stopPosition)
+								{
+									// stop the traversing and return the editing token
+									return transition.token;
+								}
+								else if(tokenEnd==stopPosition)
+								{
+									// if the caret is at the end of the token, and it is a closed token
+									// e.g. identifier is not a closed token, string is a closed token
+									if(!grammarParser->GetTable()->GetLexer().Walk().IsClosedToken(transition.token->reading, transition.token->length))
+									{
+										// stop the traversing and return the editing token
+										return transition.token;
+									}
+								}
+							}
+
+							// traverse the PDA using the token specified in the current transition
+							vint tableTokenIndex=transition.tableTokenIndex;
+							List<ParsingState::Future*> possibilities;
+							if(recoveryFutures.Count()>0)
+							{
+								FOREACH(ParsingState::Future*, future, recoveryFutures)
+								{
+									state.Explore(tableTokenIndex, future, possibilities);
+								}
+							}
+							else
+							{
+								FOREACH(ParsingState::Future*, future, nonRecoveryFutures)
+								{
+									state.Explore(tableTokenIndex, future, possibilities);
+								}
+							}
+
+							// delete duplicated futures
+							List<ParsingState::Future*> selectedPossibilities;
+							for(vint i=0;i<possibilities.Count();i++)
+							{
+								ParsingState::Future* candidateFuture=possibilities[i];
+								bool duplicated=false;
+								FOREACH(ParsingState::Future*, future, selectedPossibilities)
+								{
+									if(
+										candidateFuture->currentState==future->currentState &&
+										candidateFuture->reduceStateCount==future->reduceStateCount &&
+										candidateFuture->shiftStates.Count()==future->shiftStates.Count()
+										)
+									{
+										bool same=true;
+										for(vint j=0;j<future->shiftStates.Count();j++)
+										{
+											if(candidateFuture->shiftStates[i]!=future->shiftStates[i])
+											{
+												same=false;
+												break;
+											}
+										}
+
+										if(duplicated=same)
+										{
+											break;
+										}
+									}
+								}
+
+								if(duplicated)
+								{
+									delete candidateFuture;
+								}
+								else
+								{
+									selectedPossibilities.Add(candidateFuture);
+								}
+							}
+
+							// step forward
+							if(transition.token || transition.tableTokenIndex==ParsingTable::TokenBegin)
+							{
+								DeleteFutures(nonRecoveryFutures);
+								DeleteFutures(recoveryFutures);
+								CopyFrom(nonRecoveryFutures, selectedPossibilities);
+							}
+							else
+							{
+								DeleteFutures(recoveryFutures);
+								CopyFrom(recoveryFutures, selectedPossibilities);
+							}
+						}
+						break;
+					}
+				}
+				return 0;
+			}
+
+			regex::RegexToken* GuiGrammarAutoComplete::SearchValidInputToken(
+				parsing::tabling::ParsingState& state,
+				parsing::tabling::ParsingTransitionCollector& transitionCollector,
+				TextPos stopPosition,
+				Context& newContext,
+				collections::SortedList<vint>& tableTokenIndices
+				)
+			{
+				// initialize the PDA state
+				state.Reset(newContext.rule);
+				List<ParsingState::Future*> nonRecoveryFutures, recoveryFutures;
+				nonRecoveryFutures.Add(state.ExploreCreateRootFuture());
+
+				// traverse the PDA until it reach the stop position
+				// nonRecoveryFutures store the state when the last token (existing) is reached
+				// recoveryFutures store the state when the last token (inserted by error recovery) is reached
+				RegexToken* token=TraverseTransitions(state, transitionCollector, stopPosition, nonRecoveryFutures, recoveryFutures);
+
+				// explore all possibilities from the last token before the stop position
+				List<ParsingState::Future*> possibilities;
+				FOREACH(ParsingState::Future*, future, nonRecoveryFutures)
+				{
+					vint count=state.GetTable()->GetTokenCount();
+					for(vint i=0;i<count;i++)
+					{
+						state.Explore(i, future, possibilities);
+					}
+				}
+
+				// get all possible tokens that marked using @AutoCompleteCandidate
+				FOREACH(ParsingState::Future*, future, possibilities)
+				{
+					if(!tableTokenIndices.Contains(future->selectedToken))
+					{
+						tableTokenIndices.Add(future->selectedToken);
+					}
+				}
+
+				// release all data
+				DeleteFutures(possibilities);
+				DeleteFutures(nonRecoveryFutures);
+				DeleteFutures(recoveryFutures);
+
+				// return the editing token
+				return token;
+			}
+
+			TextPos GuiGrammarAutoComplete::GlobalTextPosToModifiedTextPos(Context& newContext, TextPos pos)
+			{
+				pos.row-=newContext.originalRange.start.row;
+				if(pos.row==0)
+				{
+					pos.column-=newContext.originalRange.start.column;
+				}
+				return pos;
+			}
+
+			TextPos GuiGrammarAutoComplete::ModifiedTextPosToGlobalTextPos(Context& newContext, TextPos pos)
+			{
+				if(pos.row==0)
+				{
+					pos.column+=newContext.originalRange.start.column;
+				}
+				pos.row+=newContext.originalRange.start.row;
+				return pos;
+			}
+
+			void GuiGrammarAutoComplete::ExecuteCalculateList(Context& newContext)
+			{
+				// calcuate the content of the auto complete list
+				// it is sad that, because the parser's algorithm is too complex
+				// we need to reparse and track the internal state of the PDA(push-down automaton) here.
+				// initialize the PDA
+				ParsingState state(newContext.modifiedCode, grammarParser->GetTable());
+				state.Reset(newContext.rule);
+
+				// prepare to get all transitions
+				ParsingTransitionCollector collector;
+				List<Ptr<ParsingError>> errors;
+
+				// reparse and get all transitions during parsing
+				if(grammarParser->Parse(state, collector, errors))
+				{
+					// if modifiedNode is not prepared (the task is submitted because of text editing)
+					// use the transition to build the syntax tree
+					if(!newContext.modifiedNode)
+					{
+						ParsingTreeBuilder builder;
+						builder.Reset();
+						bool succeeded=true;
+						FOREACH(ParsingState::TransitionResult, transition, collector.GetTransitions())
+						{
+							if(!(succeeded=builder.Run(transition)))
+							{
+								break;
+							}
+						}
+
+						if(succeeded)
+						{
+							Ptr<ParsingTreeNode> parsedNode=builder.GetNode();
+							newContext.modifiedNode=parsedNode.Cast<ParsingTreeObject>();
+							newContext.modifiedNode->InitializeQueryCache();
+						}
+					}
+
+					if(newContext.modifiedNode)
+					{
+						// get the latest text editing trace
+						TextEditNotifyStruct trace;
+						SPIN_LOCK(editTraceLock)
+						{
+							vint index=UnsafeGetEditTraceIndex(newContext.modifiedEditVersion);
+							if(index==-1)
+							{
+								return;
+							}
+							else
+							{
+								trace=editTrace[index];
+							}
+						}
+						
+						// calculate the stop position for PDA traversing
+						TextPos stopPosition=GlobalTextPosToModifiedTextPos(newContext, trace.inputStart);
+
+						// find all possible token before the current caret using the PDA
+						Ptr<AutoCompleteData> autoComplete=new AutoCompleteData;
+						SortedList<vint> tableTokenIndices;
+						RegexToken* editingToken=SearchValidInputToken(state, collector, stopPosition, newContext, tableTokenIndices);
+
+						// collect all auto complete types
+						{
+							// collect all keywords that can be put into the auto complete list
+							FOREACH(vint, token, tableTokenIndices)
+							{
+								vint regexToken=token-ParsingTable::UserTokenStart;
+								if(regexToken>=0)
+								{
+									autoComplete->candidates.Add(regexToken);
+									if(parsingExecutor->GetTokenMetaData(regexToken).isCandidate)
+									{
+										autoComplete->shownCandidates.Add(regexToken);
+									}
+								}
+							}
+
+							// calculate the arranged stopPosition
+							if(editingToken)
+							{
+								TextPos tokenPos(editingToken->rowStart, editingToken->columnStart);
+								if(tokenPos<stopPosition)
+								{
+									stopPosition=tokenPos;
+								}
+							}
+
+							// calculate the start/end position for PDA traversing
+							TextPos startPos, endPos;
+							{
+								startPos=ModifiedTextPosToGlobalTextPos(newContext, stopPosition);
+								autoComplete->startPosition=startPos;
+								endPos=trace.inputEnd;
+								if(newContext.modifiedNode!=newContext.originalNode)
+								{
+									startPos=GlobalTextPosToModifiedTextPos(newContext, startPos);
+									endPos=GlobalTextPosToModifiedTextPos(newContext, endPos);
+								}
+								if(startPos<endPos && endPos.column>0)
+								{
+									endPos.column--;
+								}
+							}
+
+							// calculate the auto complete type
+							if(editingToken && parsingExecutor->GetTokenMetaData(editingToken->token).hasAutoComplete)
+							{
+								ParsingTextRange range(ParsingTextPos(startPos.row, startPos.column), ParsingTextPos(endPos.row, endPos.column));
+								AutoCompleteData::RetriveContext(*autoComplete.Obj(), range, newContext.modifiedNode.Obj(), parsingExecutor.Obj());
+							}
+						}
+						newContext.autoComplete=autoComplete;
+					}
+				}
+			}
+
+			void GuiGrammarAutoComplete::Execute(const RepeatingParsingOutput& input)
+			{
+				SPIN_LOCK(contextLock)
+				{
+					if(input.editVersion<context.input.editVersion)
+					{
+						return;
+					}
+				}
+				Context newContext;
+				bool byGlobalCorrection=false;
+
+				if(input.node)
+				{
+					newContext.input=input;
+					ExecuteRefresh(newContext);
+					byGlobalCorrection=true;
+				}
+				else
+				{
+					SPIN_LOCK(contextLock)
+					{
+						newContext=context;
+						newContext.modifiedNode=0;
+						newContext.autoComplete=0;
+					}
+					if(newContext.originalNode)
+					{
+						ExecuteEdit(newContext);
+					}
+				}
+
+				if(newContext.originalNode)
+				{
+					ExecuteCalculateList(newContext);
+				}
+
+				SPIN_LOCK(contextLock)
+				{
+					context=newContext;
+				}
+				if(newContext.modifiedNode)
+				{
+					OnContextFinishedAsync(context);
+					GetApplication()->InvokeInMainThread([=]()
+					{
+						PostList(newContext, byGlobalCorrection);
+					});
+				}
+			}
+
+			void GuiGrammarAutoComplete::PostList(const Context& newContext, bool byGlobalCorrection)
+			{
+				bool openList=true;			// true: make the list visible
+				bool keepListState=false;	// true: don't change the list visibility
+				Ptr<AutoCompleteData> autoComplete=newContext.autoComplete;
+
+				// if failed to get the auto complete list, close
+				if(!autoComplete)
+				{
+					openList=false;
+				}
+				if(openList)
+				{
+					if(autoComplete->shownCandidates.Count()+autoComplete->candidateSymbols.Count()==0)
+					{
+						openList=false;
+					}
+				}
+				
+				TextPos startPosition, endPosition;
+				WString editingText;
+				if(openList)
+				{
+					SPIN_LOCK(editTraceLock)
+					{
+						// if the edit version is invalid, cancel
+						vint traceIndex=UnsafeGetEditTraceIndex(newContext.modifiedEditVersion);
+						if(traceIndex==-1)
+						{
+							return;
+						}
+						// an edit version has two trace at most, for text change and caret change, here we peak the text change
+						if(traceIndex>0 && editTrace[traceIndex-1].editVersion==context.modifiedEditVersion)
+						{
+							traceIndex--;
+						}
+						// if the edit version is not created by keyboard input, close
+						if(traceIndex>=0)
+						{
+							TextEditNotifyStruct& trace=editTrace[traceIndex];
+							if(!trace.keyInput)
+							{
+								openList=false;
+							}
+						}
+
+						// scan all traces from the calculation's edit version until now
+						if(openList)
+						{
+							keepListState=true;
+							startPosition=autoComplete->startPosition;
+							endPosition=editTrace[editTrace.Count()-1].inputEnd;
+							for(vint i=traceIndex;i<editTrace.Count();i++)
+							{
+								TextEditNotifyStruct& trace=editTrace[i];
+								// if there are no text change trace until now, don't change the list
+								if(trace.originalText!=L"" || trace.inputText!=L"")
+								{
+									keepListState=false;
+								}
+								// if the edit position goes before the start position of the auto complete, refresh
+								if(trace.inputEnd<=startPosition)
+								{
+									openList=false;
+									break;
+								}
+							}
+						}
+
+						if(traceIndex>0)
+						{
+							editTrace.RemoveRange(0, traceIndex);
+						}
+					}
+				}
+
+				// if there is a global correction send to the UI thread but the list is not opening, cancel
+				if(byGlobalCorrection && !IsListOpening())
+				{
+					return;
+				}
+
+				// if the input text from the start position to the current position crosses a token, close
+				if(openList && element)
+				{
+					editingText=element->GetLines().GetText(startPosition, endPosition);
+					if(grammarParser->GetTable()->GetLexer().Walk().IsClosedToken(editingText))
+					{
+						openList=false;
+					}
+				}
+
+				// calculate the content of the list
+				if((!keepListState && openList) || IsListOpening())
+				{
+					SortedList<WString> items;
+					// copy all candidate keywords
+					FOREACH(vint, token, autoComplete->shownCandidates)
+					{
+						WString literal=parsingExecutor->GetTokenMetaData(token).unescapedRegexText;
+						if(literal!=L"" && !items.Contains(literal))
+						{
+							items.Add(literal);
+						}
+					}
+					// copy all candidate symbols
+					if(autoComplete->acceptableSemanticIds)
+					{
+						FOREACH(Ptr<ParsingScopeSymbol>, symbol, autoComplete->candidateSymbols)
+						{
+							FOREACH(vint, semanticId, symbol->GetSemanticIds())
+							{
+								if(autoComplete->acceptableSemanticIds->Contains(semanticId))
+								{
+									// add all acceptable display of a symbol
+									// because a symbol can has multiple representation in different places
+									WString literal=symbol->GetDisplay(semanticId);
+									if(literal!=L"" && !items.Contains(literal))
+									{
+										items.Add(literal);
+									}
+								}
+							}
+						}
+					}
+					// fill the list
+					SetListContent(items);
+				}
+
+				// set the list state
+				if(!keepListState)
+				{
+					if(openList)
+					{
+						OpenList(startPosition);
+					}
+					else
+					{
+						CloseList();
+					}
+				}
+
+				if(IsListOpening())
+				{
+					HighlightList(editingText);
+				}
+			}
+
+			void GuiGrammarAutoComplete::OnContextFinishedAsync(Context& context)
+			{
+				Ptr<ILanguageProvider> languageProvider=parsingExecutor->GetLanguageProvider();
+				if(languageProvider)
+				{
+					if(context.autoComplete && context.autoComplete->acceptableSemanticIds)
+					{
+						ParsingTreeObject* originalNode=context.originalNode.Obj();
+						ParsingTreeObject* replacedNode=context.modifiedNode.Obj();
+						ParsingScopeSymbol* originalSymbol=0;
+						{
+							ParsingTreeNode* originalSymbolNode=originalNode;
+							while(originalSymbolNode && !originalSymbol)
+							{
+								originalSymbol=context.input.finder->GetSymbolFromNode(dynamic_cast<ParsingTreeObject*>(originalSymbolNode));
+								originalSymbolNode=originalSymbolNode->GetParent();
+							}
+						}
+						if(originalSymbol)
+						{
+							Ptr<ParsingScopeFinder> newFinder=new ParsingScopeFinder(new ParsingScopeFinder::IndirectSymbolMapper(0, 0, originalNode, replacedNode));
+							Ptr<ParsingScopeSymbol> replacedSymbol=languageProvider->CreateSymbolFromNode(newFinder->Obj(originalSymbol->GetNode()), GetParsingExecutor().Obj(), newFinder.Obj());
+				
+							if(replacedSymbol)
+							{
+								newFinder=new ParsingScopeFinder(new ParsingScopeFinder::IndirectSymbolMapper(originalSymbol, replacedSymbol.Obj(), originalNode, replacedNode));
+								newFinder->InitializeQueryCache(replacedSymbol.Obj(), context.input.finder.Obj());
+								LazyList<Ptr<ParsingScopeSymbol>> symbols=languageProvider->FindPossibleSymbols(context.autoComplete->tokenParent, context.autoComplete->field, newFinder.Obj());
+								CopyFrom(
+									context.autoComplete->candidateSymbols,
+									From(symbols)
+										.Where([&context](Ptr<ParsingScopeSymbol> symbol)
+										{
+											return From(symbol->GetSemanticIds()).Intersect(*context.autoComplete->acceptableSemanticIds.Obj()).First(-1)!=-1;
+										})
+									);
+							}
+						}
+					}
+				}
+			}
+
+			void GuiGrammarAutoComplete::EnsureAutoCompleteFinished()
+			{
+				parsingExecutor->EnsureTaskFinished();
+				SPIN_LOCK(contextLock)
+				{
+					context=Context();
+				}
+			}
+
+			void GuiGrammarAutoComplete::Initialize()
+			{
+				grammarParser=CreateAutoRecoverParser(parsingExecutor->GetParser()->GetTable());
+				CollectLeftRecursiveRules();
+				parsingExecutor->AttachCallback(this);
+			}
+
+			GuiGrammarAutoComplete::GuiGrammarAutoComplete(Ptr<RepeatingParsingExecutor> _parsingExecutor)
+				:RepeatingParsingExecutor::CallbackBase(_parsingExecutor)
+				,editing(false)
+			{
+				Initialize();
+			}
+
+			GuiGrammarAutoComplete::GuiGrammarAutoComplete(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule)
+				:RepeatingParsingExecutor::CallbackBase(new RepeatingParsingExecutor(_grammarParser, _grammarRule))
+				,editing(false)
+			{
+				Initialize();
+			}
+
+			GuiGrammarAutoComplete::~GuiGrammarAutoComplete()
+			{
+				EnsureAutoCompleteFinished();
+				parsingExecutor->DetachCallback(this);
+			}
+
+			Ptr<RepeatingParsingExecutor> GuiGrammarAutoComplete::GetParsingExecutor()
+			{
+				return parsingExecutor;
+			}
+		}
+	}
+}
+
+/***********************************************************************
 Controls\TextEditorPackage\GuiTextColorizer.cpp
 ***********************************************************************/
 
@@ -21121,12 +22469,12 @@ GuiTextBoxColorizerBase
 					vint lexerState=-1;
 					vint contextState=-1;
 
+					SPIN_LOCK(*colorizer->elementModifyLock)
 					{
-						SpinLock::Scope scope(*colorizer->elementModifyLock);
 						if(colorizer->colorizedLineCount>=colorizer->element->GetLines().GetCount())
 						{
 							colorizer->isColorizerRunning=false;
-							break;
+							goto CANCEL_COLORIZING;
 						}
 
 						lineIndex=colorizer->colorizedLineCount++;
@@ -21143,8 +22491,8 @@ GuiTextBoxColorizerBase
 
 					colorizer->ColorizeLineWithCRLF(lineIndex, text, colors, length+2, lexerState, contextState);
 
+					SPIN_LOCK(*colorizer->elementModifyLock)
 					{
-						SpinLock::Scope scope(*colorizer->elementModifyLock);
 						if(lineIndex<colorizer->colorizedLineCount && lineIndex<colorizer->element->GetLines().GetCount())
 						{
 							TextLine& line=colorizer->element->GetLines().GetLine(lineIndex);
@@ -21159,6 +22507,7 @@ GuiTextBoxColorizerBase
 						delete[] colors;
 					}
 				}
+			CANCEL_COLORIZING:
 				colorizer->colorizerRunningEvent.Leave();
 			}
 
@@ -21203,14 +22552,16 @@ GuiTextBoxColorizerBase
 				StopColorizerForever();
 			}
 
-			void GuiTextBoxColorizerBase::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)
+			void GuiTextBoxColorizerBase::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock, compositions::GuiGraphicsComposition* _ownerComposition, vuint editVersion)
 			{
 				if(_element)
 				{
-					SpinLock::Scope scope(_elementModifyLock);
-					element=_element;
-					elementModifyLock=&_elementModifyLock;
-					StartColorizer();
+					SPIN_LOCK(_elementModifyLock)
+					{
+						element=_element;
+						elementModifyLock=&_elementModifyLock;
+						StartColorizer();
+					}
 				}
 			}
 
@@ -21219,27 +22570,42 @@ GuiTextBoxColorizerBase
 				if(element && elementModifyLock)
 				{
 					StopColorizer(false);
-					SpinLock::Scope scope(*elementModifyLock);
-					element=0;
-					elementModifyLock=0;
+					SPIN_LOCK(*elementModifyLock)
+					{
+						element=0;
+						elementModifyLock=0;
+					}
 				}
 			}
 
-			void GuiTextBoxColorizerBase::TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)
+			void GuiTextBoxColorizerBase::TextEditPreview(TextEditPreviewStruct& arguments)
+			{
+			}
+
+			void GuiTextBoxColorizerBase::TextEditNotify(const TextEditNotifyStruct& arguments)
 			{
 				if(element && elementModifyLock)
 				{
-					SpinLock::Scope scope(*elementModifyLock);
-					vint line=originalStart.row<originalEnd.row?originalStart.row:originalEnd.row;
-					if(colorizedLineCount>line)
+					SPIN_LOCK(*elementModifyLock)
 					{
-						colorizedLineCount=line;
+						vint line
+							=arguments.originalStart.row<arguments.originalEnd.row
+							?arguments.originalStart.row
+							:arguments.originalEnd.row;
+						if(colorizedLineCount>line)
+						{
+							colorizedLineCount=line;
+						}
+						StartColorizer();
 					}
-					StartColorizer();
 				}
 			}
 
-			void GuiTextBoxColorizerBase::TextEditFinished()
+			void GuiTextBoxColorizerBase::TextCaretChanged(const TextCaretChangedStruct& arguments)
+			{
+			}
+
+			void GuiTextBoxColorizerBase::TextEditFinished(vuint editVersion)
 			{
 			}
 
@@ -21247,9 +22613,11 @@ GuiTextBoxColorizerBase
 			{
 				if(element && elementModifyLock)
 				{
-					SpinLock::Scope scope(*elementModifyLock);
-					colorizedLineCount=0;
-					StartColorizer();
+					SPIN_LOCK(*elementModifyLock)
+					{
+						colorizedLineCount=0;
+						StartColorizer();
+					}
 				}
 			}
 
@@ -21435,118 +22803,33 @@ GuiTextBoxRegexColorizer
 			}
 
 /***********************************************************************
-RepeatingParsingExecutor
-***********************************************************************/
-
-			void RepeatingParsingExecutor::Execute(const WString& input)
-			{
-				List<Ptr<ParsingError>> errors;
-				Ptr<ParsingTreeObject> node=grammarParser->Parse(input, grammarRule, errors).Cast<ParsingTreeObject>();
-				if(node)
-				{
-					node->InitializeQueryCache();
-
-					SpinLock::Scope scope(parsingTreeLock);
-					parsingTreeNode=node;
-				}
-
-				bool generatedNewNode=node;
-				node=0;
-				FOREACH(ICallback*, callback, callbacks)
-				{
-					callback->OnParsingFinished(generatedNewNode, this);
-				}
-			}
-
-			RepeatingParsingExecutor::RepeatingParsingExecutor(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule)
-				:grammarParser(_grammarParser)
-				,grammarRule(_grammarRule)
-			{
-			}
-
-			RepeatingParsingExecutor::~RepeatingParsingExecutor()
-			{
-				EnsureTaskFinished();
-				SpinLock::Scope scope(parsingTreeLock);
-				parsingTreeNode=0;
-			}
-
-			Ptr<parsing::ParsingTreeObject> RepeatingParsingExecutor::ThreadSafeGetTreeNode()
-			{
-				parsingTreeLock.Enter();
-				return parsingTreeNode;
-			}
-
-			void RepeatingParsingExecutor::ThreadSafeReturnTreeNode()
-			{
-				parsingTreeLock.Leave();
-			}
-
-			Ptr<parsing::tabling::ParsingGeneralParser> RepeatingParsingExecutor::GetParser()
-			{
-				return grammarParser;
-			}
-
-			bool RepeatingParsingExecutor::AttachCallback(ICallback* value)
-			{
-				if(callbacks.Contains(value)) return false;
-				callbacks.Add(value);
-				return true;
-			}
-
-			bool RepeatingParsingExecutor::DetachCallback(ICallback* value)
-			{
-				if(!callbacks.Contains(value)) return false;
-				callbacks.Remove(value);
-				return true;
-			}
-
-/***********************************************************************
 GuiGrammarColorizer
 ***********************************************************************/
 
-			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetAttribute(vint index, const WString& name, vint argumentCount)
+			void GuiGrammarColorizer::OnParsingFinishedAsync(const RepeatingParsingOutput& output)
 			{
-				if(index!=-1)
+				SPIN_LOCK(contextLock)
 				{
-					Ptr<ParsingTable::AttributeInfo> att=parsingExecutor->GetParser()->GetTable()->GetAttributeInfo(index)->FindFirst(name);
-					if(att && att->arguments.Count()==argumentCount)
-					{
-						return att;
-					}
+					context=output;
+					OnContextFinishedAsync(context);
 				}
-				return 0;
+				RestartColorizer();
 			}
 
-			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetColorAttribute(vint index)
+			void GuiGrammarColorizer::OnContextFinishedAsync(const RepeatingParsingOutput& context)
 			{
-				return GetAttribute(index, L"Color", 1);
 			}
 
-			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetContextColorAttribute(vint index)
+			void GuiGrammarColorizer::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock, compositions::GuiGraphicsComposition* _ownerComposition, vuint editVersion)
 			{
-				return GetAttribute(index, L"ContextColor", 1);
-			}
-
-			Ptr<parsing::tabling::ParsingTable::AttributeInfo> GuiGrammarColorizer::GetSemanticColorAttribute(vint index)
-			{
-				return GetAttribute(index, L"SemanticColor", 1);
-			}
-
-			void GuiGrammarColorizer::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock)
-			{
-				GuiTextBoxRegexColorizer::Attach(_element, _elementModifyLock);
-				if(element && elementModifyLock)
-				{
-					SpinLock::Scope scope(*elementModifyLock);
-					WString text=element->GetLines().GetText();
-					parsingExecutor->SubmitTask(text.Buffer());
-				}
+				GuiTextBoxRegexColorizer::Attach(_element, _elementModifyLock, _ownerComposition, editVersion);
+				RepeatingParsingExecutor::CallbackBase::Attach(_element, _elementModifyLock, _ownerComposition, editVersion);
 			}
 
 			void GuiGrammarColorizer::Detach()
 			{
 				GuiTextBoxRegexColorizer::Detach();
+				RepeatingParsingExecutor::CallbackBase::Detach();
 				if(element && elementModifyLock)
 				{
 					parsingExecutor->EnsureTaskFinished();
@@ -21554,41 +22837,67 @@ GuiGrammarColorizer
 				}
 			}
 
-			void GuiGrammarColorizer::TextEditFinished()
+			void GuiGrammarColorizer::TextEditPreview(TextEditPreviewStruct& arguments)
 			{
-				GuiTextBoxRegexColorizer::TextEditFinished();
-				if(element && elementModifyLock)
+				GuiTextBoxRegexColorizer::TextEditPreview(arguments);
+				RepeatingParsingExecutor::CallbackBase::TextEditPreview(arguments);
+			}
+
+			void GuiGrammarColorizer::TextEditNotify(const TextEditNotifyStruct& arguments)
+			{
+				GuiTextBoxRegexColorizer::TextEditNotify(arguments);
+				RepeatingParsingExecutor::CallbackBase::TextEditNotify(arguments);
+			}
+
+			void GuiGrammarColorizer::TextCaretChanged(const TextCaretChangedStruct& arguments)
+			{
+				GuiTextBoxRegexColorizer::TextCaretChanged(arguments);
+				RepeatingParsingExecutor::CallbackBase::TextCaretChanged(arguments);
+			}
+
+			void GuiGrammarColorizer::TextEditFinished(vuint editVersion)
+			{
+				GuiTextBoxRegexColorizer::TextEditFinished(editVersion);
+				RepeatingParsingExecutor::CallbackBase::TextEditFinished(editVersion);
+			}
+
+			void GuiGrammarColorizer::OnSemanticColorize(SemanticColorizeContext& context, const RepeatingParsingOutput& input)
+			{
+				Ptr<ILanguageProvider> languageProvider=parsingExecutor->GetLanguageProvider();
+				if(languageProvider)
 				{
-					SpinLock::Scope scope(*elementModifyLock);
-					WString text=element->GetLines().GetText();
-					parsingExecutor->SubmitTask(text.Buffer());
+					if(Ptr<ParsingScopeSymbol> symbol=languageProvider->FindReferencedSymbols(context.tokenParent, input.finder.Obj()).First(0))
+					{
+						vint semanticId=From(symbol->GetSemanticIds())
+							.Intersect(*context.acceptableSemanticIds.Obj())
+							.First(-1);
+						if(semanticId!=-1)
+						{
+							context.semanticId=semanticId;
+						}
+					}
 				}
-			}
-
-			void GuiGrammarColorizer::OnParsingFinished(bool generatedNewNode, RepeatingParsingExecutor* parsingExecutor)
-			{
-				RestartColorizer();
-			}
-
-			void GuiGrammarColorizer::OnSemanticColorize(parsing::ParsingTreeToken* foundToken, parsing::ParsingTreeObject* tokenParent, const WString& type, const WString& field, vint semantic, vint& token)
-			{
 			}
 
 			void GuiGrammarColorizer::EnsureColorizerFinished()
 			{
 				parsingExecutor->EnsureTaskFinished();
 				StopColorizerForever();
+				SPIN_LOCK(contextLock)
+				{
+					context=RepeatingParsingOutput();
+				}
 			}
 
 			GuiGrammarColorizer::GuiGrammarColorizer(Ptr<RepeatingParsingExecutor> _parsingExecutor)
-				:parsingExecutor(_parsingExecutor)
+				:RepeatingParsingExecutor::CallbackBase(_parsingExecutor)
 			{
 				parsingExecutor->AttachCallback(this);
 				BeginSetColors();
 			}
 
 			GuiGrammarColorizer::GuiGrammarColorizer(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule)
-				:parsingExecutor(new RepeatingParsingExecutor(_grammarParser, _grammarRule))
+				:RepeatingParsingExecutor::CallbackBase(new RepeatingParsingExecutor(_grammarParser, _grammarRule))
 			{
 				parsingExecutor->AttachCallback(this);
 				BeginSetColors();
@@ -21598,23 +22907,6 @@ GuiGrammarColorizer
 			{
 				EnsureColorizerFinished();
 				parsingExecutor->DetachCallback(this);
-			}
-
-			void GuiGrammarColorizer::SubmitCode(const WString& code)
-			{
-				parsingExecutor->SubmitTask(code.Buffer());
-			}
-
-			vint GuiGrammarColorizer::GetTokenId(const WString& token)
-			{
-				vint index=colorIndices.Keys().IndexOf(token);
-				return index==-1?-1:colorIndices.Values().Get(index);
-			}
-
-			vint GuiGrammarColorizer::GetSemanticId(const WString& semantic)
-			{
-				vint index=semanticIndices.Keys().IndexOf(semantic);
-				return index==-1?-1:semanticIndices.Values().Get(index);
 			}
 
 			void GuiGrammarColorizer::BeginSetColors()
@@ -21653,79 +22945,36 @@ GuiGrammarColorizer
 			{
 				SortedList<WString> tokenColors;
 				Ptr<ParsingTable> table=parsingExecutor->GetParser()->GetTable();
-				colorIndices.Clear();
-				colorContext.Clear();
-				fieldContextColors.Clear();
-				fieldSemanticColors.Clear();
-				semanticIndices.Clear();
+				semanticColorMap.Clear();
 
-				// prepare tokens
+				vint tokenCount=table->GetTokenCount();
+				for(vint token=ParsingTable::UserTokenStart;token<tokenCount;token++)
 				{
-					vint tokenCount=table->GetTokenCount();
-					for(vint token=ParsingTable::UserTokenStart;token<tokenCount;token++)
+					const ParsingTable::TokenInfo& tokenInfo=table->GetTokenInfo(token);
+					const RepeatingParsingExecutor::TokenMetaData& md=parsingExecutor->GetTokenMetaData(token-ParsingTable::UserTokenStart);
+					if(md.defaultColorIndex==-1)
 					{
-						const ParsingTable::TokenInfo& tokenInfo=table->GetTokenInfo(token);
-						if(Ptr<ParsingTable::AttributeInfo> att=GetColorAttribute(tokenInfo.attributeIndex))
-						{
-							tokenColors.Add(att->arguments[0]);
-							vint tokenId=AddToken(tokenInfo.regex, GetColor(att->arguments[0]));
-							colorIndices.Set(att->arguments[0], tokenId);
-							colorContext.Add(false);
-						}
-						else if(Ptr<ParsingTable::AttributeInfo> att=GetContextColorAttribute(tokenInfo.attributeIndex))
-						{
-							tokenColors.Add(att->arguments[0]);
-							vint tokenId=AddToken(tokenInfo.regex, GetColor(att->arguments[0]));
-							colorIndices.Set(att->arguments[0], tokenId);
-							colorContext.Add(true);
-						}
-						else
-						{
-							AddToken(tokenInfo.regex, GetDefaultColor());
-							colorContext.Add(false);
-						}
+						AddToken(tokenInfo.regex, GetDefaultColor());
+					}
+					else
+					{
+						WString name=parsingExecutor->GetSemanticName(md.defaultColorIndex);
+						vint color=AddToken(tokenInfo.regex, GetColor(name));
+						semanticColorMap.Set(md.defaultColorIndex, color);
+						tokenColors.Add(name);
 					}
 				}
 
-				// prepare extra tokens
 				FOREACH_INDEXER(WString, color, index, colorSettings.Keys())
 				{
 					if(!tokenColors.Contains(color))
 					{
-						vint tokenId=AddExtraToken(colorSettings.Values().Get(index));
-						colorIndices.Set(color, tokenId+colorContext.Count());
-					}
-				}
-
-				// prepare fields
-				{
-					vint fieldCount=table->GetTreeFieldInfoCount();
-					for(vint field=0;field<fieldCount;field++)
-					{
-						const ParsingTable::TreeFieldInfo& fieldInfo=table->GetTreeFieldInfo(field);
-						if(Ptr<ParsingTable::AttributeInfo> att=GetColorAttribute(fieldInfo.attributeIndex))
+						vint semanticId=parsingExecutor->GetSemanticId(color);
+						if(semanticId!=-1)
 						{
-							vint index=colorIndices.Keys().IndexOf(att->arguments[0]);
-							if(index!=-1)
-							{
-								fieldContextColors.Add(FieldDesc(fieldInfo.type, fieldInfo.field), colorIndices.Values().Get(index));
-							}
-						}
-						else if(Ptr<ParsingTable::AttributeInfo> att=GetSemanticColorAttribute(fieldInfo.attributeIndex))
-						{
-							FieldDesc key(fieldInfo.type, fieldInfo.field);
-							vint semantic=-1;
-							vint index=semanticIndices.Keys().IndexOf(att->arguments[0]);
-							if(index==-1)
-							{
-								semantic=semanticIndices.Count();
-								semanticIndices.Add(att->arguments[0], semantic);
-							}
-							else
-							{
-								semantic=semanticIndices.Values().Get(index);
-							}
-							fieldSemanticColors.Add(key, semantic);
+							vint tokenId=AddExtraToken(colorSettings.Values().Get(index));
+							vint color=tokenId+tokenCount-ParsingTable::UserTokenStart;
+							semanticColorMap.Set(semanticId, color);
 						}
 					}
 				}
@@ -21734,41 +22983,39 @@ GuiGrammarColorizer
 
 			void GuiGrammarColorizer::ColorizeTokenContextSensitive(int lineIndex, const wchar_t* text, vint start, vint length, vint& token, int& contextState)
 			{
-				Ptr<ParsingTreeNode> node=parsingExecutor->ThreadSafeGetTreeNode();
-				if(node && token!=-1 && colorContext[token])
+				SPIN_LOCK(contextLock)
 				{
-					ParsingTextPos pos(lineIndex, start);
-					ParsingTreeNode* foundNode=node->FindDeepestNode(pos);
-					if(!foundNode) goto EXIT_COLORIZING;
-					ParsingTreeToken* foundToken=dynamic_cast<ParsingTreeToken*>(foundNode);
-					if(!foundToken) goto EXIT_COLORIZING;
-					ParsingTreeObject* tokenParent=dynamic_cast<ParsingTreeObject*>(foundNode->GetParent());
-					if(!tokenParent) goto EXIT_COLORIZING;
-					vint index=tokenParent->GetMembers().Values().IndexOf(foundNode);
-					if(index==-1) goto EXIT_COLORIZING;
-
-					WString type=tokenParent->GetType();
-					WString field=tokenParent->GetMembers().Keys().Get(index);
-					FieldDesc key(type, field);
-
-					index=fieldContextColors.Keys().IndexOf(key);
-					if(index!=-1)
+					ParsingTreeObject* node=context.node.Obj();
+					if(node && token!=-1 && parsingExecutor->GetTokenMetaData(token).hasContextColor)
 					{
-						token=fieldContextColors.Values().Get(index);
-						goto EXIT_COLORIZING;
-					}
+						ParsingTextPos pos(lineIndex, start);
+						SemanticColorizeContext scContext;
+						if(SemanticColorizeContext::RetriveContext(scContext, pos, node, parsingExecutor.Obj()))
+						{
+							const RepeatingParsingExecutor::FieldMetaData& md=parsingExecutor->GetFieldMetaData(scContext.type, scContext.field);
+							vint semantic=md.colorIndex;
+							scContext.semanticId=-1;
 
-					index=fieldSemanticColors.Keys().IndexOf(key);
-					if(index!=-1)
-					{
-						vint semantic=fieldSemanticColors.Values().Get(index);
-						OnSemanticColorize(foundToken, tokenParent, type, field, semantic, token);
-						goto EXIT_COLORIZING;
+							if(scContext.acceptableSemanticIds)
+							{
+								OnSemanticColorize(scContext, context);
+								if(md.semantics->Contains(scContext.semanticId))
+								{
+									semantic=scContext.semanticId;
+								}
+							}
+
+							if(semantic!=-1)
+							{
+								vint index=semanticColorMap.Keys().IndexOf(semantic);
+								if(index!=-1)
+								{
+									token=semanticColorMap.Values()[index];
+								}
+							}
+						}
 					}
 				}
-			EXIT_COLORIZING:
-				node=0;
-				parsingExecutor->ThreadSafeReturnTreeNode();
 			}
 
 			Ptr<RepeatingParsingExecutor> GuiGrammarColorizer::GetParsingExecutor()
@@ -21935,13 +23182,25 @@ GuiTextBoxCommonInterface
 				callback->ScrollToView(viewPoint);
 				UpdateCaretPoint();
 
-				if(oldBegin!=textElement->GetCaretBegin() || oldEnd!=textElement->GetCaretEnd())
+				TextPos newBegin=textElement->GetCaretBegin();
+				TextPos newEnd=textElement->GetCaretEnd();
+				if(oldBegin!=newBegin || oldEnd!=newEnd)
 				{
+					ICommonTextEditCallback::TextCaretChangedStruct arguments;
+					arguments.oldBegin=oldBegin;
+					arguments.oldEnd=oldEnd;
+					arguments.newBegin=newBegin;
+					arguments.newEnd=newEnd;
+					arguments.editVersion=editVersion;
+					for(vint i=0;i<textEditCallbacks.Count();i++)
+					{
+						textEditCallbacks[i]->TextCaretChanged(arguments);
+					}
 					SelectionChanged.Execute(textControl->GetNotifyEventArguments());
 				}
 			}
 
-			void GuiTextBoxCommonInterface::Modify(TextPos start, TextPos end, const WString& input)
+			void GuiTextBoxCommonInterface::Modify(TextPos start, TextPos end, const WString& input, bool asKeyInput)
 			{
 				if(start>end)
 				{
@@ -21956,20 +23215,59 @@ GuiTextBoxCommonInterface
 				if(callback->BeforeModify(start, end, originalText, inputText))
 				{
 					{
-						SpinLock::Scope scope(elementModifyLock);
+						ICommonTextEditCallback::TextEditPreviewStruct arguments;
+						arguments.originalStart=originalStart;
+						arguments.originalEnd=originalEnd;
+						arguments.originalText=originalText;
+						arguments.inputText=inputText;
+						arguments.editVersion=editVersion;
+						arguments.keyInput=asKeyInput;
+						for(vint i=0;i<textEditCallbacks.Count();i++)
+						{
+							textEditCallbacks[i]->TextEditPreview(arguments);
+						}
+						
+						inputText=arguments.inputText;
+						if(originalStart!=arguments.originalStart || originalEnd!=arguments.originalEnd)
+						{
+							originalStart=arguments.originalStart;
+							originalEnd=arguments.originalEnd;
+							originalText=textElement->GetLines().GetText(originalStart, originalEnd);
+							start=originalStart;
+							end=originalEnd;
+						}
+					}
+
+					SPIN_LOCK(elementModifyLock)
+					{
 						end=textElement->GetLines().Modify(start, end, inputText);
 					}
 					callback->AfterModify(originalStart, originalEnd, originalText, start, end, inputText);
-					for(vint i=0;i<textEditCallbacks.Count();i++)
+					
+					editVersion++;
 					{
-						textEditCallbacks[i]->TextEditNotify(originalStart, originalEnd, originalText, start, end, inputText);
+						ICommonTextEditCallback::TextEditNotifyStruct arguments;
+						arguments.originalStart=originalStart;
+						arguments.originalEnd=originalEnd;
+						arguments.originalText=originalText;
+						arguments.inputStart=start;
+						arguments.inputEnd=end;
+						arguments.inputText=inputText;
+						arguments.editVersion=editVersion;
+						arguments.keyInput=asKeyInput;
+						for(vint i=0;i<textEditCallbacks.Count();i++)
+						{
+							textEditCallbacks[i]->TextEditNotify(arguments);
+						}
 					}
+
 					Move(end, false);
 					
 					for(vint i=0;i<textEditCallbacks.Count();i++)
 					{
-						textEditCallbacks[i]->TextEditFinished();
+						textEditCallbacks[i]->TextEditFinished(editVersion);
 					}
+
 					textControl->TextChanged.Execute(textControl->GetNotifyEventArguments());
 				}
 			}
@@ -21988,13 +23286,39 @@ GuiTextBoxCommonInterface
 				TextPos end=textElement->GetCaretEnd();
 				switch(code)
 				{
+				case VKEY_ESCAPE:
+					if(autoComplete && autoComplete->IsListOpening() && !shift && !ctrl)
+					{
+						autoComplete->CloseList();
+					}
+					return true;
+				case VKEY_RETURN:
+					if(autoComplete && autoComplete->IsListOpening() && !shift && !ctrl)
+					{
+						if(autoComplete->ApplySelectedListItem())
+						{
+							preventEnterDueToAutoComplete=true;
+							return true;
+						}
+					}
+					break;
 				case VKEY_UP:
+					if(autoComplete && autoComplete->IsListOpening() && !shift && !ctrl)
+					{
+						autoComplete->SelectPreviousListItem();
+					}
+					else
 					{
 						end.row--;
 						Move(end, shift);
 					}
 					return true;
 				case VKEY_DOWN:
+					if(autoComplete && autoComplete->IsListOpening() && !shift && !ctrl)
+					{
+						autoComplete->SelectNextListItem();
+					}
+					else
 					{
 						end.row++;
 						Move(end, shift);
@@ -22103,7 +23427,7 @@ GuiTextBoxCommonInterface
 							{
 								ProcessKey(VKEY_LEFT, true, false);
 							}
-							SetSelectionText(L"");
+							SetSelectionText(L"", true);
 						}
 						return true;
 					}
@@ -22127,7 +23451,7 @@ GuiTextBoxCommonInterface
 							{
 								ProcessKey(VKEY_RIGHT, true, false);
 							}
-							SetSelectionText(L"");
+							SetSelectionText(L"", true);
 						}
 						return true;
 					}
@@ -22197,11 +23521,19 @@ GuiTextBoxCommonInterface
 
 			void GuiTextBoxCommonInterface::OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments)
 			{
+				if(preventEnterDueToAutoComplete)
+				{
+					preventEnterDueToAutoComplete=false;
+					if(arguments.code==VKEY_RETURN)
+					{
+						return;
+					}
+				}
 				if(textControl->GetVisuallyEnabled() && arguments.compositionSource==arguments.eventSource)
 				{
 					if(!readonly && arguments.code!=VKEY_ESCAPE && arguments.code!=VKEY_BACK && !arguments.ctrl)
 					{
-						SetSelectionText(WString(arguments.code));
+						SetSelectionText(WString(arguments.code), true);
 					}
 				}
 			}
@@ -22226,7 +23558,7 @@ GuiTextBoxCommonInterface
 
 				for(vint i=0;i<textEditCallbacks.Count();i++)
 				{
-					textEditCallbacks[i]->Attach(textElement, elementModifyLock);
+					textEditCallbacks[i]->Attach(textElement, elementModifyLock, textComposition ,editVersion);
 				}
 			}
 			
@@ -22251,7 +23583,7 @@ GuiTextBoxCommonInterface
 					textEditCallbacks.Add(value);
 					if(textElement)
 					{
-						value->Attach(textElement, elementModifyLock);
+						value->Attach(textElement, elementModifyLock, textComposition, editVersion);
 					}
 					return true;
 				}
@@ -22290,19 +23622,21 @@ GuiTextBoxCommonInterface
 						end.row=textElement->GetLines().GetCount()-1;
 						end.column=textElement->GetLines().GetLine(end.row).dataLength;
 					}
-					Modify(TextPos(), end, value);
+					Modify(TextPos(), end, value, false);
 				}
 			}
 
 			GuiTextBoxCommonInterface::GuiTextBoxCommonInterface()
 				:textElement(0)
 				,textComposition(0)
+				,editVersion(0)
 				,textControl(0)
 				,callback(0)
 				,dragging(false)
 				,readonly(false)
+				,preventEnterDueToAutoComplete(false)
 			{
-				undoRedoProcessor=new GuiTextBoxUndoRedoProcessor(this);
+				undoRedoProcessor=new GuiTextBoxUndoRedoProcessor;
 				AttachTextEditCallback(undoRedoProcessor);
 
 				AddShortcutCommand(new ShortcutCommand(true, false, 'Z', Func<bool()>(this, &GuiTextBoxCommonInterface::Undo)));
@@ -22424,9 +23758,9 @@ GuiTextBoxCommonInterface
 				return textElement->GetLines().GetText(selectionBegin, selectionEnd);
 			}
 
-			void GuiTextBoxCommonInterface::SetSelectionText(const WString& value)
+			void GuiTextBoxCommonInterface::SetSelectionText(const WString& value, bool asKeyInput)
 			{
-				Modify(textElement->GetCaretBegin(), textElement->GetCaretEnd(), value);
+				Modify(textElement->GetCaretBegin(), textElement->GetCaretEnd(), value, asKeyInput);
 			}
 
 			WString GuiTextBoxCommonInterface::GetRowText(vint row)
@@ -22546,7 +23880,32 @@ GuiTextBoxCommonInterface
 				}
 			}
 
+			//================ auto complete
+
+			Ptr<GuiTextBoxAutoCompleteBase> GuiTextBoxCommonInterface::GetAutoComplete()
+			{
+				return autoComplete;
+			}
+
+			void GuiTextBoxCommonInterface::SetAutoComplete(Ptr<GuiTextBoxAutoCompleteBase> value)
+			{
+				if(autoComplete)
+				{
+					DetachTextEditCallback(autoComplete);
+				}
+				autoComplete=value;
+				if(autoComplete)
+				{
+					AttachTextEditCallback(autoComplete);
+				}
+			}
+
 			//================ undo redo control
+
+			vuint GuiTextBoxCommonInterface::GetEditVersion()
+			{
+				return editVersion;
+			}
 
 			bool GuiTextBoxCommonInterface::CanUndo()
 			{
@@ -23074,6 +24433,442 @@ namespace vl
 			using namespace elements;
 			using namespace elements::text;
 			using namespace compositions;
+			using namespace parsing;
+			using namespace parsing::tabling;
+			using namespace collections;
+			using namespace regex_internal;
+
+/***********************************************************************
+RepeatingParsingExecutor::CallbackBase
+***********************************************************************/
+
+			RepeatingParsingExecutor::CallbackBase::CallbackBase(Ptr<RepeatingParsingExecutor> _parsingExecutor)
+				:parsingExecutor(_parsingExecutor)
+				,callbackAutoPushing(false)
+				,callbackElement(0)
+				,callbackElementModifyLock(0)
+			{
+			}
+
+			RepeatingParsingExecutor::CallbackBase::~CallbackBase()
+			{
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::RequireAutoSubmitTask(bool enabled)
+			{
+				callbackAutoPushing=enabled;
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::Attach(elements::GuiColorizedTextElement* _element, SpinLock& _elementModifyLock, compositions::GuiGraphicsComposition* _ownerComposition, vuint editVersion)
+			{
+				if(_element)
+				{
+					SPIN_LOCK(_elementModifyLock)
+					{
+						callbackElement=_element;
+						callbackElementModifyLock=&_elementModifyLock;
+					}
+				}
+				
+				parsingExecutor->ActivateCallback(this);
+				if(callbackElement && callbackElementModifyLock && callbackAutoPushing)
+				{
+					SPIN_LOCK(*callbackElementModifyLock)
+					{
+						RepeatingParsingInput input;
+						input.editVersion=editVersion;
+						input.code=callbackElement->GetLines().GetText();
+						parsingExecutor->SubmitTask(input);
+					}
+				}
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::Detach()
+			{
+				if(callbackElement && callbackElementModifyLock)
+				{
+					SPIN_LOCK(*callbackElementModifyLock)
+					{
+						callbackElement=0;
+						callbackElementModifyLock=0;
+					}
+				}
+				
+				parsingExecutor->DeactivateCallback(this);
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::TextEditPreview(TextEditPreviewStruct& arguments)
+			{
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::TextEditNotify(const TextEditNotifyStruct& arguments)
+			{
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::TextCaretChanged(const TextCaretChangedStruct& arguments)
+			{
+			}
+
+			void RepeatingParsingExecutor::CallbackBase::TextEditFinished(vuint editVersion)
+			{
+				if(callbackElement && callbackElementModifyLock && callbackAutoPushing)
+				{
+					SPIN_LOCK(*callbackElementModifyLock)
+					{
+						RepeatingParsingInput input;
+						input.editVersion=editVersion;
+						input.code=callbackElement->GetLines().GetText();
+						parsingExecutor->SubmitTask(input);
+					}
+				}
+			}
+
+/***********************************************************************
+RepeatingParsingExecutor
+***********************************************************************/
+
+			void RepeatingParsingExecutor::Execute(const RepeatingParsingInput& input)
+			{
+				List<Ptr<ParsingError>> errors;
+				Ptr<ParsingTreeObject> node=grammarParser->Parse(input.code, grammarRule, errors).Cast<ParsingTreeObject>();
+				if(node)
+				{
+					node->InitializeQueryCache();
+				}
+
+				RepeatingParsingOutput result;
+				result.node=node;
+				result.editVersion=input.editVersion;
+				result.code=input.code;
+				if(node)
+				{
+					OnContextFinishedAsync(result);
+					FOREACH(ICallback*, callback, callbacks)
+					{
+						callback->OnParsingFinishedAsync(result);
+					}
+				}
+			}
+
+			void RepeatingParsingExecutor::PrepareMetaData()
+			{
+				Ptr<ParsingTable> table=grammarParser->GetTable();
+				tokenIndexMap.Clear();
+				semanticIndexMap.Clear();
+				tokenMetaDatas.Clear();
+				fieldMetaDatas.Clear();
+
+				Dictionary<vint, Ptr<ParsingTable::AttributeInfo>> tokenColorAtts, tokenContextColorAtts, tokenCandidateAtts, tokenAutoCompleteAtts;
+				Dictionary<FieldDesc, Ptr<ParsingTable::AttributeInfo>> fieldColorAtts, fieldSemanticAtts;
+
+				{
+					vint tokenCount=table->GetTokenCount();
+					for(vint token=ParsingTable::UserTokenStart;token<tokenCount;token++)
+					{
+						const ParsingTable::TokenInfo& tokenInfo=table->GetTokenInfo(token);
+						vint tokenIndex=token-ParsingTable::UserTokenStart;
+						tokenIndexMap.Add(tokenInfo.name, tokenIndex);
+
+						if(Ptr<ParsingTable::AttributeInfo> att=GetColorAttribute(tokenInfo.attributeIndex))
+						{
+							tokenColorAtts.Add(tokenIndex, att);
+						}
+						if(Ptr<ParsingTable::AttributeInfo> att=GetContextColorAttribute(tokenInfo.attributeIndex))
+						{
+							tokenContextColorAtts.Add(tokenIndex, att);
+						}
+						if(Ptr<ParsingTable::AttributeInfo> att=GetCandidateAttribute(tokenInfo.attributeIndex))
+						{
+							tokenCandidateAtts.Add(tokenIndex, att);
+						}
+						if(Ptr<ParsingTable::AttributeInfo> att=GetAutoCompleteAttribute(tokenInfo.attributeIndex))
+						{
+							tokenAutoCompleteAtts.Add(tokenIndex, att);
+						}
+					}
+				}
+				{
+					vint fieldCount=table->GetTreeFieldInfoCount();
+					for(vint field=0;field<fieldCount;field++)
+					{
+						const ParsingTable::TreeFieldInfo& fieldInfo=table->GetTreeFieldInfo(field);
+						FieldDesc fieldDesc(fieldInfo.type, fieldInfo.field);
+
+						if(Ptr<ParsingTable::AttributeInfo> att=GetColorAttribute(fieldInfo.attributeIndex))
+						{
+							fieldColorAtts.Add(fieldDesc, att);
+						}
+						if(Ptr<ParsingTable::AttributeInfo> att=GetSemanticAttribute(fieldInfo.attributeIndex))
+						{
+							fieldSemanticAtts.Add(fieldDesc, att);
+						}
+					}
+				}
+
+				FOREACH(Ptr<ParsingTable::AttributeInfo>, att, 
+					From(tokenColorAtts.Values())
+						.Concat(tokenContextColorAtts.Values())
+						.Concat(fieldColorAtts.Values())
+						.Concat(fieldSemanticAtts.Values())
+					)
+				{
+					FOREACH(WString, argument, att->arguments)
+					{
+						if(!semanticIndexMap.Contains(argument))
+						{
+							semanticIndexMap.Add(argument);
+						}
+					}
+				}
+
+				vint index=0;
+				FOREACH(vint, tokenIndex, tokenIndexMap.Values())
+				{
+					TokenMetaData md;
+					md.tableTokenIndex=tokenIndex+ParsingTable::UserTokenStart;
+					md.lexerTokenIndex=tokenIndex;
+					md.defaultColorIndex=-1;
+					md.hasContextColor=false;
+					md.hasAutoComplete=false;
+					md.isCandidate=false;
+
+					if((index=tokenColorAtts.Keys().IndexOf(tokenIndex))!=-1)
+					{
+						md.defaultColorIndex=semanticIndexMap.IndexOf(tokenColorAtts.Values()[index]->arguments[0]);
+					}
+					md.hasContextColor=tokenContextColorAtts.Keys().Contains(tokenIndex);
+					md.hasAutoComplete=tokenAutoCompleteAtts.Keys().Contains(tokenIndex);
+					if(md.isCandidate=tokenCandidateAtts.Keys().Contains(tokenIndex))
+					{
+						const ParsingTable::TokenInfo& tokenInfo=table->GetTokenInfo(md.tableTokenIndex);
+						if(IsRegexEscapedListeralString(tokenInfo.regex))
+						{
+							md.unescapedRegexText=UnescapeTextForRegex(tokenInfo.regex);
+						}
+						else
+						{
+							md.isCandidate=false;
+						}
+					}
+
+					tokenMetaDatas.Add(tokenIndex, md);
+				}
+				{
+					vint fieldCount=table->GetTreeFieldInfoCount();
+					for(vint field=0;field<fieldCount;field++)
+					{
+						const ParsingTable::TreeFieldInfo& fieldInfo=table->GetTreeFieldInfo(field);
+						FieldDesc fieldDesc(fieldInfo.type, fieldInfo.field);
+
+						FieldMetaData md;
+						md.colorIndex=-1;
+
+						if((index=fieldColorAtts.Keys().IndexOf(fieldDesc))!=-1)
+						{
+							md.colorIndex=semanticIndexMap.IndexOf(fieldColorAtts.Values()[index]->arguments[0]);
+						}
+						if((index=fieldSemanticAtts.Keys().IndexOf(fieldDesc))!=-1)
+						{
+							md.semantics=new List<vint>;
+							FOREACH(WString, argument, fieldSemanticAtts.Values()[index]->arguments)
+							{
+								md.semantics->Add(semanticIndexMap.IndexOf(argument));
+							}
+						}
+
+						fieldMetaDatas.Add(fieldDesc, md);
+					}
+				}
+			}
+
+			void RepeatingParsingExecutor::OnContextFinishedAsync(RepeatingParsingOutput& context)
+			{
+				if(languageProvider)
+				{
+					context.finder=new ParsingScopeFinder();
+					context.symbol=languageProvider->CreateSymbolFromNode(context.node, this, context.finder.Obj());
+					context.finder->InitializeQueryCache(context.symbol.Obj());
+				}
+			}
+
+			RepeatingParsingExecutor::RepeatingParsingExecutor(Ptr<parsing::tabling::ParsingGeneralParser> _grammarParser, const WString& _grammarRule, Ptr<ILanguageProvider> _languageProvider)
+				:grammarParser(_grammarParser)
+				,grammarRule(_grammarRule)
+				,languageProvider(_languageProvider)
+				,autoPushingCallback(0)
+			{
+				PrepareMetaData();
+			}
+
+			RepeatingParsingExecutor::~RepeatingParsingExecutor()
+			{
+				EnsureTaskFinished();
+			}
+
+			Ptr<parsing::tabling::ParsingGeneralParser> RepeatingParsingExecutor::GetParser()
+			{
+				return grammarParser;
+			}
+
+			bool RepeatingParsingExecutor::AttachCallback(ICallback* value)
+			{
+				if(!value) return false;
+				if(callbacks.Contains(value)) return false;
+				callbacks.Add(value);
+				return true;
+			}
+
+			bool RepeatingParsingExecutor::DetachCallback(ICallback* value)
+			{
+				if(!value) return false;
+				if(!callbacks.Contains(value)) return false;
+				DeactivateCallback(value);
+				callbacks.Remove(value);
+				return true;
+			}
+
+			bool RepeatingParsingExecutor::ActivateCallback(ICallback* value)
+			{
+				if(!value) return false;
+				if(!callbacks.Contains(value)) return false;
+				if(activatedCallbacks.Contains(value)) return false;
+				activatedCallbacks.Add(value);
+
+				if(!autoPushingCallback)
+				{
+					autoPushingCallback=value;
+					autoPushingCallback->RequireAutoSubmitTask(true);
+				}
+				return true;
+			}
+
+			bool RepeatingParsingExecutor::DeactivateCallback(ICallback* value)
+			{
+				if(!value) return false;
+				if(!callbacks.Contains(value)) return false;
+				if(!activatedCallbacks.Contains(value)) return false;
+
+				if(autoPushingCallback==value)
+				{
+					autoPushingCallback->RequireAutoSubmitTask(false);
+					autoPushingCallback=0;
+				}
+				activatedCallbacks.Remove(value);
+				if(!autoPushingCallback && activatedCallbacks.Count()>0)
+				{
+					autoPushingCallback=activatedCallbacks[0];
+					autoPushingCallback->RequireAutoSubmitTask(true);
+				}
+				return true;
+			}
+
+			Ptr<ILanguageProvider> RepeatingParsingExecutor::GetLanguageProvider()
+			{
+				return languageProvider;
+			}
+
+			vint RepeatingParsingExecutor::GetTokenIndex(const WString& tokenName)
+			{
+				vint index=tokenIndexMap.Keys().IndexOf(tokenName);
+				return index==-1?-1:tokenIndexMap.Values()[index];
+			}
+
+			vint RepeatingParsingExecutor::GetSemanticId(const WString& name)
+			{
+				return semanticIndexMap.IndexOf(name);
+			}
+
+			WString RepeatingParsingExecutor::GetSemanticName(vint id)
+			{
+				return 0<=id&&id<semanticIndexMap.Count()?semanticIndexMap[id]:L"";
+			}
+
+			const RepeatingParsingExecutor::TokenMetaData& RepeatingParsingExecutor::GetTokenMetaData(vint regexTokenIndex)
+			{
+				return tokenMetaDatas[regexTokenIndex];
+			}
+
+			const RepeatingParsingExecutor::FieldMetaData& RepeatingParsingExecutor::GetFieldMetaData(const WString& type, const WString& field)
+			{
+				return fieldMetaDatas[FieldDesc(type, field)];
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> RepeatingParsingExecutor::GetAttribute(vint index, const WString& name, vint argumentCount)
+			{
+				if(index!=-1)
+				{
+					Ptr<ParsingTable::AttributeInfo> att=grammarParser->GetTable()->GetAttributeInfo(index)->FindFirst(name);
+					if(att && (argumentCount==-1 || att->arguments.Count()==argumentCount))
+					{
+						return att;
+					}
+				}
+				return 0;
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> RepeatingParsingExecutor::GetColorAttribute(vint index)
+			{
+				return GetAttribute(index, L"Color", 1);
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> RepeatingParsingExecutor::GetContextColorAttribute(vint index)
+			{
+				return GetAttribute(index, L"ContextColor", 0);
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> RepeatingParsingExecutor::GetSemanticAttribute(vint index)
+			{
+				return GetAttribute(index, L"Semantic", -1);
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> RepeatingParsingExecutor::GetCandidateAttribute(vint index)
+			{
+				return GetAttribute(index, L"Candidate", 0);
+			}
+
+			Ptr<parsing::tabling::ParsingTable::AttributeInfo> RepeatingParsingExecutor::GetAutoCompleteAttribute(vint index)
+			{
+				return GetAttribute(index, L"AutoComplete", 0);
+			}
+
+/***********************************************************************
+ParsingContext
+***********************************************************************/
+
+			bool ParsingContext::RetriveContext(ParsingContext& output, parsing::ParsingTreeNode* foundNode, RepeatingParsingExecutor* executor)
+			{
+				ParsingTreeToken* foundToken=dynamic_cast<ParsingTreeToken*>(foundNode);
+				if(!foundToken) return false;
+				ParsingTreeObject* tokenParent=dynamic_cast<ParsingTreeObject*>(foundNode->GetParent());
+				if(!tokenParent) return false;
+				vint index=tokenParent->GetMembers().Values().IndexOf(foundNode);
+				if(index==-1) return false;
+
+				WString type=tokenParent->GetType();
+				WString field=tokenParent->GetMembers().Keys().Get(index);
+				const RepeatingParsingExecutor::FieldMetaData& md=executor->GetFieldMetaData(type, field);
+
+				output.foundToken=foundToken;
+				output.tokenParent=tokenParent;
+				output.type=type;
+				output.field=field;
+				output.acceptableSemanticIds=md.semantics;
+				return true;
+			}
+
+			bool ParsingContext::RetriveContext(ParsingContext& output, parsing::ParsingTextPos pos, parsing::ParsingTreeObject* rootNode, RepeatingParsingExecutor* executor)
+			{
+				ParsingTreeNode* foundNode=rootNode->FindDeepestNode(pos);
+				if(!foundNode) return false;
+				return RetriveContext(output, foundNode, executor);
+			}
+
+			bool ParsingContext::RetriveContext(ParsingContext& output, parsing::ParsingTextRange range, ParsingTreeObject* rootNode, RepeatingParsingExecutor* executor)
+			{
+				ParsingTreeNode* foundNode=rootNode->FindDeepestNode(range);
+				if(!foundNode) return false;
+				return RetriveContext(output, foundNode, executor);
+			}
 		}
 	}
 }
@@ -23186,24 +24981,32 @@ GuiTextBoxUndoRedoProcessor::EditStep
 
 			void GuiTextBoxUndoRedoProcessor::EditStep::Undo()
 			{
-				processor->textBoxCommonInterface->Select(inputStart, inputEnd);
-				processor->textBoxCommonInterface->SetSelectionText(originalText);
-				processor->textBoxCommonInterface->Select(originalStart, originalEnd);
+				GuiTextBoxCommonInterface* ci=dynamic_cast<GuiTextBoxCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->Select(arguments.inputStart, arguments.inputEnd);
+					ci->SetSelectionText(arguments.originalText);
+					ci->Select(arguments.originalStart, arguments.originalEnd);
+				}
 			}
 
 			void GuiTextBoxUndoRedoProcessor::EditStep::Redo()
 			{
-				processor->textBoxCommonInterface->Select(originalStart, originalEnd);
-				processor->textBoxCommonInterface->SetSelectionText(inputText);
-				processor->textBoxCommonInterface->Select(inputStart, inputEnd);
+				GuiTextBoxCommonInterface* ci=dynamic_cast<GuiTextBoxCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->Select(arguments.originalStart, arguments.originalEnd);
+					ci->SetSelectionText(arguments.inputText);
+					ci->Select(arguments.inputStart, arguments.inputEnd);
+				}
 			}
 
 /***********************************************************************
 GuiTextBoxUndoRedoProcessor
 ***********************************************************************/
 
-			GuiTextBoxUndoRedoProcessor::GuiTextBoxUndoRedoProcessor(GuiTextBoxCommonInterface* _textBoxCommonInterface)
-				:textBoxCommonInterface(_textBoxCommonInterface)
+			GuiTextBoxUndoRedoProcessor::GuiTextBoxUndoRedoProcessor()
+				:ownerComposition(0)
 			{
 			}
 
@@ -23211,8 +25014,9 @@ GuiTextBoxUndoRedoProcessor
 			{
 			}
 
-			void GuiTextBoxUndoRedoProcessor::Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock)
+			void GuiTextBoxUndoRedoProcessor::Attach(elements::GuiColorizedTextElement* element, SpinLock& elementModifyLock, compositions::GuiGraphicsComposition* _ownerComposition, vuint editVersion)
 			{
+				ownerComposition=_ownerComposition;
 			}
 
 			void GuiTextBoxUndoRedoProcessor::Detach()
@@ -23220,20 +25024,23 @@ GuiTextBoxUndoRedoProcessor
 				ClearUndoRedo();
 			}
 
-			void GuiTextBoxUndoRedoProcessor::TextEditNotify(TextPos originalStart, TextPos originalEnd, const WString& originalText, TextPos inputStart, TextPos inputEnd, const WString& inputText)
+			void GuiTextBoxUndoRedoProcessor::TextEditPreview(TextEditPreviewStruct& arguments)
+			{
+			}
+
+			void GuiTextBoxUndoRedoProcessor::TextEditNotify(const TextEditNotifyStruct& arguments)
 			{
 				Ptr<EditStep> step=new EditStep;
 				step->processor=this;
-				step->originalStart=originalStart;
-				step->originalEnd=originalEnd;
-				step->originalText=originalText;
-				step->inputStart=inputStart;
-				step->inputEnd=inputEnd;
-				step->inputText=inputText;
+				step->arguments=arguments;
 				PushStep(step);
 			}
 
-			void GuiTextBoxUndoRedoProcessor::TextEditFinished()
+			void GuiTextBoxUndoRedoProcessor::TextCaretChanged(const TextCaretChangedStruct& arguments)
+			{
+			}
+
+			void GuiTextBoxUndoRedoProcessor::TextEditFinished(vuint editVersion)
 			{
 			}
 		}
@@ -31878,6 +33685,8 @@ namespace vl
 			using namespace collections;
 			using namespace parsing;
 			using namespace parsing::tabling;
+			using namespace parsing::definitions;
+			using namespace parsing::analyzing;
 			using namespace parsing::xml;
 			using namespace stream;
 			using namespace list;
@@ -31921,6 +33730,17 @@ External Functions
 			ListViewColumns& GuiListView_GetColumns(GuiListView* thisObject)
 			{
 				return thisObject->GetItems().GetColumns();
+			}
+
+			Ptr<RepeatingParsingExecutor> CreateRepeatingParsingExecutor(const WString& grammar, bool enableAmbiguity, const WString& rule, Ptr<ILanguageProvider> provider)
+			{
+			    Ptr<ParsingGeneralParser> parser=CreateBootstrapStrictParser();
+			    List<Ptr<ParsingError>> errors;
+			    Ptr<ParsingTreeNode> definitionNode=parser->Parse(grammar, L"ParserDecl", errors);
+			    Ptr<ParsingDefinition> definition=DeserializeDefinition(definitionNode);
+			    Ptr<ParsingTable> table=GenerateTable(definition, enableAmbiguity, errors);
+				Ptr<ParsingGeneralParser> grammarParser=CreateAutoRecoverParser(table);
+				return new RepeatingParsingExecutor(grammarParser, rule, provider);
 			}
 
 /***********************************************************************
@@ -33089,6 +34909,8 @@ Type Declaration
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxWidth)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxHeight)
 				CLASS_MEMBER_PROPERTY_FAST(Colorizer)
+				CLASS_MEMBER_PROPERTY_FAST(AutoComplete)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(EditVersion)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Modified)
 
 				CLASS_MEMBER_METHOD(CanCut, NO_PARAMETER)
@@ -33114,6 +34936,23 @@ Type Declaration
 				CLASS_MEMBER_METHOD(Redo, NO_PARAMETER)
 			END_CLASS_MEMBER(GuiTextBoxCommonInterface)
 
+			BEGIN_CLASS_MEMBER(ILanguageProvider)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(controls, ILanguageProvider)
+
+				CLASS_MEMBER_METHOD(CreateSymbolFromNode, {L"obj" _ L"executor" _ L"finder"})
+				CLASS_MEMBER_METHOD(FindReferencedSymbols, {L"obj" _  L"finder"})
+				CLASS_MEMBER_METHOD(FindPossibleSymbols, {L"obj" _ L"field" _ L"finder"})
+			END_CLASS_MEMBER(ILanguageProvider)
+
+			BEGIN_CLASS_MEMBER(RepeatingParsingExecutor)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<RepeatingParsingExecutor>(const WString&, bool, const WString&, Ptr<ILanguageProvider>), {L"grammar" _ L"enableAmbiguity" _ L"rule" _ L"provider"}, &CreateRepeatingParsingExecutor)
+				
+				CLASS_MEMBER_METHOD(GetTokenIndex, {L"tokenName"})
+				CLASS_MEMBER_METHOD(GetSemanticId, {L"name"})
+				CLASS_MEMBER_METHOD(GetSemanticName, {L"id"})
+			END_CLASS_MEMBER(RepeatingParsingExecutor)
+
 			BEGIN_CLASS_MEMBER(GuiTextBoxColorizerBase)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(LexerStartState)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(ContextStartState)
@@ -33134,8 +34973,33 @@ Type Declaration
 
 				CLASS_MEMBER_METHOD(AddToken, {L"regex" _ L"color"})
 				CLASS_MEMBER_METHOD(AddExtraToken, {L"color"})
+				CLASS_MEMBER_METHOD(ClearTokens, NO_PARAMETER)
 				CLASS_MEMBER_METHOD(Setup, NO_PARAMETER)
 			END_CLASS_MEMBER(GuiTextBoxRegexColorizer)
+
+			BEGIN_CLASS_MEMBER(GuiGrammarColorizer)
+				CLASS_MEMBER_BASE(GuiTextBoxRegexColorizer)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiGrammarColorizer>(Ptr<RepeatingParsingExecutor>), {L"parsingExecutor"})
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(ParsingExecutor)
+
+				CLASS_MEMBER_METHOD(BeginSetColors, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(GetColorNames, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(GetColor, {L"name"})
+				CLASS_MEMBER_METHOD_OVERLOAD(SetColor, {L"name" _ L"color"}, void(GuiGrammarColorizer::*)(const WString&, const ColorEntry&))
+				CLASS_MEMBER_METHOD_OVERLOAD(SetColor, {L"name" _ L"color"}, void(GuiGrammarColorizer::*)(const WString&, const Color&))
+				CLASS_MEMBER_METHOD(EndSetColors, NO_PARAMETER)
+			END_CLASS_MEMBER(GuiGrammarColorizer)
+
+			BEGIN_CLASS_MEMBER(GuiTextBoxAutoCompleteBase)
+			END_CLASS_MEMBER(GuiTextBoxAutoCompleteBase)
+
+			BEGIN_CLASS_MEMBER(GuiGrammarAutoComplete)
+				CLASS_MEMBER_BASE(GuiTextBoxAutoCompleteBase)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiGrammarAutoComplete>(Ptr<RepeatingParsingExecutor>), {L"parsingExecutor"})
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(ParsingExecutor)
+			END_CLASS_MEMBER(GuiGrammarAutoComplete)
 
 			BEGIN_CLASS_MEMBER(GuiMultilineTextBox)
 				CLASS_MEMBER_BASE(GuiScrollView)

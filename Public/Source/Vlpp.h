@@ -23,6 +23,8 @@ Macros:
 #ifndef VCZH_BASIC
 #define VCZH_BASIC
 
+#include <intrin.h>
+
 namespace vl
 {
 
@@ -55,6 +57,8 @@ typedef signed __int64	pos_t;
 #define UITOW_S		_ui64tow_s
 #define UI64TOA_S	_ui64toa_s
 #define UI64TOW_S	_ui64tow_s
+#define INCRC(x)	(_InterlockedIncrement64(x))
+#define DECRC(x)	(_InterlockedDecrement64(x))
 #else
 #define ITOA_S		_itoa_s
 #define ITOW_S		_itow_s
@@ -64,6 +68,8 @@ typedef signed __int64	pos_t;
 #define UITOW_S		_ui64tow_s
 #define UI64TOA_S	_ui64toa_s
 #define UI64TOW_S	_ui64tow_s
+#define INCRC(x)	(_InterlockedIncrement((volatile long*)(x)))
+#define DECRC(x)	(_InterlockedDecrement((volatile long*)(x)))
 #endif
 
 #ifndef _MSC_VER
@@ -102,6 +108,10 @@ typedef signed __int64	pos_t;
 #endif
 
 #define CHECK_FAIL(DESCRIPTION) do{throw Error(DESCRIPTION);}while(0)
+
+#define SCOPE_VARIABLE(TYPE, VARIABLE, VALUE)\
+	if(bool __scope_variable_flag__=true)\
+		for(TYPE VARIABLE = VALUE;__scope_variable_flag__;__scope_variable_flag__=false)
 
 /***********************************************************************
 类型计算
@@ -556,7 +566,7 @@ namespace vl
 		static const T	zero=0;
 
 		mutable T*					buffer;
-		mutable vint*				reference;
+		mutable volatile vint*		counter;
 		mutable vint				start;
 		mutable vint				length;
 		mutable vint				realLength;
@@ -606,20 +616,20 @@ namespace vl
 
 		void Inc()const
 		{
-			if(reference)
+			if(counter)
 			{
-				(*reference)++;
+				INCRC(counter);
 			}
 		}
 
 		void Dec()const
 		{
-			if(reference)
+			if(counter)
 			{
-				if(--(*reference)==0)
+				if(DECRC(counter)==0)
 				{
 					delete[] buffer;
-					delete reference;
+					delete counter;
 				}
 			}
 		}
@@ -629,7 +639,7 @@ namespace vl
 			if(_length<=0)
 			{
 				buffer=(T*)&zero;
-				reference=0;
+				counter=0;
 				start=0;
 				length=0;
 				realLength=0;
@@ -637,7 +647,7 @@ namespace vl
 			else
 			{
 				buffer=string.buffer;
-				reference=string.reference;
+				counter=string.counter;
 				start=string.start+_start;
 				length=_length;
 				realLength=string.realLength;
@@ -650,14 +660,14 @@ namespace vl
 			if(index==0 && count==dest.length && source.length==0)
 			{
 				buffer=(T*)&zero;
-				reference=0;
+				counter=0;
 				start=0;
 				length=0;
 				realLength=0;
 			}
 			else
 			{
-				reference=new vint(1);
+				counter=new vint(1);
 				start=0;
 				length=dest.length-count+source.length;
 				realLength=length;
@@ -674,7 +684,7 @@ namespace vl
 		ObjectString()
 		{
 			buffer=(T*)&zero;
-			reference=0;
+			counter=0;
 			start=0;
 			length=0;
 			realLength=0;
@@ -682,7 +692,7 @@ namespace vl
 
 		ObjectString(const T& _char)
 		{
-			reference=new vint(1);
+			counter=new vint(1);
 			start=0;
 			length=1;
 			buffer=new T[2];
@@ -696,7 +706,7 @@ namespace vl
 			if(_length<=0)
 			{
 				buffer=(T*)&zero;
-				reference=0;
+				counter=0;
 				start=0;
 				length=0;
 				realLength=0;
@@ -706,7 +716,7 @@ namespace vl
 				buffer=new T[_length+1];
 				memcpy(buffer, _buffer, _length*sizeof(T));
 				buffer[_length]=0;
-				reference=new vint(1);
+				counter=new vint(1);
 				start=0;
 				length=_length;
 				realLength=_length;
@@ -718,7 +728,7 @@ namespace vl
 			CHECK_ERROR(_buffer!=0, L"ObjectString<T>::ObjectString(const T*, bool)#不能用空指针构造字符串。");
 			if(copy)
 			{
-				reference=new vint(1);
+				counter=new vint(1);
 				start=0;
 				length=CalculateLength(_buffer);
 				buffer=new T[length+1];
@@ -728,7 +738,7 @@ namespace vl
 			else
 			{
 				buffer=(T*)_buffer;
-				reference=0;
+				counter=0;
 				start=0;
 				length=CalculateLength(_buffer);
 				realLength=length;
@@ -738,7 +748,7 @@ namespace vl
 		ObjectString(const ObjectString<T>& string)
 		{
 			buffer=string.buffer;
-			reference=string.reference;
+			counter=string.counter;
 			start=string.start;
 			length=string.length;
 			realLength=string.realLength;
@@ -748,13 +758,13 @@ namespace vl
 		ObjectString(ObjectString<T>&& string)
 		{
 			buffer=string.buffer;
-			reference=string.reference;
+			counter=string.counter;
 			start=string.start;
 			length=string.length;
 			realLength=string.realLength;
 			
 			string.buffer=(T*)&zero;
-			string.reference=0;
+			string.counter=0;
 			string.start=0;
 			string.length=0;
 			string.realLength=0;
@@ -774,7 +784,7 @@ namespace vl
 				newBuffer[length]=0;
 				Dec();
 				buffer=newBuffer;
-				reference=new vint(1);
+				counter=new vint(1);
 				start=0;
 				realLength=length;
 			}
@@ -787,7 +797,7 @@ namespace vl
 			{
 				Dec();
 				buffer=string.buffer;
-				reference=string.reference;
+				counter=string.counter;
 				start=string.start;
 				length=string.length;
 				realLength=string.realLength;
@@ -802,13 +812,13 @@ namespace vl
 			{
 				Dec();
 				buffer=string.buffer;
-				reference=string.reference;
+				counter=string.counter;
 				start=string.start;
 				length=string.length;
 				realLength=string.realLength;
 			
 				string.buffer=(T*)&zero;
-				string.reference=0;
+				string.counter=0;
 				string.start=0;
 				string.length=0;
 				string.realLength=0;
@@ -2410,12 +2420,12 @@ ReferenceCounterOperator
 	template<typename T, typename Enabled=YesType>
 	struct ReferenceCounterOperator
 	{
-		static __forceinline vint* CreateCounter(T* reference)
+		static __forceinline volatile vint* CreateCounter(T* reference)
 		{
 			return new vint(0);
 		}
 
-		static __forceinline void DeleteReference(vint* counter, void* reference)
+		static __forceinline void DeleteReference(volatile vint* counter, void* reference)
 		{
 			delete counter;
 			delete (T*)reference;
@@ -2432,9 +2442,9 @@ Ptr
 		 template<typename X>
 		 friend class Ptr;
 	protected:
-		typedef void		(*Destructor)(vint*, void*);
+		typedef void		(*Destructor)(volatile vint*, void*);
 
-		vint*				counter;
+		volatile vint*		counter;
 		T*					reference;
 		void*				originalReference;
 		Destructor			originalDestructor;
@@ -2443,7 +2453,7 @@ Ptr
 		{
 			if(counter)
 			{
-				(*counter)++;
+				INCRC(counter);
 			}
 		}
 
@@ -2451,7 +2461,7 @@ Ptr
 		{
 			if(counter)
 			{
-				if(--(*counter)==0)
+				if(DECRC(counter)==0)
 				{
 					originalDestructor(counter, originalReference);
 					counter=0;
@@ -2462,12 +2472,12 @@ Ptr
 			}
 		}
 
-		vint* Counter()const
+		volatile vint* Counter()const
 		{
 			return counter;
 		}
 
-		Ptr(vint* _counter, T* _reference, void* _originalReference, Destructor _originalDestructor)
+		Ptr(volatile vint* _counter, T* _reference, void* _originalReference, Destructor _originalDestructor)
 			:counter(_counter)
 			,reference(_reference)
 			,originalReference(_originalReference)
@@ -2712,14 +2722,14 @@ ComPtr
 	class ComPtr
 	{
 	protected:
-		vint*				counter;
+		volatile vint*		counter;
 		T*					reference;
 
 		void Inc()
 		{
 			if(counter)
 			{
-				(*counter)++;
+				INCRC(counter);
 			}
 		}
 
@@ -2727,7 +2737,7 @@ ComPtr
 		{
 			if(counter)
 			{
-				if(--(*counter)==0)
+				if(DECRC(counter)==0)
 				{
 					delete counter;
 					reference->Release();
@@ -2737,12 +2747,12 @@ ComPtr
 			}
 		}
 
-		vint* Counter()const
+		volatile vint* Counter()const
 		{
 			return counter;
 		}
 
-		ComPtr(vint* _counter, T* _reference)
+		ComPtr(volatile vint* _counter, T* _reference)
 			:counter(_counter)
 			,reference(_reference)
 		{
@@ -2760,7 +2770,7 @@ ComPtr
 		{
 			if(pointer)
 			{
-				counter=new vint(1);
+				counter=new volatile vint(1);
 				reference=pointer;
 			}
 			else
@@ -3033,10 +3043,6 @@ IEnumerable<T>支持
 ForEach宏
 ***********************************************************************/
 
-#define SCOPE_VARIABLE(TYPE, VARIABLE, VALUE)\
-		if(bool __scope_variable_flag__=true)\
-			for(TYPE VARIABLE = VALUE;__scope_variable_flag__;__scope_variable_flag__=false)
-
 #define FOREACH(TYPE, VARIABLE, COLLECTION)\
 		SCOPE_VARIABLE(const ForEachIterator<TYPE>&, __foreach_iterator__, CreateForEachIterator(COLLECTION))\
 		for(TYPE VARIABLE;__foreach_iterator__.Next(VARIABLE);)
@@ -3305,6 +3311,8 @@ namespace vl
 			vint										GetRelatedToken(vint state)const;
 			void										Walk(wchar_t input, vint& state, vint& token, bool& finalState, bool& previousTokenStop)const;
 			vint										Walk(wchar_t input, vint state)const;
+			bool										IsClosedToken(const wchar_t* input, vint length)const;
+			bool										IsClosedToken(const WString& input)const;
 		};
 
 		class RegexLexerColorizer : public Object
@@ -3725,2994 +3733,6 @@ namespace vl
 		{
 			copyfrom_internal::Slice<S> slice={begin, end-begin};
 			CopyFrom(ds, slice, append);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSINGTREE.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::Parsing Tree
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSINGTREE
-#define VCZH_PARSING_PARSINGTREE
-
-
-namespace vl
-{
-	namespace parsing
-	{
-
-/***********************************************************************
-位置信息
-***********************************************************************/
-
-		struct ParsingTextPos
-		{
-			static const int	UnknownValue=-2;
-			vint				index;
-			vint				row;
-			vint				column;
-
-			ParsingTextPos()
-				:index(UnknownValue)
-				,row(UnknownValue)
-				,column(UnknownValue)
-			{
-			}
-
-			ParsingTextPos(vint _index)
-				:index(_index)
-				,row(UnknownValue)
-				,column(UnknownValue)
-			{
-			}
-
-			ParsingTextPos(vint _row, vint _column)
-				:index(UnknownValue)
-				,row(_row)
-				,column(_column)
-			{
-			}
-
-			ParsingTextPos(vint _index, vint _row, vint _column)
-				:index(_index)
-				,row(_row)
-				,column(_column)
-			{
-			}
-
-			static vint Compare(const ParsingTextPos& a, const ParsingTextPos& b)
-			{
-				if(a.index!=UnknownValue && b.index!=UnknownValue)
-				{
-					return a.index-b.index;
-				}
-				else if(a.row!=UnknownValue && a.column!=UnknownValue && b.row!=UnknownValue && b.column!=UnknownValue)
-				{
-					if(a.row==b.row)
-					{
-						return a.column-b.column;
-					}
-					else
-					{
-						return a.row-b.row;
-					}
-				}
-				else
-				{
-					return 0;
-				}
-			}
-
-			bool operator==(const ParsingTextPos& pos)const{return Compare(*this, pos)==0;}
-			bool operator!=(const ParsingTextPos& pos)const{return Compare(*this, pos)!=0;}
-			bool operator<(const ParsingTextPos& pos)const{return Compare(*this, pos)<0;}
-			bool operator<=(const ParsingTextPos& pos)const{return Compare(*this, pos)<=0;}
-			bool operator>(const ParsingTextPos& pos)const{return Compare(*this, pos)>0;}
-			bool operator>=(const ParsingTextPos& pos)const{return Compare(*this, pos)>=0;}
-		};
-
-		struct ParsingTextRange
-		{
-			ParsingTextPos	start;
-			ParsingTextPos	end;
-
-			ParsingTextRange()
-			{
-				end.index=-1;
-				end.column=-1;
-			}
-
-			ParsingTextRange(const ParsingTextPos& _start, const ParsingTextPos& _end)
-				:start(_start)
-				,end(_end)
-			{
-			}
-
-			ParsingTextRange(const regex::RegexToken* startToken, const regex::RegexToken* endToken)
-			{
-				start.index=startToken->start;
-				start.row=startToken->rowStart;
-				start.column=startToken->columnStart;
-				end.index=endToken->start+endToken->length-1;
-				end.row=endToken->rowEnd;
-				end.column=endToken->columnEnd;
-			}
-
-			bool operator==(const ParsingTextRange& range)const{return start==range.start && end==range.end;}
-			bool operator!=(const ParsingTextRange& range)const{return start!=range.start || end!=range.end;}
-			bool Contains(const ParsingTextPos& pos)const{return start<=pos && pos<=end;}
-			bool Contains(const ParsingTextRange& range)const{return start<=range.start && range.end<=end;}
-		};
-
-/***********************************************************************
-通用语法树
-***********************************************************************/
-
-		class ParsingTreeNode;
-		class ParsingTreeToken;
-		class ParsingTreeObject;
-		class ParsingTreeArray;
-
-		class ParsingTreeNode : public Object
-		{
-		public:
-			class IVisitor : public Interface
-			{
-			public:
-				virtual void					Visit(ParsingTreeToken* node)=0;
-				virtual void					Visit(ParsingTreeObject* node)=0;
-				virtual void					Visit(ParsingTreeArray* node)=0;
-			};
-
-			class TraversalVisitor : public Object, public IVisitor
-			{
-			public:
-				enum TraverseDirection
-				{
-					ByTextPosition,
-					ByStorePosition
-				};
-			protected:
-				TraverseDirection				direction;
-			public:
-				TraversalVisitor(TraverseDirection _direction);
-
-				virtual void					BeforeVisit(ParsingTreeToken* node);
-				virtual void					AfterVisit(ParsingTreeToken* node);
-				virtual void					BeforeVisit(ParsingTreeObject* node);
-				virtual void					AfterVisit(ParsingTreeObject* node);
-				virtual void					BeforeVisit(ParsingTreeArray* node);
-				virtual void					AfterVisit(ParsingTreeArray* node);
-
-				virtual void					Visit(ParsingTreeToken* node)override;
-				virtual void					Visit(ParsingTreeObject* node)override;
-				virtual void					Visit(ParsingTreeArray* node)override;
-			};
-		protected:
-			typedef collections::List<Ptr<ParsingTreeNode>>				NodeList;
-
-			ParsingTextRange					codeRange;
-			ParsingTreeNode*					parent;
-			NodeList							cachedOrderedSubNodes;
-
-			virtual const NodeList&				GetSubNodesInternal()=0;
-			bool								BeforeAddChild(Ptr<ParsingTreeNode> node);
-			void								AfterAddChild(Ptr<ParsingTreeNode> node);
-			bool								BeforeRemoveChild(Ptr<ParsingTreeNode> node);
-			void								AfterRemoveChild(Ptr<ParsingTreeNode> node);
-		public:
-			ParsingTreeNode(const ParsingTextRange& _codeRange);
-			~ParsingTreeNode();
-
-			virtual void						Accept(IVisitor* visitor)=0;
-			virtual Ptr<ParsingTreeNode>		Clone()=0;
-			ParsingTextRange					GetCodeRange();
-			void								SetCodeRange(const ParsingTextRange& range);
-
-			void								InitializeQueryCache();
-			void								ClearQueryCache();
-			ParsingTreeNode*					GetParent();
-			const NodeList&						GetSubNodes();
-
-			ParsingTreeNode*					FindSubNode(const ParsingTextPos& position);
-			ParsingTreeNode*					FindSubNode(const ParsingTextRange& range);
-			ParsingTreeNode*					FindDeepestNode(const ParsingTextPos& position);
-			ParsingTreeNode*					FindDeepestNode(const ParsingTextRange& range);
-		};
-
-		class ParsingTreeToken : public ParsingTreeNode
-		{
-		protected:
-			WString								value;
-			vint								tokenIndex;
-
-			const NodeList&						GetSubNodesInternal()override;
-		public:
-			ParsingTreeToken(const WString& _value, vint _tokenIndex=-1, const ParsingTextRange& _codeRange=ParsingTextRange());
-			~ParsingTreeToken();
-
-			void								Accept(IVisitor* visitor)override;
-			Ptr<ParsingTreeNode>				Clone()override;
-			vint								GetTokenIndex();
-			void								SetTokenIndex(vint _tokenIndex);
-			const WString&						GetValue();
-			void								SetValue(const WString& _value);
-		};
-
-		class ParsingTreeObject : public ParsingTreeNode
-		{
-		protected:
-			typedef collections::Dictionary<WString, Ptr<ParsingTreeNode>>				NodeMap;
-			typedef collections::SortedList<WString>									NameList;
-			typedef collections::List<WString>											RuleList;
-
-			WString								type;
-			NodeMap								members;
-			RuleList							rules;
-
-			const NodeList&			GetSubNodesInternal()override;
-		public:
-			ParsingTreeObject(const WString& _type=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
-			~ParsingTreeObject();
-
-			void								Accept(IVisitor* visitor)override;
-			Ptr<ParsingTreeNode>				Clone()override;
-			const WString&						GetType();
-			void								SetType(const WString& _type);
-			NodeMap&							GetMembers();
-			Ptr<ParsingTreeNode>				GetMember(const WString& name);
-			bool								SetMember(const WString& name, Ptr<ParsingTreeNode> node);
-			bool								RemoveMember(const WString& name);
-			const NameList&						GetMemberNames();
-			RuleList&							GetCreatorRules();
-		};
-
-		class ParsingTreeArray : public ParsingTreeNode
-		{
-		protected:
-			typedef collections::List<Ptr<ParsingTreeNode>>								NodeArray;
-
-			WString								elementType;
-			NodeArray							items;
-
-			const NodeList&						GetSubNodesInternal()override;
-		public:
-			ParsingTreeArray(const WString& _elementType=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
-			~ParsingTreeArray();
-
-			void								Accept(IVisitor* visitor)override;
-			Ptr<ParsingTreeNode>				Clone()override;
-			const WString&						GetElementType();
-			void								SetElementType(const WString& _elementType);
-			NodeArray&							GetItems();
-			Ptr<ParsingTreeNode>				GetItem(vint index);
-			bool								SetItem(vint index, Ptr<ParsingTreeNode> node);
-			bool								AddItem(Ptr<ParsingTreeNode> node);
-			bool								InsertItem(vint index, Ptr<ParsingTreeNode> node);
-			bool								RemoveItem(vint index);
-			bool								RemoveItem(ParsingTreeNode* node);
-			vint								IndexOfItem(ParsingTreeNode* node);
-			bool								ContainsItem(ParsingTreeNode* node);
-			vint								Count();
-			bool								Clear();
-		};
-
-/***********************************************************************
-辅助函数
-***********************************************************************/
-
-		extern void								Log(Ptr<ParsingTreeNode> node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
-
-/***********************************************************************
-语法树基础设施
-***********************************************************************/
-
-		class ParsingTreeCustomBase : public Object
-		{
-		public:
-			ParsingTextRange					codeRange;
-			collections::List<WString>			creatorRules;
-		};
-
-		class ParsingToken : public ParsingTreeCustomBase
-		{
-		public:
-			vint								tokenIndex;
-			WString								value;
-
-			ParsingToken():tokenIndex(-1){}
-		};
-
-		class ParsingError : public Object
-		{
-		public:
-			ParsingTextRange					codeRange;
-			const regex::RegexToken*			token;
-			ParsingTreeCustomBase*				parsingTree;
-			WString								errorMessage;
-
-			ParsingError();
-			ParsingError(const WString& _errorMessage);
-			ParsingError(const regex::RegexToken* _token, const WString& _errorMessage);
-			ParsingError(ParsingTreeCustomBase* _parsingTree, const WString& _errorMessage);
-			~ParsingError();
-		};
-
-/***********************************************************************
-语法树构造
-***********************************************************************/
-
-		class ParsingTreeConverter : public Object
-		{
-		public:
-			typedef collections::List<regex::RegexToken>	TokenList;
-
-			virtual Ptr<ParsingTreeCustomBase>				ConvertClass(Ptr<ParsingTreeObject> obj, const TokenList& tokens)=0;
-
-			bool SetMember(ParsingToken& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
-			{
-				Ptr<ParsingTreeToken> token=node.Cast<ParsingTreeToken>();
-				if(token)
-				{
-					member.tokenIndex=token->GetTokenIndex();
-					member.value=token->GetValue();
-					member.codeRange=token->GetCodeRange();
-					return true;
-				}
-				return false;
-			}
-
-			template<typename T>
-			bool SetMember(collections::List<T>& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
-			{
-				Ptr<ParsingTreeArray> arr=node.Cast<ParsingTreeArray>();
-				if(arr)
-				{
-					member.Clear();
-					vint count=arr->Count();
-					for(vint i=0;i<count;i++)
-					{
-						T t;
-						SetMember(t, arr->GetItem(i), tokens);
-						member.Add(t);
-					}
-					return true;
-				}
-				return false;
-			}
-
-			template<typename T>
-			bool SetMember(Ptr<T>& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
-			{
-				Ptr<ParsingTreeObject> obj=node.Cast<ParsingTreeObject>();
-				if(obj)
-				{
-					Ptr<ParsingTreeCustomBase> tree=ConvertClass(obj, tokens);
-					if(tree)
-					{
-						tree->codeRange=node->GetCodeRange();
-						member=tree.Cast<T>();
-						return member;
-					}
-				}
-				return false;
-			}
-		};
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSINGTABLE.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::Table
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSINGTABLE
-#define VCZH_PARSING_PARSINGTABLE
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace tabling
-		{
-
-/***********************************************************************
-跳转表
-***********************************************************************/
-
-			class ParsingTable : public Object
-			{
-			public:
-				static const vint							TokenBegin=0;
-				static const vint							TokenFinish=1;
-				static const vint							TryReduce=2;
-				static const vint							UserTokenStart=3;
-
-				class AttributeInfo : public Object
-				{
-				public:
-					WString									name;
-					collections::List<WString>				arguments;
-
-					AttributeInfo(const WString& _name)
-						:name(_name)
-					{
-					}
-
-					AttributeInfo* Argument(const WString& argument)
-					{
-						arguments.Add(argument);
-						return this;
-					}
-				};
-
-				class AttributeInfoList : public Object
-				{
-				public:
-					collections::List<Ptr<AttributeInfo>>	attributes;
-
-					Ptr<AttributeInfo> FindFirst(const WString& name);
-				};
-
-				class TreeTypeInfo
-				{
-				public:
-					WString									type;
-					vint									attributeIndex;
-
-					TreeTypeInfo()
-						:attributeIndex(-1)
-					{
-					}
-
-					TreeTypeInfo(const WString& _type, vint _attributeIndex)
-						:type(_type)
-						,attributeIndex(_attributeIndex)
-					{
-					}
-				};
-
-				class TreeFieldInfo
-				{
-				public:
-					WString									type;
-					WString									field;
-					vint									attributeIndex;
-
-					TreeFieldInfo()
-						:attributeIndex(-1)
-					{
-					}
-
-					TreeFieldInfo(const WString& _type, const WString& _field, vint _attributeIndex)
-						:type(_type)
-						,field(_field)
-						,attributeIndex(_attributeIndex)
-					{
-					}
-				};
-
-				class TokenInfo
-				{
-				public:
-					WString									name;
-					WString									regex;
-					vint									regexTokenIndex;
-					vint									attributeIndex;
-
-					TokenInfo()
-						:regexTokenIndex(-1)
-						,attributeIndex(-1)
-					{
-					}
-
-					TokenInfo(const WString& _name, const WString& _regex, vint _attributeIndex)
-						:name(_name)
-						,regex(_regex)
-						,regexTokenIndex(-1)
-						,attributeIndex(_attributeIndex)
-					{
-					}
-				};
-
-				class StateInfo
-				{
-				public:
-					WString									ruleName;
-					WString									stateName;
-					WString									stateExpression;
-
-					WString									ruleAmbiguousType;		// filled in Initialize()
-
-					StateInfo()
-					{
-					}
-
-					StateInfo(const WString& _ruleName, const WString& _stateName, const WString& _stateExpression)
-						:ruleName(_ruleName)
-						,stateName(_stateName)
-						,stateExpression(_stateExpression)
-					{
-					}
-				};
-
-				class RuleInfo
-				{
-				public:
-					WString									name;
-					WString									type;
-					WString									ambiguousType;
-					vint									rootStartState;
-					vint									attributeIndex;
-
-					RuleInfo()
-						:rootStartState(-1)
-						,attributeIndex(-1)
-					{
-					}
-
-					RuleInfo(const WString& _name, const WString& _type, const WString& _ambiguousType, vint _rootStartState, vint _attributeIndex)
-						:name(_name)
-						,type(_type)
-						,ambiguousType(_ambiguousType)
-						,rootStartState(_rootStartState)
-						,attributeIndex(_attributeIndex)
-					{
-					}
-				};
-
-				class Instruction
-				{
-				public:
-					enum InstructionType
-					{
-						Create,
-						Assign,
-						Item,
-						Using,
-						Setter,
-						Shift,
-						Reduce,
-						LeftRecursiveReduce,
-					};
-
-					InstructionType							instructionType;
-					vint									stateParameter;
-					WString									nameParameter;
-					WString									value;
-					WString									creatorRule;
-
-					Instruction()
-						:instructionType(Create)
-						,stateParameter(0)
-					{
-					}
-
-					Instruction(InstructionType _instructionType, vint _stateParameter, const WString& _nameParameter, const WString& _value, const WString& _creatorRule)
-						:instructionType(_instructionType)
-						,stateParameter(_stateParameter)
-						,nameParameter(_nameParameter)
-						,value(_value)
-						,creatorRule(_creatorRule)
-					{
-					}
-				};
-
-				class LookAheadInfo
-				{
-				public:
-					collections::List<vint>					tokens;
-					vint									state;
-
-					LookAheadInfo()
-						:state(-1)
-					{
-					}
-
-					enum PrefixResult
-					{
-						Prefix,
-						Equal,
-						NotPrefix,
-					};
-
-					static PrefixResult						TestPrefix(Ptr<LookAheadInfo> a, Ptr<LookAheadInfo> b);
-					static void								Walk(Ptr<ParsingTable> table, Ptr<LookAheadInfo> previous, vint state, collections::List<Ptr<LookAheadInfo>>& newInfos);
-				};
-
-				class TransitionItem
-				{
-				public:
-					vint									token;
-					vint									targetState;
-					collections::List<Ptr<LookAheadInfo>>	lookAheads;
-					collections::List<vint>					stackPattern;
-					collections::List<Instruction>			instructions;
-
-					enum OrderResult
-					{
-						CorrectOrder,
-						WrongOrder,
-						SameOrder,
-						UnknownOrder,
-					};
-
-					TransitionItem(){}
-
-					TransitionItem(vint _token, vint _targetState)
-						:token(_token)
-						,targetState(_targetState)
-					{
-					}
-
-					static OrderResult						CheckOrder(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2, bool forceGivingOrder);
-					static vint								Compare(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2);
-				};
-
-				class TransitionBag
-				{
-				public:
-					collections::List<Ptr<TransitionItem>>	transitionItems;
-				};
-
-			protected:
-				bool																ambiguity;
-				Ptr<regex::RegexLexer>												lexer;
-				collections::Array<Ptr<TransitionBag>>								transitionBags;
-				vint																tokenCount;
-				vint																stateCount;
-				collections::Array<Ptr<AttributeInfoList>>							attributeInfos;
-				collections::Array<TreeTypeInfo>									treeTypeInfos;
-				collections::Array<TreeFieldInfo>									treeFieldInfos;
-				collections::Array<TokenInfo>										tokenInfos;
-				collections::Array<TokenInfo>										discardTokenInfos;
-				collections::Array<StateInfo>										stateInfos;
-				collections::Array<RuleInfo>										ruleInfos;
-				collections::Dictionary<WString, vint>								ruleMap;
-				collections::Dictionary<WString, vint>								treeTypeInfoMap;
-				collections::Dictionary<collections::Pair<WString, WString>, vint>	treeFieldInfoMap;
-
-			public:
-				ParsingTable(vint _attributeInfoCount, vint _treeTypeInfoCount, vint _treeFieldInfoCount, vint _tokenCount, vint _discardTokenCount, vint _stateCount, vint _ruleCount);
-				~ParsingTable();
-
-				bool										GetAmbiguity();
-				void										SetAmbiguity(bool value);
-
-				vint										GetAttributeInfoCount();
-				Ptr<AttributeInfoList>						GetAttributeInfo(vint index);
-				void										SetAttributeInfo(vint index, Ptr<AttributeInfoList> info);
-
-				vint										GetTreeTypeInfoCount();
-				const TreeTypeInfo&							GetTreeTypeInfo(vint index);
-				const TreeTypeInfo&							GetTreeTypeInfo(const WString& type);
-				void										SetTreeTypeInfo(vint index, const TreeTypeInfo& info);
-
-				vint										GetTreeFieldInfoCount();
-				const TreeFieldInfo&						GetTreeFieldInfo(vint index);
-				const TreeFieldInfo&						GetTreeFieldInfo(const WString& type, const WString& field);
-				void										SetTreeFieldInfo(vint index, const TreeFieldInfo& info);
-
-				vint										GetTokenCount();
-				const TokenInfo&							GetTokenInfo(vint token);
-				void										SetTokenInfo(vint token, const TokenInfo& info);
-
-				vint										GetDiscardTokenCount();
-				const TokenInfo&							GetDiscardTokenInfo(vint token);
-				void										SetDiscardTokenInfo(vint token, const TokenInfo& info);
-
-				vint										GetStateCount();
-				const StateInfo&							GetStateInfo(vint state);
-				void										SetStateInfo(vint state, const StateInfo& info);
-
-				vint										GetRuleCount();
-				const RuleInfo&								GetRuleInfo(const WString& ruleName);
-				const RuleInfo&								GetRuleInfo(vint rule);
-				void										SetRuleInfo(vint rule, const RuleInfo& info);
-
-				const regex::RegexLexer&					GetLexer();
-				Ptr<TransitionBag>							GetTransitionBag(vint state, vint token);
-				void										SetTransitionBag(vint state, vint token, Ptr<TransitionBag> bag);
-				void										Initialize();
-				bool										IsInputToken(vint regexTokenIndex);
-				vint										GetTableTokenIndex(vint regexTokenIndex);
-				vint										GetTableDiscardTokenIndex(vint regexTokenIndex);
-			};
-
-/***********************************************************************
-辅助函数
-***********************************************************************/
-
-			extern void										Log(Ptr<ParsingTable> table, stream::TextWriter& writer);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSINGSTATE.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::State
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSINGSTATE
-#define VCZH_PARSING_PARSINGSTATE
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace tabling
-		{
-
-/***********************************************************************
-语法分析器
-***********************************************************************/
-			
-			class ParsingTokenWalker : public Object, protected collections::IEnumerable<vint>
-			{
-			protected:
-				collections::List<regex::RegexToken>&	tokens;
-				Ptr<ParsingTable>						table;
-				vint									currentToken;
-
-				vint									GetNextIndex(vint index)const;
-				vint									GetTableTokenIndex(vint index)const;
-				collections::IEnumerator<vint>*			CreateEnumerator()const override;
-			protected:
-				class LookAheadEnumerator : public Object, public collections::IEnumerator<vint>
-				{
-				protected:
-					const ParsingTokenWalker*			walker;
-					vint								firstToken;
-					vint								currentToken;
-					vint								currentValue;
-					vint								index;
-
-				public:
-					LookAheadEnumerator(const ParsingTokenWalker* _walker, vint _currentToken);
-					LookAheadEnumerator(const LookAheadEnumerator& _enumerator);
-
-					IEnumerator<vint>*					Clone()const override;
-					const vint&							Current()const override;
-					vint								Index()const override;
-					bool								Next()override;
-					void								Reset()override;
-				};
-			public:
-				ParsingTokenWalker(collections::List<regex::RegexToken>& _tokens, Ptr<ParsingTable> _table);
-				~ParsingTokenWalker();
-
-				const collections::IEnumerable<vint>&	GetLookahead()const;
-				void									Reset();
-				bool									Move();
-				vint									GetTableTokenIndex()const;
-				regex::RegexToken*						GetRegexToken()const;
-				vint									GetTokenIndexInStream()const;
-			};
-
-			class ParsingState : public Object
-			{
-			public:
-				struct ShiftReduceRange
-				{
-					regex::RegexToken*							shiftToken;
-					regex::RegexToken*							reduceToken;
-
-					ShiftReduceRange()
-						:shiftToken(0)
-						,reduceToken(0)
-					{
-					}
-				};
-
-				struct TransitionResult
-				{
-					enum TransitionType
-					{
-						ExecuteInstructions,
-						AmbiguityBegin,
-						AmbiguityBranch,
-						AmbiguityEnd,
-						SkipToken,
-					};
-
-					TransitionType								transitionType;
-					vint										ambiguityAffectedStackNodeCount;
-					WString										ambiguityNodeType;
-
-					vint										tableTokenIndex;
-					vint										tableStateSource;
-					vint										tableStateTarget;
-					vint										tokenIndexInStream;
-					regex::RegexToken*							token;
-
-					ParsingTable::TransitionItem*				transition;
-					vint										instructionBegin;
-					vint										instructionCount;
-					Ptr<collections::List<ShiftReduceRange>>	shiftReduceRanges;
-
-					TransitionResult(TransitionType _transitionType=ExecuteInstructions)
-						:transitionType(_transitionType)
-						,ambiguityAffectedStackNodeCount(0)
-						,tableTokenIndex(-1)
-						,tableStateSource(-1)
-						,tableStateTarget(-1)
-						,tokenIndexInStream(-1)
-						,token(0)
-						,transition(0)
-						,instructionBegin(-1)
-						,instructionCount(-1)
-					{
-					}
-
-					operator bool()const
-					{
-						return transitionType!=ExecuteInstructions || transition!=0;
-					}
-
-					void AddShiftReduceRange(regex::RegexToken* shiftToken, regex::RegexToken* reduceToken)
-					{
-						ShiftReduceRange range;
-						range.shiftToken=shiftToken;
-						range.reduceToken=reduceToken;
-						if(!shiftReduceRanges)
-						{
-							shiftReduceRanges=new collections::List<ShiftReduceRange>();
-						}
-						shiftReduceRanges->Add(range);
-					}
-				};
-
-				struct Future
-				{
-					vint									currentState;
-					vint									reduceStateCount;
-					collections::List<vint>					shiftStates;
-					vint									selectedToken;
-					ParsingTable::TransitionItem*			selectedItem;
-					Future*									previous;
-					Future*									next;
-
-					Future()
-						:currentState(-1)
-						,reduceStateCount(0)
-						,selectedToken(-1)
-						,selectedItem(0)
-						,previous(0)
-						,next(0)
-					{
-					}
-				};
-
-				struct StateGroup
-				{
-					collections::List<vint>						stateStack;
-					vint										currentState;
-					vint										tokenSequenceIndex;
-
-					collections::List<regex::RegexToken*>		shiftTokenStack;
-					regex::RegexToken*							shiftToken;
-					regex::RegexToken*							reduceToken;
-
-					StateGroup();
-					StateGroup(const ParsingTable::RuleInfo& info);
-					StateGroup(const StateGroup& group);
-				};
-			private:
-				WString										input;
-				Ptr<ParsingTable>							table;
-				collections::List<regex::RegexToken>		tokens;
-				Ptr<ParsingTokenWalker>						walker;
-				
-				WString										parsingRule;
-				vint										parsingRuleStartState;
-				Ptr<StateGroup>								stateGroup;
-			public:
-				ParsingState(const WString& _input, Ptr<ParsingTable> _table, vint codeIndex=-1);
-				~ParsingState();
-
-				const WString&								GetInput();
-				Ptr<ParsingTable>							GetTable();
-				const collections::List<regex::RegexToken>&	GetTokens();
-				regex::RegexToken*							GetToken(vint index);
-
-				vint										Reset(const WString& rule);
-				WString										GetParsingRule();
-				vint										GetParsingRuleStartState();
-				vint										GetCurrentToken();
-				const collections::List<vint>&				GetStateStack();
-				vint										GetCurrentState();
-				void										SkipCurrentToken();
-
-				bool										TestTransitionItemInFuture(vint tableTokenIndex, Future* future, ParsingTable::TransitionItem* item, const collections::IEnumerable<vint>* lookAheadTokens);
-				ParsingTable::TransitionItem*				MatchTokenInFuture(vint tableTokenIndex, Future* future, const collections::IEnumerable<vint>* lookAheadTokens);
-				ParsingTable::TransitionItem*				MatchToken(vint tableTokenIndex, const collections::IEnumerable<vint>* lookAheadTokens);
-				void										RunTransitionInFuture(ParsingTable::TransitionItem* transition, Future* previous, Future* now);
-				ParsingState::TransitionResult				RunTransition(ParsingTable::TransitionItem* transition, regex::RegexToken* regexToken, vint instructionBegin, vint instructionCount, bool lastPart);
-				ParsingState::TransitionResult				RunTransition(ParsingTable::TransitionItem* transition, regex::RegexToken* regexToken);
-
-				bool										ReadTokenInFuture(vint tableTokenIndex, Future* previous, Future* now, const collections::IEnumerable<vint>* lookAheadTokens);
-				TransitionResult							ReadToken(vint tableTokenIndex, regex::RegexToken* regexToken, const collections::IEnumerable<vint>* lookAheadTokens);
-				TransitionResult							ReadToken();
-
-				bool										TestExplore(vint tableTokenIndex, Future* previous);
-				void										Explore(vint tableTokenIndex, Future* previous, collections::List<Future*>& possibilities);
-				regex::RegexToken*							ExploreStep(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities);
-				void										ExploreTryReduce(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities);
-				Future*										ExploreCreateRootFuture();
-
-				Ptr<StateGroup>								TakeSnapshot();
-				void										RestoreSnapshot(Ptr<StateGroup> group);
-			};
-
-/***********************************************************************
-语法树生成器
-***********************************************************************/
-
-			class ParsingTreeBuilder : public Object
-			{
-			protected:
-				Ptr<ParsingTreeNode>						createdObject;
-				Ptr<ParsingTreeObject>						operationTarget;
-				collections::List<Ptr<ParsingTreeObject>>	nodeStack;
-
-				bool										processingAmbiguityBranch;
-				Ptr<ParsingTreeNode>						ambiguityBranchCreatedObject;
-				Ptr<ParsingTreeNode>						ambiguityBranchOperationTarget;
-				vint										ambiguityBranchSharedNodeCount;
-				collections::List<Ptr<ParsingTreeObject>>	ambiguityBranchNodeStack;
-				collections::List<Ptr<ParsingTreeObject>>	ambiguityNodes;
-			public:
-				ParsingTreeBuilder();
-				~ParsingTreeBuilder();
-
-				void										Reset();
-				bool										Run(const ParsingState::TransitionResult& result);
-				bool										GetProcessingAmbiguityBranch();
-				Ptr<ParsingTreeObject>						GetNode();
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSING.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::Parser
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSING
-#define VCZH_PARSING_PARSING
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace tabling
-		{
-
-/***********************************************************************
-语法分析器通用策略
-***********************************************************************/
-
-			class ParsingGeneralParser : public Object
-			{
-			protected:
-				Ptr<ParsingTable>							table;
-				
-			public:
-				ParsingGeneralParser(Ptr<ParsingTable> _table);
-				~ParsingGeneralParser();
-				
-				Ptr<ParsingTable>							GetTable();
-				virtual void								BeginParse();
-				virtual ParsingState::TransitionResult		ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)=0;
-				Ptr<ParsingTreeNode>						Parse(ParsingState& state, collections::List<Ptr<ParsingError>>& errors);
-				Ptr<ParsingTreeNode>						Parse(const WString& input, const WString& rule, collections::List<Ptr<ParsingError>>& errors);
-			};
-
-/***********************************************************************
-语法分析器策略
-***********************************************************************/
-
-			class ParsingStrictParser : public ParsingGeneralParser
-			{
-			protected:
-
-				virtual ParsingState::TransitionResult		OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors);
-			public:
-				ParsingStrictParser(Ptr<ParsingTable> _table=0);
-				~ParsingStrictParser();
-				
-				ParsingState::TransitionResult				ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)override;
-			};
-
-			class ParsingAutoRecoverParser : public ParsingStrictParser
-			{
-			protected:
-				collections::Array<ParsingState::Future>	recoverFutures;
-				vint										recoveringFutureIndex;
-
-				ParsingState::TransitionResult				OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)override;
-			public:
-				ParsingAutoRecoverParser(Ptr<ParsingTable> _table=0);
-				~ParsingAutoRecoverParser();
-			};
-
-			class ParsingAmbiguousParser : public ParsingGeneralParser
-			{
-				typedef collections::List<ParsingState::TransitionResult>		DecisionList;
-			protected:
-
-				DecisionList								decisions;
-				vint										consumedDecisionCount;
-
-				virtual void								OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<ParsingState::Future*>& futures, vint& begin, vint& end, vint& insertedTokenCount, vint& skippedTokenCount, collections::List<Ptr<ParsingError>>& errors);
-				vint										GetResolvableFutureLevels(collections::List<ParsingState::Future*>& futures, vint begin, vint end);
-				vint										SearchPathForOneStep(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint& begin, vint& end, collections::List<Ptr<ParsingError>>& errors);
-				vint										GetConflictReduceCount(collections::List<ParsingState::Future*>& futures);
-				void										GetConflictReduceIndices(collections::List<ParsingState::Future*>& futures, vint conflictReduceCount, collections::Array<vint>& conflictReduceIndices);
-				vint										GetAffectedStackNodeCount(collections::List<ParsingState::Future*>& futures, collections::Array<vint>& conflictReduceIndices);
-				void										BuildSingleDecisionPath(ParsingState& state, ParsingState::Future* future, collections::List<regex::RegexToken*>& tokens, vint availableTokenCount, vint lastAvailableInstructionCount);
-				void										BuildAmbiguousDecisions(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint begin, vint end, vint resolvableFutureLevels, collections::List<Ptr<ParsingError>>& errors);
-				void										BuildDecisions(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint begin, vint end, vint resolvableFutureLevels, collections::List<Ptr<ParsingError>>& errors);
-			public:
-				ParsingAmbiguousParser(Ptr<ParsingTable> _table=0);
-				~ParsingAmbiguousParser();
-				
-				ParsingState::TransitionResult				ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)override;
-				void										BeginParse()override;
-			};
-
-			class ParsingAutoRecoverAmbiguousParser : public ParsingAmbiguousParser
-			{
-			protected:
-
-				void										OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<ParsingState::Future*>& futures, vint& begin, vint& end, vint& insertedTokenCount, vint& skippedTokenCount, collections::List<Ptr<ParsingError>>& errors)override;
-			public:
-				ParsingAutoRecoverAmbiguousParser(Ptr<ParsingTable> _table=0);
-				~ParsingAutoRecoverAmbiguousParser();
-			};
-
-/***********************************************************************
-辅助函数
-***********************************************************************/
-			
-			extern Ptr<ParsingGeneralParser>				CreateStrictParser(Ptr<ParsingTable> table);
-			extern Ptr<ParsingGeneralParser>				CreateAutoRecoverParser(Ptr<ParsingTable> table);
-			extern Ptr<ParsingGeneralParser>				CreateBootstrapStrictParser();
-			extern Ptr<ParsingGeneralParser>				CreateBootstrapAutoRecoverParser();
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSINGDEFINITIONS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::Definitions
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSINGDEFINITIONS
-#define VCZH_PARSING_PARSINGDEFINITIONS
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace definitions
-		{
-
-/***********************************************************************
-属性标记
-***********************************************************************/
-
-			class ParsingDefinitionAttribute : public ParsingTreeCustomBase
-			{
-			public:
-				WString											name;
-				collections::List<WString>						arguments;
-			};
-
-			class ParsingDefinitionBase : public ParsingTreeCustomBase
-			{
-				typedef collections::List<Ptr<ParsingDefinitionAttribute>>				AttributeList;
-			public:
-				AttributeList									attributes;
-			};
-
-/***********************************************************************
-类型结构
-***********************************************************************/
-
-			class ParsingDefinitionPrimitiveType;
-			class ParsingDefinitionTokenType;
-			class ParsingDefinitionSubType;
-			class ParsingDefinitionArrayType;
-
-			class ParsingDefinitionType : public ParsingTreeCustomBase
-			{
-			public:
-				class IVisitor : public Interface
-				{
-				public:
-					virtual void								Visit(ParsingDefinitionPrimitiveType* node)=0;
-					virtual void								Visit(ParsingDefinitionTokenType* node)=0;
-					virtual void								Visit(ParsingDefinitionSubType* node)=0;
-					virtual void								Visit(ParsingDefinitionArrayType* node)=0;
-				};
-
-				virtual void									Accept(IVisitor* visitor)=0;
-			};
-
-			class ParsingDefinitionPrimitiveType : public ParsingDefinitionType
-			{
-			public:
-				WString											name;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionTokenType : public ParsingDefinitionType
-			{
-			public:
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionSubType : public ParsingDefinitionType
-			{
-			public:
-				Ptr<ParsingDefinitionType>						parentType;
-				WString											subTypeName;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionArrayType : public ParsingDefinitionType
-			{
-			public:
-				Ptr<ParsingDefinitionType>						elementType;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-/***********************************************************************
-类型定义
-***********************************************************************/
-
-			class ParsingDefinitionClassMemberDefinition;
-			class ParsingDefinitionClassDefinition;
-			class ParsingDefinitionEnumMemberDefinition;
-			class ParsingDefinitionEnumDefinition;
-
-			class ParsingDefinitionTypeDefinition : public ParsingDefinitionBase
-			{
-			public:
-				class IVisitor : public Interface
-				{
-				public:
-					virtual void								Visit(ParsingDefinitionClassMemberDefinition* node)=0;
-					virtual void								Visit(ParsingDefinitionClassDefinition* node)=0;
-					virtual void								Visit(ParsingDefinitionEnumMemberDefinition* node)=0;
-					virtual void								Visit(ParsingDefinitionEnumDefinition* node)=0;
-				};
-
-				virtual void									Accept(IVisitor* visitor)=0;
-			public:
-				WString											name;
-			};
-
-			class ParsingDefinitionClassMemberDefinition : public ParsingDefinitionTypeDefinition
-			{
-			public:
-				Ptr<ParsingDefinitionType>						type;
-				WString											unescapingFunction;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionClassDefinition : public ParsingDefinitionTypeDefinition
-			{
-			public:
-				typedef collections::List<Ptr<ParsingDefinitionClassMemberDefinition>>	MemberList;
-				typedef collections::List<Ptr<ParsingDefinitionTypeDefinition>>			TypeList;
-
-				WString											ambiguousType;
-				Ptr<ParsingDefinitionType>						parentType;
-				MemberList										members;
-				TypeList										subTypes;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionEnumMemberDefinition : public ParsingDefinitionTypeDefinition
-			{
-			public:
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionEnumDefinition : public ParsingDefinitionTypeDefinition
-			{
-			public:
-				typedef collections::List<Ptr<ParsingDefinitionEnumMemberDefinition>>	MemberList;
-
-				MemberList										members;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-/***********************************************************************
-文法规则
-***********************************************************************/
-
-			class ParsingDefinitionPrimitiveGrammar;
-			class ParsingDefinitionTextGrammar;
-			class ParsingDefinitionSequenceGrammar;
-			class ParsingDefinitionAlternativeGrammar;
-			class ParsingDefinitionLoopGrammar;
-			class ParsingDefinitionOptionalGrammar;
-			class ParsingDefinitionCreateGrammar;
-			class ParsingDefinitionAssignGrammar;
-			class ParsingDefinitionUseGrammar;
-			class ParsingDefinitionSetterGrammar;
-
-			class ParsingDefinitionGrammar : public ParsingTreeCustomBase
-			{
-			public:
-				class IVisitor : public Interface
-				{
-				public:
-					virtual void								Visit(ParsingDefinitionPrimitiveGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionTextGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionSequenceGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionAlternativeGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionLoopGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionOptionalGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionCreateGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionAssignGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionUseGrammar* node)=0;
-					virtual void								Visit(ParsingDefinitionSetterGrammar* node)=0;
-				};
-
-				virtual void									Accept(IVisitor* visitor)=0;
-			};
-
-			class ParsingDefinitionPrimitiveGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				WString											name;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionTextGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				WString											text;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionSequenceGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					first;
-				Ptr<ParsingDefinitionGrammar>					second;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionAlternativeGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					first;
-				Ptr<ParsingDefinitionGrammar>					second;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionLoopGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionOptionalGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionCreateGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-				Ptr<ParsingDefinitionType>						type;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionAssignGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-				WString											memberName;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionUseGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-			class ParsingDefinitionSetterGrammar : public ParsingDefinitionGrammar
-			{
-			public:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-				WString											memberName;
-				WString											value;
-
-				void											Accept(IVisitor* visitor)override;
-			};
-
-/***********************************************************************
-文法结构
-***********************************************************************/
-
-			class ParsingDefinitionTokenDefinition : public ParsingDefinitionBase
-			{
-			public:
-				WString											name;
-				WString											regex;
-				bool											discard;
-			};
-
-			class ParsingDefinitionRuleDefinition : public ParsingDefinitionBase
-			{
-			public:
-				WString															name;
-				Ptr<ParsingDefinitionType>										type;
-				collections::List<Ptr<ParsingDefinitionGrammar>>				grammars;
-			};
-
-			class ParsingDefinition : public ParsingTreeCustomBase
-			{
-			public:
-				collections::List<Ptr<ParsingDefinitionTypeDefinition>>			types;
-				collections::List<Ptr<ParsingDefinitionTokenDefinition>>		tokens;
-				collections::List<Ptr<ParsingDefinitionRuleDefinition>>			rules;
-			};
-
-/***********************************************************************
-构造器（属性标记）
-***********************************************************************/
-
-			class ParsingDefinitionAttributeWriter : public Object
-			{
-				friend ParsingDefinitionAttributeWriter			Attribute(const WString& name);
-			protected:
-				Ptr<ParsingDefinitionAttribute>					attribute;
-
-				ParsingDefinitionAttributeWriter(const WString& name);
-			public:
-				ParsingDefinitionAttributeWriter(const ParsingDefinitionAttributeWriter& attributeWriter);
-
-				ParsingDefinitionAttributeWriter&				Argument(const WString& argument);
-				Ptr<ParsingDefinitionAttribute>					Attribute()const;
-			};
-
-			extern ParsingDefinitionAttributeWriter				Attribute(const WString& name);
-
-/***********************************************************************
-构造器（类型结构）
-***********************************************************************/
-
-			class ParsingDefinitionTypeWriter : public Object
-			{
-				friend ParsingDefinitionTypeWriter				Type(const WString& name);
-				friend ParsingDefinitionTypeWriter				TokenType();
-			protected:
-				Ptr<ParsingDefinitionType>						type;
-
-				ParsingDefinitionTypeWriter(Ptr<ParsingDefinitionType> internalType);
-				ParsingDefinitionTypeWriter(const WString& name);
-			public:
-				ParsingDefinitionTypeWriter(const ParsingDefinitionTypeWriter& typeWriter);
-
-				ParsingDefinitionTypeWriter						Sub(const WString& subTypeName)const;
-				ParsingDefinitionTypeWriter						Array()const;
-				Ptr<ParsingDefinitionType>						Type()const;
-			};
-
-			extern ParsingDefinitionTypeWriter					Type(const WString& name);
-			extern ParsingDefinitionTypeWriter					TokenType();
-
-/***********************************************************************
-构造器（类型定义）
-***********************************************************************/
-
-			class ParsingDefinitionTypeDefinitionWriter : public Object
-			{
-			public:
-				virtual Ptr<ParsingDefinitionTypeDefinition>	Definition()const=0;
-			};
-
-			class ParsingDefinitionClassDefinitionWriter : public ParsingDefinitionTypeDefinitionWriter
-			{
-			protected:
-				Ptr<ParsingDefinitionBase>						currentDefinition;
-				Ptr<ParsingDefinitionClassDefinition>			definition;
-
-			public:
-				ParsingDefinitionClassDefinitionWriter(const WString& name);
-				ParsingDefinitionClassDefinitionWriter(const WString& name, const ParsingDefinitionTypeWriter& parentType);
-
-				ParsingDefinitionClassDefinitionWriter&			AmbiguousType(const WString& ambiguousType);
-				ParsingDefinitionClassDefinitionWriter&			Member(const WString& name, const ParsingDefinitionTypeWriter& type, const WString& unescapingFunction=L"");
-				ParsingDefinitionClassDefinitionWriter&			SubType(const ParsingDefinitionTypeDefinitionWriter& type);
-				ParsingDefinitionClassDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
-
-				Ptr<ParsingDefinitionTypeDefinition>			Definition()const override;
-			};
-			
-			extern ParsingDefinitionClassDefinitionWriter		Class(const WString& name);
-			extern ParsingDefinitionClassDefinitionWriter		Class(const WString& name, const ParsingDefinitionTypeWriter& parentType);
-
-			class ParsingDefinitionEnumDefinitionWriter : public ParsingDefinitionTypeDefinitionWriter
-			{
-			protected:
-				Ptr<ParsingDefinitionBase>						currentDefinition;
-				Ptr<ParsingDefinitionEnumDefinition>			definition;
-
-			public:
-				ParsingDefinitionEnumDefinitionWriter(const WString& name);
-
-				ParsingDefinitionEnumDefinitionWriter&			Member(const WString& name);
-				ParsingDefinitionEnumDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
-
-				Ptr<ParsingDefinitionTypeDefinition>			Definition()const override;
-			};
-
-			extern ParsingDefinitionEnumDefinitionWriter		Enum(const WString& name);
-
-/***********************************************************************
-构造器（文法规则）
-***********************************************************************/
-
-			class ParsingDefinitionGrammarWriter : public Object
-			{
-				friend ParsingDefinitionGrammarWriter			Rule(const WString& name);
-				friend ParsingDefinitionGrammarWriter			Text(const WString& name);
-				friend ParsingDefinitionGrammarWriter			Opt(const ParsingDefinitionGrammarWriter& writer);
-			protected:
-				Ptr<ParsingDefinitionGrammar>					grammar;
-
-				ParsingDefinitionGrammarWriter(Ptr<ParsingDefinitionGrammar> internalGrammar);
-			public:
-				ParsingDefinitionGrammarWriter(const ParsingDefinitionGrammarWriter& grammarWriter);
-
-				ParsingDefinitionGrammarWriter					operator+(const ParsingDefinitionGrammarWriter& next)const;
-				ParsingDefinitionGrammarWriter					operator|(const ParsingDefinitionGrammarWriter& next)const;
-				ParsingDefinitionGrammarWriter					operator*()const;
-				ParsingDefinitionGrammarWriter					As(const ParsingDefinitionTypeWriter& type)const;
-				ParsingDefinitionGrammarWriter					operator[](const WString& memberName)const;
-				ParsingDefinitionGrammarWriter					operator!()const;
-				ParsingDefinitionGrammarWriter					Set(const WString& memberName, const WString& value)const;
-
-				Ptr<ParsingDefinitionGrammar>					Grammar()const;
-			};
-
-			extern ParsingDefinitionGrammarWriter				Rule(const WString& name);
-			extern ParsingDefinitionGrammarWriter				Text(const WString& text);
-			extern ParsingDefinitionGrammarWriter				Opt(const ParsingDefinitionGrammarWriter& writer);
-
-/***********************************************************************
-构造器（文法结构）
-***********************************************************************/
-
-			class ParsingDefinitionWriter;
-
-			class ParsingDefinitionTokenDefinitionWriter : public Object
-			{
-			protected:
-				Ptr<ParsingDefinitionTokenDefinition>			token;
-				ParsingDefinitionWriter&						owner;
-			public:
-				ParsingDefinitionTokenDefinitionWriter(ParsingDefinitionWriter& _owner, Ptr<ParsingDefinitionTokenDefinition> _token);
-
-				ParsingDefinitionTokenDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
-				ParsingDefinitionWriter&						EndToken();
-			};
-
-			class ParsingDefinitionRuleDefinitionWriter : public Object
-			{
-			protected:
-				Ptr<ParsingDefinitionRuleDefinition>			rule;
-				ParsingDefinitionWriter&						owner;
-			public:
-				ParsingDefinitionRuleDefinitionWriter(ParsingDefinitionWriter& _owner, Ptr<ParsingDefinitionRuleDefinition> _rule);
-
-				ParsingDefinitionRuleDefinitionWriter&			Imply(const ParsingDefinitionGrammarWriter& grammar);
-				ParsingDefinitionRuleDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
-				ParsingDefinitionWriter&						EndRule();
-			};
-
-			class ParsingDefinitionWriter : public Object
-			{
-			protected:
-				Ptr<ParsingDefinition>							definition;
-
-			public:
-				ParsingDefinitionWriter();
-
-				ParsingDefinitionWriter&						Type(const ParsingDefinitionTypeDefinitionWriter& type);
-				ParsingDefinitionWriter&						Token(const WString& name, const WString& regex);
-				ParsingDefinitionTokenDefinitionWriter			TokenAtt(const WString& name, const WString& regex);
-				ParsingDefinitionWriter&						Discard(const WString& name, const WString& regex);
-				ParsingDefinitionRuleDefinitionWriter			Rule(const WString& name, const ParsingDefinitionTypeWriter& type);
-
-				Ptr<ParsingDefinition>							Definition()const;
-			};
-
-/***********************************************************************
-辅助函数
-***********************************************************************/
-
-			extern WString										TypeToString(ParsingDefinitionType* type);
-			extern WString										GrammarToString(ParsingDefinitionGrammar* grammar);
-			extern WString										GrammarStateToString(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode);
-			extern ParsingDefinitionGrammar*					FindAppropriateGrammarState(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode);
-			extern void											Log(Ptr<ParsingDefinition> definition, stream::TextWriter& writer);
-
-/***********************************************************************
-自举
-***********************************************************************/
-			
-			extern Ptr<ParsingDefinition>						CreateParserDefinition();
-			extern Ptr<ParsingDefinition>						DeserializeDefinition(Ptr<ParsingTreeNode> node);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSINGANALYZER.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::Analyzing
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSINGANALYZER
-#define VCZH_PARSING_PARSINGANALYZER
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace analyzing
-		{
-
-/***********************************************************************
-符号表关联对象
-***********************************************************************/
-
-			class ParsingSymbol;
-
-			struct DefinitionTypeScopePair
-			{
-				definitions::ParsingDefinitionType*		type;
-				ParsingSymbol*							scope;
-
-				DefinitionTypeScopePair()
-				{
-				}
-
-				DefinitionTypeScopePair(definitions::ParsingDefinitionType* _type, ParsingSymbol* _scope)
-					:type(_type)
-					,scope(_scope)
-				{
-				}
-
-				vint Compare(const DefinitionTypeScopePair& pair)
-				{
-					if(type<pair.type) return -1;
-					if(type>pair.type) return 1;
-					if(scope<pair.scope) return -1;
-					if(scope>pair.scope) return 1;
-					return 0;
-				}
-
-				bool operator==(const DefinitionTypeScopePair& pair){return Compare(pair)==0;}
-				bool operator!=(const DefinitionTypeScopePair& pair){return Compare(pair)!=0;}
-				bool operator>(const DefinitionTypeScopePair& pair){return Compare(pair)>0;}
-				bool operator>=(const DefinitionTypeScopePair& pair){return Compare(pair)>=0;}
-				bool operator<(const DefinitionTypeScopePair& pair){return Compare(pair)<0;}
-				bool operator<=(const DefinitionTypeScopePair& pair){return Compare(pair)<=0;}
-			};
-
-/***********************************************************************
-符号表
-***********************************************************************/
-
-			class ParsingSymbol : public Object
-			{
-				friend class ParsingSymbolManager;
-
-				typedef collections::Dictionary<WString, ParsingSymbol*>		ParsingSymbolMap;
-				typedef collections::List<ParsingSymbol*>						ParsingSymbolList;
-			public:
-				enum SymbolType
-				{
-					Global,
-					EnumType,
-					ClassType,		// descriptor == base type
-					ArrayType,		// descriptor == element type
-					TokenType,
-					EnumItem,		// descriptor == parent
-					ClassField,		// descriptor == field type
-					TokenDef,		// descriptor == token type
-					RuleDef,		// descriptor == rule type
-				};
-
-			protected:
-				ParsingSymbolManager*			manager;
-				SymbolType						type;
-				WString							name;
-				ParsingSymbol*					descriptorSymbol;
-				WString							descriptorString;
-				ParsingSymbol*					parentSymbol;
-				ParsingSymbol*					arrayTypeSymbol;
-				ParsingSymbolList				subSymbolList;
-				ParsingSymbolMap				subSymbolMap;
-
-				bool							AddSubSymbol(ParsingSymbol* subSymbol);
-
-				ParsingSymbol(ParsingSymbolManager* _manager, SymbolType _type, const WString& _name, ParsingSymbol* _descriptorSymbol, const WString& _descriptorString);
-			public:
-				~ParsingSymbol();
-
-				ParsingSymbolManager*			GetManager();
-				SymbolType						GetType();
-				const WString&					GetName();
-				vint							GetSubSymbolCount();
-				ParsingSymbol*					GetSubSymbol(vint index);
-				ParsingSymbol*					GetSubSymbolByName(const WString& name);
-				ParsingSymbol*					GetDescriptorSymbol();
-				WString							GetDescriptorString();
-				ParsingSymbol*					GetParentSymbol();
-				bool							IsType();
-				ParsingSymbol*					SearchClassSubSymbol(const WString& name);
-				ParsingSymbol*					SearchCommonBaseClass(ParsingSymbol* classType);
-			};
-
-			class ParsingSymbolManager : public Object
-			{
-				typedef definitions::ParsingDefinitionClassDefinition												ClassDefinition;
-				typedef collections::List<Ptr<ParsingSymbol>>														ParsingSymbolList;
-				typedef collections::Dictionary<DefinitionTypeScopePair, ParsingSymbol*>							DefinitionTypeSymbolMap;
-				typedef collections::Dictionary<definitions::ParsingDefinitionGrammar*, ParsingSymbol*>				DefinitionGrammarSymbolMap;
-				typedef collections::Dictionary<ParsingSymbol*, ClassDefinition*>									SymbolClassDefinitionMap;
-			protected:
-				ParsingSymbol*					globalSymbol;
-				ParsingSymbol*					tokenTypeSymbol;
-				ParsingSymbolList				createdSymbols;
-				DefinitionTypeSymbolMap			definitionTypeSymbolCache;
-				DefinitionGrammarSymbolMap		definitionGrammarSymbolCache;
-				DefinitionGrammarSymbolMap		definitionGrammarTypeCache;
-				SymbolClassDefinitionMap		symbolClassDefinitionCache;
-
-				bool							TryAddSubSymbol(Ptr<ParsingSymbol> subSymbol, ParsingSymbol* parentSymbol);
-			public:
-				ParsingSymbolManager();
-				~ParsingSymbolManager();
-
-				ParsingSymbol*					GetGlobal();
-				ParsingSymbol*					GetTokenType();
-				ParsingSymbol*					GetArrayType(ParsingSymbol* elementType);
-
-				ParsingSymbol*					AddClass(definitions::ParsingDefinitionClassDefinition* classDef, ParsingSymbol* baseType, ParsingSymbol* parentType=0);
-				ParsingSymbol*					AddField(const WString& name, ParsingSymbol* classType, ParsingSymbol* fieldType);
-				ParsingSymbol*					AddEnum(const WString& name, ParsingSymbol* parentType=0);
-				ParsingSymbol*					AddEnumItem(const WString& name, ParsingSymbol* enumType);
-				ParsingSymbol*					AddTokenDefinition(const WString& name, const WString& regex);
-				ParsingSymbol*					AddRuleDefinition(const WString& name, ParsingSymbol* ruleType);
-
-				ClassDefinition*				CacheGetClassDefinition(ParsingSymbol* type);
-				ParsingSymbol*					CacheGetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope);
-				bool							CacheSetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope, ParsingSymbol* symbol);
-				ParsingSymbol*					CacheGetSymbol(definitions::ParsingDefinitionGrammar* grammar);
-				bool							CacheSetSymbol(definitions::ParsingDefinitionGrammar* grammar, ParsingSymbol* symbol);
-				ParsingSymbol*					CacheGetType(definitions::ParsingDefinitionGrammar* grammar);
-				bool							CacheSetType(definitions::ParsingDefinitionGrammar* grammar, ParsingSymbol* type);
-			};
-
-/***********************************************************************
-语义分析
-***********************************************************************/
-
-			extern WString						GetTypeFullName(ParsingSymbol* type);
-			extern ParsingSymbol*				FindType(definitions::ParsingDefinitionType* type, ParsingSymbolManager* manager, ParsingSymbol* scope, collections::List<Ptr<ParsingError>>& errors);
-			extern void							PrepareSymbols(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
-			extern void							ValidateRuleStructure(Ptr<definitions::ParsingDefinition> definition, Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
-			extern void							ResolveRuleSymbols(Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
-			extern void							ResolveSymbols(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
-			extern void							ValidateDefinition(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\PARSINGAUTOMATON.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parsing::Automaton
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_PARSING_PARSINGAUTOMATON
-#define VCZH_PARSING_PARSINGAUTOMATON
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace analyzing
-		{
-
-/***********************************************************************
-状态机
-***********************************************************************/
-
-			class Action;
-			class Transition;
-			class State;
-
-			class Action : public Object
-			{
-			public:
-				enum ActionType
-				{
-					Create, // new source
-					Assign, // source ::= <created symbol>
-					Using,  // use <created symbol>
-					Setter, // source ::= target
-					Shift,
-					Reduce,
-					LeftRecursiveReduce,
-				};
-
-				ActionType											actionType;
-				ParsingSymbol*										actionTarget;
-				ParsingSymbol*										actionSource;
-				definitions::ParsingDefinitionRuleDefinition*		creatorRule;
-
-				// the following two fields record which rule symbol transition generate this shift/reduce action
-				State*												shiftReduceSource;
-				State*												shiftReduceTarget;
-
-				Action();
-				~Action();
-			};
-
-			class Transition : public Object
-			{
-			public:
-				enum TransitionType
-				{
-					TokenBegin,		// token stream start
-					TokenFinish,	// token stream end
-					TryReduce,		// rule end
-					Epsilon,		// an epsilon transition
-					Symbol,			// a syntax symbol
-				};
-
-				enum StackOperationType
-				{
-					None,
-					ShiftReduceCompacted,
-					LeftRecursive,
-				};
-
-				State*												source;
-				State*												target;
-				collections::List<Ptr<Action>>						actions;
-				
-				TransitionType										transitionType;
-				StackOperationType									stackOperationType;
-				ParsingSymbol*										transitionSymbol;
-
-				Transition();
-				~Transition();
-
-				static bool											IsEquivalent(Transition* t1, Transition* t2, bool careSourceAndTarget);
-			};
-
-			class State : public Object
-			{
-			public:
-				enum StatePosition
-				{
-					BeforeNode,
-					AfterNode,
-				};
-
-				collections::List<Transition*>						transitions;
-				collections::List<Transition*>						inputs;
-				bool												endState;
-
-				ParsingSymbol*										ownerRuleSymbol;
-				definitions::ParsingDefinitionRuleDefinition*		ownerRule;
-				definitions::ParsingDefinitionGrammar*				grammarNode;
-				definitions::ParsingDefinitionGrammar*				stateNode;
-				StatePosition										statePosition;
-				WString												stateName;
-				WString												stateExpression;
-
-				State();
-				~State();
-			};
-
-			class RuleInfo : public Object
-			{
-			public:
-				State*												rootRuleStartState;
-				State*												rootRuleEndState;
-				State*												startState;
-				collections::List<State*>							endStates;
-				int													stateNameCount;
-
-				RuleInfo();
-				~RuleInfo();
-			};
-
-			class Automaton : public Object
-			{
-				typedef collections::Dictionary<definitions::ParsingDefinitionRuleDefinition*, Ptr<RuleInfo>>		RuleInfoMap;
-			public:
-				ParsingSymbolManager*								symbolManager;
-				collections::List<Ptr<Transition>>					transitions;
-				collections::List<Ptr<State>>						states;
-				RuleInfoMap											ruleInfos;
-
-				Automaton(ParsingSymbolManager* _symbolManager);
-				~Automaton();
-
-				State*												RuleStartState(definitions::ParsingDefinitionRuleDefinition* ownerRule);
-				State*												RootRuleStartState(definitions::ParsingDefinitionRuleDefinition* ownerRule);
-				State*												RootRuleEndState(definitions::ParsingDefinitionRuleDefinition* ownerRule);
-				State*												StartState(definitions::ParsingDefinitionRuleDefinition* ownerRule, definitions::ParsingDefinitionGrammar* grammarNode, definitions::ParsingDefinitionGrammar* stateNode);
-				State*												EndState(definitions::ParsingDefinitionRuleDefinition* ownerRule, definitions::ParsingDefinitionGrammar* grammarNode, definitions::ParsingDefinitionGrammar* stateNode);
-				State*												CopyState(State* oldState);
-
-				Transition*											CreateTransition(State* start, State* end);
-				Transition*											TokenBegin(State* start, State* end);
-				Transition*											TokenFinish(State* start, State* end);
-				Transition*											TryReduce(State* start, State* end);
-				Transition*											Epsilon(State* start, State* end);
-				Transition*											Symbol(State* start, State* end, ParsingSymbol* transitionSymbol);
-				Transition*											CopyTransition(State* start, State* end, Transition* oldTransition);
-
-				void												DeleteTransition(Transition* transition);
-				void												DeleteState(State* state);
-			};
-
-/***********************************************************************
-辅助函数（搜索闭包）
-***********************************************************************/
-
-			struct ClosureItem
-			{
-				enum SearchResult
-				{
-					Continue,
-					Hit,
-					Blocked,
-				};
-
-				State*											state;			// target state of one path of a closure
-				Ptr<collections::List<Transition*>>				transitions;	// path
-				bool											cycle;			// true: invalid closure because there are cycles, and in the middle of the path there will be a transition that targets to the state field.
-
-				ClosureItem()
-					:state(0)
-					,cycle(false)
-				{
-				}
-
-				ClosureItem(State* _state, Ptr<collections::List<Transition*>> _transitions, bool _cycle)
-					:state(_state)
-					,transitions(_transitions)
-					,cycle(_cycle)
-				{
-				}
-			};
-
-			extern void												SearchClosure(ClosureItem::SearchResult(*closurePredicate)(Transition*), State* startState, collections::List<ClosureItem>& closure);
-			extern void												RemoveEpsilonTransitions(collections::Dictionary<State*, State*>& oldNewStateMap, collections::List<State*>& scanningStates, Ptr<Automaton> automaton);
-
-/***********************************************************************
-辅助函数（合并状态）
-***********************************************************************/
-			
-			extern void												DeleteUnnecessaryStates(Ptr<Automaton> automaton, Ptr<RuleInfo> ruleInfo, collections::List<State*>& newStates);
-			extern void												MergeStates(Ptr<Automaton> automaton, Ptr<RuleInfo> ruleInfo, collections::List<State*>& newStates);
-
-/***********************************************************************
-辅助函数（创建状态机）
-***********************************************************************/
-			
-			extern Ptr<Automaton>									CreateEpsilonPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager);
-			extern Ptr<Automaton>									CreateNondeterministicPDAFromEpsilonPDA(Ptr<Automaton> epsilonPDA);
-			extern Ptr<Automaton>									CreateJointPDAFromNondeterministicPDA(Ptr<Automaton> nondeterministicPDA);
-			extern void												CompactJointPDA(Ptr<Automaton> jointPDA);
-			extern void												MergeJointPDAStates(Ptr<Automaton> jointPDA);
-			extern void												MarkLeftRecursiveInJointPDA(Ptr<Automaton> jointPDA, collections::List<Ptr<ParsingError>>& errors);
-
-/***********************************************************************
-辅助函数（输出跳转表）
-***********************************************************************/
-
-			extern WString											GetTypeNameForCreateInstruction(ParsingSymbol* type);
-			extern Ptr<tabling::ParsingTable>						GenerateTableFromPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, Ptr<Automaton> jointPDA, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors);
-			extern Ptr<tabling::ParsingTable>						GenerateTable(Ptr<definitions::ParsingDefinition> definition, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors);
-			extern void												Log(Ptr<Automaton> automaton, stream::TextWriter& writer);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-PARSING\JSON\PARSINGJSON_PARSER.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parser::ParsingJson_Parser
-
-本文件使用Vczh Parsing Generator工具自动生成
-***********************************************************************/
-
-#ifndef VCZH_PARSING_JSON_PARSINGJSON_PARSER
-#define VCZH_PARSING_JSON_PARSINGJSON_PARSER
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace json
-		{
-			struct JsonParserTokenIndex abstract
-			{
-				static const vl::vint TRUEVALUE = 0;
-				static const vl::vint FALSEVALUE = 1;
-				static const vl::vint NULLVALUE = 2;
-				static const vl::vint OBJOPEN = 3;
-				static const vl::vint OBJCLOSE = 4;
-				static const vl::vint ARROPEN = 5;
-				static const vl::vint ARRCLOSE = 6;
-				static const vl::vint COMMA = 7;
-				static const vl::vint COLON = 8;
-				static const vl::vint NUMBER = 9;
-				static const vl::vint STRING = 10;
-				static const vl::vint SPACE = 11;
-			};
-			class JsonNode;
-			class JsonLiteral;
-			class JsonString;
-			class JsonNumber;
-			class JsonArray;
-			class JsonObjectField;
-			class JsonObject;
-
-			class JsonNode abstract : public vl::parsing::ParsingTreeCustomBase
-			{
-			public:
-				class IVisitor : public vl::Interface
-				{
-				public:
-					virtual void Visit(JsonLiteral* node)=0;
-					virtual void Visit(JsonString* node)=0;
-					virtual void Visit(JsonNumber* node)=0;
-					virtual void Visit(JsonArray* node)=0;
-					virtual void Visit(JsonObjectField* node)=0;
-					virtual void Visit(JsonObject* node)=0;
-				};
-
-				virtual void Accept(JsonNode::IVisitor* visitor)=0;
-
-			};
-
-			class JsonLiteral : public JsonNode
-			{
-			public:
-				struct JsonValue abstract
-				{
-					enum Type
-					{
-						True,
-						False,
-						Null,
-					};
-				};
-
-				JsonValue::Type value;
-
-				void Accept(JsonNode::IVisitor* visitor)override;
-
-				static vl::Ptr<JsonLiteral> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class JsonString : public JsonNode
-			{
-			public:
-				vl::parsing::ParsingToken content;
-
-				void Accept(JsonNode::IVisitor* visitor)override;
-
-				static vl::Ptr<JsonString> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class JsonNumber : public JsonNode
-			{
-			public:
-				vl::parsing::ParsingToken content;
-
-				void Accept(JsonNode::IVisitor* visitor)override;
-
-				static vl::Ptr<JsonNumber> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class JsonArray : public JsonNode
-			{
-			public:
-				vl::collections::List<vl::Ptr<JsonNode>> items;
-
-				void Accept(JsonNode::IVisitor* visitor)override;
-
-				static vl::Ptr<JsonArray> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class JsonObjectField : public JsonNode
-			{
-			public:
-				vl::parsing::ParsingToken name;
-				vl::Ptr<JsonNode> value;
-
-				void Accept(JsonNode::IVisitor* visitor)override;
-
-				static vl::Ptr<JsonObjectField> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class JsonObject : public JsonNode
-			{
-			public:
-				vl::collections::List<vl::Ptr<JsonObjectField>> fields;
-
-				void Accept(JsonNode::IVisitor* visitor)override;
-
-				static vl::Ptr<JsonObject> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			extern vl::WString JsonGetParserTextBuffer();
-			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> JsonConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			extern vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable();
-
-			extern vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
-			extern vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
-
-		}
-	}
-}
-#endif
-
-/***********************************************************************
-PARSING\JSON\PARSINGJSON.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parser::ParsingJson_Parser
-
-***********************************************************************/
-
-#ifndef VCZH_PARSING_JSON_PARSINGJSON
-#define VCZH_PARSING_JSON_PARSINGJSON
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace json
-		{
-			extern void						JsonEscapeString(const WString& text, stream::TextWriter& writer);
-			extern void						JsonUnescapeString(const WString& text, stream::TextWriter& writer);
-			extern void						JsonPrint(Ptr<JsonNode> node, stream::TextWriter& writer);
-			extern WString					JsonToString(Ptr<JsonNode> node);
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-STREAM\MEMORYSTREAM.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Stream::MemoryStream
-
-Interfaces:
-	MemoryStream					：内存流
-***********************************************************************/
-
-#ifndef VCZH_STREAM_MEMORYSTREAM
-#define VCZH_STREAM_MEMORYSTREAM
-
-
-namespace vl
-{
-	namespace stream
-	{
-		class MemoryStream : public Object, public virtual IStream
-		{
-		protected:
-			vint					block;
-			char*					buffer;
-			vint					size;
-			vint					position;
-			vint					capacity;
-
-			void					PrepareSpace(vint totalSpace);
-		public:
-			MemoryStream(vint _block=65536);
-			~MemoryStream();
-
-			bool					CanRead()const;
-			bool					CanWrite()const;
-			bool					CanSeek()const;
-			bool					CanPeek()const;
-			bool					IsLimited()const;
-			bool					IsAvailable()const;
-			void					Close();
-			pos_t					Position()const;
-			pos_t					Size()const;
-			void					Seek(pos_t _size);
-			void					SeekFromBegin(pos_t _size);
-			void					SeekFromEnd(pos_t _size);
-			vint					Read(void* _buffer, vint _size);
-			vint					Write(void* _buffer, vint _size);
-			vint					Peek(void* _buffer, vint _size);
-			void*					GetInternalBuffer();
-		};
-	}
-}
-
-#endif
-
-/***********************************************************************
-REGEX\REGEXDATA.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Regex::Basic Data Structure
-
-Classes:
-***********************************************************************/
-
-#ifndef VCZH_REGEX_REGEXDATA
-#define VCZH_REGEX_REGEXDATA
-
-
-namespace vl
-{
-	namespace regex_internal
-	{
-		using namespace vl::collections;
-
-/***********************************************************************
-基础数据结构
-***********************************************************************/
-
-		class CharRange
-		{
-		public:
-			typedef SortedList<CharRange>			List;
-
-			wchar_t					begin;
-			wchar_t					end;
-
-			CharRange();
-			CharRange(wchar_t _begin, wchar_t _end);
-
-			bool					operator<(CharRange item)const;
-			bool					operator<=(CharRange item)const;
-			bool					operator>(CharRange item)const;
-			bool					operator>=(CharRange item)const;
-			bool					operator==(CharRange item)const;
-			bool					operator!=(CharRange item)const;
-
-			bool					operator<(wchar_t item)const;
-			bool					operator<=(wchar_t item)const;
-			bool					operator>(wchar_t item)const;
-			bool					operator>=(wchar_t item)const;
-			bool					operator==(wchar_t item)const;
-			bool					operator!=(wchar_t item)const;
-		};
-	}
-
-	template<>
-	struct POD<regex_internal::CharRange>
-	{
-		static const bool Result=true;
-	};
-}
-
-#endif
-
-/***********************************************************************
-REGEX\REGEXAUTOMATON.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Regex::RegexAutomaton
-
-Classes:
-	State						：状态
-	Transition					：转换
-	Automaton					：状态机
-
-Functions:
-	EpsilonNfaToNfa				：去Epsilon
-	NfaToDfa					：NFA转DFA
-***********************************************************************/
-
-#ifndef VCZH_REGEX_REGEXAUTOMATON
-#define VCZH_REGEX_REGEXAUTOMATON
-
-
-namespace vl
-{
-	namespace regex_internal
-	{
-		class State;
-		class Transition;
-
-		class Transition
-		{
-		public:
-			enum Type
-			{
-				Chars,				//range为字符范围
-				Epsilon,
-				BeginString,
-				EndString,
-				Nop,				//无动作（不可消除epsilon，用来控制优先级）
-				Capture,			//capture为捕获频道
-				Match,				//capture为捕获频道，index为匹配的位置，-1代表匹配频道下面的所有项目
-				Positive,			//正向匹配
-				Negative,			//反向匹配
-				NegativeFail,		//反向匹配失败
-				End					//Capture, Position, Negative
-			};
-
-			State*					source;
-			State*					target;
-			CharRange				range;
-			Type					type;
-			vint						capture;
-			vint						index;
-		};
-
-		class State
-		{
-		public:
-			List<Transition*>		transitions;
-			List<Transition*>		inputs;
-			bool					finalState;
-			void*					userData;
-		};
-
-		class Automaton
-		{
-		public:
-			typedef Ptr<Automaton>		Ref;
-
-			List<Ptr<State>>		states;
-			List<Ptr<Transition>>	transitions;
-			List<WString>			captureNames;
-			State*					startState;
-
-			Automaton();
-
-			State*					NewState();
-			Transition*				NewTransition(State* start, State* end);
-			Transition*				NewChars(State* start, State* end, CharRange range);
-			Transition*				NewEpsilon(State* start, State* end);
-			Transition*				NewBeginString(State* start, State* end);
-			Transition*				NewEndString(State* start, State* end);
-			Transition*				NewNop(State* start, State* end);
-			Transition*				NewCapture(State* start, State* end, vint capture);
-			Transition*				NewMatch(State* start, State* end, vint capture, vint index=-1);
-			Transition*				NewPositive(State* start, State* end);
-			Transition*				NewNegative(State* start, State* end);
-			Transition*				NewNegativeFail(State* start, State* end);
-			Transition*				NewEnd(State* start, State* end);
-		};
-
-		extern bool					PureEpsilonChecker(Transition* transition);
-		extern bool					RichEpsilonChecker(Transition* transition);
-		extern bool					AreEqual(Transition* transA, Transition* transB);
-		extern Automaton::Ref		EpsilonNfaToNfa(Automaton::Ref source, bool(*epsilonChecker)(Transition*), Dictionary<State*, State*>& nfaStateMap);
-		extern Automaton::Ref		NfaToDfa(Automaton::Ref source, Group<State*, State*>& dfaStateMap);
-	}
-}
-
-#endif
-
-/***********************************************************************
-REGEX\REGEXEXPRESSION.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Regex::RegexExpression
-
-Classes:
-	Expression						：表达式基类					|
-	CharSetExpression				：字符集表达式				| a, [a-b], [^a-b0_9], \.rnt\/()+*?{}[]<>^$!=SsDdLlWw, [\rnt-[]\/^$]
-	LoopExpression					：循环表达式					| a{3}, a{3,}, a{1,3}, a+, a*, a?, LOOP?
-	SequenceExpression				：顺序表达式					| ab
-	AlternateExpression				：选择表达式					| a|b
-	BeginExpression					：【非纯】字符串起始表达式	| ^
-	EndExpression					：【非纯】字符串末尾表达式	| $
-	CaptureExpression				：【非纯】捕获表达式			| (<name>expr), (?expr)
-	MatchExpression					：【非纯】匹配表达式			| (<$name>), (<$name;i>), (<$i>)
-	PositiveExpression				：【非纯】正向预查表达式		| (=expr)
-	NegativeExpression				：【非纯】反向预查表达式		| (!expr)
-	UsingExpression					：引用表达式					| (<#name1>expr)...(<&name1>)...
-
-	RegexExpression					：正则表达式
-
-Functions:
-	ParseRegexExpression			：将字符串分析为RegexExpression对象，如果语法有问题则抛异常
-***********************************************************************/
-
-#ifndef VCZH_REGEX_REGEXEXPRESSION
-#define VCZH_REGEX_REGEXEXPRESSION
-
-
-namespace vl
-{
-	namespace regex_internal
-	{
-		class IRegexExpressionAlgorithm;
-
-/***********************************************************************
-正则表达式表达式树
-***********************************************************************/
-
-		class Expression : public Object, private NotCopyable
-		{
-		public:
-			typedef Ptr<Expression>								Ref;
-			typedef Dictionary<WString, Expression::Ref>		Map;
-
-			virtual void				Apply(IRegexExpressionAlgorithm& algorithm)=0;
-			bool						IsEqual(Expression* expression);
-			bool						HasNoExtension();
-			bool						CanTreatAsPure();
-			void						NormalizeCharSet(CharRange::List& subsets);
-			void						CollectCharSet(CharRange::List& subsets);
-			void						ApplyCharSet(CharRange::List& subsets);
-			Automaton::Ref				GenerateEpsilonNfa();
-		};
-
-		class CharSetExpression : public Expression
-		{
-		public:
-			CharRange::List				ranges;
-			bool						reverse;
-
-			bool						AddRangeWithConflict(CharRange range);
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class LoopExpression : public Expression
-		{
-		public:
-			Expression::Ref				expression;		//被循环表达式
-			vint							min;			//下限
-			vint							max;			//上限，-1代表无限
-			bool						preferLong;		//长匹配优先
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class SequenceExpression : public Expression
-		{
-		public:
-			Expression::Ref				left;			//左表达式
-			Expression::Ref				right;			//右表达式
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class AlternateExpression : public Expression
-		{
-		public:
-			Expression::Ref				left;			//左表达式
-			Expression::Ref				right;			//右表达式
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class BeginExpression: public Expression
-		{
-		public:
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class EndExpression : public Expression
-		{
-		public:
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class CaptureExpression : public Expression
-		{
-		public:
-			WString						name;			//捕获名，空代表缺省捕获
-			Expression::Ref				expression;		//被捕获表达式
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class MatchExpression : public Expression
-		{
-		public:
-			WString						name;			//捕获名，空代表缺省捕获
-			vint							index;			//捕获序号，-1代表非空捕获的所有项
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class PositiveExpression : public Expression
-		{
-		public:
-			Expression::Ref				expression;		//正向匹配表达式
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class NegativeExpression : public Expression
-		{
-		public:
-			Expression::Ref				expression;		//反向匹配表达式
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class UsingExpression : public Expression
-		{
-		public:
-			WString						name;			//引用名
-
-			void						Apply(IRegexExpressionAlgorithm& algorithm);
-		};
-
-		class RegexExpression : public Object, private NotCopyable
-		{
-		public:
-			typedef Ptr<RegexExpression>						Ref;
-
-			Expression::Map				definitions;	//命名子表达式
-			Expression::Ref				expression;		//主表达式
-
-			Expression::Ref				Merge();
-		};
-
-/***********************************************************************
-算法基类
-***********************************************************************/
-
-		class IRegexExpressionAlgorithm : public Interface
-		{
-		public:
-			virtual void				Visit(CharSetExpression* expression)=0;
-			virtual void				Visit(LoopExpression* expression)=0;
-			virtual void				Visit(SequenceExpression* expression)=0;
-			virtual void				Visit(AlternateExpression* expression)=0;
-			virtual void				Visit(BeginExpression* expression)=0;
-			virtual void				Visit(EndExpression* expression)=0;
-			virtual void				Visit(CaptureExpression* expression)=0;
-			virtual void				Visit(MatchExpression* expression)=0;
-			virtual void				Visit(PositiveExpression* expression)=0;
-			virtual void				Visit(NegativeExpression* expression)=0;
-			virtual void				Visit(UsingExpression* expression)=0;
-		};
-
-		template<typename ReturnType, typename ParameterType=void*>
-		class RegexExpressionAlgorithm : public Object, public IRegexExpressionAlgorithm
-		{
-		private:
-			ReturnType					returnValue;
-			ParameterType*				parameterValue;
-		public:
-
-			ReturnType Invoke(Expression* expression, ParameterType parameter)
-			{
-				parameterValue=&parameter;
-				expression->Apply(*this);
-				return returnValue;
-			}
-
-			ReturnType Invoke(Expression::Ref expression, ParameterType parameter)
-			{
-				parameterValue=&parameter;
-				expression->Apply(*this);
-				return returnValue;
-			}
-
-			virtual ReturnType			Apply(CharSetExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(LoopExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(SequenceExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(AlternateExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(BeginExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(EndExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(CaptureExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(MatchExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(PositiveExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(NegativeExpression* expression, ParameterType parameter)=0;
-			virtual ReturnType			Apply(UsingExpression* expression, ParameterType parameter)=0;
-		public:
-			void Visit(CharSetExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(LoopExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(SequenceExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(AlternateExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(BeginExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(EndExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(CaptureExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(MatchExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(PositiveExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(NegativeExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-
-			void Visit(UsingExpression* expression)
-			{
-				returnValue=Apply(expression, *parameterValue);
-			}
-		};
-
-		template<typename ParameterType>
-		class RegexExpressionAlgorithm<void, ParameterType> : public Object, public IRegexExpressionAlgorithm
-		{
-		private:
-			ParameterType*				parameterValue;
-		public:
-
-			void Invoke(Expression* expression, ParameterType parameter)
-			{
-				parameterValue=&parameter;
-				expression->Apply(*this);
-			}
-
-			void Invoke(Expression::Ref expression, ParameterType parameter)
-			{
-				parameterValue=&parameter;
-				expression->Apply(*this);
-			}
-
-			virtual void				Apply(CharSetExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(LoopExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(SequenceExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(AlternateExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(BeginExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(EndExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(CaptureExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(MatchExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(PositiveExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(NegativeExpression* expression, ParameterType parameter)=0;
-			virtual void				Apply(UsingExpression* expression, ParameterType parameter)=0;
-		public:
-			void Visit(CharSetExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(LoopExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(SequenceExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(AlternateExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(BeginExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(EndExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(CaptureExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(MatchExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(PositiveExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(NegativeExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-
-			void Visit(UsingExpression* expression)
-			{
-				Apply(expression, *parameterValue);
-			}
-		};
-
-/***********************************************************************
-辅助函数
-***********************************************************************/
-
-		extern Ptr<LoopExpression>		ParseLoop(const wchar_t*& input);
-		extern Ptr<Expression>			ParseCharSet(const wchar_t*& input);
-		extern Ptr<Expression>			ParseFunction(const wchar_t*& input);
-		extern Ptr<Expression>			ParseUnit(const wchar_t*& input);
-		extern Ptr<Expression>			ParseJoin(const wchar_t*& input);
-		extern Ptr<Expression>			ParseAlt(const wchar_t*& input);
-		extern Ptr<Expression>			ParseExpression(const wchar_t*& input);
-		extern RegexExpression::Ref		ParseRegexExpression(const WString& code);
-
-		extern WString					EscapeTextForRegex(const WString& literalString);
-		extern WString					UnescapeTextForRegex(const WString& escapedText);
-		extern WString					NormalizeEscapedTextForRegex(const WString& escapedText);
-		extern bool						IsRegexEscapedListeralString(const WString& regex);
-	}
-}
-
-#endif
-
-/***********************************************************************
-COLLECTIONS\OPERATIONENUMERABLE.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Data Structure::Operations
-
-***********************************************************************/
-
-#ifndef VCZH_COLLECTIONS_OPERATIONENUMERABLE
-#define VCZH_COLLECTIONS_OPERATIONENUMERABLE
-
-
-namespace vl
-{
-	namespace collections
-	{
-
-/***********************************************************************
-空迭代器
-***********************************************************************/
-
-		template<typename T>
-		class EmptyEnumerable : public Object, public IEnumerable<T>
-		{
-		private:
-			class Enumerator : public Object, public virtual IEnumerator<T>
-			{
-				IEnumerator<T>* Clone()const override
-				{
-					return new Enumerator;
-				}
-
-				const T& Current()const override
-				{
-					return *(T*)0;
-				}
-
-				vint Index()const override
-				{
-					return -1;
-				}
-
-				bool Next()override
-				{
-					return false;
-				}
-
-				void Reset()override
-				{
-				}
-
-				bool Evaluated()const override
-				{
-					return true;
-				}
-			};
-		public:
-			IEnumerator<T>* CreateEnumerator()const
-			{
-				return new Enumerator;
-			}
-		};
-
-/***********************************************************************
-递增数组迭代器
-***********************************************************************/
-
-		template<typename T>
-		class RangeEnumerator : public Object, public virtual IEnumerator<T>
-		{
-		protected:
-			T			start;
-			T			count;
-			T			current;
-		public:
-			RangeEnumerator(T _start, T _count, T _current)
-				:start(_start)
-				,count(_count)
-				,current(_current)
-			{
-			}
-
-			RangeEnumerator(T _start, T _count)
-				:start(_start)
-				,count(_count)
-				,current(_start-1)
-			{
-			}
-
-			IEnumerator<T>* Clone()const override
-			{
-				return new RangeEnumerator(start, count, current);
-			}
-
-			const T& Current()const override
-			{
-				return current;
-			}
-
-			T Index()const override
-			{
-				return current-start;
-			}
-
-			bool Next()override
-			{
-				if(start-1<=current && current<start+count-1)
-				{
-					current++;
-					return true;
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			void Reset()override
-			{
-				current=start-1;
-			}
-
-			bool Evaluated()const override
-			{
-				return true;
-			}
-		};
-
-/***********************************************************************
-自包含迭代器
-***********************************************************************/
-
-		template<typename T, typename TContainer>
-		class ContainerEnumerator : public Object, public virtual IEnumerator<T>
-		{
-		private:
-			Ptr<TContainer>					container;
-			vint							index;
-
-		public:
-			ContainerEnumerator(Ptr<TContainer> _container, vint _index=-1)
-			{
-				container=_container;
-				index=_index;
-			}
-
-			IEnumerator<T>* Clone()const override
-			{
-				return new ContainerEnumerator(container, index);
-			}
-
-			const T& Current()const override
-			{
-				return container->Get(index);
-			}
-
-			vint Index()const override
-			{
-				return index;
-			}
-
-			bool Next()override
-			{
-				index++;
-				return index>=0 && index<container->Count();
-			}
-
-			void Reset()override
-			{
-				index=-1;
-			}
-
-			bool Evaluated()const override
-			{
-				return true;
-			}
-		};
-
-/***********************************************************************
-迭代器比较
-***********************************************************************/
-
-		template<typename T, typename U>
-		vint CompareEnumerable(const IEnumerable<T>& a, const IEnumerable<U>& b)
-		{
-			Ptr<IEnumerator<T>> ator=a.CreateEnumerator();
-			Ptr<IEnumerator<U>> btor=b.CreateEnumerator();
-			while()
-			{
-				bool a=ator->Next();
-				bool b=btor->Next();
-				if(a&&!b) return 1;
-				if(!a&&b) return -1;
-				if(!a&&!b) break;
-
-				const T& ac=ator->Current();
-				const U& bc=btor->Current();
-				if(ac<bc)
-				{
-					return -1;
-				}
-				else if(ac>bc)
-				{
-					return 1;
-				}
-				ator->Next();
-				btor->Next();
-			}
-			return 0;
 		}
 	}
 }
@@ -12011,6 +9031,241 @@ vl::function_combining::Combining<R1(T0,T1,T2,T3,T4,T5,T6,T7,T8,T9), R2(T0,T1,T2
 #endif
 
 /***********************************************************************
+COLLECTIONS\OPERATIONENUMERABLE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Data Structure::Operations
+
+***********************************************************************/
+
+#ifndef VCZH_COLLECTIONS_OPERATIONENUMERABLE
+#define VCZH_COLLECTIONS_OPERATIONENUMERABLE
+
+
+namespace vl
+{
+	namespace collections
+	{
+
+/***********************************************************************
+空迭代器
+***********************************************************************/
+
+		template<typename T>
+		class EmptyEnumerable : public Object, public IEnumerable<T>
+		{
+		private:
+			class Enumerator : public Object, public virtual IEnumerator<T>
+			{
+				IEnumerator<T>* Clone()const override
+				{
+					return new Enumerator;
+				}
+
+				const T& Current()const override
+				{
+					return *(T*)0;
+				}
+
+				vint Index()const override
+				{
+					return -1;
+				}
+
+				bool Next()override
+				{
+					return false;
+				}
+
+				void Reset()override
+				{
+				}
+
+				bool Evaluated()const override
+				{
+					return true;
+				}
+			};
+		public:
+			IEnumerator<T>* CreateEnumerator()const
+			{
+				return new Enumerator;
+			}
+		};
+
+/***********************************************************************
+递增数组迭代器
+***********************************************************************/
+
+		template<typename T>
+		class RangeEnumerator : public Object, public virtual IEnumerator<T>
+		{
+		protected:
+			T			start;
+			T			count;
+			T			current;
+		public:
+			RangeEnumerator(T _start, T _count, T _current)
+				:start(_start)
+				,count(_count)
+				,current(_current)
+			{
+			}
+
+			RangeEnumerator(T _start, T _count)
+				:start(_start)
+				,count(_count)
+				,current(_start-1)
+			{
+			}
+
+			IEnumerator<T>* Clone()const override
+			{
+				return new RangeEnumerator(start, count, current);
+			}
+
+			const T& Current()const override
+			{
+				return current;
+			}
+
+			T Index()const override
+			{
+				return current-start;
+			}
+
+			bool Next()override
+			{
+				if(start-1<=current && current<start+count-1)
+				{
+					current++;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			void Reset()override
+			{
+				current=start-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
+			}
+		};
+
+/***********************************************************************
+自包含迭代器
+***********************************************************************/
+
+		template<typename T, typename TContainer>
+		class ContainerEnumerator : public Object, public virtual IEnumerator<T>
+		{
+		private:
+			Ptr<TContainer>					container;
+			vint							index;
+
+		public:
+			ContainerEnumerator(Ptr<TContainer> _container, vint _index=-1)
+			{
+				container=_container;
+				index=_index;
+			}
+
+			IEnumerator<T>* Clone()const override
+			{
+				return new ContainerEnumerator(container, index);
+			}
+
+			const T& Current()const override
+			{
+				return container->Get(index);
+			}
+
+			vint Index()const override
+			{
+				return index;
+			}
+
+			bool Next()override
+			{
+				index++;
+				return index>=0 && index<container->Count();
+			}
+
+			void Reset()override
+			{
+				index=-1;
+			}
+
+			bool Evaluated()const override
+			{
+				return true;
+			}
+		};
+
+/***********************************************************************
+迭代器比较
+***********************************************************************/
+
+		template<typename T, typename U>
+		vint CompareEnumerable(const IEnumerable<T>& a, const IEnumerable<U>& b)
+		{
+			Ptr<IEnumerator<T>> ator=a.CreateEnumerator();
+			Ptr<IEnumerator<U>> btor=b.CreateEnumerator();
+			while()
+			{
+				bool a=ator->Next();
+				bool b=btor->Next();
+				if(a&&!b) return 1;
+				if(!a&&b) return -1;
+				if(!a&&!b) break;
+
+				const T& ac=ator->Current();
+				const U& bc=btor->Current();
+				if(ac<bc)
+				{
+					return -1;
+				}
+				else if(ac>bc)
+				{
+					return 1;
+				}
+				ator->Next();
+				btor->Next();
+			}
+			return 0;
+		}
+
+		template<typename T>
+		struct SortedListOperations
+		{
+			static bool Contains(const SortedList<T>& items, const T& item)
+			{
+				return items.Contains(item);
+			}
+		};
+
+		template<typename T>
+		struct SortedListOperations<Ptr<T>>
+		{
+			static bool Contains(const SortedList<Ptr<T>>& items, const Ptr<T>& item)
+			{
+				return items.Contains(item.Obj());
+			}
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
 COLLECTIONS\OPERATIONSELECT.H
 ***********************************************************************/
 /***********************************************************************
@@ -12539,7 +9794,7 @@ Distinct
 				while(enumerator->Next())
 				{
 					const T& current=enumerator->Current();
-					if(!distinct.Contains(current))
+					if(!SortedListOperations<T>::Contains(distinct, current))
 					{
 						lastValue=current;
 						distinct.Add(current);
@@ -12782,7 +10037,7 @@ Intersect/Except
 			{
 				while(enumerator->Next())
 				{
-					if(reference.Contains(enumerator->Current())==Intersect)
+					if(SortedListOperations<T>::Contains(reference, enumerator->Current())==Intersect)
 					{
 						index++;
 						return true;
@@ -13377,227 +10632,6 @@ LazyList
 #endif
 
 /***********************************************************************
-PARSING\XML\PARSINGXML_PARSER.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parser::ParsingXml_Parser
-
-本文件使用Vczh Parsing Generator工具自动生成
-***********************************************************************/
-
-#ifndef VCZH_PARSING_XML_PARSINGXML_PARSER
-#define VCZH_PARSING_XML_PARSINGXML_PARSER
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace xml
-		{
-			struct XmlParserTokenIndex abstract
-			{
-				static const vl::vint INSTRUCTION_OPEN = 0;
-				static const vl::vint INSTRUCTION_CLOSE = 1;
-				static const vl::vint COMPLEX_ELEMENT_OPEN = 2;
-				static const vl::vint SINGLE_ELEMENT_CLOSE = 3;
-				static const vl::vint ELEMENT_OPEN = 4;
-				static const vl::vint ELEMENT_CLOSE = 5;
-				static const vl::vint EQUAL = 6;
-				static const vl::vint NAME = 7;
-				static const vl::vint ATTVALUE = 8;
-				static const vl::vint COMMENT = 9;
-				static const vl::vint CDATA = 10;
-				static const vl::vint TEXT = 11;
-				static const vl::vint SPACE = 12;
-			};
-			class XmlNode;
-			class XmlText;
-			class XmlCData;
-			class XmlAttribute;
-			class XmlComment;
-			class XmlElement;
-			class XmlInstruction;
-			class XmlDocument;
-
-			class XmlNode abstract : public vl::parsing::ParsingTreeCustomBase
-			{
-			public:
-				class IVisitor : public vl::Interface
-				{
-				public:
-					virtual void Visit(XmlText* node)=0;
-					virtual void Visit(XmlCData* node)=0;
-					virtual void Visit(XmlAttribute* node)=0;
-					virtual void Visit(XmlComment* node)=0;
-					virtual void Visit(XmlElement* node)=0;
-					virtual void Visit(XmlInstruction* node)=0;
-					virtual void Visit(XmlDocument* node)=0;
-				};
-
-				virtual void Accept(XmlNode::IVisitor* visitor)=0;
-
-			};
-
-			class XmlText : public XmlNode
-			{
-			public:
-				vl::parsing::ParsingToken content;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlText> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class XmlCData : public XmlNode
-			{
-			public:
-				vl::parsing::ParsingToken content;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlCData> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class XmlAttribute : public XmlNode
-			{
-			public:
-				vl::parsing::ParsingToken name;
-				vl::parsing::ParsingToken value;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlAttribute> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class XmlComment : public XmlNode
-			{
-			public:
-				vl::parsing::ParsingToken content;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlComment> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class XmlElement : public XmlNode
-			{
-			public:
-				vl::parsing::ParsingToken name;
-				vl::parsing::ParsingToken closingName;
-				vl::collections::List<vl::Ptr<XmlAttribute>> attributes;
-				vl::collections::List<vl::Ptr<XmlNode>> subNodes;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlElement> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class XmlInstruction : public XmlNode
-			{
-			public:
-				vl::parsing::ParsingToken name;
-				vl::collections::List<vl::Ptr<XmlAttribute>> attributes;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlInstruction> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			class XmlDocument : public XmlNode
-			{
-			public:
-				vl::collections::List<vl::Ptr<XmlNode>> prologs;
-				vl::Ptr<XmlElement> rootElement;
-
-				void Accept(XmlNode::IVisitor* visitor)override;
-
-				static vl::Ptr<XmlDocument> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			};
-
-			extern vl::WString XmlGetParserTextBuffer();
-			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> XmlConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
-			extern vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable();
-
-			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
-			extern vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
-
-			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
-			extern vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
-
-		}
-	}
-}
-#endif
-
-/***********************************************************************
-PARSING\XML\PARSINGXML.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-Parser::ParsingXml
-
-***********************************************************************/
-
-#ifndef VCZH_PARSING_XML_PARSINGXML
-#define VCZH_PARSING_XML_PARSINGXML
-
-
-namespace vl
-{
-	namespace parsing
-	{
-		namespace xml
-		{
-			extern WString							XmlEscapeValue(const WString& value);
-			extern WString							XmlUnescapeValue(const WString& value);
-			extern WString							XmlEscapeCData(const WString& value);
-			extern WString							XmlUnescapeCData(const WString& value);
-			extern WString							XmlEscapeComment(const WString& value);
-			extern WString							XmlUnescapeComment(const WString& value);
-			extern void								XmlPrint(Ptr<XmlNode> node, stream::TextWriter& writer);
-			extern void								XmlPrintContent(Ptr<XmlElement> element, stream::TextWriter& writer);
-			extern WString							XmlToString(Ptr<XmlNode> node);
-
-			extern Ptr<XmlAttribute>							XmlGetAttribute(Ptr<XmlElement> element, const WString& name);
-			extern Ptr<XmlElement>								XmlGetElement(Ptr<XmlElement> element, const WString& name);
-			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element);
-			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element, const WString& name);
-			extern WString										XmlGetValue(Ptr<XmlElement> element);
-
-			extern Ptr<XmlAttribute>							XmlGetAttribute(XmlElement* element, const WString& name);
-			extern Ptr<XmlElement>								XmlGetElement(XmlElement* element, const WString& name);
-			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element);
-			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element, const WString& name);
-			extern WString										XmlGetValue(XmlElement* element);
-
-			class XmlElementWriter : public Object
-			{
-			protected:
-				Ptr<XmlElement>					element;
-				const XmlElementWriter*			previousWriter;
-
-			public:
-				XmlElementWriter(Ptr<XmlElement> _element, const XmlElementWriter* _previousWriter=0);
-				~XmlElementWriter();
-
-				const XmlElementWriter&			Attribute(const WString& name, const WString& value)const;
-				XmlElementWriter				Element(const WString& name)const;
-				const XmlElementWriter&			End()const;
-				const XmlElementWriter&			Text(const WString& value)const;
-				const XmlElementWriter&			CData(const WString& value)const;
-				const XmlElementWriter&			Comment(const WString& value)const;
-			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
 REFLECTION\GUITYPEDESCRIPTOR.H
 ***********************************************************************/
 /***********************************************************************
@@ -13645,7 +10679,7 @@ Attribute
 			typedef collections::Dictionary<WString, Ptr<Object>>		InternalPropertyMap;
 			typedef void(*DestructorProc)(DescriptableObject* obj);
 		protected:
-			vint									referenceCounter;
+			volatile vint							referenceCounter;
 			DestructorProc							sharedPtrDestructorProc;
 
 			size_t									objectSize;
@@ -13706,13 +10740,13 @@ ReferenceCounterOperator
 	template<typename T>
 	struct ReferenceCounterOperator<T, typename RequiresConvertable<T, reflection::DescriptableObject>::YesNoType>
 	{
-		static __forceinline vint* CreateCounter(T* reference)
+		static __forceinline volatile vint* CreateCounter(T* reference)
 		{
 			reflection::DescriptableObject* obj=reference;
 			return &obj->referenceCounter;
 		}
 
-		static __forceinline void DeleteReference(vint* counter, void* reference)
+		static __forceinline void DeleteReference(volatile vint* counter, void* reference)
 		{
 			reflection::DescriptableObject* obj=(T*)reference;
 			if(obj->sharedPtrDestructorProc)
@@ -13755,12 +10789,18 @@ Value
 				Value(DescriptableObject* value);
 				Value(Ptr<DescriptableObject> value);
 				Value(const WString& value, ITypeDescriptor* associatedTypeDescriptor);
+
+				vint							Compare(const Value& a, const Value& b)const;
 			public:
 				Value();
 				Value(const Value& value);
 				Value&							operator=(const Value& value);
-				bool							operator==(const Value& value)const;
-				bool							operator!=(const Value& value)const;
+				bool							operator==(const Value& value)const { return Compare(*this, value)==0; }
+				bool							operator!=(const Value& value)const { return Compare(*this, value)!=0; }
+				bool							operator<(const Value& value)const { return Compare(*this, value)<0; }
+				bool							operator<=(const Value& value)const { return Compare(*this, value)<=0; }
+				bool							operator>(const Value& value)const { return Compare(*this, value)>0; }
+				bool							operator>=(const Value& value)const { return Compare(*this, value)>=0; }
 
 				ValueType						GetValueType()const;
 				DescriptableObject*				GetRawPtr()const;
@@ -13825,7 +10865,7 @@ Value
 				};
 			};
 
-			class IValueSerializer : public Interface
+			class IValueSerializer : public virtual IDescriptable, public Description<IValueSerializer>
 			{
 			public:
 				virtual ITypeDescriptor*		GetOwnerTypeDescriptor()=0;
@@ -13850,7 +10890,7 @@ Value
 ITypeDescriptor (type)
 ***********************************************************************/
 
-			class ITypeInfo : public virtual Interface
+			class ITypeInfo : public virtual IDescriptable, public Description<ITypeInfo>
 			{
 			public:
 				enum Decorator
@@ -13873,7 +10913,7 @@ ITypeDescriptor (type)
 ITypeDescriptor (basic)
 ***********************************************************************/
 
-			class IMemberInfo : public virtual Interface
+			class IMemberInfo : public virtual IDescriptable, public Description<IMemberInfo>
 			{
 			public:
 				virtual ITypeDescriptor*		GetOwnerTypeDescriptor()=0;
@@ -13884,7 +10924,7 @@ ITypeDescriptor (basic)
 ITypeDescriptor (event)
 ***********************************************************************/
 
-			class IEventHandler : public virtual Interface
+			class IEventHandler : public virtual IDescriptable, public Description<IEventHandler>
 			{
 			public:
 				virtual IEventInfo*				GetOwnerEvent()=0;
@@ -13894,20 +10934,21 @@ ITypeDescriptor (event)
 				virtual void					Invoke(const Value& thisObject, Value& arguments)=0;
 			};
 
-			class IEventInfo : public IMemberInfo
+			class IEventInfo : public virtual IMemberInfo, public Description<IEventInfo>
 			{
 			public:
 				virtual ITypeInfo*				GetHandlerType()=0;
 				virtual vint					GetObservingPropertyCount()=0;
 				virtual IPropertyInfo*			GetObservingProperty(vint index)=0;
 				virtual Ptr<IEventHandler>		Attach(const Value& thisObject, Ptr<IValueFunctionProxy> handler)=0;
+				virtual void					Invoke(const Value& thisObject, Value& arguments)=0;
 			};
 
 /***********************************************************************
 ITypeDescriptor (property)
 ***********************************************************************/
 
-			class IPropertyInfo : public IMemberInfo
+			class IPropertyInfo : public virtual IMemberInfo, public Description<IPropertyInfo>
 			{
 			public:
 				virtual bool					IsReadable()=0;
@@ -13924,14 +10965,14 @@ ITypeDescriptor (property)
 ITypeDescriptor (method)
 ***********************************************************************/
 
-			class IParameterInfo : public IMemberInfo
+			class IParameterInfo : public virtual IMemberInfo, public Description<IParameterInfo>
 			{
 			public:
 				virtual ITypeInfo*				GetType()=0;
 				virtual IMethodInfo*			GetOwnerMethod()=0;
 			};
 
-			class IMethodInfo : public IMemberInfo
+			class IMethodInfo : public virtual IMemberInfo, public Description<IMethodInfo>
 			{
 			public:
 				virtual IMethodGroupInfo*		GetOwnerMethodGroup()=0;
@@ -13944,7 +10985,7 @@ ITypeDescriptor (method)
 				virtual Value					Invoke(const Value& thisObject, collections::Array<Value>& arguments)=0;
 			};
 
-			class IMethodGroupInfo : public IMemberInfo
+			class IMethodGroupInfo : public virtual IMemberInfo, public Description<IMethodGroupInfo>
 			{
 			public:
 				virtual vint					GetMethodCount()=0;
@@ -13955,7 +10996,7 @@ ITypeDescriptor (method)
 ITypeDescriptor
 ***********************************************************************/
 
-			class ITypeDescriptor : public virtual Interface
+			class ITypeDescriptor : public virtual IDescriptable, public Description<ITypeDescriptor>
 			{
 			public:
 				virtual const WString&			GetTypeName()=0;
@@ -14032,8 +11073,82 @@ Collections
 
 			class IValueEnumerable : public virtual IDescriptable, public Description<IValueEnumerable>
 			{
+			private:
+				template<typename T>
+				class TypedEnumerator : public Object, public collections::IEnumerator<T>
+				{
+				private:
+					Ptr<IValueEnumerable>		enumerable;
+					Ptr<IValueEnumerator>		enumerator;
+					vint						index;
+					T							value;
+
+				public:
+					TypedEnumerator(Ptr<IValueEnumerable> _enumerable, vint _index, const T& _value)
+						:enumerable(_enumerable)
+						,index(_index)
+						,value(_value)
+					{
+						enumerator=enumerable->CreateEnumerator();
+						vint current=-1;
+						while(current++<index)
+						{
+							enumerator->Next();
+						}
+					}
+
+					TypedEnumerator(Ptr<IValueEnumerable> _enumerable)
+						:enumerable(_enumerable)
+						,index(-1)
+					{
+						Reset();
+					}
+
+					collections::IEnumerator<T>* Clone()const override
+					{
+						return new TypedEnumerable<T>(enumerable, index, value);
+					}
+
+					const T& Current()const override
+					{
+						return value;
+					}
+
+					vint Index()const override
+					{
+						return index;
+					}
+
+					bool Next() override
+					{
+						if(enumerator->Next())
+						{
+							index++;
+							value=UnboxValue<T>(enumerator->GetCurrent());
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+
+					void Reset() override
+					{
+						index=-1;
+						enumerator=enumerable->CreateEnumerator();
+					}
+				};
 			public:
 				virtual Ptr<IValueEnumerator>	CreateEnumerator()=0;
+
+				static Ptr<IValueEnumerable>	Create(collections::LazyList<Value> values);
+
+				template<typename T>
+				static collections::LazyList<T> GetLazyList(Ptr<IValueEnumerator> value)
+				{
+					return collections:::LazyList<T>(new TypedEnumerator<T>(value));
+				}
 			};
 
 			class IValueReadonlyList : public virtual IValueEnumerable, public Description<IValueReadonlyList>
@@ -14095,6 +11210,10 @@ Collections
 				virtual void					Set(const Value& key, const Value& value)=0;
 				virtual bool					Remove(const Value& key)=0;
 				virtual void					Clear()=0;
+
+				static Ptr<IValueDictionary>	Create();
+				static Ptr<IValueDictionary>	Create(Ptr<IValueReadonlyDictionary> values);
+				static Ptr<IValueDictionary>	Create(collections::LazyList<collections::Pair<Value, Value>> values);
 			};
 
 /***********************************************************************
@@ -14130,7 +11249,6 @@ Collection Wrappers
 			protected:
 				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
 				typedef typename ContainerType::ElementType				ElementType;
-				typedef typename KeyType<ElementType>::Type				ElementKeyType;
 
 				T								wrapperPointer;
 			public:
@@ -14156,23 +11274,37 @@ Collection Wrappers
 			};
 
 			template<typename T>
-			class ValueReadonlyListWrapper : public Object, public virtual IValueReadonlyList
+			class ValueEnumerableWrapper : public Object, public virtual IValueEnumerable
 			{
 			protected:
 				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
 				typedef typename ContainerType::ElementType				ElementType;
-				typedef typename KeyType<ElementType>::Type				ElementKeyType;
 
 				T								wrapperPointer;
 			public:
-				ValueReadonlyListWrapper(const T& _wrapperPointer)
+				ValueEnumerableWrapper(const T& _wrapperPointer)
 					:wrapperPointer(_wrapperPointer)
 				{
 				}
 
 				Ptr<IValueEnumerator> CreateEnumerator()override
 				{
-					return new ValueEnumeratorWrapper<Ptr<IEnumerator<ElementType>>>(wrapperPointer->CreateEnumerator());
+					return new ValueEnumeratorWrapper<Ptr<collections::IEnumerator<ElementType>>>(wrapperPointer->CreateEnumerator());
+				}
+			};
+
+			template<typename T>
+			class ValueReadonlyListWrapper : public ValueEnumerableWrapper<T>, public virtual IValueReadonlyList
+			{
+			protected:
+				typedef typename trait_helper::RemovePtr<T>::Type		ContainerType;
+				typedef typename ContainerType::ElementType				ElementType;
+				typedef typename KeyType<ElementType>::Type				ElementKeyType;
+
+			public:
+				ValueReadonlyListWrapper(const T& _wrapperPointer)
+					:ValueEnumerableWrapper(_wrapperPointer)
+				{
 				}
 
 				vint GetCount()override
@@ -14449,6 +11581,1167 @@ Exceptions
 					:TypeDescriptorException(L"Argument count does not match the definition.")
 				{
 				}
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\PARSINGTREE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Parsing Tree
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGTREE
+#define VCZH_PARSING_PARSINGTREE
+
+
+namespace vl
+{
+	namespace parsing
+	{
+
+/***********************************************************************
+位置信息
+***********************************************************************/
+
+		struct ParsingTextPos
+		{
+			static const int	UnknownValue=-2;
+			vint				index;
+			vint				row;
+			vint				column;
+
+			ParsingTextPos()
+				:index(UnknownValue)
+				,row(UnknownValue)
+				,column(UnknownValue)
+			{
+			}
+
+			ParsingTextPos(vint _index)
+				:index(_index)
+				,row(UnknownValue)
+				,column(UnknownValue)
+			{
+			}
+
+			ParsingTextPos(vint _row, vint _column)
+				:index(UnknownValue)
+				,row(_row)
+				,column(_column)
+			{
+			}
+
+			ParsingTextPos(vint _index, vint _row, vint _column)
+				:index(_index)
+				,row(_row)
+				,column(_column)
+			{
+			}
+
+			static vint Compare(const ParsingTextPos& a, const ParsingTextPos& b)
+			{
+				if(a.index!=UnknownValue && b.index!=UnknownValue)
+				{
+					return a.index-b.index;
+				}
+				else if(a.row!=UnknownValue && a.column!=UnknownValue && b.row!=UnknownValue && b.column!=UnknownValue)
+				{
+					if(a.row==b.row)
+					{
+						return a.column-b.column;
+					}
+					else
+					{
+						return a.row-b.row;
+					}
+				}
+				else
+				{
+					return 0;
+				}
+			}
+
+			bool operator==(const ParsingTextPos& pos)const{return Compare(*this, pos)==0;}
+			bool operator!=(const ParsingTextPos& pos)const{return Compare(*this, pos)!=0;}
+			bool operator<(const ParsingTextPos& pos)const{return Compare(*this, pos)<0;}
+			bool operator<=(const ParsingTextPos& pos)const{return Compare(*this, pos)<=0;}
+			bool operator>(const ParsingTextPos& pos)const{return Compare(*this, pos)>0;}
+			bool operator>=(const ParsingTextPos& pos)const{return Compare(*this, pos)>=0;}
+		};
+
+		struct ParsingTextRange
+		{
+			ParsingTextPos	start;
+			ParsingTextPos	end;
+
+			ParsingTextRange()
+			{
+				end.index=-1;
+				end.column=-1;
+			}
+
+			ParsingTextRange(const ParsingTextPos& _start, const ParsingTextPos& _end)
+				:start(_start)
+				,end(_end)
+			{
+			}
+
+			ParsingTextRange(const regex::RegexToken* startToken, const regex::RegexToken* endToken)
+			{
+				start.index=startToken->start;
+				start.row=startToken->rowStart;
+				start.column=startToken->columnStart;
+				end.index=endToken->start+endToken->length-1;
+				end.row=endToken->rowEnd;
+				end.column=endToken->columnEnd;
+			}
+
+			bool operator==(const ParsingTextRange& range)const{return start==range.start && end==range.end;}
+			bool operator!=(const ParsingTextRange& range)const{return start!=range.start || end!=range.end;}
+			bool Contains(const ParsingTextPos& pos)const{return start<=pos && pos<=end;}
+			bool Contains(const ParsingTextRange& range)const{return start<=range.start && range.end<=end;}
+		};
+
+/***********************************************************************
+通用语法树
+***********************************************************************/
+
+		class ParsingTreeNode;
+		class ParsingTreeToken;
+		class ParsingTreeObject;
+		class ParsingTreeArray;
+
+		class ParsingTreeNode : public Object, public reflection::Description<ParsingTreeNode>
+		{
+		public:
+			class IVisitor : public Interface
+			{
+			public:
+				virtual void					Visit(ParsingTreeToken* node)=0;
+				virtual void					Visit(ParsingTreeObject* node)=0;
+				virtual void					Visit(ParsingTreeArray* node)=0;
+			};
+
+			class TraversalVisitor : public Object, public IVisitor
+			{
+			public:
+				enum TraverseDirection
+				{
+					ByTextPosition,
+					ByStorePosition
+				};
+			protected:
+				TraverseDirection				direction;
+			public:
+				TraversalVisitor(TraverseDirection _direction);
+
+				virtual void					BeforeVisit(ParsingTreeToken* node);
+				virtual void					AfterVisit(ParsingTreeToken* node);
+				virtual void					BeforeVisit(ParsingTreeObject* node);
+				virtual void					AfterVisit(ParsingTreeObject* node);
+				virtual void					BeforeVisit(ParsingTreeArray* node);
+				virtual void					AfterVisit(ParsingTreeArray* node);
+
+				virtual void					Visit(ParsingTreeToken* node)override;
+				virtual void					Visit(ParsingTreeObject* node)override;
+				virtual void					Visit(ParsingTreeArray* node)override;
+			};
+		protected:
+			typedef collections::List<Ptr<ParsingTreeNode>>				NodeList;
+
+			ParsingTextRange					codeRange;
+			ParsingTreeNode*					parent;
+			NodeList							cachedOrderedSubNodes;
+
+			virtual const NodeList&				GetSubNodesInternal()=0;
+			bool								BeforeAddChild(Ptr<ParsingTreeNode> node);
+			void								AfterAddChild(Ptr<ParsingTreeNode> node);
+			bool								BeforeRemoveChild(Ptr<ParsingTreeNode> node);
+			void								AfterRemoveChild(Ptr<ParsingTreeNode> node);
+		public:
+			ParsingTreeNode(const ParsingTextRange& _codeRange);
+			~ParsingTreeNode();
+
+			virtual void						Accept(IVisitor* visitor)=0;
+			virtual Ptr<ParsingTreeNode>		Clone()=0;
+			ParsingTextRange					GetCodeRange();
+			void								SetCodeRange(const ParsingTextRange& range);
+
+			void								InitializeQueryCache();
+			void								ClearQueryCache();
+			ParsingTreeNode*					GetParent();
+			const NodeList&						GetSubNodes();
+
+			ParsingTreeNode*					FindSubNode(const ParsingTextPos& position);
+			ParsingTreeNode*					FindSubNode(const ParsingTextRange& range);
+			ParsingTreeNode*					FindDeepestNode(const ParsingTextPos& position);
+			ParsingTreeNode*					FindDeepestNode(const ParsingTextRange& range);
+		};
+
+		class ParsingTreeToken : public ParsingTreeNode, public reflection::Description<ParsingTreeToken>
+		{
+		protected:
+			WString								value;
+			vint								tokenIndex;
+
+			const NodeList&						GetSubNodesInternal()override;
+		public:
+			ParsingTreeToken(const WString& _value, vint _tokenIndex=-1, const ParsingTextRange& _codeRange=ParsingTextRange());
+			~ParsingTreeToken();
+
+			void								Accept(IVisitor* visitor)override;
+			Ptr<ParsingTreeNode>				Clone()override;
+			vint								GetTokenIndex();
+			void								SetTokenIndex(vint _tokenIndex);
+			const WString&						GetValue();
+			void								SetValue(const WString& _value);
+		};
+
+		class ParsingTreeObject : public ParsingTreeNode, public reflection::Description<ParsingTreeObject>
+		{
+		protected:
+			typedef collections::Dictionary<WString, Ptr<ParsingTreeNode>>				NodeMap;
+			typedef collections::SortedList<WString>									NameList;
+			typedef collections::List<WString>											RuleList;
+
+			WString								type;
+			NodeMap								members;
+			RuleList							rules;
+
+			const NodeList&			GetSubNodesInternal()override;
+		public:
+			ParsingTreeObject(const WString& _type=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
+			~ParsingTreeObject();
+
+			void								Accept(IVisitor* visitor)override;
+			Ptr<ParsingTreeNode>				Clone()override;
+			const WString&						GetType();
+			void								SetType(const WString& _type);
+			NodeMap&							GetMembers();
+			Ptr<ParsingTreeNode>				GetMember(const WString& name);
+			bool								SetMember(const WString& name, Ptr<ParsingTreeNode> node);
+			bool								RemoveMember(const WString& name);
+			const NameList&						GetMemberNames();
+			RuleList&							GetCreatorRules();
+		};
+
+		class ParsingTreeArray : public ParsingTreeNode, public reflection::Description<ParsingTreeArray>
+		{
+		protected:
+			typedef collections::List<Ptr<ParsingTreeNode>>								NodeArray;
+
+			WString								elementType;
+			NodeArray							items;
+
+			const NodeList&						GetSubNodesInternal()override;
+		public:
+			ParsingTreeArray(const WString& _elementType=L"", const ParsingTextRange& _codeRange=ParsingTextRange());
+			~ParsingTreeArray();
+
+			void								Accept(IVisitor* visitor)override;
+			Ptr<ParsingTreeNode>				Clone()override;
+			const WString&						GetElementType();
+			void								SetElementType(const WString& _elementType);
+			NodeArray&							GetItems();
+			Ptr<ParsingTreeNode>				GetItem(vint index);
+			bool								SetItem(vint index, Ptr<ParsingTreeNode> node);
+			bool								AddItem(Ptr<ParsingTreeNode> node);
+			bool								InsertItem(vint index, Ptr<ParsingTreeNode> node);
+			bool								RemoveItem(vint index);
+			bool								RemoveItem(ParsingTreeNode* node);
+			vint								IndexOfItem(ParsingTreeNode* node);
+			bool								ContainsItem(ParsingTreeNode* node);
+			vint								Count();
+			bool								Clear();
+		};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+		extern void								Log(ParsingTreeNode* node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
+
+/***********************************************************************
+语法树基础设施
+***********************************************************************/
+
+		class ParsingTreeCustomBase : public Object
+		{
+		public:
+			ParsingTextRange					codeRange;
+			collections::List<WString>			creatorRules;
+		};
+
+		class ParsingToken : public ParsingTreeCustomBase
+		{
+		public:
+			vint								tokenIndex;
+			WString								value;
+
+			ParsingToken():tokenIndex(-1){}
+		};
+
+		class ParsingError : public Object
+		{
+		public:
+			ParsingTextRange					codeRange;
+			const regex::RegexToken*			token;
+			ParsingTreeCustomBase*				parsingTree;
+			WString								errorMessage;
+
+			ParsingError();
+			ParsingError(const WString& _errorMessage);
+			ParsingError(const regex::RegexToken* _token, const WString& _errorMessage);
+			ParsingError(ParsingTreeCustomBase* _parsingTree, const WString& _errorMessage);
+			~ParsingError();
+		};
+
+/***********************************************************************
+语法树构造
+***********************************************************************/
+
+		class ParsingTreeConverter : public Object
+		{
+		public:
+			typedef collections::List<regex::RegexToken>	TokenList;
+
+			virtual Ptr<ParsingTreeCustomBase>				ConvertClass(Ptr<ParsingTreeObject> obj, const TokenList& tokens)=0;
+
+			bool SetMember(ParsingToken& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
+			{
+				Ptr<ParsingTreeToken> token=node.Cast<ParsingTreeToken>();
+				if(token)
+				{
+					member.tokenIndex=token->GetTokenIndex();
+					member.value=token->GetValue();
+					member.codeRange=token->GetCodeRange();
+					return true;
+				}
+				return false;
+			}
+
+			template<typename T>
+			bool SetMember(collections::List<T>& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
+			{
+				Ptr<ParsingTreeArray> arr=node.Cast<ParsingTreeArray>();
+				if(arr)
+				{
+					member.Clear();
+					vint count=arr->Count();
+					for(vint i=0;i<count;i++)
+					{
+						T t;
+						SetMember(t, arr->GetItem(i), tokens);
+						member.Add(t);
+					}
+					return true;
+				}
+				return false;
+			}
+
+			template<typename T>
+			bool SetMember(Ptr<T>& member, Ptr<ParsingTreeNode> node, const TokenList& tokens)
+			{
+				Ptr<ParsingTreeObject> obj=node.Cast<ParsingTreeObject>();
+				if(obj)
+				{
+					Ptr<ParsingTreeCustomBase> tree=ConvertClass(obj, tokens);
+					if(tree)
+					{
+						tree->codeRange=node->GetCodeRange();
+						member=tree.Cast<T>();
+						return member;
+					}
+				}
+				return false;
+			}
+		};
+
+/***********************************************************************
+符号表
+***********************************************************************/
+
+		class ParsingScope;
+		class ParsingScopeSymbol;
+		class ParsingScopeFinder;
+
+		class ParsingScope : public Object, public reflection::Description<ParsingScope>
+		{
+			typedef collections::SortedList<WString>							SymbolKeyList;
+			typedef collections::List<Ptr<ParsingScopeSymbol>>					SymbolList;
+			typedef collections::Group<WString, Ptr<ParsingScopeSymbol>>		SymbolGroup;
+
+			friend class ParsingScopeSymbol;
+			friend class ParsingScopeFinder;
+		protected:
+			static const SymbolList					emptySymbolList;
+
+			ParsingScopeSymbol*						ownerSymbol;
+			SymbolGroup								symbols;
+
+		public:
+			ParsingScope(ParsingScopeSymbol* _ownerSymbol);
+			~ParsingScope();
+
+			ParsingScopeSymbol*						GetOwnerSymbol();
+			bool									AddSymbol(Ptr<ParsingScopeSymbol> value);
+			bool									RemoveSymbol(Ptr<ParsingScopeSymbol> value);
+			const SymbolKeyList&					GetSymbolNames();
+			const SymbolList&						GetSymbols(const WString& name);
+		};
+
+		class ParsingScopeSymbol : public Object, public reflection::Description<ParsingScopeSymbol>
+		{
+			friend class ParsingScope;
+		protected:
+			ParsingScope*							parentScope;
+			WString									name;
+			collections::List<vint>					semanticIds;
+			Ptr<ParsingTreeObject>					node;
+			Ptr<ParsingScope>						scope;
+
+			virtual WString							GetDisplayInternal(vint semanticId);
+		public:
+			ParsingScopeSymbol(const WString& _name=L"", vint _semanticId=-1);
+			~ParsingScopeSymbol();
+
+			ParsingScope*							GetParentScope();
+			const WString&							GetName();
+			const collections::List<vint>&			GetSemanticIds();
+			bool									AddSemanticId(vint semanticId);
+			Ptr<ParsingTreeObject>					GetNode();
+			void									SetNode(Ptr<ParsingTreeObject> value);
+			bool									CreateScope();
+			bool									DestroyScope();
+			ParsingScope*							GetScope();
+			WString									GetDisplay(vint semanticId);
+		};
+
+		class ParsingScopeFinder : public Object, public reflection::Description<ParsingScopeFinder>
+		{
+			typedef collections::Dictionary<ParsingTreeObject*, ParsingScopeSymbol*>			NodeSymbolMap;
+			typedef collections::LazyList<Ptr<ParsingScopeSymbol>>								LazySymbolList;
+		public:
+			class SymbolMapper : public Object, public reflection::Description<SymbolMapper>
+			{
+			public:
+				virtual ParsingTreeNode*			ParentNode(ParsingTreeNode* node)=0;
+				virtual ParsingTreeNode*			Node(ParsingTreeNode* node)=0;
+				virtual ParsingScope*				ParentScope(ParsingScopeSymbol* symbol)=0;
+				virtual ParsingScopeSymbol*			Symbol(ParsingScopeSymbol* symbol)=0;
+			};
+
+			class DirectSymbolMapper : public SymbolMapper, public reflection::Description<DirectSymbolMapper>
+			{
+			public:
+				DirectSymbolMapper();
+				~DirectSymbolMapper();
+
+				ParsingTreeNode*					ParentNode(ParsingTreeNode* node)override;
+				ParsingTreeNode*					Node(ParsingTreeNode* node)override;
+				ParsingScope*						ParentScope(ParsingScopeSymbol* symbol)override;
+				ParsingScopeSymbol*					Symbol(ParsingScopeSymbol* symbol)override;
+			};
+
+			class IndirectSymbolMapper  : public SymbolMapper, public reflection::Description<IndirectSymbolMapper>
+			{
+			protected:
+				ParsingScopeSymbol*					originalSymbol;
+				ParsingScopeSymbol*					replacedSymbol;
+				ParsingTreeNode*					originalNode;
+				ParsingTreeNode*					replacedNode;
+			public:
+				IndirectSymbolMapper(ParsingScopeSymbol* _originalSymbol, ParsingScopeSymbol* _replacedSymbol, ParsingTreeNode* _originalNode, ParsingTreeNode* _replacedNode);
+				~IndirectSymbolMapper();
+
+				ParsingTreeNode*					ParentNode(ParsingTreeNode* node)override;
+				ParsingTreeNode*					Node(ParsingTreeNode* node)override;
+				ParsingScope*						ParentScope(ParsingScopeSymbol* symbol)override;
+				ParsingScopeSymbol*					Symbol(ParsingScopeSymbol* symbol)override;
+			};
+		protected:
+			NodeSymbolMap							nodeSymbols;
+			Ptr<SymbolMapper>						symbolMapper;
+			ParsingScopeFinder*						previousFinder;
+
+			void									InitializeQueryCacheInternal(ParsingScopeSymbol* symbol);
+		public:
+			ParsingScopeFinder(Ptr<SymbolMapper> _symbolMapper=new DirectSymbolMapper);
+			~ParsingScopeFinder();
+
+			ParsingTreeNode*						ParentNode(ParsingTreeNode* node);
+			ParsingTreeNode*						ParentNode(Ptr<ParsingTreeNode> node);
+			ParsingTreeNode*						Node(ParsingTreeNode* node);
+			Ptr<ParsingTreeNode>					Node(Ptr<ParsingTreeNode> node);
+			ParsingScope*							ParentScope(ParsingScopeSymbol* symbol);
+			ParsingScope*							ParentScope(Ptr<ParsingScopeSymbol> symbol);
+			ParsingScopeSymbol*						Symbol(ParsingScopeSymbol* symbol);
+			Ptr<ParsingScopeSymbol>					Symbol(Ptr<ParsingScopeSymbol> symbol);
+			LazySymbolList							Symbols(const ParsingScope::SymbolList& symbols);
+
+			template<typename T>
+			T* Obj(T* node)
+			{
+				return dynamic_cast<T*>(Node(node));
+			}
+
+			template<typename T>
+			Ptr<T> Obj(Ptr<T> node)
+			{
+				return Node(node).Cast<T>();
+			}
+			
+			void									InitializeQueryCache(ParsingScopeSymbol* symbol, ParsingScopeFinder* _previousFinder=0);
+			ParsingScopeSymbol*						GetSymbolFromNode(ParsingTreeObject* node);
+			ParsingScope*							GetScopeFromNode(ParsingTreeNode* node);
+			LazySymbolList							GetSymbols(ParsingScope* scope, const WString& name);
+			LazySymbolList							GetSymbols(ParsingScope* scope);
+			LazySymbolList							GetSymbolsRecursively(ParsingScope* scope, const WString& name);
+			LazySymbolList							GetSymbolsRecursively(ParsingScope* scope);
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\PARSINGTABLE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Table
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGTABLE
+#define VCZH_PARSING_PARSINGTABLE
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+
+/***********************************************************************
+跳转表
+***********************************************************************/
+
+			class ParsingTable : public Object
+			{
+			public:
+				static const vint							TokenBegin=0;
+				static const vint							TokenFinish=1;
+				static const vint							TryReduce=2;
+				static const vint							UserTokenStart=3;
+
+				class AttributeInfo : public Object
+				{
+				public:
+					WString									name;
+					collections::List<WString>				arguments;
+
+					AttributeInfo(const WString& _name)
+						:name(_name)
+					{
+					}
+
+					AttributeInfo* Argument(const WString& argument)
+					{
+						arguments.Add(argument);
+						return this;
+					}
+				};
+
+				class AttributeInfoList : public Object
+				{
+				public:
+					collections::List<Ptr<AttributeInfo>>	attributes;
+
+					Ptr<AttributeInfo> FindFirst(const WString& name);
+				};
+
+				class TreeTypeInfo
+				{
+				public:
+					WString									type;
+					vint									attributeIndex;
+
+					TreeTypeInfo()
+						:attributeIndex(-1)
+					{
+					}
+
+					TreeTypeInfo(const WString& _type, vint _attributeIndex)
+						:type(_type)
+						,attributeIndex(_attributeIndex)
+					{
+					}
+				};
+
+				class TreeFieldInfo
+				{
+				public:
+					WString									type;
+					WString									field;
+					vint									attributeIndex;
+
+					TreeFieldInfo()
+						:attributeIndex(-1)
+					{
+					}
+
+					TreeFieldInfo(const WString& _type, const WString& _field, vint _attributeIndex)
+						:type(_type)
+						,field(_field)
+						,attributeIndex(_attributeIndex)
+					{
+					}
+				};
+
+				class TokenInfo
+				{
+				public:
+					WString									name;
+					WString									regex;
+					vint									regexTokenIndex;
+					vint									attributeIndex;
+
+					TokenInfo()
+						:regexTokenIndex(-1)
+						,attributeIndex(-1)
+					{
+					}
+
+					TokenInfo(const WString& _name, const WString& _regex, vint _attributeIndex)
+						:name(_name)
+						,regex(_regex)
+						,regexTokenIndex(-1)
+						,attributeIndex(_attributeIndex)
+					{
+					}
+				};
+
+				class StateInfo
+				{
+				public:
+					WString									ruleName;
+					WString									stateName;
+					WString									stateExpression;
+
+					WString									ruleAmbiguousType;		// filled in Initialize()
+
+					StateInfo()
+					{
+					}
+
+					StateInfo(const WString& _ruleName, const WString& _stateName, const WString& _stateExpression)
+						:ruleName(_ruleName)
+						,stateName(_stateName)
+						,stateExpression(_stateExpression)
+					{
+					}
+				};
+
+				class RuleInfo
+				{
+				public:
+					WString									name;
+					WString									type;
+					WString									ambiguousType;
+					vint									rootStartState;
+					vint									attributeIndex;
+
+					RuleInfo()
+						:rootStartState(-1)
+						,attributeIndex(-1)
+					{
+					}
+
+					RuleInfo(const WString& _name, const WString& _type, const WString& _ambiguousType, vint _rootStartState, vint _attributeIndex)
+						:name(_name)
+						,type(_type)
+						,ambiguousType(_ambiguousType)
+						,rootStartState(_rootStartState)
+						,attributeIndex(_attributeIndex)
+					{
+					}
+				};
+
+				class Instruction
+				{
+				public:
+					enum InstructionType
+					{
+						Create,
+						Assign,
+						Item,
+						Using,
+						Setter,
+						Shift,
+						Reduce,
+						LeftRecursiveReduce,
+					};
+
+					InstructionType							instructionType;
+					vint									stateParameter;
+					WString									nameParameter;
+					WString									value;
+					WString									creatorRule;
+
+					Instruction()
+						:instructionType(Create)
+						,stateParameter(0)
+					{
+					}
+
+					Instruction(InstructionType _instructionType, vint _stateParameter, const WString& _nameParameter, const WString& _value, const WString& _creatorRule)
+						:instructionType(_instructionType)
+						,stateParameter(_stateParameter)
+						,nameParameter(_nameParameter)
+						,value(_value)
+						,creatorRule(_creatorRule)
+					{
+					}
+				};
+
+				class LookAheadInfo
+				{
+				public:
+					collections::List<vint>					tokens;
+					vint									state;
+
+					LookAheadInfo()
+						:state(-1)
+					{
+					}
+
+					enum PrefixResult
+					{
+						Prefix,
+						Equal,
+						NotPrefix,
+					};
+
+					static PrefixResult						TestPrefix(Ptr<LookAheadInfo> a, Ptr<LookAheadInfo> b);
+					static void								Walk(Ptr<ParsingTable> table, Ptr<LookAheadInfo> previous, vint state, collections::List<Ptr<LookAheadInfo>>& newInfos);
+				};
+
+				class TransitionItem
+				{
+				public:
+					vint									token;
+					vint									targetState;
+					collections::List<Ptr<LookAheadInfo>>	lookAheads;
+					collections::List<vint>					stackPattern;
+					collections::List<Instruction>			instructions;
+
+					enum OrderResult
+					{
+						CorrectOrder,
+						WrongOrder,
+						SameOrder,
+						UnknownOrder,
+					};
+
+					TransitionItem(){}
+
+					TransitionItem(vint _token, vint _targetState)
+						:token(_token)
+						,targetState(_targetState)
+					{
+					}
+
+					static OrderResult						CheckOrder(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2, bool forceGivingOrder);
+					static vint								Compare(Ptr<TransitionItem> t1, Ptr<TransitionItem> t2);
+				};
+
+				class TransitionBag
+				{
+				public:
+					collections::List<Ptr<TransitionItem>>	transitionItems;
+				};
+
+			protected:
+				bool																ambiguity;
+				Ptr<regex::RegexLexer>												lexer;
+				collections::Array<Ptr<TransitionBag>>								transitionBags;
+				vint																tokenCount;
+				vint																stateCount;
+				collections::Array<Ptr<AttributeInfoList>>							attributeInfos;
+				collections::Array<TreeTypeInfo>									treeTypeInfos;
+				collections::Array<TreeFieldInfo>									treeFieldInfos;
+				collections::Array<TokenInfo>										tokenInfos;
+				collections::Array<TokenInfo>										discardTokenInfos;
+				collections::Array<StateInfo>										stateInfos;
+				collections::Array<RuleInfo>										ruleInfos;
+				collections::Dictionary<WString, vint>								ruleMap;
+				collections::Dictionary<WString, vint>								treeTypeInfoMap;
+				collections::Dictionary<collections::Pair<WString, WString>, vint>	treeFieldInfoMap;
+
+			public:
+				ParsingTable(vint _attributeInfoCount, vint _treeTypeInfoCount, vint _treeFieldInfoCount, vint _tokenCount, vint _discardTokenCount, vint _stateCount, vint _ruleCount);
+				~ParsingTable();
+
+				bool										GetAmbiguity();
+				void										SetAmbiguity(bool value);
+
+				vint										GetAttributeInfoCount();
+				Ptr<AttributeInfoList>						GetAttributeInfo(vint index);
+				void										SetAttributeInfo(vint index, Ptr<AttributeInfoList> info);
+
+				vint										GetTreeTypeInfoCount();
+				const TreeTypeInfo&							GetTreeTypeInfo(vint index);
+				const TreeTypeInfo&							GetTreeTypeInfo(const WString& type);
+				void										SetTreeTypeInfo(vint index, const TreeTypeInfo& info);
+
+				vint										GetTreeFieldInfoCount();
+				const TreeFieldInfo&						GetTreeFieldInfo(vint index);
+				const TreeFieldInfo&						GetTreeFieldInfo(const WString& type, const WString& field);
+				void										SetTreeFieldInfo(vint index, const TreeFieldInfo& info);
+
+				vint										GetTokenCount();
+				const TokenInfo&							GetTokenInfo(vint token);
+				void										SetTokenInfo(vint token, const TokenInfo& info);
+
+				vint										GetDiscardTokenCount();
+				const TokenInfo&							GetDiscardTokenInfo(vint token);
+				void										SetDiscardTokenInfo(vint token, const TokenInfo& info);
+
+				vint										GetStateCount();
+				const StateInfo&							GetStateInfo(vint state);
+				void										SetStateInfo(vint state, const StateInfo& info);
+
+				vint										GetRuleCount();
+				const RuleInfo&								GetRuleInfo(const WString& ruleName);
+				const RuleInfo&								GetRuleInfo(vint rule);
+				void										SetRuleInfo(vint rule, const RuleInfo& info);
+
+				const regex::RegexLexer&					GetLexer();
+				Ptr<TransitionBag>							GetTransitionBag(vint state, vint token);
+				void										SetTransitionBag(vint state, vint token, Ptr<TransitionBag> bag);
+				void										Initialize();
+				bool										IsInputToken(vint regexTokenIndex);
+				vint										GetTableTokenIndex(vint regexTokenIndex);
+				vint										GetTableDiscardTokenIndex(vint regexTokenIndex);
+			};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+			extern void										Log(Ptr<ParsingTable> table, stream::TextWriter& writer);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\PARSINGSTATE.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::State
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGSTATE
+#define VCZH_PARSING_PARSINGSTATE
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+
+/***********************************************************************
+语法分析器
+***********************************************************************/
+			
+			class ParsingTokenWalker : public Object, protected collections::IEnumerable<vint>
+			{
+			protected:
+				collections::List<regex::RegexToken>&	tokens;
+				Ptr<ParsingTable>						table;
+				vint									currentToken;
+
+				vint									GetNextIndex(vint index)const;
+				vint									GetTableTokenIndex(vint index)const;
+				collections::IEnumerator<vint>*			CreateEnumerator()const override;
+			protected:
+				class LookAheadEnumerator : public Object, public collections::IEnumerator<vint>
+				{
+				protected:
+					const ParsingTokenWalker*			walker;
+					vint								firstToken;
+					vint								currentToken;
+					vint								currentValue;
+					vint								index;
+
+				public:
+					LookAheadEnumerator(const ParsingTokenWalker* _walker, vint _currentToken);
+					LookAheadEnumerator(const LookAheadEnumerator& _enumerator);
+
+					IEnumerator<vint>*					Clone()const override;
+					const vint&							Current()const override;
+					vint								Index()const override;
+					bool								Next()override;
+					void								Reset()override;
+				};
+			public:
+				ParsingTokenWalker(collections::List<regex::RegexToken>& _tokens, Ptr<ParsingTable> _table);
+				~ParsingTokenWalker();
+
+				const collections::IEnumerable<vint>&	GetLookahead()const;
+				void									Reset();
+				bool									Move();
+				vint									GetTableTokenIndex()const;
+				regex::RegexToken*						GetRegexToken()const;
+				vint									GetTokenIndexInStream()const;
+			};
+
+			class ParsingState : public Object
+			{
+			public:
+				struct ShiftReduceRange
+				{
+					regex::RegexToken*							shiftToken;
+					regex::RegexToken*							reduceToken;
+
+					ShiftReduceRange()
+						:shiftToken(0)
+						,reduceToken(0)
+					{
+					}
+				};
+
+				struct TransitionResult
+				{
+					enum TransitionType
+					{
+						ExecuteInstructions,
+						AmbiguityBegin,
+						AmbiguityBranch,
+						AmbiguityEnd,
+						SkipToken,
+					};
+
+					TransitionType								transitionType;
+					vint										ambiguityAffectedStackNodeCount;
+					WString										ambiguityNodeType;
+
+					vint										tableTokenIndex;
+					vint										tableStateSource;
+					vint										tableStateTarget;
+					vint										tokenIndexInStream;
+					regex::RegexToken*							token;
+
+					ParsingTable::TransitionItem*				transition;
+					vint										instructionBegin;
+					vint										instructionCount;
+					Ptr<collections::List<ShiftReduceRange>>	shiftReduceRanges;
+
+					TransitionResult(TransitionType _transitionType=ExecuteInstructions)
+						:transitionType(_transitionType)
+						,ambiguityAffectedStackNodeCount(0)
+						,tableTokenIndex(-1)
+						,tableStateSource(-1)
+						,tableStateTarget(-1)
+						,tokenIndexInStream(-1)
+						,token(0)
+						,transition(0)
+						,instructionBegin(-1)
+						,instructionCount(-1)
+					{
+					}
+
+					operator bool()const
+					{
+						return transitionType!=ExecuteInstructions || transition!=0;
+					}
+
+					void AddShiftReduceRange(regex::RegexToken* shiftToken, regex::RegexToken* reduceToken)
+					{
+						ShiftReduceRange range;
+						range.shiftToken=shiftToken;
+						range.reduceToken=reduceToken;
+						if(!shiftReduceRanges)
+						{
+							shiftReduceRanges=new collections::List<ShiftReduceRange>();
+						}
+						shiftReduceRanges->Add(range);
+					}
+				};
+
+				struct Future
+				{
+					vint									currentState;
+					vint									reduceStateCount;
+					collections::List<vint>					shiftStates;
+					vint									selectedToken;
+					ParsingTable::TransitionItem*			selectedItem;
+					Future*									previous;
+					Future*									next;
+
+					Future()
+						:currentState(-1)
+						,reduceStateCount(0)
+						,selectedToken(-1)
+						,selectedItem(0)
+						,previous(0)
+						,next(0)
+					{
+					}
+
+					Future* Clone()
+					{
+						Future* future=new Future;
+						future->currentState=currentState;
+						future->reduceStateCount=reduceStateCount;
+						CopyFrom(future->shiftStates, shiftStates);
+						future->selectedToken=selectedToken;
+						future->selectedItem=selectedItem;
+						future->previous=previous;
+						return future;
+					}
+				};
+
+				struct StateGroup
+				{
+					collections::List<vint>						stateStack;
+					vint										currentState;
+					vint										tokenSequenceIndex;
+
+					collections::List<regex::RegexToken*>		shiftTokenStack;
+					regex::RegexToken*							shiftToken;
+					regex::RegexToken*							reduceToken;
+
+					StateGroup();
+					StateGroup(const ParsingTable::RuleInfo& info);
+					StateGroup(const StateGroup& group);
+				};
+			private:
+				WString										input;
+				Ptr<ParsingTable>							table;
+				collections::List<regex::RegexToken>		tokens;
+				Ptr<ParsingTokenWalker>						walker;
+				
+				WString										parsingRule;
+				vint										parsingRuleStartState;
+				Ptr<StateGroup>								stateGroup;
+			public:
+				ParsingState(const WString& _input, Ptr<ParsingTable> _table, vint codeIndex=-1);
+				~ParsingState();
+
+				const WString&								GetInput();
+				Ptr<ParsingTable>							GetTable();
+				const collections::List<regex::RegexToken>&	GetTokens();
+				regex::RegexToken*							GetToken(vint index);
+
+				vint										Reset(const WString& rule);
+				WString										GetParsingRule();
+				vint										GetParsingRuleStartState();
+				vint										GetCurrentToken();
+				vint										GetCurrentTableTokenIndex();
+				const collections::List<vint>&				GetStateStack();
+				vint										GetCurrentState();
+				void										SkipCurrentToken();
+
+				bool										TestTransitionItemInFuture(vint tableTokenIndex, Future* future, ParsingTable::TransitionItem* item, const collections::IEnumerable<vint>* lookAheadTokens);
+				ParsingTable::TransitionItem*				MatchTokenInFuture(vint tableTokenIndex, Future* future, const collections::IEnumerable<vint>* lookAheadTokens);
+				ParsingTable::TransitionItem*				MatchToken(vint tableTokenIndex, const collections::IEnumerable<vint>* lookAheadTokens);
+				void										RunTransitionInFuture(ParsingTable::TransitionItem* transition, Future* previous, Future* now);
+				ParsingState::TransitionResult				RunTransition(ParsingTable::TransitionItem* transition, regex::RegexToken* regexToken, vint instructionBegin, vint instructionCount, bool lastPart);
+				ParsingState::TransitionResult				RunTransition(ParsingTable::TransitionItem* transition, regex::RegexToken* regexToken);
+
+				bool										ReadTokenInFuture(vint tableTokenIndex, Future* previous, Future* now, const collections::IEnumerable<vint>* lookAheadTokens);
+				TransitionResult							ReadToken(vint tableTokenIndex, regex::RegexToken* regexToken, const collections::IEnumerable<vint>* lookAheadTokens);
+				TransitionResult							ReadToken();
+
+				bool										TestExplore(vint tableTokenIndex, Future* previous);
+				void										Explore(vint tableTokenIndex, Future* previous, collections::List<Future*>& possibilities);
+				regex::RegexToken*							ExploreStep(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities);
+				void										ExploreTryReduce(collections::List<Future*>& previousFutures, vint start, vint count, collections::List<Future*>& possibilities);
+				Future*										ExploreCreateRootFuture();
+
+				Ptr<StateGroup>								TakeSnapshot();
+				void										RestoreSnapshot(Ptr<StateGroup> group);
+			};
+
+/***********************************************************************
+语法树生成器
+***********************************************************************/
+
+			class ParsingTransitionProcessor : public Object
+			{
+			public:
+				virtual void								Reset()=0;
+				virtual bool								Run(const ParsingState::TransitionResult& result)=0;
+				virtual bool								GetProcessingAmbiguityBranch()=0;
+			};
+
+			class ParsingTreeBuilder : public ParsingTransitionProcessor
+			{
+			protected:
+				Ptr<ParsingTreeNode>						createdObject;
+				Ptr<ParsingTreeObject>						operationTarget;
+				collections::List<Ptr<ParsingTreeObject>>	nodeStack;
+
+				bool										processingAmbiguityBranch;
+				Ptr<ParsingTreeNode>						ambiguityBranchCreatedObject;
+				Ptr<ParsingTreeNode>						ambiguityBranchOperationTarget;
+				vint										ambiguityBranchSharedNodeCount;
+				collections::List<Ptr<ParsingTreeObject>>	ambiguityBranchNodeStack;
+				collections::List<Ptr<ParsingTreeObject>>	ambiguityNodes;
+			public:
+				ParsingTreeBuilder();
+				~ParsingTreeBuilder();
+
+				void										Reset()override;
+				bool										Run(const ParsingState::TransitionResult& result)override;
+				bool										GetProcessingAmbiguityBranch()override;
+				Ptr<ParsingTreeObject>						GetNode()const;
+			};
+
+			class ParsingTransitionCollector : public ParsingTransitionProcessor
+			{
+				typedef collections::List<ParsingState::TransitionResult>		TransitionResultList;
+			protected:
+				vint										ambiguityBegin;
+				TransitionResultList						transitions;
+
+				collections::Dictionary<vint, vint>			ambiguityBeginToEnds;
+				collections::Group<vint, vint>				ambiguityBeginToBranches;
+				collections::Dictionary<vint, vint>			ambiguityBranchToBegins;
+			public:
+				ParsingTransitionCollector();
+				~ParsingTransitionCollector();
+
+				void										Reset()override;
+				bool										Run(const ParsingState::TransitionResult& result)override;
+				bool										GetProcessingAmbiguityBranch()override;
+
+				const TransitionResultList&					GetTransitions()const;
+				vint										GetAmbiguityEndFromBegin(vint transitionIndex)const;
+				const collections::List<vint>&				GetAmbiguityBranchesFromBegin(vint transitionIndex)const;
+				vint										GetAmbiguityBeginFromBranch(vint transitionIndex)const;
 			};
 		}
 	}
@@ -14793,6 +13086,7 @@ Predefined Types
 			template<>struct TypeInfo<WString>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<DateTime>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<Locale>{static const wchar_t* TypeName;};
+
 			template<>struct TypeInfo<IValueEnumerator>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueEnumerable>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueReadonlyList>{static const wchar_t* TypeName;};
@@ -14801,6 +13095,18 @@ Predefined Types
 			template<>struct TypeInfo<IValueDictionary>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueInterfaceProxy>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueFunctionProxy>{static const wchar_t* TypeName;};
+
+			template<>struct TypeInfo<IValueSerializer>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<ITypeInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<ITypeInfo::Decorator>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IMemberInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IEventHandler>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IEventInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IPropertyInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IParameterInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IMethodInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IMethodGroupInfo>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<ITypeDescriptor>{static const wchar_t* TypeName;};
 
 			template<>
 			struct TypedValueSerializerProvider<unsigned __int8>
@@ -15061,6 +13367,7 @@ EventInfoImpl
 
 				virtual void							AttachInternal(DescriptableObject* thisObject, IEventHandler* eventHandler)=0;
 				virtual void							DetachInternal(DescriptableObject* thisObject, IEventHandler* eventHandler)=0;
+				virtual void							InvokeInternal(DescriptableObject* thisObject, Value& eventHandler)=0;
 				virtual Ptr<ITypeInfo>					GetHandlerTypeInternal()=0;
 
 				void									AddEventHandler(DescriptableObject* thisObject, Ptr<IEventHandler> eventHandler);
@@ -15075,6 +13382,7 @@ EventInfoImpl
 				vint									GetObservingPropertyCount()override;
 				IPropertyInfo*							GetObservingProperty(vint index)override;
 				Ptr<IEventHandler>						Attach(const Value& thisObject, Ptr<IValueFunctionProxy> handler)override;
+				void									Invoke(const Value& thisObject, Value& arguments)override;
 			};
 
 /***********************************************************************
@@ -15196,10 +13504,11 @@ TypeFlagTester
 			{
 				NonGenericType			=0,
 				FunctionType			=1<<0,
-				ReadonlyListType		=1<<1,
-				ListType				=1<<2,
-				ReadonlyDictionaryType	=1<<3,
-				DictionaryType			=1<<4,
+				EnumerableType			=1<<1,
+				ReadonlyListType		=1<<2,
+				ListType				=1<<3,
+				ReadonlyDictionaryType	=1<<4,
+				DictionaryType			=1<<5,
 			};
 
 			template<typename T>
@@ -15229,6 +13538,17 @@ TypeFlagTester
 				static char Inherit(const void* source){}
 
 				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::FunctionType:TypeFlags::NonGenericType;
+			};
+
+			template<typename TDerived>
+			struct TypeFlagTester<TDerived, TypeFlags::EnumerableType>
+			{
+				template<typename T>
+				static void* Inherit(const collections::LazyList<T>* source){}
+				static char Inherit(void* source){}
+				static char Inherit(const void* source){}
+
+				static const TypeFlags									Result=sizeof(Inherit(((ValueRetriver<TDerived>*)0)->pointer))==sizeof(void*)?TypeFlags::EnumerableType:TypeFlags::NonGenericType;
 			};
 
 			template<typename TDerived>
@@ -15292,6 +13612,18 @@ TypeFlagSelector
 			};
 
 			template<typename T>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::EnumerableType|(vint)TypeFlags::ReadonlyListType)>
+			{
+				static const  TypeFlags									Result=TypeFlags::EnumerableType;
+			};
+
+			template<typename T>
+			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::EnumerableType|(vint)TypeFlags::ListType|(vint)TypeFlags::ReadonlyListType)>
+			{
+				static const  TypeFlags									Result=TypeFlags::EnumerableType;
+			};
+
+			template<typename T>
 			struct TypeFlagSelectorCase<T, (TypeFlags)((vint)TypeFlags::ListType|(vint)TypeFlags::ReadonlyListType)>
 			{
 				static const  TypeFlags									Result=TypeFlags::ListType;
@@ -15323,6 +13655,7 @@ TypeFlagSelector
 					T, 
 					(TypeFlags)
 					( (vint)TypeFlagTester<T, TypeFlags::FunctionType>::Result
+					| (vint)TypeFlagTester<T, TypeFlags::EnumerableType>::Result
 					| (vint)TypeFlagTester<T, TypeFlags::ReadonlyListType>::Result
 					| (vint)TypeFlagTester<T, TypeFlags::ListType>::Result
 					| (vint)TypeFlagTester<T, TypeFlags::ReadonlyDictionaryType>::Result
@@ -15472,6 +13805,35 @@ TypeInfoRetriver
 				static Ptr<ITypeInfo> CreateTypeInfo()
 				{
 					return TypeInfoRetriver<T>::CreateTypeInfo();
+				}
+			};
+
+			template<typename T>
+			struct DetailTypeInfoRetriver<T, TypeFlags::EnumerableType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=UpLevelRetriver::Decorator;
+				typedef IValueEnumerable										Type;
+				typedef typename UpLevelRetriver::TempValueType					TempValueType;
+				typedef typename UpLevelRetriver::ResultReferenceType			ResultReferenceType;
+				typedef typename UpLevelRetriver::ResultNonReferenceType		ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					typedef typename DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>::Type		ContainerType;
+					typedef typename ContainerType::ElementType										ElementType;
+
+					Ptr<TypeInfoImpl> arrayType=new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					arrayType->SetTypeDescriptor(Description<IValueEnumerable>::GetAssociatedTypeDescriptor());
+
+					Ptr<TypeInfoImpl> genericType=new TypeInfoImpl(ITypeInfo::Generic);
+					genericType->SetElementType(arrayType);
+					genericType->AddGenericArgument(TypeInfoRetriver<ElementType>::CreateTypeInfo());
+
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::SharedPtr);
+					type->SetElementType(genericType);
+					return type;
 				}
 			};
 
@@ -15753,6 +14115,29 @@ TypeInfoRetriver Helper Functions (UnboxParameter)
 			};
 
 			template<typename T>
+			struct ParameterAccessor<collections::LazyList<T>, TypeFlags::EnumerableType>
+			{
+				static Value BoxParameter(collections::LazyList<T>& object, ITypeDescriptor* typeDescriptor)
+				{
+					Ptr<IValueEnumerable> result=IValueEnumerable::Create(
+						collections::From(object)
+							.Select([](const T& item)
+							{
+								return BoxValue<T>(item);
+							})
+						);
+					return BoxValue<Ptr<IValueEnumerable>>(result, Description<IValueEnumerable>::GetAssociatedTypeDescriptor());
+				}
+
+				static void UnboxParameter(const Value& value, collections::LazyList<T>& result, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					typedef typename T::ElementType ElementType;
+					Ptr<IValueEnumerable> listProxy=UnboxValue<Ptr<IValueEnumerable>>(value, typeDescriptor, valueName);
+					result=IValueEnumerable::GetLazyList(listProxy);
+				}
+			};
+
+			template<typename T>
 			struct ParameterAccessor<T, TypeFlags::ReadonlyListType>
 			{
 				static Value BoxParameter(T& object, ITypeDescriptor* typeDescriptor)
@@ -15783,7 +14168,7 @@ TypeInfoRetriver Helper Functions (UnboxParameter)
 				{
 					typedef typename T::ElementType ElementType;
 					Ptr<IValueList> listProxy=UnboxValue<Ptr<IValueList>>(value, typeDescriptor, valueName);
-					LazyList<ElementType> lazyList=listProxy->GetLazyList<ElementType>();
+					collections::LazyList<ElementType> lazyList=listProxy->GetLazyList<ElementType>();
 					collections::CopyFrom(result, lazyList);
 				}
 			};
@@ -15805,7 +14190,7 @@ TypeInfoRetriver Helper Functions (UnboxParameter)
 					typedef typename ValueContainer::ElementType		ValueType;
 
 					Ptr<IValueReadonlyDictionary> dictionaryProxy=UnboxValue<Ptr<IValueReadonlyDictionary>>(value, typeDescriptor, valueName);
-					LazyList<Pair<KeyType, ValueType>> lazyList=dictionaryProxy->GetLazyList<KeyType, ValueType>();
+					collections::LazyList<Pair<KeyType, ValueType>> lazyList=dictionaryProxy->GetLazyList<KeyType, ValueType>();
 					collections::CopyFrom(result, lazyList);
 				}
 			};
@@ -15827,7 +14212,7 @@ TypeInfoRetriver Helper Functions (UnboxParameter)
 					typedef typename ValueContainer::ElementType		ValueType;
 
 					Ptr<IValueDictionary> dictionaryProxy=UnboxValue<Ptr<IValueDictionary>>(value, typeDescriptor, valueName);
-					LazyList<Pair<KeyType, ValueType>> lazyList=dictionaryProxy->GetLazyList<KeyType, ValueType>();
+					collections::LazyList<Pair<KeyType, ValueType>> lazyList=dictionaryProxy->GetLazyList<KeyType, ValueType>();
 					collections::CopyFrom(result, lazyList);
 				}
 			};
@@ -21469,7 +19854,7 @@ Class
 			};
 
 #define CLASS_MEMBER_BASE(TYPENAME)\
-			AddBaseType(GetTypeDescriptor<TYPENAME>());
+			AddBaseType(description::GetTypeDescriptor<TYPENAME>());
 
 /***********************************************************************
 Field
@@ -21642,6 +20027,2073 @@ Property
 #endif
 
 /***********************************************************************
+PARSING\PARSING.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Parser
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSING
+#define VCZH_PARSING_PARSING
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace tabling
+		{
+
+/***********************************************************************
+语法分析器通用策略
+***********************************************************************/
+
+			class ParsingGeneralParser : public Object
+			{
+			protected:
+				Ptr<ParsingTable>							table;
+				
+			public:
+				ParsingGeneralParser(Ptr<ParsingTable> _table);
+				~ParsingGeneralParser();
+				
+				Ptr<ParsingTable>							GetTable();
+				virtual void								BeginParse();
+				virtual ParsingState::TransitionResult		ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)=0;
+				bool										Parse(ParsingState& state, ParsingTransitionProcessor& processor, collections::List<Ptr<ParsingError>>& errors);
+				Ptr<ParsingTreeNode>						Parse(ParsingState& state, collections::List<Ptr<ParsingError>>& errors);
+				Ptr<ParsingTreeNode>						Parse(const WString& input, const WString& rule, collections::List<Ptr<ParsingError>>& errors);
+			};
+
+/***********************************************************************
+语法分析器策略
+***********************************************************************/
+
+			class ParsingStrictParser : public ParsingGeneralParser
+			{
+			protected:
+
+				virtual ParsingState::TransitionResult		OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors);
+			public:
+				ParsingStrictParser(Ptr<ParsingTable> _table=0);
+				~ParsingStrictParser();
+				
+				ParsingState::TransitionResult				ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)override;
+			};
+
+			class ParsingAutoRecoverParser : public ParsingStrictParser
+			{
+			protected:
+				collections::Array<ParsingState::Future>	recoverFutures;
+				vint										recoveringFutureIndex;
+
+				ParsingState::TransitionResult				OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<Ptr<ParsingError>>& errors)override;
+			public:
+				ParsingAutoRecoverParser(Ptr<ParsingTable> _table=0);
+				~ParsingAutoRecoverParser();
+			};
+
+			class ParsingAmbiguousParser : public ParsingGeneralParser
+			{
+				typedef collections::List<ParsingState::TransitionResult>		DecisionList;
+			protected:
+
+				DecisionList								decisions;
+				vint										consumedDecisionCount;
+
+				virtual void								OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<ParsingState::Future*>& futures, vint& begin, vint& end, vint& insertedTokenCount, vint& skippedTokenCount, collections::List<Ptr<ParsingError>>& errors);
+				vint										GetResolvableFutureLevels(collections::List<ParsingState::Future*>& futures, vint begin, vint end);
+				vint										SearchPathForOneStep(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint& begin, vint& end, collections::List<Ptr<ParsingError>>& errors);
+				vint										GetConflictReduceCount(collections::List<ParsingState::Future*>& futures);
+				void										GetConflictReduceIndices(collections::List<ParsingState::Future*>& futures, vint conflictReduceCount, collections::Array<vint>& conflictReduceIndices);
+				vint										GetAffectedStackNodeCount(collections::List<ParsingState::Future*>& futures, collections::Array<vint>& conflictReduceIndices);
+				void										BuildSingleDecisionPath(ParsingState& state, ParsingState::Future* future, collections::List<regex::RegexToken*>& tokens, vint availableTokenCount, vint lastAvailableInstructionCount);
+				void										BuildAmbiguousDecisions(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint begin, vint end, vint resolvableFutureLevels, collections::List<Ptr<ParsingError>>& errors);
+				void										BuildDecisions(ParsingState& state, collections::List<ParsingState::Future*>& futures, collections::List<regex::RegexToken*>& tokens, vint begin, vint end, vint resolvableFutureLevels, collections::List<Ptr<ParsingError>>& errors);
+			public:
+				ParsingAmbiguousParser(Ptr<ParsingTable> _table=0);
+				~ParsingAmbiguousParser();
+				
+				ParsingState::TransitionResult				ParseStep(ParsingState& state, collections::List<Ptr<ParsingError>>& errors)override;
+				void										BeginParse()override;
+			};
+
+			class ParsingAutoRecoverAmbiguousParser : public ParsingAmbiguousParser
+			{
+			protected:
+
+				void										OnErrorRecover(ParsingState& state, vint currentTokenIndex, const regex::RegexToken* currentToken, collections::List<ParsingState::Future*>& futures, vint& begin, vint& end, vint& insertedTokenCount, vint& skippedTokenCount, collections::List<Ptr<ParsingError>>& errors)override;
+			public:
+				ParsingAutoRecoverAmbiguousParser(Ptr<ParsingTable> _table=0);
+				~ParsingAutoRecoverAmbiguousParser();
+			};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+			
+			extern Ptr<ParsingGeneralParser>				CreateStrictParser(Ptr<ParsingTable> table);
+			extern Ptr<ParsingGeneralParser>				CreateAutoRecoverParser(Ptr<ParsingTable> table);
+			extern Ptr<ParsingGeneralParser>				CreateBootstrapStrictParser();
+			extern Ptr<ParsingGeneralParser>				CreateBootstrapAutoRecoverParser();
+		}
+	}
+}
+
+/***********************************************************************
+反射
+***********************************************************************/
+
+#ifndef VCZH_DEBUG_NO_REFLECTION
+
+
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+#define PARSINGREFLECTION_TYPELIST(F)\
+			F(parsing::ParsingTextPos)\
+			F(parsing::ParsingTextRange)\
+			F(parsing::ParsingTreeNode)\
+			F(parsing::ParsingTreeToken)\
+			F(parsing::ParsingTreeObject)\
+			F(parsing::ParsingTreeArray)\
+			F(parsing::ParsingScope)\
+			F(parsing::ParsingScopeSymbol)\
+			F(parsing::ParsingScopeFinder)\
+
+			PARSINGREFLECTION_TYPELIST(DECL_TYPE_INFO)
+		}
+	}
+}
+
+#endif
+
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+			extern bool								LoadParsingTypes();
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\PARSINGDEFINITIONS.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Definitions
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGDEFINITIONS
+#define VCZH_PARSING_PARSINGDEFINITIONS
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace definitions
+		{
+
+/***********************************************************************
+属性标记
+***********************************************************************/
+
+			class ParsingDefinitionAttribute : public ParsingTreeCustomBase
+			{
+			public:
+				WString											name;
+				collections::List<WString>						arguments;
+			};
+
+			class ParsingDefinitionBase : public ParsingTreeCustomBase
+			{
+				typedef collections::List<Ptr<ParsingDefinitionAttribute>>				AttributeList;
+			public:
+				AttributeList									attributes;
+			};
+
+/***********************************************************************
+类型结构
+***********************************************************************/
+
+			class ParsingDefinitionPrimitiveType;
+			class ParsingDefinitionTokenType;
+			class ParsingDefinitionSubType;
+			class ParsingDefinitionArrayType;
+
+			class ParsingDefinitionType : public ParsingTreeCustomBase
+			{
+			public:
+				class IVisitor : public Interface
+				{
+				public:
+					virtual void								Visit(ParsingDefinitionPrimitiveType* node)=0;
+					virtual void								Visit(ParsingDefinitionTokenType* node)=0;
+					virtual void								Visit(ParsingDefinitionSubType* node)=0;
+					virtual void								Visit(ParsingDefinitionArrayType* node)=0;
+				};
+
+				virtual void									Accept(IVisitor* visitor)=0;
+			};
+
+			class ParsingDefinitionPrimitiveType : public ParsingDefinitionType
+			{
+			public:
+				WString											name;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionTokenType : public ParsingDefinitionType
+			{
+			public:
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionSubType : public ParsingDefinitionType
+			{
+			public:
+				Ptr<ParsingDefinitionType>						parentType;
+				WString											subTypeName;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionArrayType : public ParsingDefinitionType
+			{
+			public:
+				Ptr<ParsingDefinitionType>						elementType;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+/***********************************************************************
+类型定义
+***********************************************************************/
+
+			class ParsingDefinitionClassMemberDefinition;
+			class ParsingDefinitionClassDefinition;
+			class ParsingDefinitionEnumMemberDefinition;
+			class ParsingDefinitionEnumDefinition;
+
+			class ParsingDefinitionTypeDefinition : public ParsingDefinitionBase
+			{
+			public:
+				class IVisitor : public Interface
+				{
+				public:
+					virtual void								Visit(ParsingDefinitionClassMemberDefinition* node)=0;
+					virtual void								Visit(ParsingDefinitionClassDefinition* node)=0;
+					virtual void								Visit(ParsingDefinitionEnumMemberDefinition* node)=0;
+					virtual void								Visit(ParsingDefinitionEnumDefinition* node)=0;
+				};
+
+				virtual void									Accept(IVisitor* visitor)=0;
+			public:
+				WString											name;
+			};
+
+			class ParsingDefinitionClassMemberDefinition : public ParsingDefinitionTypeDefinition
+			{
+			public:
+				Ptr<ParsingDefinitionType>						type;
+				WString											unescapingFunction;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionClassDefinition : public ParsingDefinitionTypeDefinition
+			{
+			public:
+				typedef collections::List<Ptr<ParsingDefinitionClassMemberDefinition>>	MemberList;
+				typedef collections::List<Ptr<ParsingDefinitionTypeDefinition>>			TypeList;
+
+				Ptr<ParsingDefinitionType>						ambiguousType;
+				Ptr<ParsingDefinitionType>						parentType;
+				MemberList										members;
+				TypeList										subTypes;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionEnumMemberDefinition : public ParsingDefinitionTypeDefinition
+			{
+			public:
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionEnumDefinition : public ParsingDefinitionTypeDefinition
+			{
+			public:
+				typedef collections::List<Ptr<ParsingDefinitionEnumMemberDefinition>>	MemberList;
+
+				MemberList										members;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+/***********************************************************************
+文法规则
+***********************************************************************/
+
+			class ParsingDefinitionPrimitiveGrammar;
+			class ParsingDefinitionTextGrammar;
+			class ParsingDefinitionSequenceGrammar;
+			class ParsingDefinitionAlternativeGrammar;
+			class ParsingDefinitionLoopGrammar;
+			class ParsingDefinitionOptionalGrammar;
+			class ParsingDefinitionCreateGrammar;
+			class ParsingDefinitionAssignGrammar;
+			class ParsingDefinitionUseGrammar;
+			class ParsingDefinitionSetterGrammar;
+
+			class ParsingDefinitionGrammar : public ParsingTreeCustomBase
+			{
+			public:
+				class IVisitor : public Interface
+				{
+				public:
+					virtual void								Visit(ParsingDefinitionPrimitiveGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionTextGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionSequenceGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionAlternativeGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionLoopGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionOptionalGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionCreateGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionAssignGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionUseGrammar* node)=0;
+					virtual void								Visit(ParsingDefinitionSetterGrammar* node)=0;
+				};
+
+				virtual void									Accept(IVisitor* visitor)=0;
+			};
+
+			class ParsingDefinitionPrimitiveGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				WString											name;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionTextGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				WString											text;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionSequenceGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					first;
+				Ptr<ParsingDefinitionGrammar>					second;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionAlternativeGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					first;
+				Ptr<ParsingDefinitionGrammar>					second;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionLoopGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionOptionalGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionCreateGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+				Ptr<ParsingDefinitionType>						type;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionAssignGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+				WString											memberName;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionUseGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+			class ParsingDefinitionSetterGrammar : public ParsingDefinitionGrammar
+			{
+			public:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+				WString											memberName;
+				WString											value;
+
+				void											Accept(IVisitor* visitor)override;
+			};
+
+/***********************************************************************
+文法结构
+***********************************************************************/
+
+			class ParsingDefinitionTokenDefinition : public ParsingDefinitionBase
+			{
+			public:
+				WString											name;
+				WString											regex;
+				bool											discard;
+			};
+
+			class ParsingDefinitionRuleDefinition : public ParsingDefinitionBase
+			{
+			public:
+				WString															name;
+				Ptr<ParsingDefinitionType>										type;
+				collections::List<Ptr<ParsingDefinitionGrammar>>				grammars;
+			};
+
+			class ParsingDefinition : public ParsingTreeCustomBase
+			{
+			public:
+				collections::List<Ptr<ParsingDefinitionTypeDefinition>>			types;
+				collections::List<Ptr<ParsingDefinitionTokenDefinition>>		tokens;
+				collections::List<Ptr<ParsingDefinitionRuleDefinition>>			rules;
+			};
+
+/***********************************************************************
+构造器（属性标记）
+***********************************************************************/
+
+			class ParsingDefinitionAttributeWriter : public Object
+			{
+				friend ParsingDefinitionAttributeWriter			Attribute(const WString& name);
+			protected:
+				Ptr<ParsingDefinitionAttribute>					attribute;
+
+				ParsingDefinitionAttributeWriter(const WString& name);
+			public:
+				ParsingDefinitionAttributeWriter(const ParsingDefinitionAttributeWriter& attributeWriter);
+
+				ParsingDefinitionAttributeWriter&				Argument(const WString& argument);
+				Ptr<ParsingDefinitionAttribute>					Attribute()const;
+			};
+
+			extern ParsingDefinitionAttributeWriter				Attribute(const WString& name);
+
+/***********************************************************************
+构造器（类型结构）
+***********************************************************************/
+
+			class ParsingDefinitionTypeWriter : public Object
+			{
+				friend ParsingDefinitionTypeWriter				Type(const WString& name);
+				friend ParsingDefinitionTypeWriter				TokenType();
+			protected:
+				Ptr<ParsingDefinitionType>						type;
+
+				ParsingDefinitionTypeWriter(Ptr<ParsingDefinitionType> internalType);
+				ParsingDefinitionTypeWriter(const WString& name);
+			public:
+				ParsingDefinitionTypeWriter(const ParsingDefinitionTypeWriter& typeWriter);
+
+				ParsingDefinitionTypeWriter						Sub(const WString& subTypeName)const;
+				ParsingDefinitionTypeWriter						Array()const;
+				Ptr<ParsingDefinitionType>						Type()const;
+			};
+
+			extern ParsingDefinitionTypeWriter					Type(const WString& name);
+			extern ParsingDefinitionTypeWriter					TokenType();
+
+/***********************************************************************
+构造器（类型定义）
+***********************************************************************/
+
+			class ParsingDefinitionTypeDefinitionWriter : public Object
+			{
+			public:
+				virtual Ptr<ParsingDefinitionTypeDefinition>	Definition()const=0;
+			};
+
+			class ParsingDefinitionClassDefinitionWriter : public ParsingDefinitionTypeDefinitionWriter
+			{
+			protected:
+				Ptr<ParsingDefinitionBase>						currentDefinition;
+				Ptr<ParsingDefinitionClassDefinition>			definition;
+
+			public:
+				ParsingDefinitionClassDefinitionWriter(const WString& name);
+				ParsingDefinitionClassDefinitionWriter(const WString& name, const ParsingDefinitionTypeWriter& parentType);
+
+				ParsingDefinitionClassDefinitionWriter&			AmbiguousType(const ParsingDefinitionTypeWriter& ambiguousType);
+				ParsingDefinitionClassDefinitionWriter&			Member(const WString& name, const ParsingDefinitionTypeWriter& type, const WString& unescapingFunction=L"");
+				ParsingDefinitionClassDefinitionWriter&			SubType(const ParsingDefinitionTypeDefinitionWriter& type);
+				ParsingDefinitionClassDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
+
+				Ptr<ParsingDefinitionTypeDefinition>			Definition()const override;
+			};
+			
+			extern ParsingDefinitionClassDefinitionWriter		Class(const WString& name);
+			extern ParsingDefinitionClassDefinitionWriter		Class(const WString& name, const ParsingDefinitionTypeWriter& parentType);
+
+			class ParsingDefinitionEnumDefinitionWriter : public ParsingDefinitionTypeDefinitionWriter
+			{
+			protected:
+				Ptr<ParsingDefinitionBase>						currentDefinition;
+				Ptr<ParsingDefinitionEnumDefinition>			definition;
+
+			public:
+				ParsingDefinitionEnumDefinitionWriter(const WString& name);
+
+				ParsingDefinitionEnumDefinitionWriter&			Member(const WString& name);
+				ParsingDefinitionEnumDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
+
+				Ptr<ParsingDefinitionTypeDefinition>			Definition()const override;
+			};
+
+			extern ParsingDefinitionEnumDefinitionWriter		Enum(const WString& name);
+
+/***********************************************************************
+构造器（文法规则）
+***********************************************************************/
+
+			class ParsingDefinitionGrammarWriter : public Object
+			{
+				friend ParsingDefinitionGrammarWriter			Rule(const WString& name);
+				friend ParsingDefinitionGrammarWriter			Text(const WString& name);
+				friend ParsingDefinitionGrammarWriter			Opt(const ParsingDefinitionGrammarWriter& writer);
+			protected:
+				Ptr<ParsingDefinitionGrammar>					grammar;
+
+				ParsingDefinitionGrammarWriter(Ptr<ParsingDefinitionGrammar> internalGrammar);
+			public:
+				ParsingDefinitionGrammarWriter(const ParsingDefinitionGrammarWriter& grammarWriter);
+
+				ParsingDefinitionGrammarWriter					operator+(const ParsingDefinitionGrammarWriter& next)const;
+				ParsingDefinitionGrammarWriter					operator|(const ParsingDefinitionGrammarWriter& next)const;
+				ParsingDefinitionGrammarWriter					operator*()const;
+				ParsingDefinitionGrammarWriter					As(const ParsingDefinitionTypeWriter& type)const;
+				ParsingDefinitionGrammarWriter					operator[](const WString& memberName)const;
+				ParsingDefinitionGrammarWriter					operator!()const;
+				ParsingDefinitionGrammarWriter					Set(const WString& memberName, const WString& value)const;
+
+				Ptr<ParsingDefinitionGrammar>					Grammar()const;
+			};
+
+			extern ParsingDefinitionGrammarWriter				Rule(const WString& name);
+			extern ParsingDefinitionGrammarWriter				Text(const WString& text);
+			extern ParsingDefinitionGrammarWriter				Opt(const ParsingDefinitionGrammarWriter& writer);
+
+/***********************************************************************
+构造器（文法结构）
+***********************************************************************/
+
+			class ParsingDefinitionWriter;
+
+			class ParsingDefinitionTokenDefinitionWriter : public Object
+			{
+			protected:
+				Ptr<ParsingDefinitionTokenDefinition>			token;
+				ParsingDefinitionWriter&						owner;
+			public:
+				ParsingDefinitionTokenDefinitionWriter(ParsingDefinitionWriter& _owner, Ptr<ParsingDefinitionTokenDefinition> _token);
+
+				ParsingDefinitionTokenDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
+				ParsingDefinitionWriter&						EndToken();
+			};
+
+			class ParsingDefinitionRuleDefinitionWriter : public Object
+			{
+			protected:
+				Ptr<ParsingDefinitionRuleDefinition>			rule;
+				ParsingDefinitionWriter&						owner;
+			public:
+				ParsingDefinitionRuleDefinitionWriter(ParsingDefinitionWriter& _owner, Ptr<ParsingDefinitionRuleDefinition> _rule);
+
+				ParsingDefinitionRuleDefinitionWriter&			Imply(const ParsingDefinitionGrammarWriter& grammar);
+				ParsingDefinitionRuleDefinitionWriter&			Attribute(const ParsingDefinitionAttributeWriter& attribute);
+				ParsingDefinitionWriter&						EndRule();
+			};
+
+			class ParsingDefinitionWriter : public Object
+			{
+			protected:
+				Ptr<ParsingDefinition>							definition;
+
+			public:
+				ParsingDefinitionWriter();
+
+				ParsingDefinitionWriter&						Type(const ParsingDefinitionTypeDefinitionWriter& type);
+				ParsingDefinitionWriter&						Token(const WString& name, const WString& regex);
+				ParsingDefinitionTokenDefinitionWriter			TokenAtt(const WString& name, const WString& regex);
+				ParsingDefinitionWriter&						Discard(const WString& name, const WString& regex);
+				ParsingDefinitionRuleDefinitionWriter			Rule(const WString& name, const ParsingDefinitionTypeWriter& type);
+
+				Ptr<ParsingDefinition>							Definition()const;
+			};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+			extern WString										TypeToString(ParsingDefinitionType* type);
+			extern WString										GrammarToString(ParsingDefinitionGrammar* grammar);
+			extern WString										GrammarStateToString(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode);
+			extern ParsingDefinitionGrammar*					FindAppropriateGrammarState(ParsingDefinitionGrammar* grammar, ParsingDefinitionGrammar* stateNode, bool beforeNode);
+			extern void											Log(Ptr<ParsingDefinition> definition, stream::TextWriter& writer);
+			extern WString										DeserializeString(const WString& value);
+			extern WString										SerializeString(const WString& value);
+
+/***********************************************************************
+自举
+***********************************************************************/
+			
+			extern Ptr<ParsingDefinition>						CreateParserDefinition();
+			extern Ptr<ParsingDefinition>						DeserializeDefinition(Ptr<ParsingTreeNode> node);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\PARSINGANALYZER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Analyzing
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGANALYZER
+#define VCZH_PARSING_PARSINGANALYZER
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace analyzing
+		{
+
+/***********************************************************************
+符号表关联对象
+***********************************************************************/
+
+			class ParsingSymbol;
+
+			struct DefinitionTypeScopePair
+			{
+				definitions::ParsingDefinitionType*		type;
+				ParsingSymbol*							scope;
+
+				DefinitionTypeScopePair()
+				{
+				}
+
+				DefinitionTypeScopePair(definitions::ParsingDefinitionType* _type, ParsingSymbol* _scope)
+					:type(_type)
+					,scope(_scope)
+				{
+				}
+
+				vint Compare(const DefinitionTypeScopePair& pair)
+				{
+					if(type<pair.type) return -1;
+					if(type>pair.type) return 1;
+					if(scope<pair.scope) return -1;
+					if(scope>pair.scope) return 1;
+					return 0;
+				}
+
+				bool operator==(const DefinitionTypeScopePair& pair){return Compare(pair)==0;}
+				bool operator!=(const DefinitionTypeScopePair& pair){return Compare(pair)!=0;}
+				bool operator>(const DefinitionTypeScopePair& pair){return Compare(pair)>0;}
+				bool operator>=(const DefinitionTypeScopePair& pair){return Compare(pair)>=0;}
+				bool operator<(const DefinitionTypeScopePair& pair){return Compare(pair)<0;}
+				bool operator<=(const DefinitionTypeScopePair& pair){return Compare(pair)<=0;}
+			};
+
+/***********************************************************************
+符号表
+***********************************************************************/
+
+			class ParsingSymbol : public Object
+			{
+				friend class ParsingSymbolManager;
+
+				typedef collections::Dictionary<WString, ParsingSymbol*>		ParsingSymbolMap;
+				typedef collections::List<ParsingSymbol*>						ParsingSymbolList;
+			public:
+				enum SymbolType
+				{
+					Global,
+					EnumType,
+					ClassType,		// descriptor == base type
+					ArrayType,		// descriptor == element type
+					TokenType,
+					EnumItem,		// descriptor == parent
+					ClassField,		// descriptor == field type
+					TokenDef,		// descriptor == token type
+					RuleDef,		// descriptor == rule type
+				};
+
+			protected:
+				ParsingSymbolManager*			manager;
+				SymbolType						type;
+				WString							name;
+				ParsingSymbol*					descriptorSymbol;
+				WString							descriptorString;
+				ParsingSymbol*					parentSymbol;
+				ParsingSymbol*					arrayTypeSymbol;
+				ParsingSymbolList				subSymbolList;
+				ParsingSymbolMap				subSymbolMap;
+
+				bool							AddSubSymbol(ParsingSymbol* subSymbol);
+
+				ParsingSymbol(ParsingSymbolManager* _manager, SymbolType _type, const WString& _name, ParsingSymbol* _descriptorSymbol, const WString& _descriptorString);
+			public:
+				~ParsingSymbol();
+
+				ParsingSymbolManager*			GetManager();
+				SymbolType						GetType();
+				const WString&					GetName();
+				vint							GetSubSymbolCount();
+				ParsingSymbol*					GetSubSymbol(vint index);
+				ParsingSymbol*					GetSubSymbolByName(const WString& name);
+				ParsingSymbol*					GetDescriptorSymbol();
+				WString							GetDescriptorString();
+				ParsingSymbol*					GetParentSymbol();
+				bool							IsType();
+				ParsingSymbol*					SearchClassSubSymbol(const WString& name);
+				ParsingSymbol*					SearchCommonBaseClass(ParsingSymbol* classType);
+			};
+
+			class ParsingSymbolManager : public Object
+			{
+				typedef definitions::ParsingDefinitionClassDefinition												ClassDefinition;
+				typedef collections::List<Ptr<ParsingSymbol>>														ParsingSymbolList;
+				typedef collections::Dictionary<DefinitionTypeScopePair, ParsingSymbol*>							DefinitionTypeSymbolMap;
+				typedef collections::Dictionary<definitions::ParsingDefinitionGrammar*, ParsingSymbol*>				DefinitionGrammarSymbolMap;
+				typedef collections::Dictionary<ParsingSymbol*, ClassDefinition*>									SymbolClassDefinitionMap;
+				typedef collections::Dictionary<ClassDefinition*, ParsingSymbol*>									ClassDefinitionSymbolMap;
+			protected:
+				ParsingSymbol*					globalSymbol;
+				ParsingSymbol*					tokenTypeSymbol;
+				ParsingSymbolList				createdSymbols;
+				DefinitionTypeSymbolMap			definitionTypeSymbolCache;
+				DefinitionGrammarSymbolMap		definitionGrammarSymbolCache;
+				DefinitionGrammarSymbolMap		definitionGrammarTypeCache;
+				SymbolClassDefinitionMap		symbolClassDefinitionCache;
+				ClassDefinitionSymbolMap		classDefinitionSymbolCache;
+
+				bool							TryAddSubSymbol(Ptr<ParsingSymbol> subSymbol, ParsingSymbol* parentSymbol);
+			public:
+				ParsingSymbolManager();
+				~ParsingSymbolManager();
+
+				ParsingSymbol*					GetGlobal();
+				ParsingSymbol*					GetTokenType();
+				ParsingSymbol*					GetArrayType(ParsingSymbol* elementType);
+
+				ParsingSymbol*					AddClass(definitions::ParsingDefinitionClassDefinition* classDef, ParsingSymbol* baseType, ParsingSymbol* parentType=0);
+				ParsingSymbol*					AddField(const WString& name, ParsingSymbol* classType, ParsingSymbol* fieldType);
+				ParsingSymbol*					AddEnum(const WString& name, ParsingSymbol* parentType=0);
+				ParsingSymbol*					AddEnumItem(const WString& name, ParsingSymbol* enumType);
+				ParsingSymbol*					AddTokenDefinition(const WString& name, const WString& regex);
+				ParsingSymbol*					AddRuleDefinition(const WString& name, ParsingSymbol* ruleType);
+
+				ClassDefinition*				CacheGetClassDefinition(ParsingSymbol* type);
+				ParsingSymbol*					CacheGetClassType(ClassDefinition* type);
+				ParsingSymbol*					CacheGetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope);
+				bool							CacheSetType(definitions::ParsingDefinitionType* type, ParsingSymbol* scope, ParsingSymbol* symbol);
+				ParsingSymbol*					CacheGetSymbol(definitions::ParsingDefinitionGrammar* grammar);
+				bool							CacheSetSymbol(definitions::ParsingDefinitionGrammar* grammar, ParsingSymbol* symbol);
+				ParsingSymbol*					CacheGetType(definitions::ParsingDefinitionGrammar* grammar);
+				bool							CacheSetType(definitions::ParsingDefinitionGrammar* grammar, ParsingSymbol* type);
+			};
+
+/***********************************************************************
+语义分析
+***********************************************************************/
+
+			extern WString						GetTypeFullName(ParsingSymbol* type);
+			extern ParsingSymbol*				FindType(definitions::ParsingDefinitionType* type, ParsingSymbolManager* manager, ParsingSymbol* scope, collections::List<Ptr<ParsingError>>& errors);
+			extern void							PrepareSymbols(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
+			extern void							ValidateRuleStructure(Ptr<definitions::ParsingDefinition> definition, Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
+			extern void							ResolveRuleSymbols(Ptr<definitions::ParsingDefinitionRuleDefinition> rule, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
+			extern void							ResolveSymbols(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
+			extern void							ValidateDefinition(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, collections::List<Ptr<ParsingError>>& errors);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\PARSINGAUTOMATON.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parsing::Automaton
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_PARSING_PARSINGAUTOMATON
+#define VCZH_PARSING_PARSINGAUTOMATON
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace analyzing
+		{
+
+/***********************************************************************
+状态机
+***********************************************************************/
+
+			class Action;
+			class Transition;
+			class State;
+
+			class Action : public Object
+			{
+			public:
+				enum ActionType
+				{
+					Create, // new source
+					Assign, // source ::= <created symbol>
+					Using,  // use <created symbol>
+					Setter, // source ::= target
+					Shift,
+					Reduce,
+					LeftRecursiveReduce,
+				};
+
+				ActionType											actionType;
+				ParsingSymbol*										actionTarget;
+				ParsingSymbol*										actionSource;
+				definitions::ParsingDefinitionRuleDefinition*		creatorRule;
+
+				// the following two fields record which rule symbol transition generate this shift/reduce action
+				State*												shiftReduceSource;
+				State*												shiftReduceTarget;
+
+				Action();
+				~Action();
+			};
+
+			class Transition : public Object
+			{
+			public:
+				enum TransitionType
+				{
+					TokenBegin,		// token stream start
+					TokenFinish,	// token stream end
+					TryReduce,		// rule end
+					Epsilon,		// an epsilon transition
+					Symbol,			// a syntax symbol
+				};
+
+				enum StackOperationType
+				{
+					None,
+					ShiftReduceCompacted,
+					LeftRecursive,
+				};
+
+				State*												source;
+				State*												target;
+				collections::List<Ptr<Action>>						actions;
+				
+				TransitionType										transitionType;
+				StackOperationType									stackOperationType;
+				ParsingSymbol*										transitionSymbol;
+
+				Transition();
+				~Transition();
+
+				static bool											IsEquivalent(Transition* t1, Transition* t2, bool careSourceAndTarget);
+			};
+
+			class State : public Object
+			{
+			public:
+				enum StatePosition
+				{
+					BeforeNode,
+					AfterNode,
+				};
+
+				collections::List<Transition*>						transitions;
+				collections::List<Transition*>						inputs;
+				bool												endState;
+
+				ParsingSymbol*										ownerRuleSymbol;
+				definitions::ParsingDefinitionRuleDefinition*		ownerRule;
+				definitions::ParsingDefinitionGrammar*				grammarNode;
+				definitions::ParsingDefinitionGrammar*				stateNode;
+				StatePosition										statePosition;
+				WString												stateName;
+				WString												stateExpression;
+
+				State();
+				~State();
+			};
+
+			class RuleInfo : public Object
+			{
+			public:
+				State*												rootRuleStartState;
+				State*												rootRuleEndState;
+				State*												startState;
+				collections::List<State*>							endStates;
+				int													stateNameCount;
+
+				RuleInfo();
+				~RuleInfo();
+			};
+
+			class Automaton : public Object
+			{
+				typedef collections::Dictionary<definitions::ParsingDefinitionRuleDefinition*, Ptr<RuleInfo>>		RuleInfoMap;
+			public:
+				ParsingSymbolManager*								symbolManager;
+				collections::List<Ptr<Transition>>					transitions;
+				collections::List<Ptr<State>>						states;
+				RuleInfoMap											ruleInfos;
+
+				Automaton(ParsingSymbolManager* _symbolManager);
+				~Automaton();
+
+				State*												RuleStartState(definitions::ParsingDefinitionRuleDefinition* ownerRule);
+				State*												RootRuleStartState(definitions::ParsingDefinitionRuleDefinition* ownerRule);
+				State*												RootRuleEndState(definitions::ParsingDefinitionRuleDefinition* ownerRule);
+				State*												StartState(definitions::ParsingDefinitionRuleDefinition* ownerRule, definitions::ParsingDefinitionGrammar* grammarNode, definitions::ParsingDefinitionGrammar* stateNode);
+				State*												EndState(definitions::ParsingDefinitionRuleDefinition* ownerRule, definitions::ParsingDefinitionGrammar* grammarNode, definitions::ParsingDefinitionGrammar* stateNode);
+				State*												CopyState(State* oldState);
+
+				Transition*											CreateTransition(State* start, State* end);
+				Transition*											TokenBegin(State* start, State* end);
+				Transition*											TokenFinish(State* start, State* end);
+				Transition*											TryReduce(State* start, State* end);
+				Transition*											Epsilon(State* start, State* end);
+				Transition*											Symbol(State* start, State* end, ParsingSymbol* transitionSymbol);
+				Transition*											CopyTransition(State* start, State* end, Transition* oldTransition);
+
+				void												DeleteTransition(Transition* transition);
+				void												DeleteState(State* state);
+			};
+
+/***********************************************************************
+辅助函数（搜索闭包）
+***********************************************************************/
+
+			struct ClosureItem
+			{
+				enum SearchResult
+				{
+					Continue,
+					Hit,
+					Blocked,
+				};
+
+				State*											state;			// target state of one path of a closure
+				Ptr<collections::List<Transition*>>				transitions;	// path
+				bool											cycle;			// true: invalid closure because there are cycles, and in the middle of the path there will be a transition that targets to the state field.
+
+				ClosureItem()
+					:state(0)
+					,cycle(false)
+				{
+				}
+
+				ClosureItem(State* _state, Ptr<collections::List<Transition*>> _transitions, bool _cycle)
+					:state(_state)
+					,transitions(_transitions)
+					,cycle(_cycle)
+				{
+				}
+			};
+
+			extern void												SearchClosure(ClosureItem::SearchResult(*closurePredicate)(Transition*), State* startState, collections::List<ClosureItem>& closure);
+			extern void												RemoveEpsilonTransitions(collections::Dictionary<State*, State*>& oldNewStateMap, collections::List<State*>& scanningStates, Ptr<Automaton> automaton);
+
+/***********************************************************************
+辅助函数（合并状态）
+***********************************************************************/
+			
+			extern void												DeleteUnnecessaryStates(Ptr<Automaton> automaton, Ptr<RuleInfo> ruleInfo, collections::List<State*>& newStates);
+			extern void												MergeStates(Ptr<Automaton> automaton, Ptr<RuleInfo> ruleInfo, collections::List<State*>& newStates);
+
+/***********************************************************************
+辅助函数（创建状态机）
+***********************************************************************/
+			
+			extern Ptr<Automaton>									CreateEpsilonPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager);
+			extern Ptr<Automaton>									CreateNondeterministicPDAFromEpsilonPDA(Ptr<Automaton> epsilonPDA);
+			extern Ptr<Automaton>									CreateJointPDAFromNondeterministicPDA(Ptr<Automaton> nondeterministicPDA);
+			extern void												CompactJointPDA(Ptr<Automaton> jointPDA);
+			extern void												MergeJointPDAStates(Ptr<Automaton> jointPDA);
+			extern void												MarkLeftRecursiveInJointPDA(Ptr<Automaton> jointPDA, collections::List<Ptr<ParsingError>>& errors);
+
+/***********************************************************************
+辅助函数（输出跳转表）
+***********************************************************************/
+
+			extern WString											GetTypeNameForCreateInstruction(ParsingSymbol* type);
+			extern Ptr<tabling::ParsingTable>						GenerateTableFromPDA(Ptr<definitions::ParsingDefinition> definition, ParsingSymbolManager* manager, Ptr<Automaton> jointPDA, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors);
+			extern Ptr<tabling::ParsingTable>						GenerateTable(Ptr<definitions::ParsingDefinition> definition, bool enableAmbiguity, collections::List<Ptr<ParsingError>>& errors);
+			extern void												Log(Ptr<Automaton> automaton, stream::TextWriter& writer);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\JSON\PARSINGJSON_PARSER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingJson_Parser
+
+本文件使用Vczh Parsing Generator工具自动生成
+***********************************************************************/
+
+#ifndef VCZH_PARSING_JSON_PARSINGJSON_PARSER
+#define VCZH_PARSING_JSON_PARSINGJSON_PARSER
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace json
+		{
+			struct JsonParserTokenIndex abstract
+			{
+				static const vl::vint TRUEVALUE = 0;
+				static const vl::vint FALSEVALUE = 1;
+				static const vl::vint NULLVALUE = 2;
+				static const vl::vint OBJOPEN = 3;
+				static const vl::vint OBJCLOSE = 4;
+				static const vl::vint ARROPEN = 5;
+				static const vl::vint ARRCLOSE = 6;
+				static const vl::vint COMMA = 7;
+				static const vl::vint COLON = 8;
+				static const vl::vint NUMBER = 9;
+				static const vl::vint STRING = 10;
+				static const vl::vint SPACE = 11;
+			};
+			class JsonNode;
+			class JsonLiteral;
+			class JsonString;
+			class JsonNumber;
+			class JsonArray;
+			class JsonObjectField;
+			class JsonObject;
+
+			class JsonNode abstract : public vl::parsing::ParsingTreeCustomBase
+			{
+			public:
+				class IVisitor : public vl::Interface
+				{
+				public:
+					virtual void Visit(JsonLiteral* node)=0;
+					virtual void Visit(JsonString* node)=0;
+					virtual void Visit(JsonNumber* node)=0;
+					virtual void Visit(JsonArray* node)=0;
+					virtual void Visit(JsonObjectField* node)=0;
+					virtual void Visit(JsonObject* node)=0;
+				};
+
+				virtual void Accept(JsonNode::IVisitor* visitor)=0;
+
+			};
+
+			class JsonLiteral : public JsonNode
+			{
+			public:
+				struct JsonValue abstract
+				{
+					enum Type
+					{
+						True,
+						False,
+						Null,
+					};
+				};
+
+				JsonValue::Type value;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonLiteral> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonString : public JsonNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonString> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonNumber : public JsonNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonNumber> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonArray : public JsonNode
+			{
+			public:
+				vl::collections::List<vl::Ptr<JsonNode>> items;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonArray> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonObjectField : public JsonNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::Ptr<JsonNode> value;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonObjectField> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class JsonObject : public JsonNode
+			{
+			public:
+				vl::collections::List<vl::Ptr<JsonObjectField>> fields;
+
+				void Accept(JsonNode::IVisitor* visitor)override;
+
+				static vl::Ptr<JsonObject> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			extern vl::WString JsonGetParserTextBuffer();
+			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> JsonConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable();
+
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+
+		}
+	}
+}
+#endif
+
+/***********************************************************************
+PARSING\JSON\PARSINGJSON.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingJson_Parser
+
+***********************************************************************/
+
+#ifndef VCZH_PARSING_JSON_PARSINGJSON
+#define VCZH_PARSING_JSON_PARSINGJSON
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace json
+		{
+			extern void						JsonEscapeString(const WString& text, stream::TextWriter& writer);
+			extern void						JsonUnescapeString(const WString& text, stream::TextWriter& writer);
+			extern void						JsonPrint(Ptr<JsonNode> node, stream::TextWriter& writer);
+			extern WString					JsonToString(Ptr<JsonNode> node);
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+STREAM\MEMORYSTREAM.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Stream::MemoryStream
+
+Interfaces:
+	MemoryStream					：内存流
+***********************************************************************/
+
+#ifndef VCZH_STREAM_MEMORYSTREAM
+#define VCZH_STREAM_MEMORYSTREAM
+
+
+namespace vl
+{
+	namespace stream
+	{
+		class MemoryStream : public Object, public virtual IStream
+		{
+		protected:
+			vint					block;
+			char*					buffer;
+			vint					size;
+			vint					position;
+			vint					capacity;
+
+			void					PrepareSpace(vint totalSpace);
+		public:
+			MemoryStream(vint _block=65536);
+			~MemoryStream();
+
+			bool					CanRead()const;
+			bool					CanWrite()const;
+			bool					CanSeek()const;
+			bool					CanPeek()const;
+			bool					IsLimited()const;
+			bool					IsAvailable()const;
+			void					Close();
+			pos_t					Position()const;
+			pos_t					Size()const;
+			void					Seek(pos_t _size);
+			void					SeekFromBegin(pos_t _size);
+			void					SeekFromEnd(pos_t _size);
+			vint					Read(void* _buffer, vint _size);
+			vint					Write(void* _buffer, vint _size);
+			vint					Peek(void* _buffer, vint _size);
+			void*					GetInternalBuffer();
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+REGEX\REGEXDATA.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Regex::Basic Data Structure
+
+Classes:
+***********************************************************************/
+
+#ifndef VCZH_REGEX_REGEXDATA
+#define VCZH_REGEX_REGEXDATA
+
+
+namespace vl
+{
+	namespace regex_internal
+	{
+		using namespace vl::collections;
+
+/***********************************************************************
+基础数据结构
+***********************************************************************/
+
+		class CharRange
+		{
+		public:
+			typedef SortedList<CharRange>			List;
+
+			wchar_t					begin;
+			wchar_t					end;
+
+			CharRange();
+			CharRange(wchar_t _begin, wchar_t _end);
+
+			bool					operator<(CharRange item)const;
+			bool					operator<=(CharRange item)const;
+			bool					operator>(CharRange item)const;
+			bool					operator>=(CharRange item)const;
+			bool					operator==(CharRange item)const;
+			bool					operator!=(CharRange item)const;
+
+			bool					operator<(wchar_t item)const;
+			bool					operator<=(wchar_t item)const;
+			bool					operator>(wchar_t item)const;
+			bool					operator>=(wchar_t item)const;
+			bool					operator==(wchar_t item)const;
+			bool					operator!=(wchar_t item)const;
+		};
+	}
+
+	template<>
+	struct POD<regex_internal::CharRange>
+	{
+		static const bool Result=true;
+	};
+}
+
+#endif
+
+/***********************************************************************
+REGEX\REGEXAUTOMATON.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Regex::RegexAutomaton
+
+Classes:
+	State						：状态
+	Transition					：转换
+	Automaton					：状态机
+
+Functions:
+	EpsilonNfaToNfa				：去Epsilon
+	NfaToDfa					：NFA转DFA
+***********************************************************************/
+
+#ifndef VCZH_REGEX_REGEXAUTOMATON
+#define VCZH_REGEX_REGEXAUTOMATON
+
+
+namespace vl
+{
+	namespace regex_internal
+	{
+		class State;
+		class Transition;
+
+		class Transition
+		{
+		public:
+			enum Type
+			{
+				Chars,				//range为字符范围
+				Epsilon,
+				BeginString,
+				EndString,
+				Nop,				//无动作（不可消除epsilon，用来控制优先级）
+				Capture,			//capture为捕获频道
+				Match,				//capture为捕获频道，index为匹配的位置，-1代表匹配频道下面的所有项目
+				Positive,			//正向匹配
+				Negative,			//反向匹配
+				NegativeFail,		//反向匹配失败
+				End					//Capture, Position, Negative
+			};
+
+			State*					source;
+			State*					target;
+			CharRange				range;
+			Type					type;
+			vint						capture;
+			vint						index;
+		};
+
+		class State
+		{
+		public:
+			List<Transition*>		transitions;
+			List<Transition*>		inputs;
+			bool					finalState;
+			void*					userData;
+		};
+
+		class Automaton
+		{
+		public:
+			typedef Ptr<Automaton>		Ref;
+
+			List<Ptr<State>>		states;
+			List<Ptr<Transition>>	transitions;
+			List<WString>			captureNames;
+			State*					startState;
+
+			Automaton();
+
+			State*					NewState();
+			Transition*				NewTransition(State* start, State* end);
+			Transition*				NewChars(State* start, State* end, CharRange range);
+			Transition*				NewEpsilon(State* start, State* end);
+			Transition*				NewBeginString(State* start, State* end);
+			Transition*				NewEndString(State* start, State* end);
+			Transition*				NewNop(State* start, State* end);
+			Transition*				NewCapture(State* start, State* end, vint capture);
+			Transition*				NewMatch(State* start, State* end, vint capture, vint index=-1);
+			Transition*				NewPositive(State* start, State* end);
+			Transition*				NewNegative(State* start, State* end);
+			Transition*				NewNegativeFail(State* start, State* end);
+			Transition*				NewEnd(State* start, State* end);
+		};
+
+		extern bool					PureEpsilonChecker(Transition* transition);
+		extern bool					RichEpsilonChecker(Transition* transition);
+		extern bool					AreEqual(Transition* transA, Transition* transB);
+		extern Automaton::Ref		EpsilonNfaToNfa(Automaton::Ref source, bool(*epsilonChecker)(Transition*), Dictionary<State*, State*>& nfaStateMap);
+		extern Automaton::Ref		NfaToDfa(Automaton::Ref source, Group<State*, State*>& dfaStateMap);
+	}
+}
+
+#endif
+
+/***********************************************************************
+REGEX\REGEXEXPRESSION.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Regex::RegexExpression
+
+Classes:
+	Expression						：表达式基类					|
+	CharSetExpression				：字符集表达式				| a, [a-b], [^a-b0_9], \.rnt\/()+*?{}[]<>^$!=SsDdLlWw, [\rnt-[]\/^$]
+	LoopExpression					：循环表达式					| a{3}, a{3,}, a{1,3}, a+, a*, a?, LOOP?
+	SequenceExpression				：顺序表达式					| ab
+	AlternateExpression				：选择表达式					| a|b
+	BeginExpression					：【非纯】字符串起始表达式	| ^
+	EndExpression					：【非纯】字符串末尾表达式	| $
+	CaptureExpression				：【非纯】捕获表达式			| (<name>expr), (?expr)
+	MatchExpression					：【非纯】匹配表达式			| (<$name>), (<$name;i>), (<$i>)
+	PositiveExpression				：【非纯】正向预查表达式		| (=expr)
+	NegativeExpression				：【非纯】反向预查表达式		| (!expr)
+	UsingExpression					：引用表达式					| (<#name1>expr)...(<&name1>)...
+
+	RegexExpression					：正则表达式
+
+Functions:
+	ParseRegexExpression			：将字符串分析为RegexExpression对象，如果语法有问题则抛异常
+***********************************************************************/
+
+#ifndef VCZH_REGEX_REGEXEXPRESSION
+#define VCZH_REGEX_REGEXEXPRESSION
+
+
+namespace vl
+{
+	namespace regex_internal
+	{
+		class IRegexExpressionAlgorithm;
+
+/***********************************************************************
+正则表达式表达式树
+***********************************************************************/
+
+		class Expression : public Object, private NotCopyable
+		{
+		public:
+			typedef Ptr<Expression>								Ref;
+			typedef Dictionary<WString, Expression::Ref>		Map;
+
+			virtual void				Apply(IRegexExpressionAlgorithm& algorithm)=0;
+			bool						IsEqual(Expression* expression);
+			bool						HasNoExtension();
+			bool						CanTreatAsPure();
+			void						NormalizeCharSet(CharRange::List& subsets);
+			void						CollectCharSet(CharRange::List& subsets);
+			void						ApplyCharSet(CharRange::List& subsets);
+			Automaton::Ref				GenerateEpsilonNfa();
+		};
+
+		class CharSetExpression : public Expression
+		{
+		public:
+			CharRange::List				ranges;
+			bool						reverse;
+
+			bool						AddRangeWithConflict(CharRange range);
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class LoopExpression : public Expression
+		{
+		public:
+			Expression::Ref				expression;		//被循环表达式
+			vint							min;			//下限
+			vint							max;			//上限，-1代表无限
+			bool						preferLong;		//长匹配优先
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class SequenceExpression : public Expression
+		{
+		public:
+			Expression::Ref				left;			//左表达式
+			Expression::Ref				right;			//右表达式
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class AlternateExpression : public Expression
+		{
+		public:
+			Expression::Ref				left;			//左表达式
+			Expression::Ref				right;			//右表达式
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class BeginExpression: public Expression
+		{
+		public:
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class EndExpression : public Expression
+		{
+		public:
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class CaptureExpression : public Expression
+		{
+		public:
+			WString						name;			//捕获名，空代表缺省捕获
+			Expression::Ref				expression;		//被捕获表达式
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class MatchExpression : public Expression
+		{
+		public:
+			WString						name;			//捕获名，空代表缺省捕获
+			vint							index;			//捕获序号，-1代表非空捕获的所有项
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class PositiveExpression : public Expression
+		{
+		public:
+			Expression::Ref				expression;		//正向匹配表达式
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class NegativeExpression : public Expression
+		{
+		public:
+			Expression::Ref				expression;		//反向匹配表达式
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class UsingExpression : public Expression
+		{
+		public:
+			WString						name;			//引用名
+
+			void						Apply(IRegexExpressionAlgorithm& algorithm);
+		};
+
+		class RegexExpression : public Object, private NotCopyable
+		{
+		public:
+			typedef Ptr<RegexExpression>						Ref;
+
+			Expression::Map				definitions;	//命名子表达式
+			Expression::Ref				expression;		//主表达式
+
+			Expression::Ref				Merge();
+		};
+
+/***********************************************************************
+算法基类
+***********************************************************************/
+
+		class IRegexExpressionAlgorithm : public Interface
+		{
+		public:
+			virtual void				Visit(CharSetExpression* expression)=0;
+			virtual void				Visit(LoopExpression* expression)=0;
+			virtual void				Visit(SequenceExpression* expression)=0;
+			virtual void				Visit(AlternateExpression* expression)=0;
+			virtual void				Visit(BeginExpression* expression)=0;
+			virtual void				Visit(EndExpression* expression)=0;
+			virtual void				Visit(CaptureExpression* expression)=0;
+			virtual void				Visit(MatchExpression* expression)=0;
+			virtual void				Visit(PositiveExpression* expression)=0;
+			virtual void				Visit(NegativeExpression* expression)=0;
+			virtual void				Visit(UsingExpression* expression)=0;
+		};
+
+		template<typename ReturnType, typename ParameterType=void*>
+		class RegexExpressionAlgorithm : public Object, public IRegexExpressionAlgorithm
+		{
+		private:
+			ReturnType					returnValue;
+			ParameterType*				parameterValue;
+		public:
+
+			ReturnType Invoke(Expression* expression, ParameterType parameter)
+			{
+				parameterValue=&parameter;
+				expression->Apply(*this);
+				return returnValue;
+			}
+
+			ReturnType Invoke(Expression::Ref expression, ParameterType parameter)
+			{
+				parameterValue=&parameter;
+				expression->Apply(*this);
+				return returnValue;
+			}
+
+			virtual ReturnType			Apply(CharSetExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(LoopExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(SequenceExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(AlternateExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(BeginExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(EndExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(CaptureExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(MatchExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(PositiveExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(NegativeExpression* expression, ParameterType parameter)=0;
+			virtual ReturnType			Apply(UsingExpression* expression, ParameterType parameter)=0;
+		public:
+			void Visit(CharSetExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(LoopExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(SequenceExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(AlternateExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(BeginExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(EndExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(CaptureExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(MatchExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(PositiveExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(NegativeExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+
+			void Visit(UsingExpression* expression)
+			{
+				returnValue=Apply(expression, *parameterValue);
+			}
+		};
+
+		template<typename ParameterType>
+		class RegexExpressionAlgorithm<void, ParameterType> : public Object, public IRegexExpressionAlgorithm
+		{
+		private:
+			ParameterType*				parameterValue;
+		public:
+
+			void Invoke(Expression* expression, ParameterType parameter)
+			{
+				parameterValue=&parameter;
+				expression->Apply(*this);
+			}
+
+			void Invoke(Expression::Ref expression, ParameterType parameter)
+			{
+				parameterValue=&parameter;
+				expression->Apply(*this);
+			}
+
+			virtual void				Apply(CharSetExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(LoopExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(SequenceExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(AlternateExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(BeginExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(EndExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(CaptureExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(MatchExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(PositiveExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(NegativeExpression* expression, ParameterType parameter)=0;
+			virtual void				Apply(UsingExpression* expression, ParameterType parameter)=0;
+		public:
+			void Visit(CharSetExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(LoopExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(SequenceExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(AlternateExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(BeginExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(EndExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(CaptureExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(MatchExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(PositiveExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(NegativeExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+
+			void Visit(UsingExpression* expression)
+			{
+				Apply(expression, *parameterValue);
+			}
+		};
+
+/***********************************************************************
+辅助函数
+***********************************************************************/
+
+		extern Ptr<LoopExpression>		ParseLoop(const wchar_t*& input);
+		extern Ptr<Expression>			ParseCharSet(const wchar_t*& input);
+		extern Ptr<Expression>			ParseFunction(const wchar_t*& input);
+		extern Ptr<Expression>			ParseUnit(const wchar_t*& input);
+		extern Ptr<Expression>			ParseJoin(const wchar_t*& input);
+		extern Ptr<Expression>			ParseAlt(const wchar_t*& input);
+		extern Ptr<Expression>			ParseExpression(const wchar_t*& input);
+		extern RegexExpression::Ref		ParseRegexExpression(const WString& code);
+
+		extern WString					EscapeTextForRegex(const WString& literalString);
+		extern WString					UnescapeTextForRegex(const WString& escapedText);
+		extern WString					NormalizeEscapedTextForRegex(const WString& escapedText);
+		extern bool						IsRegexEscapedListeralString(const WString& regex);
+	}
+}
+
+#endif
+
+/***********************************************************************
+PARSING\XML\PARSINGXML_PARSER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingXml_Parser
+
+本文件使用Vczh Parsing Generator工具自动生成
+***********************************************************************/
+
+#ifndef VCZH_PARSING_XML_PARSINGXML_PARSER
+#define VCZH_PARSING_XML_PARSINGXML_PARSER
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace xml
+		{
+			struct XmlParserTokenIndex abstract
+			{
+				static const vl::vint INSTRUCTION_OPEN = 0;
+				static const vl::vint INSTRUCTION_CLOSE = 1;
+				static const vl::vint COMPLEX_ELEMENT_OPEN = 2;
+				static const vl::vint SINGLE_ELEMENT_CLOSE = 3;
+				static const vl::vint ELEMENT_OPEN = 4;
+				static const vl::vint ELEMENT_CLOSE = 5;
+				static const vl::vint EQUAL = 6;
+				static const vl::vint NAME = 7;
+				static const vl::vint ATTVALUE = 8;
+				static const vl::vint COMMENT = 9;
+				static const vl::vint CDATA = 10;
+				static const vl::vint TEXT = 11;
+				static const vl::vint SPACE = 12;
+			};
+			class XmlNode;
+			class XmlText;
+			class XmlCData;
+			class XmlAttribute;
+			class XmlComment;
+			class XmlElement;
+			class XmlInstruction;
+			class XmlDocument;
+
+			class XmlNode abstract : public vl::parsing::ParsingTreeCustomBase
+			{
+			public:
+				class IVisitor : public vl::Interface
+				{
+				public:
+					virtual void Visit(XmlText* node)=0;
+					virtual void Visit(XmlCData* node)=0;
+					virtual void Visit(XmlAttribute* node)=0;
+					virtual void Visit(XmlComment* node)=0;
+					virtual void Visit(XmlElement* node)=0;
+					virtual void Visit(XmlInstruction* node)=0;
+					virtual void Visit(XmlDocument* node)=0;
+				};
+
+				virtual void Accept(XmlNode::IVisitor* visitor)=0;
+
+			};
+
+			class XmlText : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlText> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlCData : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlCData> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlAttribute : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::parsing::ParsingToken value;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlAttribute> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlComment : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken content;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlComment> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlElement : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::parsing::ParsingToken closingName;
+				vl::collections::List<vl::Ptr<XmlAttribute>> attributes;
+				vl::collections::List<vl::Ptr<XmlNode>> subNodes;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlElement> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlInstruction : public XmlNode
+			{
+			public:
+				vl::parsing::ParsingToken name;
+				vl::collections::List<vl::Ptr<XmlAttribute>> attributes;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlInstruction> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			class XmlDocument : public XmlNode
+			{
+			public:
+				vl::collections::List<vl::Ptr<XmlNode>> prologs;
+				vl::Ptr<XmlElement> rootElement;
+
+				void Accept(XmlNode::IVisitor* visitor)override;
+
+				static vl::Ptr<XmlDocument> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			};
+
+			extern vl::WString XmlGetParserTextBuffer();
+			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> XmlConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+			extern vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable();
+
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+
+		}
+	}
+}
+#endif
+
+/***********************************************************************
+PARSING\XML\PARSINGXML.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::ParsingXml
+
+***********************************************************************/
+
+#ifndef VCZH_PARSING_XML_PARSINGXML
+#define VCZH_PARSING_XML_PARSINGXML
+
+
+namespace vl
+{
+	namespace parsing
+	{
+		namespace xml
+		{
+			extern WString							XmlEscapeValue(const WString& value);
+			extern WString							XmlUnescapeValue(const WString& value);
+			extern WString							XmlEscapeCData(const WString& value);
+			extern WString							XmlUnescapeCData(const WString& value);
+			extern WString							XmlEscapeComment(const WString& value);
+			extern WString							XmlUnescapeComment(const WString& value);
+			extern void								XmlPrint(Ptr<XmlNode> node, stream::TextWriter& writer);
+			extern void								XmlPrintContent(Ptr<XmlElement> element, stream::TextWriter& writer);
+			extern WString							XmlToString(Ptr<XmlNode> node);
+
+			extern Ptr<XmlAttribute>							XmlGetAttribute(Ptr<XmlElement> element, const WString& name);
+			extern Ptr<XmlElement>								XmlGetElement(Ptr<XmlElement> element, const WString& name);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(Ptr<XmlElement> element, const WString& name);
+			extern WString										XmlGetValue(Ptr<XmlElement> element);
+
+			extern Ptr<XmlAttribute>							XmlGetAttribute(XmlElement* element, const WString& name);
+			extern Ptr<XmlElement>								XmlGetElement(XmlElement* element, const WString& name);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element);
+			extern collections::LazyList<Ptr<XmlElement>>		XmlGetElements(XmlElement* element, const WString& name);
+			extern WString										XmlGetValue(XmlElement* element);
+
+			class XmlElementWriter : public Object
+			{
+			protected:
+				Ptr<XmlElement>					element;
+				const XmlElementWriter*			previousWriter;
+
+			public:
+				XmlElementWriter(Ptr<XmlElement> _element, const XmlElementWriter* _previousWriter=0);
+				~XmlElementWriter();
+
+				const XmlElementWriter&			Attribute(const WString& name, const WString& value)const;
+				XmlElementWriter				Element(const WString& name)const;
+				const XmlElementWriter&			End()const;
+				const XmlElementWriter&			Text(const WString& value)const;
+				const XmlElementWriter&			CData(const WString& value)const;
+				const XmlElementWriter&			Comment(const WString& value)const;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
 REGEX\REGEXPURE.H
 ***********************************************************************/
 /***********************************************************************
@@ -21689,6 +22141,7 @@ namespace vl
 			vint				GetStartState();
 			vint				Transit(wchar_t input, vint state);
 			bool				IsFinalState(vint state);
+			bool				IsDeadState(vint state);
 
 			void				PrepareForRelatedFinalStateTable();
 			vint				GetRelatedFinalState(vint state);
@@ -22415,6 +22868,7 @@ namespace vl
 		~Thread();
 
 		static Thread*								CreateAndStart(ThreadProcedure procedure, void* argument=0, bool deleteAfterStopped=true);
+		static Thread*								CreateAndStart(const Func<void()>& procedure, bool deleteAfterStopped=true);
 		static void									Sleep(vint ms);
 		static vint									GetCPUCount();
 		static vint									GetCurrentThreadId();
@@ -22602,6 +23056,11 @@ namespace vl
 		};
 	};
 
+#define SPIN_LOCK(LOCK) SCOPE_VARIABLE(SpinLock::Scope, scope, LOCK)
+#define CS_LOCK(LOCK) SCOPE_VARIABLE(CriticalSection::Scope, scope, LOCK)
+#define READER_LOCK(LOCK) SCOPE_VARIABLE(ReaderWriterLock::ReaderScope, scope, LOCK)
+#define WRITER_LOCK(LOCK) SCOPE_VARIABLE(ReaderWriterLock::WriterScope, scope, LOCK)
+
 /***********************************************************************
 RepeatingTaskExecutor
 ***********************************************************************/
@@ -22622,19 +23081,21 @@ RepeatingTaskExecutor
 			{
 				bool currentInputDataAvailable;
 				T currentInputData;
+				SPIN_LOCK(inputLock)
 				{
-					SpinLock::Scope scope(inputLock);
 					currentInputData=inputData;
+					inputData=T();
 					currentInputDataAvailable=inputDataAvailable;
 					inputDataAvailable=false;
 					if(!currentInputDataAvailable)
 					{
 						executing=false;
-						break;
+						goto FINISH_EXECUTING;
 					}
 				}
 				Execute(currentInputData);
 			}
+		FINISH_EXECUTING:
 			executingEvent.Leave();
 		}
 
@@ -22666,8 +23127,8 @@ RepeatingTaskExecutor
 
 		void SubmitTask(const T& input)
 		{
+			SPIN_LOCK(inputLock)
 			{
-				SpinLock::Scope scope(inputLock);
 				inputData=input;
 				inputDataAvailable=true;
 			}

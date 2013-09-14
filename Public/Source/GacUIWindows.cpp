@@ -2393,27 +2393,28 @@ WindowsAsyncService::DelayItem
 
 			bool WindowsAsyncService::DelayItem::Delay(vint milliseconds)
 			{
-				SpinLock::Scope scope(service->taskListLock);
-				if(status==INativeDelay::Pending)
+				SPIN_LOCK(service->taskListLock)
 				{
-					executeTime=DateTime::LocalTime().Forward(milliseconds);
-					return true;
+					if(status==INativeDelay::Pending)
+					{
+						executeTime=DateTime::LocalTime().Forward(milliseconds);
+						return true;
+					}
 				}
-				else
-				{
-					return false;
-				}
+				return false;
 			}
 
 			bool WindowsAsyncService::DelayItem::Cancel()
 			{
-				SpinLock::Scope scope(service->taskListLock);
-				if(status==INativeDelay::Pending)
+				SPIN_LOCK(service->taskListLock)
 				{
-					if(service->delayItems.Remove(this))
+					if(status==INativeDelay::Pending)
 					{
-						status=INativeDelay::Canceled;
-						return true;
+						if(service->delayItems.Remove(this))
+						{
+							status=INativeDelay::Canceled;
+							return true;
+						}
 					}
 				}
 				return false;
@@ -2437,8 +2438,9 @@ WindowsAsyncService
 				DateTime now=DateTime::LocalTime();
 				Array<TaskItem> items;
 				List<Ptr<DelayItem>> executableDelayItems;
+
+				SPIN_LOCK(taskListLock)
 				{
-					SpinLock::Scope scope(taskListLock);
 					CopyFrom(items, taskItems);
 					taskItems.RemoveRange(0, items.Count());
 					for(vint i=delayItems.Count()-1;i>=0;i--)
@@ -2452,6 +2454,7 @@ WindowsAsyncService
 						}
 					}
 				}
+
 				FOREACH(TaskItem, item, items)
 				{
 					item.proc();
@@ -2490,20 +2493,24 @@ WindowsAsyncService
 
 			void WindowsAsyncService::InvokeInMainThread(const Func<void()>& proc)
 			{
-				SpinLock::Scope scope(taskListLock);
-				TaskItem item(0, proc);
-				taskItems.Add(item);
+				SPIN_LOCK(taskListLock)
+				{
+					TaskItem item(0, proc);
+					taskItems.Add(item);
+				}
 			}
 
 			bool WindowsAsyncService::InvokeInMainThreadAndWait(const Func<void()>& proc, vint milliseconds)
 			{
 				Semaphore semaphore;
 				semaphore.Create(0, 1);
+
+				SPIN_LOCK(taskListLock)
 				{
-					SpinLock::Scope scope(taskListLock);
 					TaskItem item(&semaphore, proc);
 					taskItems.Add(item);
 				}
+
 				if(milliseconds<0)
 				{
 					return semaphore.Wait();
@@ -2516,17 +2523,23 @@ WindowsAsyncService
 
 			Ptr<INativeDelay> WindowsAsyncService::DelayExecute(const Func<void()>& proc, vint milliseconds)
 			{
-				SpinLock::Scope scope(taskListLock);
-				Ptr<DelayItem> delay=new DelayItem(this, proc, false, milliseconds);
-				delayItems.Add(delay);
+				Ptr<DelayItem> delay;
+				SPIN_LOCK(taskListLock)
+				{
+					delay=new DelayItem(this, proc, false, milliseconds);
+					delayItems.Add(delay);
+				}
 				return delay;
 			}
 
 			Ptr<INativeDelay> WindowsAsyncService::DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)
 			{
-				SpinLock::Scope scope(taskListLock);
-				Ptr<DelayItem> delay=new DelayItem(this, proc, true, milliseconds);
-				delayItems.Add(delay);
+				Ptr<DelayItem> delay;
+				SPIN_LOCK(taskListLock)
+				{
+					delay=new DelayItem(this, proc, true, milliseconds);
+					delayItems.Add(delay);
+				}
 				return delay;
 			}
 		}
@@ -5102,65 +5115,97 @@ WindowsController
 					return &dialogService;
 				}
 
-				WString GetOSVersionMainPart()
+				bool IsWindowsVersionEqualOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD wServicePackMajor)
 				{
-					OSVERSIONINFOEX info;
-					ZeroMemory(&info, sizeof(info));
-					info.dwOSVersionInfoSize=sizeof(info);
-					GetVersionEx((OSVERSIONINFO*)&info);
-					switch(info.dwMajorVersion)
-					{
-					case 5:
-						switch(info.dwMinorVersion)
-						{
-						case 0:
-							return L"Windows 2000";
-						case 1:
-							return L"Windows XP";
-						case 2:
-							return GetSystemMetrics(SM_SERVERR2)==0?L"Windows Server 2003":L"Windows Server 2003 R2";
-						}
-					case 6:
-						if(info.wProductType==VER_NT_WORKSTATION)
-						{
-							switch(info.dwMinorVersion)
-							{
-							case 0:
-								return L"Windows Vista";
-							case 1:
-								return L"Windows 7";
-							case 2:
-								return L"Windows 8";
-							}
-						}
-						else
-						{
-							switch(info.dwMinorVersion)
-							{
-							case 0:
-								return L"Windows Server 2008";
-							case 1:
-								return L"Windows Server 2008 R2";
-							case 2:
-								return L"Windows Server 2012";
-							}
-						}
-					}
-					return L"Windows<Unknown Version>";
+					OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0, {0}, 0, 0 };
+					DWORDLONG const dwlConditionMask = 
+						VerSetConditionMask(
+							VerSetConditionMask(
+								VerSetConditionMask(
+									0,
+									VER_MAJORVERSION,
+									VER_GREATER_EQUAL
+									),
+								VER_MINORVERSION,
+								VER_GREATER_EQUAL
+								),
+							VER_SERVICEPACKMAJOR,
+							VER_GREATER_EQUAL
+							);
+
+					osvi.dwMajorVersion = wMajorVersion;
+					osvi.dwMinorVersion = wMinorVersion;
+					osvi.wServicePackMajor = wServicePackMajor;
+
+					return VerifyVersionInfoW(&osvi, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR, dwlConditionMask) != FALSE;
 				}
 
-				WString GetOSVersionCSDPart()
+				bool IsWindowsServer()
 				{
-					OSVERSIONINFOEX info;
-					ZeroMemory(&info, sizeof(info));
-					info.dwOSVersionInfoSize=sizeof(info);
-					GetVersionEx((OSVERSIONINFO*)&info);
-					return info.szCSDVersion;
+					OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0, {0}, 0, 0, 0, VER_NT_WORKSTATION };
+					DWORDLONG const dwlConditionMask = VerSetConditionMask( 0, VER_PRODUCT_TYPE, VER_EQUAL );
+
+					return !VerifyVersionInfoW(&osvi, VER_PRODUCT_TYPE, dwlConditionMask);
 				}
 
 				WString GetOSVersion()
 				{
-					return GetOSVersionMainPart()+L";"+GetOSVersionCSDPart();
+					const vint SystemCount = 5;
+					DWORD SystemVersions[SystemCount] = 
+					{
+						_WIN32_WINNT_WIN2K,
+						_WIN32_WINNT_WINXP,
+						_WIN32_WINNT_VISTA,
+						_WIN32_WINNT_WIN7,
+						_WIN32_WINNT_WIN8
+					};
+					vint SystemMaxServerPacks[SystemCount] =
+					{
+						4,
+						3,
+						2,
+						1,
+						0,
+					};
+					const wchar_t* SystemClientNames[SystemCount] =
+					{
+						L"Windows 2000",
+						L"Windows XP",
+						L"Windows Vista",
+						L"Windows 7",
+						L"Windows 8",
+					};
+					const wchar_t* SystemServerNames[SystemCount] =
+					{
+						L"Windows Server 2003",
+						L"Windows Server 2003 R2",
+						L"Windows Server 2008",
+						L"Windows Server 2008 R2",
+						L"Windows Server 2012",
+					};
+
+					bool isWindowsServer = IsWindowsServer();
+					for(vint systemIndex = SystemCount-1; systemIndex >=0; systemIndex--)
+					{
+						DWORD systemVersion = SystemVersions[systemIndex];
+						vint maxSp = SystemMaxServerPacks[systemIndex];
+						for(vint sp = maxSp; sp>=0; sp--)
+						{
+							if(IsWindowsVersionEqualOrGreater(HIBYTE(systemVersion), LOBYTE(systemVersion), sp))
+							{
+								WString systemName = isWindowsServer?SystemServerNames[systemIndex]:SystemClientNames[systemIndex];
+								if(sp==0)
+								{
+									return systemName+L";";
+								}
+								else
+								{
+									return systemName+L";SP"+itow(sp);
+								}
+							}
+						}
+					}
+					return L"Windows <Unknown Version>";
 				}
 
 				WString GetExecutablePath()
