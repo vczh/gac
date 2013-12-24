@@ -1,4 +1,4 @@
-#include "..\..\Public\Source\GacUI.h"
+#include "..\..\Public\Source\GacUIReflection.h"
 #include "..\..\Public\Source\GacUIWindows.h"
 
 using namespace vl::regex;
@@ -552,6 +552,8 @@ GuiMain
 
 void GuiMain()
 {
+	description::GetTypeDescriptor<GuiWindow>(); // should be called due to VC++'s static library bug
+
 	GuiWindow* window=new ChemicalElementWindow;
 	GetApplication()->Run(window);
 	delete window;

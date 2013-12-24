@@ -106,6 +106,22 @@
   <ItemGroup>
     <Image Include="..\Resources\BigDoc.png" />
     <Image Include="..\Resources\Gif.gif" />
+    <Image Include="..\Resources\OfficeExcel.ico" />
+    <Image Include="..\Resources\OfficeOneNote.ico" />
+    <Image Include="..\Resources\OfficeOutlook.ico" />
+    <Image Include="..\Resources\OfficePowerPoint.ico" />
+    <Image Include="..\Resources\OfficeWord.ico" />
+    <Image Include="..\Resources\s_AlignCenter.png" />
+    <Image Include="..\Resources\s_AlignLeft.png" />
+    <Image Include="..\Resources\s_AlignRight.png" />
+    <Image Include="..\Resources\s_Background.png" />
+    <Image Include="..\Resources\s_Bold.png" />
+    <Image Include="..\Resources\s_Color.png" />
+    <Image Include="..\Resources\s_Font.png" />
+    <Image Include="..\Resources\s_Italic.png" />
+    <Image Include="..\Resources\s_Strike.png" />
+    <Image Include="..\Resources\s_Underline.png" />
+    <Image Include="..\Resources\XmlDocDemo_TooltipWindow.jpg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\Resources\CalculatorDefinition.txt" />
@@ -115,7 +131,9 @@
   <ItemGroup>
     <Xml Include="..\Resources\document2.xml" />
     <Xml Include="..\Resources\XmlDoc.xml" />
+    <Xml Include="..\Resources\XmlDocDemo.xml" />
     <Xml Include="..\Resources\XmlResource.xml" />
+    <Xml Include="..\Resources\XmlWindowResource.xml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

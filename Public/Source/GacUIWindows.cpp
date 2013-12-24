@@ -199,7 +199,6 @@ using namespace vl::presentation::elements_windows_d2d;
 int WinMainDirect2D(HINSTANCE hInstance, void(*RendererMain)())
 {
 	EnableCrossKernelCrashing();
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	// create controller
 	INativeController* controller=CreateWindowsNativeController(hInstance);
 	SetCurrentController(controller);
@@ -221,6 +220,7 @@ int WinMainDirect2D(HINSTANCE hInstance, void(*RendererMain)())
 
 int SetupWindowsDirect2DRenderer()
 {
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	HINSTANCE hInstance=(HINSTANCE)GetModuleHandle(NULL);
 	WinDirect2DApplicationDirect2DObjectProvider objectProvider;
 	SetWindowsDirect2DObjectProvider(&objectProvider);
@@ -2270,32 +2270,51 @@ namespace vl
 OS Supporting
 ***********************************************************************/
 
-			class WinDirect2DApplicationGDIObjectProvider : public IWindowsGDIObjectProvider
+			class WinGDIApplicationGDIObjectProvider : public IWindowsGDIObjectProvider
 			{
+			protected:
+				IMLangFontLink2*				mLangFontLink;
+
 			public:
-				windows::WinDC* GetNativeWindowDC(INativeWindow* window)
+				WinGDIApplicationGDIObjectProvider()
+					:mLangFontLink(0)
+				{
+					CoCreateInstance(CLSID_CMultiLanguage, NULL, CLSCTX_INPROC_SERVER, IID_IMLangFontLink2, (void**)&mLangFontLink);
+				}
+
+				~WinGDIApplicationGDIObjectProvider()
+				{
+					mLangFontLink->Release();
+				}
+
+				windows::WinDC* GetNativeWindowDC(INativeWindow* window)override
 				{
 					return vl::presentation::windows::GetNativeWindowDC(window);
 				}
 
-				IWindowsGDIRenderTarget* GetBindedRenderTarget(INativeWindow* window)
+				IWindowsGDIRenderTarget* GetBindedRenderTarget(INativeWindow* window)override
 				{
 					return dynamic_cast<IWindowsGDIRenderTarget*>(vl::presentation::windows::GetWindowsForm(window)->GetGraphicsHandler());
 				}
 
-				void SetBindedRenderTarget(INativeWindow* window, IWindowsGDIRenderTarget* renderTarget)
+				void SetBindedRenderTarget(INativeWindow* window, IWindowsGDIRenderTarget* renderTarget)override
 				{
 					vl::presentation::windows::GetWindowsForm(window)->SetGraphicsHandler(renderTarget);
 				}
 
-				IWICImagingFactory* GetWICImagingFactory()
+				IWICImagingFactory* GetWICImagingFactory()override
 				{
 					return vl::presentation::windows::GetWICImagingFactory();
 				}
 
-				IWICBitmap* GetWICBitmap(INativeImageFrame* frame)
+				IWICBitmap* GetWICBitmap(INativeImageFrame* frame)override
 				{
 					return vl::presentation::windows::GetWICBitmap(frame);
+				}
+
+				IMLangFontLink2* GetMLangFontLink()override
+				{
+					return mLangFontLink;
 				}
 			};
 		}
@@ -2310,7 +2329,6 @@ using namespace vl::presentation::elements_windows_gdi;
 int WinMainGDI(HINSTANCE hInstance, void(*RendererMain)())
 {
 	EnableCrossKernelCrashing();
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	// create controller
 	INativeController* controller=CreateWindowsNativeController(hInstance);
 	SetCurrentController(controller);
@@ -2332,8 +2350,9 @@ int WinMainGDI(HINSTANCE hInstance, void(*RendererMain)())
 
 int SetupWindowsGDIRenderer()
 {
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	HINSTANCE hInstance=(HINSTANCE)GetModuleHandle(NULL);
-	WinDirect2DApplicationGDIObjectProvider objectProvider;
+	WinGDIApplicationGDIObjectProvider objectProvider;
 	SetWindowsGDIObjectProvider(&objectProvider);
 	return WinMainGDI(hInstance, &RendererMainGDI);
 }
@@ -3459,12 +3478,58 @@ namespace vl
 WindowsInputService
 ***********************************************************************/
 
+			WString WindowsInputService::GetKeyNameInternal(vint code)
+			{
+				if (code < 8) return L"?";
+				wchar_t name[256]={0};
+				vint scanCode=MapVirtualKey((int)code, MAPVK_VK_TO_VSC)<<16;
+				switch(code)
+				{
+				case VK_INSERT:
+				case VK_DELETE:
+				case VK_HOME:
+				case VK_END:
+				case VK_PRIOR:
+				case VK_NEXT:
+				case VK_LEFT:
+				case VK_RIGHT:
+				case VK_UP:
+				case VK_DOWN:
+					scanCode|=1<<24;
+					break;
+				case VK_CLEAR:
+				case VK_LSHIFT:
+				case VK_RSHIFT: 
+				case VK_LCONTROL:
+				case VK_RCONTROL:
+				case VK_LMENU:
+				case VK_RMENU:
+					return L"?";
+				}
+				GetKeyNameText((int)scanCode, name, sizeof(name)/sizeof(*name));
+				return name[0]?name:L"?";
+			}
+
+			void WindowsInputService::InitializeKeyNames()
+			{
+				for (vint i = 0; i < keyNames.Count(); i++)
+				{
+					keyNames[i] = GetKeyNameInternal(i);
+					if (keyNames[i] != L"?")
+					{
+						keys.Set(keyNames[i], i);
+					}
+				}
+			}
+
 			WindowsInputService::WindowsInputService(HOOKPROC _mouseProc)
 				:ownerHandle(NULL)
 				,mouseHook(NULL)
 				,isTimerEnabled(false)
 				,mouseProc(_mouseProc)
+				,keyNames(146)
 			{
+				InitializeKeyNames();
 			}
 
 			void WindowsInputService::SetOwnerHandle(HWND handle)
@@ -3529,25 +3594,20 @@ WindowsInputService
 
 			WString WindowsInputService::GetKeyName(vint code)
 			{
-				wchar_t name[256]={0};
-				vint scanCode=MapVirtualKey((int)code, MAPVK_VK_TO_VSC)<<16;
-				switch(code)
+				if (0 <= code && 0 < keyNames.Count())
 				{
-				case VK_INSERT:
-				case VK_DELETE:
-				case VK_HOME:
-				case VK_END:
-				case VK_PRIOR:
-				case VK_NEXT:
-				case VK_LEFT:
-				case VK_RIGHT:
-				case VK_UP:
-				case VK_DOWN:
-					scanCode|=1<<24;
-					break;
+					return keyNames[code];
 				}
-				GetKeyNameText((int)scanCode, name, sizeof(name)/sizeof(*name));
-				return name[0]?name:L"?";
+				else
+				{
+					return L"?";
+				}
+			}
+
+			vint WindowsInputService::GetKey(const WString& name)
+			{
+				vint index = keys.Keys().IndexOf(name);
+				return index == -1 ? -1 : keys.Values()[index];
 			}
 		}
 	}
@@ -5326,1310 +5386,16 @@ Windows Platform Native Controller
 /***********************************************************************
 GraphicsElement\WindowsGDI\GuiGraphicsLayoutProviderWindowsGDI.cpp
 ***********************************************************************/
-#include <usp10.h>
-
-#pragma comment(lib, "usp10.lib")
-
-bool operator==(const SCRIPT_ITEM&, const SCRIPT_ITEM&){return false;}
-bool operator!=(const SCRIPT_ITEM&, const SCRIPT_ITEM&){return false;}
-
-bool operator==(const SCRIPT_VISATTR&, const SCRIPT_VISATTR&){return false;}
-bool operator!=(const SCRIPT_VISATTR&, const SCRIPT_VISATTR&){return false;}
-
-bool operator==(const GOFFSET&, const GOFFSET&){return false;}
-bool operator!=(const GOFFSET&, const GOFFSET&){return false;}
-
-bool operator==(const SCRIPT_LOGATTR&, const SCRIPT_LOGATTR&){return false;}
-bool operator!=(const SCRIPT_LOGATTR&, const SCRIPT_LOGATTR&){return false;}
 
 namespace vl
 {
 	namespace presentation
 	{
-		using namespace elements;
-		using namespace collections;
-		using namespace windows;
-		using namespace regex;
-
 		namespace elements_windows_gdi
 		{
-
-/***********************************************************************
-Uniscribe Operations (UniscribeFragment)
-***********************************************************************/
-
-			struct UniscribeFragment
-			{
-				FontProperties									fontStyle;
-				Color											fontColor;
-				WString											text;
-				Ptr<WinFont>									fontObject;
-				vint											interactionId;
-
-				Ptr<IGuiGraphicsElement>						element;
-				IGuiGraphicsParagraph::InlineObjectProperties	inlineObjectProperties;
-				List<Ptr<UniscribeFragment>>					cachedTextFragment;
-
-				UniscribeFragment()
-					:interactionId(-1)
-				{
-				}
-
-				WString GetFingerprint()
-				{
-					return fontStyle.fontFamily+L"#"
-						+itow(fontStyle.size)+L"#"
-						+(fontStyle.bold?L"B":L"N")+L"#"
-						+(fontStyle.italic?L"I":L"N")+L"#"
-						+(fontStyle.underline?L"U":L"N")+L"#"
-						+(fontStyle.strikeline?L"S":L"N")+L"#"
-						;
-				}
-
-				Ptr<UniscribeFragment> Copy()
-				{
-					Ptr<UniscribeFragment> fragment=new UniscribeFragment;
-					fragment->fontStyle=fontStyle;
-					fragment->fontColor=fontColor;
-					fragment->text=text;
-					fragment->fontObject=fontObject;
-					return fragment;
-				}
-			};
-
-/***********************************************************************
-Uniscribe Operations (UniscribeGlyphData)
-***********************************************************************/
-
-			struct UniscribeGlyphData
-			{
-				Array<WORD>					glyphs;
-				Array<SCRIPT_VISATTR>		glyphVisattrs;
-				Array<int>					glyphAdvances;
-				Array<GOFFSET>				glyphOffsets;
-				Array<WORD>					charCluster;
-				ABC							runAbc;
-				SCRIPT_ANALYSIS				sa;
-
-				UniscribeGlyphData()
-				{
-					ClearUniscribeData(0, 0);
-				}
-
-				void ClearUniscribeData(vint glyphCount, vint length)
-				{
-					glyphs.Resize(glyphCount);
-					glyphVisattrs.Resize(glyphCount);
-					glyphAdvances.Resize(glyphCount);
-					glyphOffsets.Resize(glyphCount);
-					charCluster.Resize(length);
-					memset(&runAbc, 0, sizeof(runAbc));
-					memset(&sa, 0, sizeof(sa));
-				}
-			
-				bool BuildUniscribeData(WinDC* dc, SCRIPT_ITEM* scriptItem, SCRIPT_CACHE& scriptCache, const wchar_t* runText, vint length)
-				{
-					vint glyphCount=glyphs.Count();
-					bool resizeGlyphData=false;
-					if(glyphCount==0)
-					{
-						glyphCount=(vint)(1.5*length+16);
-						resizeGlyphData=true;
-					}
-					sa=scriptItem->a;
-					{
-						// generate shape information
-						WinDC* dcParameter=0;
-						if(resizeGlyphData)
-						{
-							glyphs.Resize(glyphCount);
-							glyphVisattrs.Resize(glyphCount);
-							charCluster.Resize(length);
-						}
-
-						while(true)
-						{
-							int availableGlyphCount=0;
-							HRESULT hr=ScriptShape(
-								(dcParameter?dcParameter->GetHandle():NULL),
-								&scriptCache,
-								runText,
-								(int)length,
-								(int)glyphCount,
-								&sa,
-								&glyphs[0],
-								&charCluster[0],
-								&glyphVisattrs[0],
-								&availableGlyphCount
-								);
-							if(hr==0)
-							{
-								glyphCount=availableGlyphCount;
-								break;
-							}
-							else if(hr==E_PENDING)
-							{
-								dcParameter=dc;
-							}
-							else if(hr==E_OUTOFMEMORY)
-							{
-								if(resizeGlyphData)
-								{
-									glyphCount+=length;
-								}
-								else
-								{
-									goto BUILD_UNISCRIBE_DATA_FAILED;
-								}
-							}
-							else if(hr==USP_E_SCRIPT_NOT_IN_FONT)
-							{
-								if(sa.eScript==SCRIPT_UNDEFINED)
-								{
-									goto BUILD_UNISCRIBE_DATA_FAILED;
-								}
-								else
-								{
-									sa.eScript=SCRIPT_UNDEFINED;
-								}
-							}
-							else
-							{
-								goto BUILD_UNISCRIBE_DATA_FAILED;
-							}
-						}
-						if(resizeGlyphData)
-						{
-							glyphs.Resize(glyphCount);
-							glyphVisattrs.Resize(glyphCount);
-						}
-					}
-					{
-						// generate place information
-						WinDC* dcParameter=0;
-						if(resizeGlyphData)
-						{
-							glyphAdvances.Resize(glyphCount);
-							glyphOffsets.Resize(glyphCount);
-						}
-						while(true)
-						{
-							HRESULT hr=ScriptPlace(
-								(dcParameter?dcParameter->GetHandle():NULL),
-								&scriptCache,
-								&glyphs[0],
-								(int)glyphCount,
-								&glyphVisattrs[0],
-								&sa,
-								&glyphAdvances[0],
-								&glyphOffsets[0],
-								&runAbc
-								);
-							if(hr==0)
-							{
-								break;
-							}
-							else if(hr==E_PENDING)
-							{
-								dcParameter=dc;
-							}
-							else
-							{
-								goto BUILD_UNISCRIBE_DATA_FAILED;
-							}
-						}
-					}
-
-					return true;
-		BUILD_UNISCRIBE_DATA_FAILED:
-					return false;
-				}
-			};
-
-/***********************************************************************
-Uniscribe Operations (UniscribeRun)
-***********************************************************************/
-
-			class UniscribeRun : public Object
-			{
-			public:
-				struct RunFragmentBounds
-				{
-					vint						start;
-					vint						length;
-					Rect						bounds;
-
-					bool operator==(const RunFragmentBounds&){return false;}
-					bool operator!=(const RunFragmentBounds&){return false;}
-				};
-
-				UniscribeFragment*				documentFragment;
-				SCRIPT_ITEM*					scriptItem;
-				vint							start;
-				vint							length;
-				const wchar_t*					runText;
-				List<RunFragmentBounds>			fragmentBounds;
-
-				UniscribeRun()
-					:documentFragment(0)
-					,scriptItem(0)
-					,start(0)
-					,length(0)
-				{
-				}
-
-				~UniscribeRun()
-				{
-				}
-
-				virtual bool					BuildUniscribeData(WinDC* dc)=0;
-				virtual vint					SumWidth(vint charStart, vint charLength)=0;
-				virtual vint					SumHeight()=0;
-				virtual void					SearchForLineBreak(vint tempStart, vint maxWidth, bool firstRun, vint& charLength, vint& charAdvances)=0;
-				virtual void					Render(WinDC* dc, vint fragmentBoundsIndex, vint offsetX, vint offsetY)=0;
-
-				virtual bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)
-				{
-					for(vint i=0;i<fragmentBounds.Count();i++)
-					{
-						if(fragmentBounds[i].bounds.Contains(point))
-						{
-							start=this->start;
-							length=this->length;
-							interactionId=this->documentFragment->interactionId;
-							return true;
-						}
-					}
-					return false;
-				}
-			};
-
-/***********************************************************************
-Uniscribe Operations (UniscribeTextRun)
-***********************************************************************/
-
-			class UniscribeTextRun : public UniscribeRun
-			{
-			public:
-				SCRIPT_CACHE					scriptCache;
-				Array<SCRIPT_LOGATTR>			charLogattrs;
-				vint							advance;
-				UniscribeGlyphData				wholeGlyph;
-
-				UniscribeTextRun()
-					:scriptCache(0)
-					,advance(0)
-				{
-				}
-
-				~UniscribeTextRun()
-				{
-					ClearUniscribeData();
-				}
-
-				void ClearUniscribeData()
-				{
-					if(scriptCache)
-					{
-						ScriptFreeCache(&scriptCache);
-						scriptCache=0;
-					}
-					charLogattrs.Resize(0);
-					advance=0;
-					wholeGlyph.ClearUniscribeData(0, 0);
-				}
-
-				void SearchGlyphCluster(vint charStart, vint charLength, vint& cluster, vint& nextCluster)
-				{
-					cluster=wholeGlyph.charCluster[charStart];
-					nextCluster
-						=charStart+charLength==length
-						?wholeGlyph.glyphs.Count()
-						:wholeGlyph.charCluster[charStart+charLength];
-				}
-
-				bool BuildUniscribeData(WinDC* dc)override
-				{
-					ClearUniscribeData();
-					{
-						// generate break information
-						charLogattrs.Resize(length);
-
-						HRESULT hr=ScriptBreak(
-							runText,
-							(int)length,
-							&scriptItem->a,
-							&charLogattrs[0]
-							);
-						if(hr!=0)
-						{
-							goto BUILD_UNISCRIBE_DATA_FAILED;
-						}
-					}
-
-					dc->SetFont(documentFragment->fontObject);
-					if(!wholeGlyph.BuildUniscribeData(dc, scriptItem, scriptCache, runText, length))
-					{
-						goto BUILD_UNISCRIBE_DATA_FAILED;
-					}
-					advance=wholeGlyph.runAbc.abcA+wholeGlyph.runAbc.abcB+wholeGlyph.runAbc.abcC;
-
-					return true;
-		BUILD_UNISCRIBE_DATA_FAILED:
-					ClearUniscribeData();
-					return false;
-				}
-
-				vint SumWidth(vint charStart, vint charLength)override
-				{
-					vint cluster=0;
-					vint nextCluster=0;
-					SearchGlyphCluster(charStart, charLength, cluster, nextCluster);
-					vint width=0;
-					for(vint i=cluster;i<nextCluster;i++)
-					{
-						width+=wholeGlyph.glyphAdvances[i];
-					}
-					return width;
-				}
-
-				vint SumHeight()override
-				{
-					return documentFragment->fontStyle.size;
-				}
-
-				void SearchForLineBreak(vint tempStart, vint maxWidth, bool firstRun, vint& charLength, vint& charAdvances)override
-				{
-					vint width=0;
-					charLength=0;
-					charAdvances=0;
-					for(vint i=tempStart;i<=length;)
-					{
-						if(i==length || charLogattrs[i].fSoftBreak==TRUE)
-						{
-							if(width<=maxWidth || (firstRun && charLength==0))
-							{
-								charLength=i-tempStart;
-								charAdvances=width;
-							}
-							else
-							{
-								return;
-							}
-						}
-						if(i==length) break;
-
-						vint cluster=wholeGlyph.charCluster[i];
-						vint clusterLength=1;
-						while(i+clusterLength<length)
-						{
-							if(wholeGlyph.charCluster[i+clusterLength]==cluster)
-							{
-								clusterLength++;
-							}
-							else
-							{
-								break;
-							}
-						}
-
-						vint nextCluster
-							=i+clusterLength==length
-							?wholeGlyph.glyphs.Count()
-							:wholeGlyph.charCluster[i+clusterLength];
-						for(vint j=cluster;j<nextCluster;j++)
-						{
-							width+=wholeGlyph.glyphAdvances[j];
-						}
-						i+=clusterLength;
-					}
-				}
-
-				void Render(WinDC* dc, vint fragmentBoundsIndex, vint offsetX, vint offsetY)override
-				{
-					Color fontColor=documentFragment->fontColor;
-					dc->SetFont(documentFragment->fontObject);
-					dc->SetTextColor(RGB(fontColor.r, fontColor.g, fontColor.b));
-
-					RunFragmentBounds fragment=fragmentBounds[fragmentBoundsIndex];
-					RECT rect;
-					rect.left=(int)(fragment.bounds.Left()+offsetX);
-					rect.top=(int)(fragment.bounds.Top()+offsetY);
-					rect.right=(int)(fragment.bounds.Right()+offsetX);
-					rect.bottom=(int)(fragment.bounds.Bottom()+offsetY);
-			
-					vint cluster=0;
-					vint nextCluster=0;
-					SearchGlyphCluster(fragment.start, fragment.length, cluster, nextCluster);
-
-					HRESULT hr=ScriptTextOut(
-						dc->GetHandle(),
-						&scriptCache,
-						rect.left,
-						rect.top,
-						0,
-						&rect,
-						&wholeGlyph.sa,
-						NULL,
-						0,
-						&wholeGlyph.glyphs[cluster],
-						(int)(nextCluster-cluster),
-						&wholeGlyph.glyphAdvances[cluster],
-						NULL,
-						&wholeGlyph.glyphOffsets[cluster]
-						);
-				}
-			};
-
-/***********************************************************************
-Uniscribe Operations (UniscribeElementRun)
-***********************************************************************/
-
-			class UniscribeElementRun : public UniscribeRun
-			{
-			public:
-				Ptr<IGuiGraphicsElement>						element;
-				IGuiGraphicsParagraph::InlineObjectProperties	properties;
-
-				UniscribeElementRun()
-				{
-				}
-
-				~UniscribeElementRun()
-				{
-				}
-
-				bool BuildUniscribeData(WinDC* dc)override
-				{
-					return true;
-				}
-
-				vint SumWidth(vint charStart, vint charLength)override
-				{
-					return properties.size.x;
-				}
-
-				vint SumHeight()override
-				{
-					return properties.size.y;
-				}
-
-				void SearchForLineBreak(vint tempStart, vint maxWidth, bool firstRun, vint& charLength, vint& charAdvances)override
-				{
-					charLength=length-tempStart;
-					charAdvances=properties.size.x;
-				}
-
-				void Render(WinDC* dc, vint fragmentBoundsIndex, vint offsetX, vint offsetY)override
-				{
-					Rect bounds=fragmentBounds[fragmentBoundsIndex].bounds;
-					bounds.x1+=offsetX;
-					bounds.x2+=offsetX;
-					bounds.y1+=offsetY;
-					bounds.y2+=offsetY;
-					IGuiGraphicsRenderer* renderer=element->GetRenderer();
-					if(renderer)
-					{
-						renderer->Render(bounds);
-					}
-				}
-			};
-
-/***********************************************************************
-Uniscribe Operations (UniscribeLine)
-***********************************************************************/
-
-			class UniscribeLine : public Object
-			{
-			public:
-				List<Ptr<UniscribeFragment>>	documentFragments;
-
-				WString							lineText;
-				Array<SCRIPT_ITEM>				scriptItems;
-				List<Ptr<UniscribeRun>>			scriptRuns;
-				Array<int>						runVisualToLogical;
-				Array<int>						runLogicalToVisual;
-				Rect							bounds;
-
-				void CLearUniscribeData()
-				{
-					scriptItems.Resize(0);
-					scriptRuns.Clear();
-					runVisualToLogical.Resize(0);
-					runLogicalToVisual.Resize(0);
-				}
-
-				bool BuildUniscribeData(WinDC* dc)
-				{
-					lineText=L"";
-					CLearUniscribeData();
-					vint current=0;
-					FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
-					{
-						lineText+=fragment->text;
-						current+=fragment->text.Length();
-					}
-
-					if(lineText!=L"")
-					{
-						{
-							SCRIPT_DIGITSUBSTITUTE sds={0};
-							ScriptRecordDigitSubstitution(LOCALE_USER_DEFAULT, &sds);
-							SCRIPT_CONTROL sc={0};
-							SCRIPT_STATE ss={0};
-							ScriptApplyDigitSubstitution(&sds, &sc, &ss);
-
-							// itemize a line
-							scriptItems.Resize(lineText.Length()+2);
-							int scriptItemCount=0;
-							HRESULT hr=ScriptItemize(
-								lineText.Buffer(),
-								(int)lineText.Length(),
-								(int)(scriptItems.Count()-1),
-								&sc,
-								&ss,
-								&scriptItems[0],
-								&scriptItemCount
-								);
-							if(hr!=0)
-							{
-								goto BUILD_UNISCRIBE_DATA_FAILED;
-							}
-							scriptItems.Resize(scriptItemCount+1);
-						}
-						{
-							// use item and document fragment information to produce runs
-							// one item is constructed by one or more runs
-							// characters in each run contains the same style
-							vint fragmentIndex=0;
-							vint fragmentStart=0;
-							for(vint i=0;i<scriptItems.Count()-1;i++)
-							{
-								SCRIPT_ITEM* scriptItem=&scriptItems[i];
-								vint start=scriptItem[0].iCharPos;
-								vint length=scriptItem[1].iCharPos-scriptItem[0].iCharPos;
-								vint currentStart=start;
-
-								while(currentStart<start+length)
-								{
-									UniscribeFragment* fragment=0;
-									vint itemRemainLength=length-(currentStart-start);
-									vint fragmentRemainLength=0;
-									while(true)
-									{
-										fragment=documentFragments[fragmentIndex].Obj();
-										fragmentRemainLength=fragment->text.Length()-(currentStart-fragmentStart);
-										if(fragmentRemainLength<=0)
-										{
-											fragmentStart+=fragment->text.Length();
-											fragmentIndex++;
-										}
-										else
-										{
-											break;
-										}
-									}
-									vint shortLength=itemRemainLength<fragmentRemainLength?itemRemainLength:fragmentRemainLength;
-									bool skip=false;
-									{
-										vint elementCurrent=0;
-										FOREACH(Ptr<UniscribeFragment>, elementFragment, documentFragments)
-										{
-											vint elementLength=elementFragment->text.Length();
-											if(elementFragment->element)
-											{
-												if(elementCurrent<=currentStart && currentStart+shortLength<=elementCurrent+elementLength)
-												{
-													if(elementCurrent==currentStart)
-													{
-														Ptr<UniscribeElementRun> run=new UniscribeElementRun;
-														run->documentFragment=fragment;
-														run->scriptItem=scriptItem;
-														run->start=currentStart;
-														run->length=elementLength;
-														run->runText=lineText.Buffer()+currentStart;
-														run->element=elementFragment->element;
-														run->properties=elementFragment->inlineObjectProperties;
-														scriptRuns.Add(run);
-													}
-													skip=true;
-													break;
-												}
-											}
-											elementCurrent+=elementLength;
-										}
-									}
-									if(!skip)
-									{
-										Ptr<UniscribeTextRun> run=new UniscribeTextRun;
-										run->documentFragment=fragment;
-										run->scriptItem=scriptItem;
-										run->start=currentStart;
-										run->length=shortLength;
-										run->runText=lineText.Buffer()+currentStart;
-										scriptRuns.Add(run);
-									}
-									currentStart+=shortLength;
-								}
-							}
-
-							// for each run, generate shape information
-							FOREACH(Ptr<UniscribeRun>, run, scriptRuns)
-							{
-								if(!run->BuildUniscribeData(dc))
-								{
-									goto BUILD_UNISCRIBE_DATA_FAILED;
-								}
-							}
-
-							// layout runs if there are RTL text
-							Array<BYTE> levels(scriptRuns.Count());
-							runVisualToLogical.Resize(scriptRuns.Count());
-							runLogicalToVisual.Resize(scriptRuns.Count());
-							for(vint i=0;i<scriptRuns.Count();i++)
-							{
-								levels[i]=scriptRuns[i]->scriptItem->a.s.uBidiLevel;
-							}
-							ScriptLayout((int)levels.Count(), &levels[0], &runVisualToLogical[0], &runLogicalToVisual[0]);
-						}
-					}
-					return true;
-		BUILD_UNISCRIBE_DATA_FAILED:
-					CLearUniscribeData();
-					return false;
-				}
-
-				void Render(WinDC* dc, vint offsetX, vint offsetY)
-				{
-					FOREACH(Ptr<UniscribeRun>, run, scriptRuns)
-					{
-						for(vint i=0;i<run->fragmentBounds.Count();i++)
-						{
-							run->Render(dc, i, offsetX, offsetY);
-						}
-					}
-				}
-			};
-
-/***********************************************************************
-Uniscribe Operations (UniscribeParagraph)
-***********************************************************************/
-
-			class UniscribeParagraph : public Object
-			{
-			public:
-				List<Ptr<UniscribeFragment>>	documentFragments;
-				bool							built;
-
-				List<Ptr<UniscribeLine>>		lines;
-				vint							lastAvailableWidth;
-				Alignment					paragraphAlignment;
-				Rect							bounds;
-
-				UniscribeParagraph()
-					:lastAvailableWidth(-1)
-					,paragraphAlignment(Alignment::Left)
-					,built(false)
-				{
-				}
-
-				~UniscribeParagraph()
-				{
-					ClearUniscribeData();
-				}
-
-				void ClearUniscribeData()
-				{
-					FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
-					{
-						GetWindowsGDIResourceManager()->DestroyGdiFont(fragment->fontStyle);
-						fragment->fontObject=0;
-					}
-					lines.Clear();
-					lastAvailableWidth=-1;
-				}
-
-				void BuildUniscribeData(WinDC* dc)
-				{
-					if(!built)
-					{
-						built=true;
-						ClearUniscribeData();
-						Dictionary<WString, Ptr<WinFont>> fonts;
-						FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
-						{
-							if(!fragment->fontObject)
-							{
-								WString fragmentFingerPrint=fragment->GetFingerprint();
-								vint index=fonts.Keys().IndexOf(fragmentFingerPrint);
-								if(index==-1)
-								{
-									fragment->fontObject=GetWindowsGDIResourceManager()->CreateGdiFont(fragment->fontStyle);
-									fonts.Add(fragmentFingerPrint, fragment->fontObject);
-								}
-								else
-								{
-									fragment->fontObject=fonts.Values().Get(index);
-								}
-							}
-						}
-						{
-							Regex regexLine(L"\r\n");
-							Ptr<UniscribeLine> line;
-							FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
-							{
-								if(fragment->element)
-								{
-									if(!line)
-									{
-										line=new UniscribeLine;
-										lines.Add(line);
-									}
-									line->documentFragments.Add(fragment);
-								}
-								else
-								{
-									RegexMatch::List textLines;
-									regexLine.Split(fragment->text, true, textLines);
-
-									for(vint i=0;i<textLines.Count();i++)
-									{
-										WString text=textLines[i]->Result().Value();
-										if(i>0)
-										{
-											line=0;
-										}
-										if(!line)
-										{
-											line=new UniscribeLine;
-											lines.Add(line);
-										}
-
-										if(textLines.Count()==1)
-										{
-											line->documentFragments.Add(fragment);
-										}
-										else
-										{
-											Ptr<UniscribeFragment> runFragment=fragment->Copy();
-											runFragment->text=text;
-											line->documentFragments.Add(runFragment);
-										}
-									}
-								}
-							}
-						}
-
-						FOREACH(Ptr<UniscribeLine>, line, lines)
-						{
-							line->BuildUniscribeData(dc);
-						}
-					}
-				}
-
-				void Layout(vint availableWidth, Alignment alignment)
-				{
-					if(lastAvailableWidth==availableWidth && paragraphAlignment==alignment)
-					{
-						return;
-					}
-					lastAvailableWidth=availableWidth;
-					paragraphAlignment=alignment;
-
-					vint cx=0;
-					vint cy=0;
-					FOREACH(Ptr<UniscribeLine>, line, lines)
-					{
-						if(line->scriptRuns.Count()==0)
-						{
-							// if this line doesn't contains any run, skip and render a blank line
-							vint height=line->documentFragments[0]->fontStyle.size;
-							line->bounds=Rect(Point(cx, cy), Size(0, height));
-							cy+=height;
-						}
-						else
-						{
-							FOREACH(Ptr<UniscribeRun>, run, line->scriptRuns)
-							{
-								run->fragmentBounds.Clear();
-							}
-
-							// render this line into lines with auto line wrapping
-							vint startRun=0;
-							vint startRunOffset=0;
-							vint lastRun=0;
-							vint lastRunOffset=0;
-							vint currentWidth=0;
-
-							while(startRun<line->scriptRuns.Count())
-							{
-								vint currentWidth=0;
-								bool firstRun=true;
-								// search for a range to fit in the given width
-								for(vint i=startRun;i<line->scriptRuns.Count();i++)
-								{
-									vint charLength=0;
-									vint charAdvances=0;
-									UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
-									run->SearchForLineBreak(lastRunOffset, availableWidth-currentWidth, firstRun, charLength, charAdvances);
-									firstRun=false;
-
-									if(charLength==run->length-lastRunOffset)
-									{
-										lastRun=i+1;
-										lastRunOffset=0;
-										currentWidth+=charAdvances;
-									}
-									else
-									{
-										lastRun=i;
-										lastRunOffset=lastRunOffset+charLength;
-										break;
-									}
-								}
-
-								// if the range is empty, than this should be the end of line, ignore it
-								if(startRun<lastRun || (startRun==lastRun && startRunOffset<lastRunOffset))
-								{
-									// calculate the max line height in this range;
-									vint maxHeight=0;
-									for(vint i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
-									{
-										if(i==lastRun && lastRunOffset==0)
-										{
-											break;
-										}
-										vint size=line->scriptRuns[line->runVisualToLogical[i]]->SumHeight();
-										if(maxHeight<size)
-										{
-											maxHeight=size;
-										}
-									}
-
-									// render all runs inside this range
-									vint startRunFragmentCount=-1;
-									for(vint i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
-									{
-										UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
-										vint start=i==startRun?startRunOffset:0;
-										vint end=i==lastRun?lastRunOffset:run->length;
-										vint length=end-start;
-
-										if(startRunFragmentCount==-1)
-										{
-											startRunFragmentCount=run->fragmentBounds.Count();
-										}
-
-										UniscribeRun::RunFragmentBounds fragmentBounds;
-										fragmentBounds.start=start;
-										fragmentBounds.length=length;
-										fragmentBounds.bounds=Rect(
-											Point(cx, cy+maxHeight-run->SumHeight()),
-											Size(run->SumWidth(start, length), run->SumHeight())
-											);
-										run->fragmentBounds.Add(fragmentBounds);
-
-										cx+=run->SumWidth(start, length);
-									}
-
-									vint cxOffset=0;
-									switch(alignment)
-									{
-									case Alignment::Center:
-										cxOffset=(availableWidth-cx)/2;
-										break;
-									case Alignment::Right:
-										cxOffset=availableWidth-cx;
-										break;
-									}
-									if(cxOffset!=0)
-									{
-										for(vint i=startRun;i<=lastRun && i<line->scriptRuns.Count();i++)
-										{
-											UniscribeRun* run=line->scriptRuns[line->runVisualToLogical[i]].Obj();
-											for(vint j=(i==startRun?startRunFragmentCount:0);j<run->fragmentBounds.Count();j++)
-											{
-												UniscribeRun::RunFragmentBounds& fragmentBounds=run->fragmentBounds[j];
-												fragmentBounds.bounds.x1+=cxOffset;
-												fragmentBounds.bounds.x2+=cxOffset;
-											}
-										}
-									}
-
-									cx=0;
-									cy+=(vint)(maxHeight*1.5);
-								}
-
-								startRun=lastRun;
-								startRunOffset=lastRunOffset;
-							}
-
-							// calculate line bounds
-							vint minX=0;
-							vint minY=0;
-							vint maxX=0;
-							vint maxY=0;
-							FOREACH(Ptr<UniscribeRun>, run, line->scriptRuns)
-							{
-								FOREACH(UniscribeRun::RunFragmentBounds, fragmentBounds, run->fragmentBounds)
-								{
-									Rect bounds=fragmentBounds.bounds;
-									if(minX>bounds.Left()) minX=bounds.Left();
-									if(minY>bounds.Top()) minX=bounds.Top();
-									if(maxX<bounds.Right()) maxX=bounds.Right();
-									if(maxY<bounds.Bottom()) maxY=bounds.Bottom();
-								}
-							}
-							line->bounds=Rect(minX, minY, maxX, maxY);
-						}
-					}
-
-					// calculate paragraph bounds
-					vint minX=0;
-					vint minY=0;
-					vint maxX=0;
-					vint maxY=0;
-					FOREACH(Ptr<UniscribeLine>, line, lines)
-					{
-						Rect bounds=line->bounds;
-						if(minX>bounds.Left()) minX=bounds.Left();
-						if(minY>bounds.Top()) minX=bounds.Top();
-						if(maxX<bounds.Right()) maxX=bounds.Right();
-						if(maxY<bounds.Bottom()) maxY=bounds.Bottom();
-					}
-					bounds=Rect(minX, minY, maxX, maxY);
-				}
-
-				void Render(WinDC* dc, vint offsetX, vint offsetY)
-				{
-					FOREACH(Ptr<UniscribeLine>, line, lines)
-					{
-						line->Render(dc, offsetX, offsetY);
-					}
-				}
-
-				//-------------------------------------------------------------------------
-
-				void SearchFragment(vint start, vint length, vint& fs, vint& ss, vint& fe, vint& se)
-				{
-					fs=-1;
-					ss=-1;
-					fe=-1;
-					se=-1;
-					vint current=0;
-					for(vint i=0;i<documentFragments.Count();i++)
-					{
-						vint fragmentLength=documentFragments[i]->text.Length();
-						if(current<=start && start<current+fragmentLength)
-						{
-							fs=i;
-							ss=start-current;
-						}
-						if(current<=start+length && start+length<=current+fragmentLength)
-						{
-							fe=i;
-							se=start+length-current;
-						}
-						if(fs!=-1 && fe!=-1)
-						{
-							break;
-						}
-						current+=fragmentLength;
-					}
-				}
-
-				bool CutFragment(vint fs, vint ss, vint fe, vint se, vint& f1, vint& f2)
-				{
-					f1=-1;
-					f2=-1;
-					if(fs==fe)
-					{
-						Ptr<UniscribeFragment> fragment=documentFragments[fs];
-						if(fragment->element)
-						{
-							if(ss==0 && se==fragment->text.Length())
-							{
-								f1=f2=fs;
-								return true;
-							}
-							else
-							{
-								return false;
-							}
-						}
-					}
-					for(vint i=fs;i<=fe;i++)
-					{
-						if(documentFragments[i]->element)
-						{
-							return false;
-						}
-					}
-					if(fs==fe)
-					{
-						Ptr<UniscribeFragment> fragment=documentFragments[fs];
-						vint length=fragment->text.Length();
-						if(ss==0)
-						{
-							if(se==length)
-							{
-								f1=f2=fs;
-							}
-							else
-							{
-								f1=f2=fs;
-								Ptr<UniscribeFragment> rightFragment=fragment->Copy();
-
-								fragment->text=fragment->text.Sub(0, se);
-
-								rightFragment->text=rightFragment->text.Sub(se, length-se);
-								documentFragments.Insert(fs+1, rightFragment);
-							}
-						}
-						else
-						{
-							if(se==length)
-							{
-								f1=fs+1;
-								f2=fs+1;
-								Ptr<UniscribeFragment> leftFragment=fragment->Copy();
-
-								leftFragment->text=leftFragment->text.Sub(0, ss);
-								documentFragments.Insert(fs, leftFragment);
-								
-								fragment->text=fragment->text.Sub(ss, length-ss);
-							}
-							else
-							{
-								f1=fs+1;
-								f2=fs+1;
-								Ptr<UniscribeFragment> leftFragment=fragment->Copy();
-								Ptr<UniscribeFragment> rightFragment=fragment->Copy();
-
-								leftFragment->text=leftFragment->text.Sub(0, ss);
-								documentFragments.Insert(fs, leftFragment);
-								
-								fragment->text=fragment->text.Sub(ss, se-ss);
-
-								rightFragment->text=rightFragment->text.Sub(se, length-se);
-								documentFragments.Insert(fs+2, rightFragment);
-							}
-						}
-					}
-					else
-					{
-						Ptr<UniscribeFragment> fragmentStart=documentFragments[fs];
-						Ptr<UniscribeFragment> fragmentEnd=documentFragments[fe];
-						if(ss==0)
-						{
-							f1=fs;
-						}
-						else
-						{
-							f1=fs+1;
-							fe++;
-							vint length=fragmentStart->text.Length();
-							Ptr<UniscribeFragment> leftFragment=fragmentStart->Copy();
-
-							leftFragment->text=leftFragment->text.Sub(0, ss);
-							documentFragments.Insert(fs, leftFragment);
-								
-							fragmentStart->text=fragmentStart->text.Sub(ss, length-ss);
-						}
-						if(se==fragmentEnd->text.Length())
-						{
-							f2=fe;
-						}
-						else
-						{
-							f2=fe;
-							fe++;
-							vint length=fragmentEnd->text.Length();
-							Ptr<UniscribeFragment> rightFragment=fragmentEnd->Copy();
-
-							fragmentEnd->text=fragmentEnd->text.Sub(0, se);
-
-							rightFragment->text=rightFragment->text.Sub(se, length-se);
-							documentFragments.Insert(fe, rightFragment);
-						}
-					}
-					return true;
-				}
-
-				bool SetFont(vint start, vint length, const WString& value)
-				{
-					vint fs, ss, fe, se, f1, f2;
-					SearchFragment(start, length, fs, ss, fe, se);
-					if(CutFragment(fs, ss, fe, se, f1, f2))
-					{
-						for(vint i=f1;i<=f2;i++)
-						{
-							documentFragments[i]->fontStyle.fontFamily=value;
-						}
-						built=false;
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool SetSize(vint start, vint length, vint value)
-				{
-					vint fs, ss, fe, se, f1, f2;
-					SearchFragment(start, length, fs, ss, fe, se);
-					if(CutFragment(fs, ss, fe, se, f1, f2))
-					{
-						for(vint i=f1;i<=f2;i++)
-						{
-							documentFragments[i]->fontStyle.size=value;
-						}
-						built=false;
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool SetStyle(vint start, vint length, bool bold, bool italic, bool underline, bool strikeline)
-				{
-					vint fs, ss, fe, se, f1, f2;
-					SearchFragment(start, length, fs, ss, fe, se);
-					if(CutFragment(fs, ss, fe, se, f1, f2))
-					{
-						for(vint i=f1;i<=f2;i++)
-						{
-							documentFragments[i]->fontStyle.bold=bold;
-							documentFragments[i]->fontStyle.italic=italic;
-							documentFragments[i]->fontStyle.underline=underline;
-							documentFragments[i]->fontStyle.strikeline=strikeline;
-						}
-						built=false;
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool SetColor(vint start, vint length, Color value)
-				{
-					vint fs, ss, fe, se, f1, f2;
-					SearchFragment(start, length, fs, ss, fe, se);
-					if(CutFragment(fs, ss, fe, se, f1, f2))
-					{
-						for(vint i=f1;i<=f2;i++)
-						{
-							documentFragments[i]->fontColor=value;
-						}
-						built=false;
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool SetInlineObject(vint start, vint length, const IGuiGraphicsParagraph::InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)
-				{
-					vint fs, ss, fe, se, f1, f2;
-					SearchFragment(start, length, fs, ss, fe, se);
-					if(CutFragment(fs, ss, fe, se, f1, f2))
-					{
-						Ptr<UniscribeFragment> elementFragment=new UniscribeFragment;
-						for(vint i=f1;i<=f2;i++)
-						{
-							elementFragment->text+=documentFragments[f1]->text;
-							elementFragment->cachedTextFragment.Add(documentFragments[f1]);
-							documentFragments.RemoveAt(f1);
-						}
-						elementFragment->inlineObjectProperties=properties;
-						elementFragment->element=value;
-						documentFragments.Insert(f1, elementFragment);
-						built=false;
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				Ptr<IGuiGraphicsElement> ResetInlineObject(vint start, vint length)
-				{
-					vint fs, ss, fe, se;
-					SearchFragment(start, length, fs, ss, fe, se);
-					Ptr<UniscribeFragment> fragment=documentFragments[fs];
-					if(fs==fe && ss==0 && se==fragment->text.Length() && fragment->element)
-					{
-						documentFragments.RemoveAt(fs);
-						for(vint i=0;i<fragment->cachedTextFragment.Count();i++)
-						{
-							documentFragments.Insert(fs+i, fragment->cachedTextFragment[i]);
-						}
-						built=false;
-						return fragment->element;
-					}
-					return 0;
-				}
-
-				bool SetInteractionId(vint start, vint length, vint value)
-				{
-					vint fs, ss, fe, se, f1, f2;
-					SearchFragment(start, length, fs, ss, fe, se);
-					if(CutFragment(fs, ss, fe, se, f1, f2))
-					{
-						for(vint i=f1;i<=f2;i++)
-						{
-							documentFragments[i]->interactionId=value;
-						}
-						built=false;
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)
-				{
-					start=-1;
-					length=0;
-					interactionId=IGuiGraphicsParagraph::NullInteractionId;
-
-					if(bounds.Contains(point))
-					{
-						FOREACH(Ptr<UniscribeLine>, line, lines)
-						{
-							if(point.y<line->bounds.y1)
-							{
-								continue;
-							}
-							else if(line->bounds.y2<=point.y)
-							{
-								break;
-							}
-							else if(line->bounds.Contains(point))
-							{
-								FOREACH(Ptr<UniscribeRun>, run, line->scriptRuns)
-								{
-									if(run->HitTestPoint(point, start, length, interactionId))
-									{
-										return true;
-									}
-								}
-							}
-						}
-					}
-					return false;
-				}
-			};
+			using namespace elements;
+			using namespace collections;
+			using namespace windows;
 
 /***********************************************************************
 WindowsGDIParagraph
@@ -6643,24 +5409,38 @@ WindowsGDIParagraph
 				WString								text;
 				IWindowsGDIRenderTarget*			renderTarget;
 
+				vint								caret;
+				Color								caretColor;
+				bool								caretFrontSide;
+				Ptr<WinPen>							caretPen;
+
+				void PrepareUniscribeData()
+				{
+					if(paragraph->BuildUniscribeData(renderTarget->GetDC()))
+					{
+						vint width=paragraph->lastAvailableWidth==-1?65536:paragraph->lastAvailableWidth;
+						paragraph->Layout(width, paragraph->paragraphAlignment);
+					}
+				}
 			public:
 				WindowsGDIParagraph(IGuiGraphicsLayoutProvider* _provider, const WString& _text, IGuiGraphicsRenderTarget* _renderTarget)
 					:provider(_provider)
 					,text(_text)
 					,renderTarget(dynamic_cast<IWindowsGDIRenderTarget*>(_renderTarget))
+					,caret(-1)
+					,caretFrontSide(false)
 				{
 					paragraph=new UniscribeParagraph;
-					{
-						Ptr<UniscribeFragment> fragment=new UniscribeFragment;
-						fragment->text=_text;
-						fragment->fontColor=Color(0, 0, 0);
-						fragment->fontStyle=GetCurrentController()->ResourceService()->GetDefaultFont();
-						paragraph->documentFragments.Add(fragment);
-					}
+					paragraph->paragraphText=text;
+
+					Ptr<UniscribeFragment> fragment=new UniscribeFragment(_text);
+					fragment->fontStyle=GetCurrentController()->ResourceService()->GetDefaultFont();
+					paragraph->documentFragments.Add(fragment);
 				}
 
 				~WindowsGDIParagraph()
 				{
+					CloseCaret();
 				}
 
 				IGuiGraphicsLayoutProvider* GetProvider()override
@@ -6756,6 +5536,19 @@ WindowsGDIParagraph
 					}
 				}
 
+				bool SetBackgroundColor(vint start, vint length, Color value)override
+				{
+					if(length==0) return true;
+					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
+					{
+						return paragraph->SetBackgroundColor(start, length, value);
+					}
+					else
+					{
+						return false;
+					}
+				}
+
 				bool SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)override
 				{
 					if(length==0) return true;
@@ -6792,37 +5585,93 @@ WindowsGDIParagraph
 					return false;
 				}
 
-				bool SetInteractionId(vint start, vint length, vint value)override
-				{
-					if(length==0) return true;
-					if(0<=start && start<text.Length() && length>=0 && 0<=start+length && start+length<=text.Length())
-					{
-						return paragraph->SetInteractionId(start, length, value);
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)override
-				{
-					return paragraph->HitTestPoint(point, start, length, interactionId);
-				}
-
 				vint GetHeight()override
 				{
-					paragraph->BuildUniscribeData(renderTarget->GetDC());
-					if(paragraph->lastAvailableWidth==-1)
-					{
-						paragraph->Layout(65536, paragraph->paragraphAlignment);
-					}
+					PrepareUniscribeData();
 					return paragraph->bounds.Height();
+				}
+
+				bool OpenCaret(vint _caret, Color _color, bool _frontSide)override
+				{
+					if(!IsValidCaret(_caret)) return false;
+					if(caret!=-1) CloseCaret();
+					caret=_caret;
+					caretColor=_color;
+					caretFrontSide=_frontSide;
+					caretPen=GetWindowsGDIResourceManager()->CreateGdiPen(caretColor);
+					return true;
+				}
+
+				bool CloseCaret()override
+				{
+					if(caret==-1) return false;
+					caret=-1;
+					GetWindowsGDIResourceManager()->DestroyGdiPen(caretColor);
+					caretPen=0;
+					return true;
 				}
 
 				void Render(Rect bounds)override
 				{
-					paragraph->Render(renderTarget->GetDC(), bounds.Left(), bounds.Top());
+					PrepareUniscribeData();
+					paragraph->Render(renderTarget->GetDC(), bounds.Left(), bounds.Top(), true);
+					paragraph->Render(renderTarget->GetDC(), bounds.Left(), bounds.Top(), false);
+					if(caret!=-1)
+					{
+						Rect caretBounds=GetCaretBounds(caret, caretFrontSide);
+						vint x=caretBounds.x1+bounds.x1;
+						vint y1=caretBounds.y1+bounds.y1;
+						vint y2=y1+caretBounds.Height();
+
+						WinDC* dc=renderTarget->GetDC();
+						dc->SetPen(caretPen);
+						dc->MoveTo(x-1, y1);
+						dc->LineTo(x-1, y2);
+						dc->MoveTo(x, y1);
+						dc->LineTo(x, y2);
+					}
+				}
+
+				vint GetCaret(vint comparingCaret, CaretRelativePosition position, bool& preferFrontSide)override
+				{
+					PrepareUniscribeData();
+					return paragraph->GetCaret(comparingCaret, position, preferFrontSide);
+				}
+
+				Rect GetCaretBounds(vint caret, bool frontSide)override
+				{
+					PrepareUniscribeData();
+					return paragraph->GetCaretBounds(caret, frontSide);
+				}
+
+				vint GetCaretFromPoint(Point point)override
+				{
+					PrepareUniscribeData();
+					return paragraph->GetCaretFromPoint(point);
+				}
+
+				Ptr<IGuiGraphicsElement> GetInlineObjectFromPoint(Point point, vint& start, vint& length)override
+				{
+					PrepareUniscribeData();
+					return paragraph->GetInlineObjectFromPoint(point, start, length);
+				}
+
+				vint GetNearestCaretFromTextPos(vint textPos, bool frontSide)override
+				{
+					PrepareUniscribeData();
+					return paragraph->GetNearestCaretFromTextPos(textPos, frontSide);
+				}
+
+				bool IsValidCaret(vint caret)override
+				{
+					PrepareUniscribeData();
+					return paragraph->IsValidCaret(caret);
+				}
+
+				bool IsValidTextPos(vint textPos)override
+				{
+					PrepareUniscribeData();
+					return paragraph->IsValidTextPos(textPos);
 				}
 			};
 
@@ -7842,6 +6691,2457 @@ GuiGDIElementRenderer
 }
 
 /***********************************************************************
+GraphicsElement\WindowsGDI\GuiGraphicsUniscribe.cpp
+***********************************************************************/
+
+#pragma comment(lib, "usp10.lib")
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace elements_windows_gdi
+		{
+			using namespace regex;
+
+/***********************************************************************
+UniscribeFragment
+***********************************************************************/
+
+			UniscribeFragment::UniscribeFragment(const WString& _text)
+				:text(_text)
+			{
+				colors.Add(UniscribeColorRange(0, text.Length()), UniscribeColor(Color(0, 0, 0), Color(0, 0, 0, 0)));
+			}
+
+			WString UniscribeFragment::GetFingerprint()
+			{
+				return fontStyle.fontFamily+L"#"
+					+itow(fontStyle.size)+L"#"
+					+(fontStyle.bold?L"B":L"N")+L"#"
+					+(fontStyle.italic?L"I":L"N")+L"#"
+					+(fontStyle.underline?L"U":L"N")+L"#"
+					+(fontStyle.strikeline?L"S":L"N")+L"#"
+					;
+			}
+
+			void UniscribeFragment::CutColors(vint start, vint length)
+			{
+				vint end=start+length;
+				for(vint i=colors.Count()-1;i>=0;i--)
+				{
+					UniscribeColorRange key=colors.Keys()[i];
+					if(key.start<end && start<key.end)
+					{
+						UniscribeColor value=colors.Values()[i];
+
+						vint s1=key.start;
+						vint s2=key.start>start?key.start:start;
+						vint s3=key.end<end?key.end:end;
+						vint s4=key.end;
+
+						colors.Remove(key);
+						if(s1<s2)
+						{
+							colors.Add(UniscribeColorRange(s1, s2), value);
+						}
+						if(s2<s3)
+						{
+							colors.Add(UniscribeColorRange(s2, s3), value);
+						}
+						if(s3<s4)
+						{
+							colors.Add(UniscribeColorRange(s3, s4), value);
+						}
+					}
+				}
+			}
+
+			void UniscribeFragment::UpdateOverlappedColors(vint start, vint length, Color UniscribeColor::* colorField, Color color)
+			{
+				vint end=start+length;
+				for(vint i=colors.Count()-1;i>=0;i--)
+				{
+					UniscribeColorRange key=colors.Keys()[i];
+					if(key.start<end && start<key.end)
+					{
+						UniscribeColor value=colors.Values()[i];
+						value.*colorField=color;
+						colors.Set(key, value);
+					}
+				}
+			}
+
+			void UniscribeFragment::DefragmentColors()
+			{
+				vint lastIndex=-1;
+				UniscribeColor lastColor;
+				for(vint i=colors.Count()-1;i>=-1;i--)
+				{
+					if(lastIndex==-1)
+					{
+						lastIndex=i;
+						if(i!=-1)
+						{
+							lastColor=colors.Values()[i];
+						}
+					}
+					else if(i==-1 || colors.Values()[i]!=lastColor)
+					{
+						if(lastIndex-i>0)
+						{
+							vint start=colors.Keys()[i+1].start;
+							vint end=colors.Keys()[lastIndex].end;
+							UniscribeColorRange key(start, end);
+
+							for(vint j=lastIndex;j>i;j--)
+							{
+								colors.Remove(colors.Keys()[j]);
+							}
+							colors.Add(key, lastColor);
+						}
+						lastIndex=i;
+						if(i!=-1)
+						{
+							lastColor=colors.Values()[i];
+						}
+					}
+				}
+			}
+
+			UniscribeColor UniscribeFragment::GetCharColor(vint charIndex)
+			{
+				vint start=0;
+				vint end=colors.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					UniscribeColorRange key=colors.Keys()[middle];
+					if(charIndex<key.start)
+					{
+						end=middle-1;
+					}
+					else if(charIndex>=key.end)
+					{
+						start=middle+1;
+					}
+					else
+					{
+						return colors.Values()[middle];
+					}
+				}
+				return UniscribeColor();
+			}
+
+			Ptr<UniscribeFragment> UniscribeFragment::Copy(vint start, vint length)
+			{
+				vint end=start+length;
+				Ptr<UniscribeFragment> fragment=new UniscribeFragment(length==0?L"":text.Sub(start, length));
+				fragment->fontStyle=fontStyle;
+				fragment->fontObject=fontObject;
+
+				if(length!=0)
+				{
+					fragment->colors.Clear();
+					CutColors(start, length);
+					for(vint i=0;i<colors.Count();i++)
+					{
+						UniscribeColorRange key=colors.Keys()[i];
+						if(key.start<end && start<key.end)
+						{
+							UniscribeColor value=colors.Values()[i];
+							fragment->colors.Add(UniscribeColorRange(key.start-start, key.end-start), value);
+						}
+					}
+				}
+				return fragment;
+			}
+
+/***********************************************************************
+UniscribeGlyphData
+***********************************************************************/
+
+			UniscribeGlyphData::UniscribeGlyphData()
+			{
+				ClearUniscribeData(0, 0);
+			}
+
+			void UniscribeGlyphData::ClearUniscribeData(vint glyphCount, vint length)
+			{
+				glyphs.Resize(glyphCount);
+				glyphVisattrs.Resize(glyphCount);
+				glyphAdvances.Resize(glyphCount);
+				glyphOffsets.Resize(glyphCount);
+				charCluster.Resize(length);
+				memset(&runAbc, 0, sizeof(runAbc));
+				memset(&sa, 0, sizeof(sa));
+			}
+			
+			bool UniscribeGlyphData::BuildUniscribeData(WinDC* dc, SCRIPT_ITEM* scriptItem, SCRIPT_CACHE& scriptCache, const wchar_t* runText, vint length, List<vint>& breakings, List<bool>& breakingAvailabilities)
+			{
+				vint glyphCount=glyphs.Count();
+				bool resizeGlyphData=false;
+				if(glyphCount==0)
+				{
+					glyphCount=(vint)(1.5*length+16);
+					resizeGlyphData=true;
+				}
+				sa=scriptItem->a;
+				WinDC* dcParameter=0;
+				{
+					// generate shape information
+					if(resizeGlyphData)
+					{
+						glyphs.Resize(glyphCount);
+						glyphVisattrs.Resize(glyphCount);
+						charCluster.Resize(length);
+					}
+
+					while(true)
+					{
+						int availableGlyphCount=0;
+						HRESULT hr=ScriptShape(
+							(dcParameter?dcParameter->GetHandle():NULL),
+							&scriptCache,
+							runText,
+							(int)length,
+							(int)glyphCount,
+							&sa,
+							&glyphs[0],
+							&charCluster[0],
+							&glyphVisattrs[0],
+							&availableGlyphCount
+							);
+						if(hr==0)
+						{
+							glyphCount=availableGlyphCount;
+							break;
+						}
+						else if(hr==E_PENDING)
+						{
+							dcParameter=dc;
+						}
+						else if(hr==E_OUTOFMEMORY)
+						{
+							if(resizeGlyphData)
+							{
+								glyphCount+=length;
+							}
+							else
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+						}
+						else if(hr==USP_E_SCRIPT_NOT_IN_FONT)
+						{
+							if(sa.eScript==SCRIPT_UNDEFINED)
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+							else
+							{
+								sa.eScript=SCRIPT_UNDEFINED;
+							}
+						}
+						else
+						{
+							goto BUILD_UNISCRIBE_DATA_FAILED;
+						}
+					}
+					if(resizeGlyphData)
+					{
+						glyphs.Resize(glyphCount);
+						glyphVisattrs.Resize(glyphCount);
+					}
+				}
+
+				{
+					SCRIPT_FONTPROPERTIES fp;
+					memset(&fp, 0, sizeof(fp));
+					fp.cBytes=sizeof(fp);
+					HRESULT hr=ScriptGetFontProperties(
+							(dcParameter?dcParameter->GetHandle():NULL),
+							&scriptCache,
+							&fp
+							);
+					WORD invalidGlyph=fp.wgDefault;
+					if(hr!=S_OK)
+					{
+						invalidGlyph=0;
+					}
+
+					// generate breaking information
+					breakings.Add(0);
+					vint charIndex=0;
+					bool lastGlyphAvailable=false;
+					while(charIndex<length)
+					{
+						vint glyphIndex=charCluster[charIndex];
+						vint nextCharIndex=charIndex;
+						while(nextCharIndex<length && charCluster[nextCharIndex]==glyphIndex)
+						{
+							nextCharIndex++;
+						}
+
+						vint glyphCount=0;
+						if(nextCharIndex==length)
+						{
+							glyphCount=glyphs.Count()-glyphIndex;
+						}
+						else
+						{
+							glyphCount=charCluster[nextCharIndex]-glyphIndex;
+						}
+
+						if(scriptItem->a.fRTL)
+						{
+							glyphCount=-glyphCount;
+							glyphIndex-=glyphCount-1;
+						}
+
+						bool available=true;
+						for(vint i=0;i<glyphCount;i++)
+						{
+							if(glyphs[i+glyphIndex]==invalidGlyph)
+							{
+								available=false;
+							}
+						}
+
+						if(charIndex==0)
+						{
+							lastGlyphAvailable=available;
+							breakingAvailabilities.Add(available);
+						}
+						else if(lastGlyphAvailable!=available)
+						{
+							breakings.Add(charIndex);
+							lastGlyphAvailable=available;
+							breakingAvailabilities.Add(available);
+						}
+
+						charIndex=nextCharIndex;
+					}
+				}
+
+				if(breakings.Count()==1)
+				{
+					// generate place information
+					WinDC* dcParameter=0;
+					if(resizeGlyphData)
+					{
+						glyphAdvances.Resize(glyphCount);
+						glyphOffsets.Resize(glyphCount);
+					}
+					while(true)
+					{
+						HRESULT hr=ScriptPlace(
+							(dcParameter?dcParameter->GetHandle():NULL),
+							&scriptCache,
+							&glyphs[0],
+							(int)glyphCount,
+							&glyphVisattrs[0],
+							&sa,
+							&glyphAdvances[0],
+							&glyphOffsets[0],
+							&runAbc
+							);
+						if(hr==0)
+						{
+							break;
+						}
+						else if(hr==E_PENDING)
+						{
+							dcParameter=dc;
+						}
+						else
+						{
+							goto BUILD_UNISCRIBE_DATA_FAILED;
+						}
+					}
+				}
+
+				return true;
+	BUILD_UNISCRIBE_DATA_FAILED:
+				return false;
+			}
+
+			void UniscribeGlyphData::BuildUniscribeData(WinDC* dc, SCRIPT_ITEM* scriptItem, SCRIPT_LOGATTR* charLogattrs, const wchar_t* runText, vint length)
+			{
+				vint glyphCount=0;
+				for(vint i=0;i<length;i++)
+				{
+					if(i==0 || charLogattrs[i].fCharStop)
+					{
+						glyphCount++;
+					}
+				}
+
+				ClearUniscribeData(glyphCount, length);
+				sa=scriptItem->a;
+				memset(&glyphs[0], 0, sizeof(glyphs[0])*glyphs.Count());
+				memset(&glyphVisattrs[0], 0, sizeof(glyphVisattrs[0])*glyphVisattrs.Count());
+				memset(&glyphAdvances[0], 0, sizeof(glyphAdvances[0])*glyphAdvances.Count());
+				memset(&glyphOffsets[0], 0, sizeof(glyphOffsets[0])*glyphOffsets.Count());
+				memset(&charCluster[0], 0, sizeof(charCluster[0])*charCluster.Count());
+
+				for(vint i=0;i<glyphCount;i++)
+				{
+					glyphs[i]=i;
+				}
+
+				if(sa.fRTL)
+				{
+					vint currentGlyphCount=0;
+					for(vint i=0;i<length;i++)
+					{
+						if(i==0 || charLogattrs[i].fCharStop)
+						{
+							currentGlyphCount++;
+						}
+						charCluster[i]=glyphCount-currentGlyphCount;
+					}
+				}
+				else
+				{
+					vint currentGlyphCount=0;
+					for(vint i=0;i<length;i++)
+					{
+						if(i==0 || charLogattrs[i].fCharStop)
+						{
+							currentGlyphCount++;
+						}
+						charCluster[i]=currentGlyphCount-1;
+					}
+				}
+
+				{
+					vint lastCharIndex=0;
+					vint lastGlyphIndex=0;
+					for(vint i=1;i<=length;i++)
+					{
+						if(i==0 || charLogattrs[i].fCharStop)
+						{
+							vint glyphLength=i-lastCharIndex;
+							const wchar_t* glyphText=sa.fRTL?runText+length-lastCharIndex-glyphLength:runText+lastCharIndex;
+							SIZE size=dc->MeasureBuffer(runText, glyphLength, -1);
+							glyphAdvances[lastGlyphIndex]=size.cx;
+							lastCharIndex=i;
+							lastGlyphIndex++;
+						}
+					}
+				}
+
+				for(vint i=0;i<glyphCount;i++)
+				{
+					runAbc.abcB+=glyphAdvances[i];
+				}
+			}
+
+/***********************************************************************
+UniscribeItem
+***********************************************************************/
+
+			UniscribeItem::UniscribeItem()
+				:startFromLine(0)
+				,length(0)
+				,itemText(0)
+			{
+			}
+
+			UniscribeItem::~UniscribeItem()
+			{
+			}
+
+			void UniscribeItem::ClearUniscribeData()
+			{
+				charLogattrs.Resize(0);
+			}
+
+			bool UniscribeItem::BuildUniscribeData()
+			{
+				// generate break information
+				charLogattrs.Resize(length);
+
+				HRESULT hr=ScriptBreak(
+					itemText,
+					(int)length,
+					&scriptItem.a,
+					&charLogattrs[0]
+					);
+				if(hr!=0)
+				{
+					goto BUILD_UNISCRIBE_DATA_FAILED;
+				}
+
+				return true;
+	BUILD_UNISCRIBE_DATA_FAILED:
+				ClearUniscribeData();
+				return false;
+			}
+
+			bool UniscribeItem::IsRightToLeft()
+			{
+				return scriptItem.a.fRTL;
+			}
+
+/***********************************************************************
+UniscribeRun
+***********************************************************************/
+
+			UniscribeRun::UniscribeRun()
+				:documentFragment(0)
+				,scriptItem(0)
+				,startFromLine(0)
+				,startFromFragment(0)
+				,length(0)
+				,runText(0)
+			{
+			}
+
+			UniscribeRun::~UniscribeRun()
+			{
+			}
+
+/***********************************************************************
+UniscribeTextRun
+***********************************************************************/
+
+			UniscribeTextRun::UniscribeTextRun()
+				:scriptCache(0)
+				,advance(0)
+				,needFontFallback(false)
+			{
+			}
+
+			UniscribeTextRun::~UniscribeTextRun()
+			{
+				ClearUniscribeData();
+			}
+
+			void UniscribeTextRun::ClearUniscribeData()
+			{
+				if(scriptCache)
+				{
+					ScriptFreeCache(&scriptCache);
+					scriptCache=0;
+				}
+				advance=0;
+				needFontFallback=false;
+				wholeGlyph.ClearUniscribeData(0, 0);
+			}
+
+			void UniscribeTextRun::SearchSingleGlyphCluster(vint charStart, vint& charLength, vint& cluster, vint& nextCluster)
+			{
+				cluster=wholeGlyph.charCluster[charStart];
+				vint nextChar=charStart;
+				while(nextChar<wholeGlyph.charCluster.Count())
+				{
+					if(wholeGlyph.charCluster[nextChar]!=cluster)
+					{
+						break;
+					}
+					nextChar++;
+				}
+				charLength=nextChar-charStart;
+				SearchGlyphCluster(charStart, charLength, cluster, nextCluster);
+			}
+
+			void UniscribeTextRun::SearchSingleChar(vint charStart, vint& charLength, vint& cluster, vint& nextCluster)
+			{
+				charLength=0;
+				vint startFromItem=charStart+startFromLine-scriptItem->startFromLine;
+				vint currentFromItem=startFromItem;
+				while(++currentFromItem<scriptItem->length)
+				{
+					if(scriptItem->charLogattrs[currentFromItem].fCharStop)
+					{
+						break;
+					}
+				}
+				charLength=currentFromItem-startFromItem;
+				SearchGlyphCluster(charStart, charLength, cluster, nextCluster);
+			}
+
+			void UniscribeTextRun::SearchGlyphCluster(vint charStart, vint charLength, vint& cluster, vint& nextCluster)
+			{
+				cluster=wholeGlyph.charCluster[charStart];
+				if(charStart+charLength>length)
+				{
+					charLength=length-charStart;
+				}
+				if(scriptItem->IsRightToLeft())
+				{
+					nextCluster
+						=charStart+charLength==length
+						?-1
+						:wholeGlyph.charCluster[charStart+charLength];
+				}
+				else
+				{
+					nextCluster
+						=charStart+charLength==length
+						?wholeGlyph.glyphs.Count()
+						:wholeGlyph.charCluster[charStart+charLength];
+				}
+			}
+
+			bool UniscribeTextRun::BuildUniscribeData(WinDC* dc, List<vint>& breakings)
+			{
+				ClearUniscribeData();
+
+				dc->SetFont(documentFragment->fontObject);
+				List<bool> breakingAvailabilities;
+				if(!wholeGlyph.BuildUniscribeData(dc, &scriptItem->scriptItem, scriptCache, runText, length, breakings, breakingAvailabilities))
+				{
+					goto BUILD_UNISCRIBE_DATA_FAILED;
+				}
+
+				if(breakings.Count()==1 && !breakingAvailabilities[0])
+				{
+					SCRIPT_LOGATTR* charLogattrs=&scriptItem->charLogattrs[0]+startFromLine-scriptItem->startFromLine;
+					wholeGlyph.BuildUniscribeData(dc, &scriptItem->scriptItem, charLogattrs, runText, length);
+					needFontFallback=true;
+				}
+				advance=wholeGlyph.runAbc.abcA+wholeGlyph.runAbc.abcB+wholeGlyph.runAbc.abcC;
+
+				return true;
+	BUILD_UNISCRIBE_DATA_FAILED:
+				ClearUniscribeData();
+				return false;
+			}
+
+			vint UniscribeTextRun::SumWidth(vint charStart, vint charLength)
+			{
+				vint cluster=0;
+				vint nextCluster=0;
+				SearchGlyphCluster(charStart, charLength, cluster, nextCluster);
+				vint width=0;
+				if(scriptItem->IsRightToLeft())
+				{
+					for(vint i=cluster;i>nextCluster;i--)
+					{
+						width+=wholeGlyph.glyphAdvances[i];
+					}
+				}
+				else
+				{
+					for(vint i=cluster;i<nextCluster;i++)
+					{
+						width+=wholeGlyph.glyphAdvances[i];
+					}
+				}
+				return width;
+			}
+
+			vint UniscribeTextRun::SumHeight()
+			{
+				return documentFragment->fontStyle.size;
+			}
+
+			void UniscribeTextRun::SearchForLineBreak(vint tempStart, vint maxWidth, bool firstRun, vint& charLength, vint& charAdvances)
+			{
+				vint width=0;
+				charLength=0;
+				charAdvances=0;
+				for(vint i=tempStart;i<=length;)
+				{
+					if(i==length || scriptItem->charLogattrs[i+(startFromLine-scriptItem->startFromLine)].fSoftBreak==TRUE)
+					{
+						if(width<=maxWidth || (firstRun && charLength==0))
+						{
+							charLength=i-tempStart;
+							charAdvances=width;
+						}
+						else
+						{
+							return;
+						}
+					}
+					if(i==length) break;
+
+					vint cluster=wholeGlyph.charCluster[i];
+					vint clusterLength=1;
+					while(i+clusterLength<length)
+					{
+						if(wholeGlyph.charCluster[i+clusterLength]==cluster)
+						{
+							clusterLength++;
+						}
+						else
+						{
+							break;
+						}
+					}
+
+					if(scriptItem->IsRightToLeft())
+					{
+						vint nextCluster
+							=i+clusterLength==length
+							?-1
+							:wholeGlyph.charCluster[i+clusterLength];
+						for(vint j=cluster;j>nextCluster;j--)
+						{
+							width+=wholeGlyph.glyphAdvances[j];
+						}
+					}
+					else
+					{
+						vint nextCluster
+							=i+clusterLength==length
+							?wholeGlyph.glyphs.Count()
+							:wholeGlyph.charCluster[i+clusterLength];
+						for(vint j=cluster;j<nextCluster;j++)
+						{
+							width+=wholeGlyph.glyphAdvances[j];
+						}
+					}
+					i+=clusterLength;
+				}
+			}
+
+			void UniscribeTextRun::Render(WinDC* dc, vint fragmentBoundsIndex, vint offsetX, vint offsetY, bool renderBackground)
+			{
+				RunFragmentBounds& fragment=fragmentBounds[fragmentBoundsIndex];
+				if(fragment.length==0) return;
+
+				vint startFromFragmentBounds=0;
+				vint accumulatedWidth=0;
+				while(startFromFragmentBounds<fragment.length)
+				{
+					vint charIndex=fragment.startFromRun+startFromFragmentBounds;
+					vint charLength=0;
+					vint cluster=0;
+					vint nextCluster=0;
+					SearchSingleGlyphCluster(charIndex, charLength, cluster, nextCluster);
+
+					vint clusterStart=0;
+					vint clusterCount=0;
+					if(scriptItem->IsRightToLeft())
+					{
+						clusterStart=nextCluster+1;
+						clusterCount=cluster-nextCluster;
+					}
+					else
+					{
+						clusterStart=cluster;
+						clusterCount=nextCluster-cluster;
+					}
+
+					vint clusterWidth=0;
+					for(vint i=0;i<clusterCount;i++)
+					{
+						clusterWidth+=wholeGlyph.glyphAdvances[i+clusterStart];
+					}
+
+					vint x=0;
+					if(scriptItem->IsRightToLeft())
+					{
+						x=fragment.bounds.x2-accumulatedWidth-clusterWidth;
+					}
+					else
+					{
+						x=fragment.bounds.x1+accumulatedWidth;
+					}
+					RECT rect;
+					rect.left=(int)(x+offsetX);
+					rect.top=(int)(fragment.bounds.Top()+offsetY);
+					rect.right=(int)(rect.left+clusterWidth);
+					rect.bottom=(int)(rect.top+fragment.bounds.Height()*1.5);
+
+					UniscribeColor color=documentFragment->GetCharColor(charIndex+startFromFragment);
+					if(renderBackground)
+					{
+						Color backgroundColor=color.backgroundColor;
+
+						if(backgroundColor.a>0)
+						{
+							Ptr<WinBrush> brush=new WinBrush(RGB(backgroundColor.r, backgroundColor.g, backgroundColor.b));
+							dc->SetBrush(brush);
+							dc->FillRect(rect);
+						}
+					}
+					else
+					{
+						Color fontColor=color.fontColor;
+						dc->SetFont(documentFragment->fontObject);
+						dc->SetTextColor(RGB(fontColor.r, fontColor.g, fontColor.b));
+
+						if(needFontFallback)
+						{
+							dc->DrawBuffer(rect.left, rect.top, runText+charIndex, charLength);
+						}
+						else
+						{
+							HRESULT hr=ScriptTextOut(
+								dc->GetHandle(),
+								&scriptCache,
+								rect.left,
+								rect.top,
+								0,
+								&rect,
+								&wholeGlyph.sa,
+								NULL,
+								0,
+								&wholeGlyph.glyphs[clusterStart],
+								(int)(clusterCount),
+								&wholeGlyph.glyphAdvances[clusterStart],
+								NULL,
+								&wholeGlyph.glyphOffsets[clusterStart]
+								);
+						}
+					}
+
+					startFromFragmentBounds+=charLength;
+					accumulatedWidth+=clusterWidth;
+				}
+			}
+
+/***********************************************************************
+UniscribeElementRun
+***********************************************************************/
+
+			UniscribeElementRun::UniscribeElementRun()
+			{
+			}
+
+			UniscribeElementRun::~UniscribeElementRun()
+			{
+			}
+
+			bool UniscribeElementRun::BuildUniscribeData(WinDC* dc, List<vint>& breakings)
+			{
+				breakings.Add(0);
+				return true;
+			}
+
+			vint UniscribeElementRun::SumWidth(vint charStart, vint charLength)
+			{
+				return properties.size.x;
+			}
+
+			vint UniscribeElementRun::SumHeight()
+			{
+				return properties.size.y;
+			}
+
+			void UniscribeElementRun::SearchForLineBreak(vint tempStart, vint maxWidth, bool firstRun, vint& charLength, vint& charAdvances)
+			{
+				charLength=length-tempStart;
+				charAdvances=properties.size.x;
+			}
+
+			void UniscribeElementRun::Render(WinDC* dc, vint fragmentBoundsIndex, vint offsetX, vint offsetY, bool renderBackground)
+			{
+				RunFragmentBounds& fragment=fragmentBounds[fragmentBoundsIndex];
+				if(renderBackground)
+				{
+					RECT rect;
+					rect.left=(int)(fragment.bounds.Left()+offsetX)-2;
+					rect.top=(int)(fragment.bounds.Top()+offsetY)-2;
+					rect.right=(int)(fragment.bounds.Right()+offsetX)+2;
+					rect.bottom=(int)(fragment.bounds.Bottom()+offsetY)+2;
+
+					Color backgroundColor=documentFragment->colors.Values()[0].backgroundColor;
+
+					if(backgroundColor.a>0)
+					{
+						Ptr<WinBrush> brush=new WinBrush(RGB(backgroundColor.r, backgroundColor.g, backgroundColor.b));
+						dc->SetBrush(brush);
+						dc->FillRect(rect);
+					}
+				}
+				else
+				{
+					Rect bounds=fragment.bounds;
+					bounds.x1+=offsetX;
+					bounds.x2+=offsetX;
+					bounds.y1+=offsetY;
+					bounds.y2+=offsetY;
+					IGuiGraphicsRenderer* renderer=element->GetRenderer();
+					if(renderer)
+					{
+						renderer->Render(bounds);
+					}
+				}
+			}
+
+/***********************************************************************
+UniscribeVirtualLine
+***********************************************************************/
+
+			UniscribeVirtualLine::UniscribeVirtualLine()
+				:startFromLine(0)
+				,length(0)
+				,runText(0)
+				,firstRunIndex(-1)
+				,firstRunBoundsIndex(-1)
+				,lastRunIndex(-1)
+				,lastRunBoundsIndex(-1)
+			{
+			}
+
+/***********************************************************************
+UniscribeLine
+***********************************************************************/
+
+			UniscribeLine::UniscribeLine()
+				:startFromParagraph(0)
+			{
+			}
+
+			void UniscribeLine::ClearUniscribeData()
+			{
+				scriptItems.Clear();
+				scriptRuns.Clear();
+				virtualLines.Clear();
+			}
+
+			bool UniscribeLine::BuildUniscribeData(WinDC* dc)
+			{
+				lineText=L"";
+				ClearUniscribeData();
+				vint current=0;
+				List<vint> fragmentStarts;
+				FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
+				{
+					fragmentStarts.Add(current);
+					lineText+=fragment->text;
+					current+=fragment->text.Length();
+				}
+
+				if(lineText!=L"")
+				{
+					{
+						SCRIPT_DIGITSUBSTITUTE sds={0};
+						ScriptRecordDigitSubstitution(LOCALE_USER_DEFAULT, &sds);
+						SCRIPT_CONTROL sc={0};
+						SCRIPT_STATE ss={0};
+						ScriptApplyDigitSubstitution(&sds, &sc, &ss);
+
+						// itemize a line
+						Array<SCRIPT_ITEM> items(lineText.Length()+2);
+						int scriptItemCount=0;
+						HRESULT hr=ScriptItemize(
+							lineText.Buffer(),
+							(int)lineText.Length(),
+							(int)(items.Count()-1),
+							&sc,
+							&ss,
+							&items[0],
+							&scriptItemCount
+							);
+						if(hr!=0)
+						{
+							goto BUILD_UNISCRIBE_DATA_FAILED;
+						}
+
+						items.Resize(scriptItemCount+1);
+						for(vint i=0;i<scriptItemCount;i++)
+						{
+							SCRIPT_ITEM item=items[i];
+							Ptr<UniscribeItem> scriptItem=new UniscribeItem;
+							scriptItem->startFromLine=item.iCharPos;
+							scriptItem->length=items[i+1].iCharPos-item.iCharPos;
+							scriptItem->itemText=lineText.Buffer()+item.iCharPos;
+							scriptItem->scriptItem=item;
+
+							if(!scriptItem->BuildUniscribeData())
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+							scriptItems.Add(scriptItem);
+						}
+					}
+					{
+						// use item and document fragment information to produce runs
+						// one item is constructed by one or more runs
+						// characters in each run contains the same style
+						vint fragmentIndex=0;
+						vint fragmentStart=0;
+						for(vint i=0;i<scriptItems.Count();i++)
+						{
+							Ptr<UniscribeItem> scriptItem=scriptItems[i];
+							vint currentStart=scriptItem->startFromLine;
+
+							while(currentStart<scriptItem->startFromLine+scriptItem->length)
+							{
+								UniscribeFragment* fragment=0;
+								vint itemRemainLength=scriptItem->length-(currentStart-scriptItem->startFromLine);
+								vint fragmentRemainLength=0;
+								while(true)
+								{
+									fragment=documentFragments[fragmentIndex].Obj();
+									fragmentRemainLength=fragment->text.Length()-(currentStart-fragmentStart);
+									if(fragmentRemainLength<=0)
+									{
+										fragmentStart+=fragment->text.Length();
+										fragmentIndex++;
+									}
+									else
+									{
+										break;
+									}
+								}
+								vint shortLength=itemRemainLength<fragmentRemainLength?itemRemainLength:fragmentRemainLength;
+								bool skip=false;
+								{
+									vint elementCurrent=0;
+									FOREACH(Ptr<UniscribeFragment>, elementFragment, documentFragments)
+									{
+										vint elementLength=elementFragment->text.Length();
+										if(elementFragment->element)
+										{
+											if(elementCurrent<=currentStart && currentStart+shortLength<=elementCurrent+elementLength)
+											{
+												if(elementCurrent==currentStart)
+												{
+													Ptr<UniscribeElementRun> run=new UniscribeElementRun;
+													run->documentFragment=fragment;
+													run->scriptItem=scriptItem.Obj();
+													run->startFromLine=currentStart;
+													run->startFromFragment=currentStart-fragmentStarts[fragmentIndex];
+													run->length=elementLength;
+													run->runText=lineText.Buffer()+currentStart;
+													run->element=elementFragment->element;
+													run->properties=elementFragment->inlineObjectProperties;
+													scriptRuns.Add(run);
+												}
+												skip=true;
+												break;
+											}
+										}
+										elementCurrent+=elementLength;
+									}
+								}
+								if(!skip)
+								{
+									Ptr<UniscribeTextRun> run=new UniscribeTextRun;
+									run->documentFragment=fragment;
+									run->scriptItem=scriptItem.Obj();
+									run->startFromLine=currentStart;
+									run->startFromFragment=currentStart-fragmentStarts[fragmentIndex];
+									run->length=shortLength;
+									run->runText=lineText.Buffer()+currentStart;
+									scriptRuns.Add(run);
+								}
+								currentStart+=shortLength;
+							}
+						}
+
+						// for each run, generate shape information
+						vint runIndex=0;
+						while(runIndex<scriptRuns.Count())
+						{
+							Ptr<UniscribeRun> run=scriptRuns[runIndex];
+							List<vint> breakings;
+							if(!run->BuildUniscribeData(dc, breakings))
+							{
+								goto BUILD_UNISCRIBE_DATA_FAILED;
+							}
+							else if(breakings.Count()>1)
+							{
+								if(Ptr<UniscribeTextRun> textRun=run.Cast<UniscribeTextRun>())
+								{
+									scriptRuns.RemoveAt(runIndex);
+									for(vint i=0;i<breakings.Count();i++)
+									{
+										vint start=breakings[i];
+										vint length=i==breakings.Count()-1?textRun->length-start:breakings[i+1]-start;
+
+										Ptr<UniscribeTextRun> newRun=new UniscribeTextRun;
+										newRun->documentFragment=run->documentFragment;
+										newRun->scriptItem=run->scriptItem;
+										newRun->startFromLine=start+run->startFromLine;
+										newRun->startFromFragment=start+run->startFromFragment;
+										newRun->length=length;
+										newRun->runText=run->runText+newRun->startFromLine-run->startFromLine;
+										scriptRuns.Insert(runIndex+i, newRun);
+									}
+									continue;
+								}
+							}
+							runIndex++;
+						}
+					}
+				}
+				return true;
+	BUILD_UNISCRIBE_DATA_FAILED:
+				ClearUniscribeData();
+				return false;
+			}
+
+			void UniscribeLine::Layout(vint availableWidth, Alignment alignment, vint top, vint& totalHeight)
+			{
+				vint cx=0;
+				vint cy=top;
+				virtualLines.Clear();
+				if(scriptRuns.Count()==0)
+				{
+					// if this line doesn't contains any run, skip and render a blank line
+					vint height=(vint)(documentFragments[0]->fontStyle.size*1.5);
+					bounds=Rect(Point(cx, cy), Size(0, height));
+					cy+=height;
+				}
+				else
+				{
+					FOREACH(Ptr<UniscribeRun>, run, scriptRuns)
+					{
+						run->fragmentBounds.Clear();
+					}
+
+					// render this line into lines with auto line wrapping
+					vint startRun=0;
+					vint startRunOffset=0;
+					vint lastRun=0;
+					vint lastRunOffset=0;
+					vint currentWidth=0;
+
+					while(startRun<scriptRuns.Count())
+					{
+						vint currentWidth=0;
+						bool firstRun=true;
+						// search for a range to fit in the given width
+						for(vint i=startRun;i<scriptRuns.Count();i++)
+						{
+							vint charLength=0;
+							vint charAdvances=0;
+							UniscribeRun* run=scriptRuns[i].Obj();
+							run->SearchForLineBreak(lastRunOffset, availableWidth-currentWidth, firstRun, charLength, charAdvances);
+							firstRun=false;
+
+							if(charLength==run->length-lastRunOffset)
+							{
+								lastRun=i+1;
+								lastRunOffset=0;
+								currentWidth+=charAdvances;
+							}
+							else
+							{
+								lastRun=i;
+								lastRunOffset=lastRunOffset+charLength;
+								break;
+							}
+						}
+
+						// if the range is empty, than this should be the end of line, ignore it
+						if(startRun<lastRun || (startRun==lastRun && startRunOffset<lastRunOffset))
+						{
+							// calculate the max line height in this range;
+							vint availableLastRun=lastRun<scriptRuns.Count()-1?lastRun:scriptRuns.Count()-1;
+							vint maxHeight=0;
+							for(vint i=startRun;i<=availableLastRun;i++)
+							{
+								if(i==lastRun && lastRunOffset==0)
+								{
+									break;
+								}
+								vint size=scriptRuns[i]->SumHeight();
+								if(maxHeight<size)
+								{
+									maxHeight=size;
+								}
+							}
+
+							// determine the rendering order for all runs inside this range
+							Array<BYTE> levels(availableLastRun-startRun+1);
+							Array<vint> runVisualToLogical(levels.Count());
+							Array<vint> runLogicalToVisual(levels.Count());
+							for(vint i=startRun;i<=availableLastRun;i++)
+							{
+								levels[i-startRun]=scriptRuns[i]->scriptItem->scriptItem.a.s.uBidiLevel;
+							}
+							ScriptLayout((int)levels.Count(), &levels[0], &runVisualToLogical[0], &runLogicalToVisual[0]);
+
+							// render all runs inside this range
+							vint startRunFragmentCount=-1;
+							for(vint i=startRun;i<=availableLastRun;i++)
+							{
+								vint runIndex=runVisualToLogical[i-startRun]+startRun;
+								UniscribeRun* run=scriptRuns[runIndex].Obj();
+								vint start=runIndex==startRun?startRunOffset:0;
+								vint end=runIndex==lastRun?lastRunOffset:run->length;
+								vint length=end-start;
+
+								if(runIndex==startRun)
+								{
+									startRunFragmentCount=run->fragmentBounds.Count();
+								}
+
+								UniscribeRun::RunFragmentBounds fragmentBounds;
+								fragmentBounds.startFromRun=start;
+								fragmentBounds.length=length;
+								fragmentBounds.bounds=Rect(
+									Point(cx, cy+maxHeight-run->SumHeight()),
+									Size(run->SumWidth(start, length), run->SumHeight())
+									);
+								run->fragmentBounds.Add(fragmentBounds);
+
+								cx+=run->SumWidth(start, length);
+							}
+
+							// adjust alignment
+							vint cxOffset=0;
+							switch(alignment)
+							{
+							case Alignment::Center:
+								cxOffset=(availableWidth-cx)/2;
+								break;
+							case Alignment::Right:
+								cxOffset=availableWidth-cx;
+								break;
+							}
+
+							// shift all bounds using alignment
+							if(cxOffset!=0)
+							{
+								for(vint i=startRun;i<=availableLastRun;i++)
+								{
+									UniscribeRun* run=scriptRuns[i].Obj();
+									for(vint j=(i==startRun?startRunFragmentCount:0);j<run->fragmentBounds.Count();j++)
+									{
+										UniscribeRun::RunFragmentBounds& fragmentBounds=run->fragmentBounds[j];
+										fragmentBounds.bounds.x1+=cxOffset;
+										fragmentBounds.bounds.x2+=cxOffset;
+									}
+								}
+							}
+
+							// create a virtual line
+							{
+								Ptr<UniscribeVirtualLine> virtualLine=new UniscribeVirtualLine;
+								virtualLine->firstRunIndex=startRun;
+								virtualLine->firstRunBoundsIndex=startRunFragmentCount;
+								virtualLine->lastRunIndex=availableLastRun;
+								virtualLine->lastRunBoundsIndex=scriptRuns[availableLastRun]->fragmentBounds.Count()-1;
+
+								UniscribeRun* firstRun=scriptRuns[virtualLine->firstRunIndex].Obj();
+								UniscribeRun* lastRun=scriptRuns[virtualLine->lastRunIndex].Obj();
+								UniscribeRun::RunFragmentBounds& firstBounds=firstRun->fragmentBounds[virtualLine->firstRunBoundsIndex];
+								UniscribeRun::RunFragmentBounds& lastBounds=lastRun->fragmentBounds[virtualLine->lastRunBoundsIndex];
+								
+								virtualLine->startFromLine=firstRun->startFromLine+firstBounds.startFromRun;
+								virtualLine->length=lastRun->startFromLine+lastBounds.startFromRun+lastBounds.length-virtualLine->startFromLine;
+								virtualLine->runText=lineText.Buffer()+virtualLine->startFromLine;
+
+								bool updateBounds=false;
+								for(vint i=startRun;i<=availableLastRun;i++)
+								{
+									UniscribeRun* run=scriptRuns[i].Obj();
+									for(vint j=(i==startRun?startRunFragmentCount:0);j<run->fragmentBounds.Count();j++)
+									{
+										UniscribeRun::RunFragmentBounds& fragmentBounds=run->fragmentBounds[j];
+										if(updateBounds)
+										{
+											if(virtualLine->bounds.x1>fragmentBounds.bounds.x1) virtualLine->bounds.x1=fragmentBounds.bounds.x1;
+											if(virtualLine->bounds.x2<fragmentBounds.bounds.x2) virtualLine->bounds.x2=fragmentBounds.bounds.x2;
+											if(virtualLine->bounds.y1>fragmentBounds.bounds.y1) virtualLine->bounds.y1=fragmentBounds.bounds.y1;
+											if(virtualLine->bounds.y2<fragmentBounds.bounds.y2) virtualLine->bounds.y2=fragmentBounds.bounds.y2;
+										}
+										else
+										{
+											virtualLine->bounds=fragmentBounds.bounds;
+											updateBounds=true;
+										}
+									}
+								}
+								virtualLines.Add(virtualLine);
+							}
+
+							cx=0;
+							cy+=(vint)(maxHeight*1.5);
+						}
+
+						startRun=lastRun;
+						startRunOffset=lastRunOffset;
+					}
+
+					// calculate line bounds
+					vint minX=0;
+					vint minY=top;
+					vint maxX=0;
+					vint maxY=top;
+					FOREACH(Ptr<UniscribeRun>, run, scriptRuns)
+					{
+						FOREACH(UniscribeRun::RunFragmentBounds, fragmentBounds, run->fragmentBounds)
+						{
+							Rect bounds=fragmentBounds.bounds;
+							if(minX>bounds.Left()) minX=bounds.Left();
+							if(minY>bounds.Top()) minX=bounds.Top();
+							if(maxX<bounds.Right()) maxX=bounds.Right();
+							if(maxY<bounds.Bottom()) maxY=bounds.Bottom();
+						}
+					}
+					bounds=Rect(minX, minY, maxX, maxY);
+				}
+				totalHeight=cy;
+			}
+
+			void UniscribeLine::Render(WinDC* dc, vint offsetX, vint offsetY, bool renderBackground)
+			{
+				FOREACH(Ptr<UniscribeRun>, run, scriptRuns)
+				{
+					for(vint i=0;i<run->fragmentBounds.Count();i++)
+					{
+						run->Render(dc, i, offsetX, offsetY, renderBackground);
+					}
+				}
+			}
+
+/***********************************************************************
+UniscribeParagraph
+***********************************************************************/
+
+			UniscribeParagraph::UniscribeParagraph()
+				:lastAvailableWidth(-1)
+				,paragraphAlignment(Alignment::Left)
+				,built(false)
+			{
+			}
+
+			UniscribeParagraph::~UniscribeParagraph()
+			{
+				ClearUniscribeData();
+			}
+
+/***********************************************************************
+UniscribeParagraph (Initialization)
+***********************************************************************/
+
+			void UniscribeParagraph::ClearUniscribeData()
+			{
+				FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
+				{
+					GetWindowsGDIResourceManager()->DestroyGdiFont(fragment->fontStyle);
+					fragment->fontObject=0;
+				}
+				lines.Clear();
+				lastAvailableWidth=-1;
+			}
+
+			bool UniscribeParagraph::BuildUniscribeData(WinDC* dc)
+			{
+				if(built) return false;
+
+				built=true;
+				ClearUniscribeData();
+				Dictionary<WString, Ptr<WinFont>> fonts;
+				FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
+				{
+					if(!fragment->fontObject)
+					{
+						WString fragmentFingerPrint=fragment->GetFingerprint();
+						vint index=fonts.Keys().IndexOf(fragmentFingerPrint);
+						if(index==-1)
+						{
+							fragment->fontObject=GetWindowsGDIResourceManager()->CreateGdiFont(fragment->fontStyle);
+							fonts.Add(fragmentFingerPrint, fragment->fontObject);
+						}
+						else
+						{
+							fragment->fontObject=fonts.Values().Get(index);
+						}
+					}
+				}
+				{
+					Regex regexLine(L"\r\n");
+					Ptr<UniscribeLine> line;
+					FOREACH(Ptr<UniscribeFragment>, fragment, documentFragments)
+					{
+						if(fragment->element)
+						{
+							if(!line)
+							{
+								line=new UniscribeLine;
+								lines.Add(line);
+							}
+							line->documentFragments.Add(fragment);
+						}
+						else
+						{
+							RegexMatch::List textLines;
+							regexLine.Split(fragment->text, true, textLines);
+
+							for(vint i=0;i<textLines.Count();i++)
+							{
+								RegexString rs=textLines[i]->Result();
+								WString text=rs.Value();
+								if(i>0)
+								{
+									line=0;
+								}
+								if(!line)
+								{
+									line=new UniscribeLine;
+									lines.Add(line);
+								}
+
+								if(textLines.Count()==1)
+								{
+									line->documentFragments.Add(fragment);
+								}
+								else
+								{
+									Ptr<UniscribeFragment> runFragment=fragment->Copy(rs.Start(), rs.Length());
+									line->documentFragments.Add(runFragment);
+								}
+							}
+						}
+					}
+				}
+
+				FOREACH(Ptr<UniscribeLine>, line, lines)
+				{
+					line->BuildUniscribeData(dc);
+				}
+
+				vint lineStart=0;
+				FOREACH(Ptr<UniscribeLine>, line, lines)
+				{
+					line->startFromParagraph=lineStart;
+					lineStart+=line->lineText.Length()+2;
+				}
+
+				return true;
+			}
+
+			void UniscribeParagraph::Layout(vint availableWidth, Alignment alignment)
+			{
+				if(lastAvailableWidth==availableWidth && paragraphAlignment==alignment)
+				{
+					return;
+				}
+				lastAvailableWidth=availableWidth;
+				paragraphAlignment=alignment;
+
+				vint cy=0;
+				FOREACH(Ptr<UniscribeLine>, line, lines)
+				{
+					line->Layout(availableWidth, alignment, cy, cy);
+				}
+
+				// calculate paragraph bounds
+				vint minX=0;
+				vint minY=0;
+				vint maxX=0;
+				vint maxY=0;
+				FOREACH(Ptr<UniscribeLine>, line, lines)
+				{
+					Rect bounds=line->bounds;
+					if(minX>bounds.Left()) minX=bounds.Left();
+					if(minY>bounds.Top()) minX=bounds.Top();
+					if(maxX<bounds.Right()) maxX=bounds.Right();
+					if(maxY<bounds.Bottom()) maxY=bounds.Bottom();
+				}
+
+				vint offsetY=0;
+				FOREACH(Ptr<UniscribeLine>, line, lines)
+				{
+					FOREACH(Ptr<UniscribeFragment>, fragment, line->documentFragments)
+					{
+						vint size=fragment->fontStyle.size/3;
+						if(size>offsetY)
+						{
+							offsetY=size;
+						}
+					}
+				}
+				bounds=Rect(minX, minY, maxX, maxY+offsetY);
+			}
+
+			void UniscribeParagraph::Render(WinDC* dc, vint offsetX, vint offsetY, bool renderBackground)
+			{
+				FOREACH(Ptr<UniscribeLine>, line, lines)
+				{
+					line->Render(dc, offsetX, offsetY, renderBackground);
+				}
+			}
+
+/***********************************************************************
+UniscribeParagraph (Formatting Helper)
+***********************************************************************/
+
+			void UniscribeParagraph::SearchFragment(vint start, vint length, vint& fs, vint& ss, vint& fe, vint& se)
+			{
+				fs=-1;
+				ss=-1;
+				fe=-1;
+				se=-1;
+				vint current=0;
+				for(vint i=0;i<documentFragments.Count();i++)
+				{
+					vint fragmentLength=documentFragments[i]->text.Length();
+					if(current<=start && start<current+fragmentLength)
+					{
+						fs=i;
+						ss=start-current;
+					}
+					if(current<=start+length && start+length<=current+fragmentLength)
+					{
+						fe=i;
+						se=start+length-current;
+					}
+					if(fs!=-1 && fe!=-1)
+					{
+						break;
+					}
+					current+=fragmentLength;
+				}
+			}
+
+			bool UniscribeParagraph::CutFragment(vint fs, vint ss, vint fe, vint se, vint& f1, vint& f2)
+			{
+				f1=-1;
+				f2=-1;
+				if(fs==fe)
+				{
+					Ptr<UniscribeFragment> fragment=documentFragments[fs];
+					if(fragment->element)
+					{
+						if(ss==0 && se==fragment->text.Length())
+						{
+							f1=f2=fs;
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+				}
+				for(vint i=fs;i<=fe;i++)
+				{
+					if(documentFragments[i]->element)
+					{
+						return false;
+					}
+				}
+				if(fs==fe)
+				{
+					Ptr<UniscribeFragment> fragment=documentFragments[fs];
+					vint length=fragment->text.Length();
+					if(ss==0)
+					{
+						if(se==length)
+						{
+							f1=f2=fs;
+						}
+						else
+						{
+							f1=f2=fs;
+							Ptr<UniscribeFragment> leftFragment=fragment->Copy(0, se);
+							Ptr<UniscribeFragment> rightFragment=fragment->Copy(se, length-se);
+							documentFragments.RemoveAt(fs);
+							documentFragments.Insert(fs, leftFragment);
+							documentFragments.Insert(fs+1, rightFragment);
+						}
+					}
+					else
+					{
+						if(se==length)
+						{
+							f1=fs+1;
+							f2=fs+1;
+							Ptr<UniscribeFragment> leftFragment=fragment->Copy(0, ss);
+							Ptr<UniscribeFragment> rightFragment=fragment->Copy(ss, length-ss);
+							documentFragments.RemoveAt(fs);
+							documentFragments.Insert(fs, leftFragment);
+							documentFragments.Insert(fs+1, rightFragment);
+						}
+						else
+						{
+							f1=fs+1;
+							f2=fs+1;
+							Ptr<UniscribeFragment> leftFragment=fragment->Copy(0, ss);
+							Ptr<UniscribeFragment> middleFragment=fragment->Copy(ss, se-ss);
+							Ptr<UniscribeFragment> rightFragment=fragment->Copy(se, length-se);
+							documentFragments.RemoveAt(fs);
+							documentFragments.Insert(fs, leftFragment);
+							documentFragments.Insert(fs+1, middleFragment);
+							documentFragments.Insert(fs+2, rightFragment);
+						}
+					}
+				}
+				else
+				{
+					Ptr<UniscribeFragment> fragmentStart=documentFragments[fs];
+					Ptr<UniscribeFragment> fragmentEnd=documentFragments[fe];
+					if(ss==0)
+					{
+						f1=fs;
+					}
+					else
+					{
+						f1=fs+1;
+						fe++;
+						vint length=fragmentStart->text.Length();
+						Ptr<UniscribeFragment> leftFragment=fragmentStart->Copy(0, ss);
+						Ptr<UniscribeFragment> rightFragment=fragmentStart->Copy(ss, length-ss);
+						documentFragments.RemoveAt(fs);
+						documentFragments.Insert(fs, leftFragment);
+						documentFragments.Insert(fs+1, rightFragment);
+					}
+					if(se==fragmentEnd->text.Length())
+					{
+						f2=fe;
+					}
+					else
+					{
+						f2=fe;
+						fe++;
+						vint length=fragmentEnd->text.Length();
+						Ptr<UniscribeFragment> leftFragment=fragmentStart->Copy(0, se);
+						Ptr<UniscribeFragment> rightFragment=fragmentEnd->Copy(se, length-se);
+						documentFragments.RemoveAt(fe);
+						documentFragments.Insert(fe, leftFragment);
+						documentFragments.Insert(fe+1, rightFragment);
+					}
+				}
+				return true;
+			}
+
+			void UniscribeParagraph::CutFragmentColors(vint fs, vint ss, vint fe, vint se, Color UniscribeColor::* colorField, Color color)
+			{
+				for(vint f=fs;f<=fe;f++)
+				{
+					Ptr<UniscribeFragment> fragment=documentFragments[f];
+					vint start=f==fs?ss:0;
+					vint end=f==fe?se:fragment->text.Length();
+
+					fragment->CutColors(start, end-start);
+					fragment->UpdateOverlappedColors(start, end-start, colorField, color);
+					fragment->DefragmentColors();
+				}
+			}
+
+/***********************************************************************
+UniscribeParagraph (Formatting)
+***********************************************************************/
+
+			bool UniscribeParagraph::SetFont(vint start, vint length, const WString& value)
+			{
+				vint fs, ss, fe, se, f1, f2;
+				SearchFragment(start, length, fs, ss, fe, se);
+				if(CutFragment(fs, ss, fe, se, f1, f2))
+				{
+					for(vint i=f1;i<=f2;i++)
+					{
+						documentFragments[i]->fontStyle.fontFamily=value;
+					}
+					built=false;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool UniscribeParagraph::SetSize(vint start, vint length, vint value)
+			{
+				vint fs, ss, fe, se, f1, f2;
+				SearchFragment(start, length, fs, ss, fe, se);
+				if(CutFragment(fs, ss, fe, se, f1, f2))
+				{
+					for(vint i=f1;i<=f2;i++)
+					{
+						documentFragments[i]->fontStyle.size=value;
+					}
+					built=false;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool UniscribeParagraph::SetStyle(vint start, vint length, bool bold, bool italic, bool underline, bool strikeline)
+			{
+				vint fs, ss, fe, se, f1, f2;
+				SearchFragment(start, length, fs, ss, fe, se);
+				if(CutFragment(fs, ss, fe, se, f1, f2))
+				{
+					for(vint i=f1;i<=f2;i++)
+					{
+						documentFragments[i]->fontStyle.bold=bold;
+						documentFragments[i]->fontStyle.italic=italic;
+						documentFragments[i]->fontStyle.underline=underline;
+						documentFragments[i]->fontStyle.strikeline=strikeline;
+					}
+					built=false;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool UniscribeParagraph::SetColor(vint start, vint length, Color value)
+			{
+				vint fs, ss, fe, se;
+				SearchFragment(start, length, fs, ss, fe, se);
+				if(fs==-1 || ss==-1 || fe==-1 || se==-1) return false;
+
+				CutFragmentColors(fs, ss, fe, se, &UniscribeColor::fontColor, value);
+				return true;
+			}
+
+			bool UniscribeParagraph::SetBackgroundColor(vint start, vint length, Color value)
+			{
+				vint fs, ss, fe, se;
+				SearchFragment(start, length, fs, ss, fe, se);
+				if(fs==-1 || ss==-1 || fe==-1 || se==-1) return false;
+
+				CutFragmentColors(fs, ss, fe, se, &UniscribeColor::backgroundColor, value);
+				return true;
+			}
+
+			bool UniscribeParagraph::SetInlineObject(vint start, vint length, const IGuiGraphicsParagraph::InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)
+			{
+				vint fs, ss, fe, se, f1, f2;
+				SearchFragment(start, length, fs, ss, fe, se);
+				if(CutFragment(fs, ss, fe, se, f1, f2))
+				{
+					WString text;
+					for(vint i=f1;i<=f2;i++)
+					{
+						text+=documentFragments[f1]->text;
+					}
+					Ptr<UniscribeFragment> elementFragment=new UniscribeFragment(text);
+
+					for(vint i=f1;i<=f2;i++)
+					{
+						elementFragment->cachedTextFragment.Add(documentFragments[f1]);
+						documentFragments.RemoveAt(f1);
+					}
+					elementFragment->inlineObjectProperties=properties;
+					elementFragment->element=value;
+					documentFragments.Insert(f1, elementFragment);
+					built=false;
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			Ptr<IGuiGraphicsElement> UniscribeParagraph::ResetInlineObject(vint start, vint length)
+			{
+				vint fs, ss, fe, se;
+				SearchFragment(start, length, fs, ss, fe, se);
+				Ptr<UniscribeFragment> fragment=documentFragments[fs];
+				if(fs==fe && ss==0 && se==fragment->text.Length() && fragment->element)
+				{
+					documentFragments.RemoveAt(fs);
+					for(vint i=0;i<fragment->cachedTextFragment.Count();i++)
+					{
+						documentFragments.Insert(fs+i, fragment->cachedTextFragment[i]);
+					}
+					built=false;
+					return fragment->element;
+				}
+				return 0;
+			}
+
+/***********************************************************************
+UniscribeParagraph (Caret Helper)
+***********************************************************************/
+
+			void UniscribeParagraph::GetLineIndexFromTextPos(vint textPos, vint& frontLine, vint& backLine)
+			{
+				frontLine=-1;
+				backLine=-1;
+				if(!IsValidTextPos(textPos)) return;
+
+				vint start=0;
+				vint end=lines.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					Ptr<UniscribeLine> line=lines[middle];
+					vint lineStart=line->startFromParagraph;
+					vint lineEnd=line->startFromParagraph+line->lineText.Length();
+					if(textPos<lineStart)
+					{
+						if(textPos==lineStart-1)
+						{
+							frontLine=middle-1;
+							backLine=middle;
+							return;
+						}
+						else
+						{
+							end=middle-1;
+						}
+					}
+					else if(textPos>lineEnd)
+					{
+						if(textPos==lineEnd+1)
+						{
+							frontLine=middle;
+							backLine=middle+1;
+							return;
+						}
+						else
+						{
+							start=middle+1;
+						}
+					}
+					else
+					{
+						frontLine=middle;
+						backLine=middle;
+						return;
+					}
+				}
+			}
+
+			void UniscribeParagraph::GetVirtualLineIndexFromTextPos(vint textPos, vint lineIndex, vint& frontLine, vint& backLine)
+			{
+				frontLine=-1;
+				backLine=-1;
+				if(!IsValidTextPos(textPos)) return;
+				if(lineIndex<0 || lineIndex>=lines.Count()) return;
+
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				vint start=0;
+				vint end=line->virtualLines.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					Ptr<UniscribeVirtualLine> vline=line->virtualLines[middle];
+					vint lineStart=line->startFromParagraph+vline->startFromLine;
+					vint lineEnd=line->startFromParagraph+vline->startFromLine+vline->length;
+					if(textPos<lineStart)
+					{
+						end=middle-1;
+					}
+					else if(textPos>lineEnd)
+					{
+						start=middle+1;
+					}
+					else if(textPos==lineStart)
+					{
+						frontLine=middle==0?0:middle-1;
+						backLine=middle;
+						return;
+					}
+					else if(textPos==lineEnd)
+					{
+						frontLine=middle;
+						backLine=middle==line->virtualLines.Count()-1?middle:middle+1;
+						return;
+					}
+					else
+					{
+						frontLine=middle;
+						backLine=middle;
+						return;
+					}
+				}
+			}
+
+			void UniscribeParagraph::GetItemIndexFromTextPos(vint textPos, vint lineIndex, vint& frontItem, vint& backItem)
+			{
+				frontItem=-1;
+				backItem=-1;
+				if(!IsValidTextPos(textPos)) return;
+				if(lineIndex<0 || lineIndex>=lines.Count()) return;
+
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				vint start=0;
+				vint end=line->scriptItems.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					Ptr<UniscribeItem> item=line->scriptItems[middle];
+					vint lineStart=line->startFromParagraph+item->startFromLine;
+					vint lineEnd=line->startFromParagraph+item->startFromLine+item->length;
+					if(textPos<lineStart)
+					{
+						end=middle-1;
+					}
+					else if(textPos>lineEnd)
+					{
+						start=middle+1;
+					}
+					else if(textPos==lineStart)
+					{
+						frontItem=middle==0?0:middle-1;
+						backItem=middle;
+						return;
+					}
+					else if(textPos==lineEnd)
+					{
+						frontItem=middle;
+						backItem=middle==line->scriptItems.Count()-1?middle:middle+1;
+						return;
+					}
+					else
+					{
+						frontItem=middle;
+						backItem=middle;
+						return;
+					}
+				}
+			}
+
+			Rect UniscribeParagraph::GetCaretBoundsWithLine(vint caret, vint lineIndex, vint virtualLineIndex, bool frontSide)
+			{
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(line->startFromParagraph<=caret && caret<=line->startFromParagraph+line->lineText.Length())
+				{
+					if(line->lineText==L"") return line->bounds;
+					Ptr<UniscribeVirtualLine> virtualLine=line->virtualLines[virtualLineIndex];
+
+					for(vint i=virtualLine->firstRunIndex;i<=virtualLine->lastRunIndex;i++)
+					{
+						Ptr<UniscribeRun> run=line->scriptRuns[i];
+						if(Ptr<UniscribeTextRun> textRun=run.Cast<UniscribeTextRun>())
+						{
+							vint firstBounds=i==virtualLine->firstRunIndex?virtualLine->firstRunBoundsIndex:0;
+							vint lastBounds=i==virtualLine->lastRunIndex?virtualLine->lastRunBoundsIndex:run->fragmentBounds.Count()-1;
+					
+							for(vint j=firstBounds;j<=lastBounds;j++)
+							{
+								UniscribeRun::RunFragmentBounds& bounds=run->fragmentBounds[j];
+								vint boundsStart=line->startFromParagraph+run->startFromLine+bounds.startFromRun;
+								if(boundsStart==caret)
+								{
+									if(!frontSide || i==virtualLine->firstRunIndex && j==virtualLine->firstRunBoundsIndex)
+									{
+										if(run->scriptItem->scriptItem.a.fRTL)
+										{
+											return Rect(bounds.bounds.x2, bounds.bounds.y1, bounds.bounds.x2, bounds.bounds.y2);
+										}
+										else
+										{
+											return Rect(bounds.bounds.x1, bounds.bounds.y1, bounds.bounds.x1, bounds.bounds.y2);
+										}
+									}
+								}
+								else if(caret==boundsStart+bounds.length)
+								{
+									if(frontSide || i==virtualLine->lastRunIndex && j==virtualLine->lastRunBoundsIndex)
+									{
+										if(run->scriptItem->scriptItem.a.fRTL)
+										{
+											return Rect(bounds.bounds.x1, bounds.bounds.y1, bounds.bounds.x1, bounds.bounds.y2);
+										}
+										else
+										{
+											return Rect(bounds.bounds.x2, bounds.bounds.y1, bounds.bounds.x2, bounds.bounds.y2);
+										}
+									}
+								}
+								else if(boundsStart<caret && caret<boundsStart+bounds.length)
+								{
+									vint accumulatedWidth=0;
+									vint lastRunChar=bounds.startFromRun;
+									for(vint i=0;i<=bounds.length;i++)
+									{
+										vint charIndex=bounds.startFromRun+i;
+										vint newLastRunChar=lastRunChar;
+										if(i>0)
+										{
+											if(i==bounds.length)
+											{
+												newLastRunChar=charIndex;
+											}
+											else
+											{
+												WORD cluster1=textRun->wholeGlyph.charCluster[charIndex-1];
+												WORD cluster2=textRun->wholeGlyph.charCluster[charIndex];
+												if(cluster1!=cluster2)
+												{
+													newLastRunChar=charIndex;
+												}
+											}
+										}
+
+										if(newLastRunChar!=lastRunChar)
+										{
+											WORD glyph1=0;
+											WORD glyph2=0;
+											if(run->scriptItem->scriptItem.a.fRTL)
+											{
+												glyph2=textRun->wholeGlyph.charCluster[lastRunChar]+1;
+												glyph1=newLastRunChar==run->length?0:textRun->wholeGlyph.charCluster[newLastRunChar]+1;
+											}
+											else
+											{
+												glyph1=textRun->wholeGlyph.charCluster[lastRunChar];
+												glyph2=newLastRunChar==run->length?textRun->wholeGlyph.glyphs.Count():textRun->wholeGlyph.charCluster[newLastRunChar];
+											}
+
+											vint glyphWidth=0;
+											for(WORD g=glyph1;g<glyph2;g++)
+											{
+												glyphWidth+=textRun->wholeGlyph.glyphAdvances[g];
+											}
+											accumulatedWidth+=glyphWidth;
+											lastRunChar=newLastRunChar;
+
+											if(line->startFromParagraph+run->startFromLine+lastRunChar==caret)
+											{
+												vint x=0;
+												if(run->scriptItem->scriptItem.a.fRTL)
+												{
+													x=bounds.bounds.x2-accumulatedWidth;
+												}
+												else
+												{
+													x=bounds.bounds.x1+accumulatedWidth;
+												}
+												return Rect(x, bounds.bounds.y1, x, bounds.bounds.y2);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				return Rect();
+			}
+
+			vint UniscribeParagraph::GetCaretFromXWithTextRunBounds(vint x, vint lineIndex, vint runIndex, vint runBoundsIndex)
+			{
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(line->lineText==L"") return line->startFromParagraph;
+				Ptr<UniscribeTextRun> run=line->scriptRuns[runIndex].Cast<UniscribeTextRun>();
+				UniscribeRun::RunFragmentBounds& bounds=run->fragmentBounds[runBoundsIndex];
+				
+				vint startFromFragmentBounds=0;
+				vint accumulatedWidth=0;
+				while(startFromFragmentBounds<bounds.length)
+				{
+					vint charIndex=bounds.startFromRun+startFromFragmentBounds;
+					vint charLength=0;
+					vint cluster=0;
+					vint nextCluster=0;
+					run->SearchSingleChar(charIndex, charLength, cluster, nextCluster);
+
+					vint clusterStart=0;
+					vint clusterCount=0;
+					if(run->scriptItem->IsRightToLeft())
+					{
+						clusterStart=nextCluster+1;
+						clusterCount=cluster-nextCluster;
+					}
+					else
+					{
+						clusterStart=cluster;
+						clusterCount=nextCluster-cluster;
+					}
+
+					vint clusterWidth=0;
+					for(vint i=0;i<clusterCount;i++)
+					{
+						clusterWidth+=run->wholeGlyph.glyphAdvances[i+clusterStart];
+					}
+
+					if(run->scriptItem->scriptItem.a.fRTL)
+					{
+						vint x2=bounds.bounds.x2-accumulatedWidth;
+						vint x1=x2-clusterWidth;
+						if(x1<=x && x<x2)
+						{
+							vint d1=x-x1;
+							vint d2=x2-x;
+							if(d1<=d2)
+							{
+								return line->startFromParagraph+run->startFromLine+charIndex+charLength;
+							}
+							else
+							{
+								return line->startFromParagraph+run->startFromLine+charIndex;
+							}
+						}
+					}
+					else
+					{
+						vint x1=bounds.bounds.x1+accumulatedWidth;
+						vint x2=x1+clusterWidth;
+						if(x1<=x && x<x2)
+						{
+							vint d1=x-x1;
+							vint d2=x2-x;
+							if(d1<=d2)
+							{
+								return line->startFromParagraph+run->startFromLine+charIndex;
+							}
+							else
+							{
+								return line->startFromParagraph+run->startFromLine+charIndex+charLength;
+							}
+						}
+					}
+
+					startFromFragmentBounds+=charLength;
+					accumulatedWidth+=clusterWidth;
+				}
+				return -1;
+			}
+
+			vint UniscribeParagraph::GetCaretFromXWithLine(vint x, vint lineIndex, vint virtualLineIndex)
+			{
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(line->virtualLines.Count()==0) return line->startFromParagraph;
+				Ptr<UniscribeVirtualLine> virtualLine=line->virtualLines[virtualLineIndex];
+				if(x<virtualLine->bounds.x1) return line->startFromParagraph+virtualLine->startFromLine;
+				if(x>=virtualLine->bounds.x2) return line->startFromParagraph+virtualLine->startFromLine+virtualLine->length;
+
+				for(vint i=virtualLine->firstRunIndex;i<=virtualLine->lastRunIndex;i++)
+				{
+					Ptr<UniscribeRun> run=line->scriptRuns[i];
+					if(Ptr<UniscribeTextRun> textRun=run.Cast<UniscribeTextRun>())
+					{
+						vint firstBounds=i==virtualLine->firstRunIndex?virtualLine->firstRunBoundsIndex:0;
+						vint lastBounds=i==virtualLine->lastRunIndex?virtualLine->lastRunBoundsIndex:run->fragmentBounds.Count()-1;
+					
+						for(vint j=firstBounds;j<=lastBounds;j++)
+						{
+							UniscribeRun::RunFragmentBounds& bounds=run->fragmentBounds[j];
+							if(bounds.bounds.x1<=x && x<bounds.bounds.x2)
+							{
+								return GetCaretFromXWithTextRunBounds(x, lineIndex, i, j);
+							}
+						}
+					}
+					else
+					{
+						Rect bounds=run->fragmentBounds[0].bounds;
+						if(bounds.x1<=x && x<bounds.x2)
+						{
+							vint d1=x-bounds.x1;
+							vint d2=bounds.x2-x;
+							if(d1<=d2)
+							{
+								return line->startFromParagraph+run->startFromLine;
+							}
+							else
+							{
+								return line->startFromParagraph+run->startFromLine+run->length;
+							}
+						}
+					}
+				}
+				return -1;
+			}
+
+			Ptr<IGuiGraphicsElement> UniscribeParagraph::GetInlineObjectFromXWithLine(vint x, vint lineIndex, vint virtualLineIndex, vint& start, vint& length)
+			{
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(line->virtualLines.Count()==0) return 0;
+				Ptr<UniscribeVirtualLine> virtualLine=line->virtualLines[virtualLineIndex];
+				if(x<virtualLine->bounds.x1) return 0;
+				if(x>=virtualLine->bounds.x2) return 0;
+
+				for(vint i=virtualLine->firstRunIndex;i<=virtualLine->lastRunIndex;i++)
+				{
+					Ptr<UniscribeRun> run=line->scriptRuns[i];
+					if(Ptr<UniscribeElementRun> elementRun=run.Cast<UniscribeElementRun>())
+					{
+						Rect bounds=run->fragmentBounds[0].bounds;
+						if(bounds.x1<=x && x<bounds.x2)
+						{
+							start=line->startFromParagraph+elementRun->startFromLine;
+							length=elementRun->length;
+							return elementRun->element;
+						}
+					}
+				}
+				return 0;
+			}
+
+			vint UniscribeParagraph::GetLineY(vint lineIndex)
+			{
+				if(lineIndex==lines.Count())
+				{
+					return bounds.Height();
+				}
+				else
+				{
+					return lines[lineIndex]->bounds.y1;
+				}
+			}
+
+			vint UniscribeParagraph::GetVirtualLineY(vint lineIndex, vint virtualLineIndex)
+			{
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(virtualLineIndex==line->virtualLines.Count())
+				{
+					return GetLineY(lineIndex+1);
+				}
+				else
+				{
+					return line->virtualLines[virtualLineIndex]->bounds.y1;
+				}
+			}
+
+			vint UniscribeParagraph::GetLineIndexFromY(vint y)
+			{
+				if(y<lines[0]->bounds.y1) return 0;
+				if(y>=lines[lines.Count()-1]->bounds.y2) return lines.Count()-1;
+
+				vint start=0;
+				vint end=lines.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					vint minY=GetLineY(middle);
+					vint maxY=GetLineY(middle+1);
+					if(y<minY)
+					{
+						end=middle-1;
+					}
+					else if(y>=maxY)
+					{
+						start=middle+1;
+					}
+					else
+					{
+						return middle;
+					}
+				}
+				return -1;
+			}
+
+			vint UniscribeParagraph::GetVirtualLineIndexFromY(vint y, vint lineIndex)
+			{
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(y<line->bounds.y1) return 0;
+				if(y>=line->bounds.y2) return line->virtualLines.Count()-1;
+
+				vint start=0;
+				vint end=line->virtualLines.Count()-1;
+				while(start<=end)
+				{
+					vint middle=(start+end)/2;
+					vint minY=GetVirtualLineY(lineIndex, middle);
+					vint maxY=GetVirtualLineY(lineIndex, middle+1);
+					if(y<minY)
+					{
+						end=middle-1;
+					}
+					else if(y>=maxY)
+					{
+						start=middle+1;
+					}
+					else
+					{
+						return middle;
+					}
+				}
+				return -1;
+			}
+
+/***********************************************************************
+UniscribeParagraph (Caret)
+***********************************************************************/
+
+			vint UniscribeParagraph::GetCaret(vint comparingCaret, IGuiGraphicsParagraph::CaretRelativePosition position, bool& preferFrontSide)
+			{
+				if(position==IGuiGraphicsParagraph::CaretFirst) return 0;
+				if(position==IGuiGraphicsParagraph::CaretLast) return paragraphText.Length();
+				if(!IsValidCaret(comparingCaret)) return -1;
+
+				if(position==IGuiGraphicsParagraph::CaretMoveLeft)
+				{
+					return comparingCaret==0?0:GetNearestCaretFromTextPos(comparingCaret-1, true);
+				}
+				if(position==IGuiGraphicsParagraph::CaretMoveRight)
+				{
+					return comparingCaret==paragraphText.Length()?paragraphText.Length():GetNearestCaretFromTextPos(comparingCaret+1, false);
+				}
+
+				vint frontLine=0;
+				vint backLine=0;
+				GetLineIndexFromTextPos(comparingCaret, frontLine, backLine);
+
+				Ptr<UniscribeLine> line=lines[frontLine];
+				if(line->virtualLines.Count()==0)
+				{
+					switch(position)
+					{
+					case IGuiGraphicsParagraph::CaretLineFirst:
+					case IGuiGraphicsParagraph::CaretLineLast:
+						return line->startFromParagraph;
+					}
+				}
+
+				vint frontVirtualLine=0;
+				vint backVirtualLine=0;
+				GetVirtualLineIndexFromTextPos(comparingCaret, frontLine, frontVirtualLine, backVirtualLine);
+				vint virtualLineIndex=preferFrontSide?frontVirtualLine:backVirtualLine;
+
+				Ptr<UniscribeVirtualLine> virtualLine=virtualLineIndex==-1?0:line->virtualLines[virtualLineIndex];
+
+				switch(position)
+				{
+				case IGuiGraphicsParagraph::CaretLineFirst:
+					return line->startFromParagraph+virtualLine->startFromLine;
+				case IGuiGraphicsParagraph::CaretLineLast:
+					return line->startFromParagraph+virtualLine->startFromLine+virtualLine->length;
+				case IGuiGraphicsParagraph::CaretMoveUp:
+					{
+						if(frontLine==0 && virtualLineIndex<=0) return comparingCaret;
+						Rect bounds=GetCaretBoundsWithLine(comparingCaret, frontLine, virtualLineIndex, preferFrontSide);
+						if(bounds.Height()!=0)
+						{
+							if(virtualLineIndex<=0)
+							{
+								frontLine--;
+								virtualLineIndex=lines[frontLine]->virtualLines.Count()-1;
+							}
+							else
+							{
+								virtualLineIndex--;
+							}
+							preferFrontSide=true;
+							return GetCaretFromXWithLine(bounds.x1, frontLine, virtualLineIndex);
+						}
+					}
+					break;
+				case IGuiGraphicsParagraph::CaretMoveDown:
+					{
+						if(frontLine==lines.Count()-1 && virtualLineIndex==line->virtualLines.Count()-1) return comparingCaret;
+						Rect bounds=GetCaretBoundsWithLine(comparingCaret, frontLine, virtualLineIndex, preferFrontSide);
+						if(bounds.Height()!=0)
+						{
+							if(virtualLineIndex==line->virtualLines.Count()-1)
+							{
+								frontLine++;
+								virtualLineIndex=0;
+							}
+							else
+							{
+								virtualLineIndex++;
+							}
+							preferFrontSide=false;
+							return GetCaretFromXWithLine(bounds.x1, frontLine, virtualLineIndex);
+						}
+					}
+					break;
+				}
+				return -1;
+			}
+
+			Rect UniscribeParagraph::GetCaretBounds(vint caret, bool frontSide)
+			{
+				if(!IsValidCaret(caret)) return Rect();
+
+				vint frontLine=0;
+				vint backLine=0;
+				GetLineIndexFromTextPos(caret, frontLine, backLine);
+
+				vint frontVirtualLine=0;
+				vint backVirtualLine=0;
+				GetVirtualLineIndexFromTextPos(caret, frontLine, frontVirtualLine, backVirtualLine);
+				vint virtualLineIndex=frontSide?frontVirtualLine:backVirtualLine;
+
+				return GetCaretBoundsWithLine(caret, frontLine, virtualLineIndex, frontSide);
+			}
+
+			vint UniscribeParagraph::GetCaretFromPoint(Point point)
+			{
+				vint lineIndex=GetLineIndexFromY(point.y);
+				if(lineIndex==-1) return -1;
+
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(line->virtualLines.Count()==0) return line->startFromParagraph;
+
+				vint virtualLineIndex=GetVirtualLineIndexFromY(point.y, lineIndex);
+				if(virtualLineIndex==-1) return -1;
+
+				return GetCaretFromXWithLine(point.x, lineIndex, virtualLineIndex);
+			}
+
+			Ptr<IGuiGraphicsElement> UniscribeParagraph::GetInlineObjectFromPoint(Point point, vint& start, vint& length)
+			{
+				start=-1;
+				length=0;
+				vint lineIndex=GetLineIndexFromY(point.y);
+				if(lineIndex==-1) return 0;
+
+				Ptr<UniscribeLine> line=lines[lineIndex];
+				if(line->virtualLines.Count()==0) return 0;
+
+				vint virtualLineIndex=GetVirtualLineIndexFromY(point.y, lineIndex);
+				if(virtualLineIndex==-1) return 0;
+
+				return GetInlineObjectFromXWithLine(point.x, lineIndex, virtualLineIndex, start, length);
+			}
+
+			vint UniscribeParagraph::GetNearestCaretFromTextPos(vint textPos, bool frontSide)
+			{
+				if(!IsValidTextPos(textPos)) return -1;
+				vint frontLine=0;
+				vint backLine=0;
+				GetLineIndexFromTextPos(textPos, frontLine, backLine);
+				if(frontLine==-1 || backLine==-1) return -1;
+				if(frontLine!=backLine)
+				{
+					return frontSide?textPos-1:textPos+1;
+				}
+
+				Ptr<UniscribeLine> line=lines[frontLine];
+				if(textPos==line->startFromParagraph || textPos==line->startFromParagraph+line->lineText.Length())
+				{
+					return textPos;
+				}
+
+				vint frontItem=-1;
+				vint backItem=-1;
+				GetItemIndexFromTextPos(textPos, frontLine, frontItem, backItem);
+				if(frontItem==-1 || backItem==-1) return -1;
+				if(frontItem!=backItem) return textPos;
+				
+				Ptr<UniscribeItem> item=line->scriptItems[frontItem];
+				vint lineTextPos=textPos-line->startFromParagraph;
+				if(lineTextPos==item->startFromLine) return textPos;
+				if(lineTextPos==item->startFromLine+item->length) return textPos;
+
+				vint itemTextPos=lineTextPos-item->startFromLine;
+				if(item->charLogattrs[itemTextPos].fCharStop) return textPos;
+
+				if(frontSide)
+				{
+					for(vint i=itemTextPos-1;i>=0;i--)
+					{
+						if(item->charLogattrs[i].fCharStop) return i+line->startFromParagraph+item->startFromLine;
+					}
+					return line->startFromParagraph+item->startFromLine;
+				}
+				else
+				{
+					for(vint i=itemTextPos+1;i<item->length;i++)
+					{
+						if(item->charLogattrs[i].fCharStop) return i+line->startFromParagraph+item->startFromLine;
+					}
+					return line->startFromParagraph+item->startFromLine+item->length;
+				}
+			}
+
+			bool UniscribeParagraph::IsValidCaret(vint caret)
+			{
+				if(!IsValidTextPos(caret)) return false;
+				return GetNearestCaretFromTextPos(caret, true)==caret;
+			}
+
+			bool UniscribeParagraph::IsValidTextPos(vint textPos)
+			{
+				return 0<=textPos && textPos<=paragraphText.Length();
+			}
+		}
+	}
+}
+
+/***********************************************************************
 GraphicsElement\WindowsGDI\GuiGraphicsWindowsGDI.cpp
 ***********************************************************************/
 
@@ -8359,23 +9659,34 @@ WindowsDirect2DElementInlineObject
 
 			class WindowsDirect2DElementInlineObject : public IDWriteInlineObject
 			{
+			public:
+				class IRendererCallback : public Interface
+				{
+				public:
+					virtual Color									GetBackgroundColor(vint textPosition)=0;
+					virtual IWindowsDirect2DRenderTarget*			GetDirect2DRenderTarget()=0;
+				};
+
 			protected:
-				vint													counter;
+				vint												counter;
 				IGuiGraphicsParagraph::InlineObjectProperties		properties;
 				Ptr<IGuiGraphicsElement>							element;
-				vint													start;
-				vint													length;
+				IRendererCallback*									rendererCallback;
+				vint												start;
+				vint												length;
 
 			public:
 				WindowsDirect2DElementInlineObject(
 					const IGuiGraphicsParagraph::InlineObjectProperties& _properties,
 					Ptr<IGuiGraphicsElement> _element,
+					IRendererCallback* _rendererCallback,
 					vint _start,
 					vint _length
 					)
 					:counter(1)
 					,properties(_properties)
 					,element(_element)
+					,rendererCallback(_rendererCallback)
 					,start(_start)
 					,length(_length)
 				{
@@ -8398,6 +9709,11 @@ WindowsDirect2DElementInlineObject
 				vint GetLength()
 				{
 					return length;
+				}
+
+				Ptr<IGuiGraphicsElement> GetElement()
+				{
+					return element;
 				}
 
 				HRESULT STDMETHODCALLTYPE QueryInterface( 
@@ -8442,6 +9758,23 @@ WindowsDirect2DElementInlineObject
 					{
 						Rect bounds(Point((vint)originX, (vint)originY), properties.size);
 						graphicsRenderer->Render(bounds);
+
+						Color color=rendererCallback->GetBackgroundColor(start);
+						if(color.a!=0)
+						{
+							color.a/=2;
+							if(IWindowsDirect2DRenderTarget* renderTarget=rendererCallback->GetDirect2DRenderTarget())
+							{
+								ID2D1SolidColorBrush* brush=renderTarget->CreateDirect2DBrush(color);
+
+								renderTarget->GetDirect2DRenderTarget()->FillRectangle(
+									D2D1::RectF(bounds.x1-0.5f, bounds.y1-0.5f, bounds.x2+0.5f, bounds.y2+0.5f),
+									brush
+									);
+
+								renderTarget->DestroyDirect2DBrush(color);
+							}
+						}
 					}
 					return S_OK;
 				}
@@ -8495,30 +9828,256 @@ WindowsDirect2DElementInlineObject
 WindowsDirect2DParagraph
 ***********************************************************************/
 
-			class WindowsDirect2DParagraph : public Object, public IGuiGraphicsParagraph
+			class WindowsDirect2DParagraph : public Object, public IGuiGraphicsParagraph, public WindowsDirect2DElementInlineObject::IRendererCallback
 			{
-				typedef Dictionary<IGuiGraphicsElement*, ComPtr<WindowsDirect2DElementInlineObject>>		InlineElementMap;
-				typedef Dictionary<Pair<vint, vint>, vint>													InteractionIdMap;
 			protected:
-				IGuiGraphicsLayoutProvider*			provider;
-				ID2D1SolidColorBrush*				defaultTextColor;
-				IDWriteFactory*						dwriteFactory;
-				IWindowsDirect2DRenderTarget*		renderTarget;
-				ComPtr<IDWriteTextLayout>			textLayout;
-				bool								wrapLine;
-				vint								maxWidth;
-				List<Color>							usedColors;
-				InlineElementMap					inlineElements;
-				InteractionIdMap					interactionIds;
+				struct TextRange
+				{
+					vint								start;
+					vint								end;
 
+					TextRange(){}
+					TextRange(vint _start, vint _end):start(_start),end(_end){}
+
+					bool operator==(const TextRange& range) const { return start==range.start; }
+					bool operator!=(const TextRange& range) const { return start!=range.start; }
+					bool operator<(const TextRange& range) const { return start<range.start; }
+					bool operator<=(const TextRange& range) const { return start<=range.start; }
+					bool operator>(const TextRange& range) const { return start>range.start; }
+					bool operator>=(const TextRange& range) const { return start>=range.start; }
+				};
+
+				typedef Dictionary<IGuiGraphicsElement*, ComPtr<WindowsDirect2DElementInlineObject>>	InlineElementMap;
+				typedef Dictionary<TextRange, Color>													ColorMap;
+				typedef Dictionary<TextRange, IGuiGraphicsElement*>										GraphicsElementMap;
+			protected:
+				IGuiGraphicsLayoutProvider*				provider;
+				ID2D1SolidColorBrush*					defaultTextColor;
+				IDWriteFactory*							dwriteFactory;
+				IWindowsDirect2DRenderTarget*			renderTarget;
+				WString									paragraphText;
+				ComPtr<IDWriteTextLayout>				textLayout;
+				bool									wrapLine;
+				vint									maxWidth;
+				List<Color>								usedColors;
+
+				InlineElementMap						inlineElements;
+				GraphicsElementMap						graphicsElements;
+				ColorMap								backgroundColors;
+
+				vint									caret;
+				Color									caretColor;
+				bool									caretFrontSide;
+				ID2D1SolidColorBrush*					caretBrush;
+
+				bool									formatDataAvailable;
+				Array<DWRITE_LINE_METRICS>				lineMetrics;
+				Array<vint>								lineStarts;
+				Array<FLOAT>							lineTops;
+				Array<DWRITE_CLUSTER_METRICS>			clusterMetrics;
+				Array<DWRITE_HIT_TEST_METRICS>			hitTestMetrics;
+				Array<vint>								charHitTestMap;
+
+/***********************************************************************
+WindowsDirect2DParagraph (Ranges)
+***********************************************************************/
+
+				template<typename T>
+				void CutMap(Dictionary<TextRange, T>& map, vint start, vint length)
+				{
+					vint end=start+length;
+					for(vint i=map.Count()-1;i>=0;i--)
+					{
+						TextRange key=map.Keys()[i];
+						if(key.start<end && start<key.end)
+						{
+							T value=map.Values()[i];
+
+							vint s1=key.start;
+							vint s2=key.start>start?key.start:start;
+							vint s3=key.end<end?key.end:end;
+							vint s4=key.end;
+
+							map.Remove(key);
+							if(s1<s2)
+							{
+								map.Add(TextRange(s1, s2), value);
+							}
+							if(s2<s3)
+							{
+								map.Add(TextRange(s2, s3), value);
+							}
+							if(s3<s4)
+							{
+								map.Add(TextRange(s3, s4), value);
+							}
+						}
+					}
+				}
+				
+				template<typename T>
+				void UpdateOverlappedMap(Dictionary<TextRange, T>& map, vint start, vint length, const T& value)
+				{
+					vint end=start+length;
+					for(vint i=map.Count()-1;i>=0;i--)
+					{
+						TextRange key=map.Keys()[i];
+						if(key.start<end && start<key.end)
+						{
+							map.Set(key, value);
+						}
+					}
+				}
+				
+				template<typename T>
+				void DefragmentMap(Dictionary<TextRange, T>& map)
+				{
+					vint lastIndex=map.Count()-1;
+					T lastValue=map.Values()[lastIndex];
+					for(vint i=map.Count()-2;i>=-1;i--)
+					{
+						if(i==-1 || map.Values()[i]!=lastValue)
+						{
+							if(lastIndex-i>0)
+							{
+								vint start=map.Keys()[i+1].start;
+								vint end=map.Keys()[lastIndex].end;
+								TextRange key(start, end);
+
+								for(vint j=lastIndex;j>i;j--)
+								{
+									map.Remove(map.Keys()[j]);
+								}
+								map.Add(key, lastValue);
+							}
+							lastIndex=i;
+							if(i!=-1)
+							{
+								lastValue=map.Values()[i];
+							}
+						}
+					}
+				}
+				
+				template<typename T>
+				void SetMap(Dictionary<TextRange, T>& map, vint start, vint length, const T& value)
+				{
+					CutMap(map, start, length);
+					UpdateOverlappedMap(map, start, length, value);
+					DefragmentMap(map);
+				}
+
+				template<typename T>
+				bool GetMap(Dictionary<TextRange, T>& map, vint textPosition, T& value)
+				{
+					vint start=0;
+					vint end=map.Count()-1;
+					while(start<=end)
+					{
+						vint middle=(start+end)/2;
+						TextRange key=map.Keys()[middle];
+						if(textPosition<key.start)
+						{
+							end=middle-1;
+						}
+						else if(textPosition>=key.end)
+						{
+							start=middle+1;
+						}
+						else
+						{
+							value=map.Values()[middle];
+							return true;
+						}
+					}
+					return false;
+				}
+
+/***********************************************************************
+WindowsDirect2DParagraph (Layout Retriving)
+***********************************************************************/
+
+				void PrepareFormatData()
+				{
+					if(!formatDataAvailable)
+					{
+						formatDataAvailable=true;
+						{
+							UINT32 lineCount=0;
+							textLayout->GetLineMetrics(NULL, 0, &lineCount);
+							lineMetrics.Resize(lineCount);
+							if(lineCount>0)
+							{
+								textLayout->GetLineMetrics(&lineMetrics[0], lineCount, &lineCount);
+							}
+
+							lineStarts.Resize(lineCount);
+							lineTops.Resize(lineCount);
+							vint start=0;
+							FLOAT top=0;
+							for(vint i=0;i<lineMetrics.Count();i++)
+							{
+								DWRITE_LINE_METRICS& metrics=lineMetrics[i];
+
+								lineStarts[i]=start;
+								start+=metrics.length;
+
+								lineTops[i]=top;
+								top+=metrics.height;
+							}
+						}
+						{
+							UINT32 clusterCount=0;
+							textLayout->GetClusterMetrics(NULL, 0, &clusterCount);
+							clusterMetrics.Resize(clusterCount);
+							if(clusterCount>0)
+							{
+								textLayout->GetClusterMetrics(&clusterMetrics[0], clusterCount, &clusterCount);
+							}
+						}
+						{
+							vint textPos=0;
+							hitTestMetrics.Resize(clusterMetrics.Count());
+							for(vint i=0;i<hitTestMetrics.Count();i++)
+							{
+								FLOAT x=0;
+								FLOAT y=0;
+								DWRITE_HIT_TEST_METRICS& metrics=hitTestMetrics[i];
+								textLayout->HitTestTextPosition(textPos, FALSE, &x, &y, &metrics);
+								textPos+=metrics.length;
+							}
+						}
+						{
+							charHitTestMap.Resize(paragraphText.Length());
+							for(vint i=0;i<hitTestMetrics.Count();i++)
+							{
+								DWRITE_HIT_TEST_METRICS& metrics=hitTestMetrics[i];
+								for(UINT32 j=0;j<metrics.length;j++)
+								{
+									charHitTestMap[metrics.textPosition+j]=i;
+								}
+							}
+						}
+					}
+				}
 			public:
+
+/***********************************************************************
+WindowsDirect2DParagraph (Initialization)
+***********************************************************************/
+
 				WindowsDirect2DParagraph(IGuiGraphicsLayoutProvider* _provider, const WString& _text, IGuiGraphicsRenderTarget* _renderTarget)
 					:provider(_provider)
 					,dwriteFactory(GetWindowsDirect2DObjectProvider()->GetDirectWriteFactory())
 					,renderTarget(dynamic_cast<IWindowsDirect2DRenderTarget*>(_renderTarget))
+					,paragraphText(_text)
 					,textLayout(0)
 					,wrapLine(true)
 					,maxWidth(-1)
+					,caret(-1)
+					,caretFrontSide(false)
+					,caretBrush(0)
+					,formatDataAvailable(false)
 				{
 					FontProperties defaultFont=GetCurrentController()->ResourceService()->GetDefaultFont();
 					Direct2DTextFormatPackage* package=GetWindowsDirect2DResourceManager()->CreateDirect2DTextFormat(defaultFont);
@@ -8538,13 +10097,15 @@ WindowsDirect2DParagraph
 						textLayout=rawTextLayout;
 						textLayout->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
 					}
-					interactionIds.Add(Pair<vint, vint>(0, _text.Length()), NullInteractionId);
+					graphicsElements.Add(TextRange(0, _text.Length()), 0);
+					backgroundColors.Add(TextRange(0, _text.Length()), Color(0, 0, 0, 0));
 
 					GetWindowsDirect2DResourceManager()->DestroyDirect2DTextFormat(defaultFont);
 				}
 
 				~WindowsDirect2DParagraph()
 				{
+					CloseCaret();
 					FOREACH(Color, color, usedColors)
 					{
 						renderTarget->DestroyDirect2DBrush(color);
@@ -8561,6 +10122,10 @@ WindowsDirect2DParagraph
 					return renderTarget;
 				}
 
+/***********************************************************************
+WindowsDirect2DParagraph (Formatting)
+***********************************************************************/
+
 				bool GetWrapLine()override
 				{
 					return wrapLine;
@@ -8572,6 +10137,7 @@ WindowsDirect2DParagraph
 					{
 						wrapLine=value;
 						textLayout->SetWordWrapping(value?DWRITE_WORD_WRAPPING_WRAP:DWRITE_WORD_WRAPPING_NO_WRAP);
+						formatDataAvailable=false;
 					}
 				}
 
@@ -8586,6 +10152,7 @@ WindowsDirect2DParagraph
 					{
 						maxWidth=value;
 						textLayout->SetMaxWidth(value==-1?65536:(FLOAT)value);
+						formatDataAvailable=false;
 					}
 				}
 
@@ -8606,6 +10173,7 @@ WindowsDirect2DParagraph
 
 				void SetParagraphAlignment(Alignment value)override
 				{
+					formatDataAvailable=false;
 					switch(value)
 					{
 					case Alignment::Left:
@@ -8623,6 +10191,8 @@ WindowsDirect2DParagraph
 				bool SetFont(vint start, vint length, const WString& value)override
 				{
 					if(length==0) return true;
+					formatDataAvailable=false;
+
 					DWRITE_TEXT_RANGE range;
 					range.startPosition=(int)start;
 					range.length=(int)length;
@@ -8633,6 +10203,8 @@ WindowsDirect2DParagraph
 				bool SetSize(vint start, vint length, vint value)override
 				{
 					if(length==0) return true;
+					formatDataAvailable=false;
+
 					DWRITE_TEXT_RANGE range;
 					range.startPosition=(int)start;
 					range.length=(int)length;
@@ -8643,6 +10215,8 @@ WindowsDirect2DParagraph
 				bool SetStyle(vint start, vint length, TextStyle value)override
 				{
 					if(length==0) return true;
+					formatDataAvailable=false;
+
 					DWRITE_TEXT_RANGE range;
 					range.startPosition=(int)start;
 					range.length=(int)length;
@@ -8663,6 +10237,8 @@ WindowsDirect2DParagraph
 				bool SetColor(vint start, vint length, Color value)override
 				{
 					if(length==0) return true;
+					formatDataAvailable=false;
+
 					ID2D1SolidColorBrush* brush=renderTarget->CreateDirect2DBrush(value);
 					usedColors.Add(value);
 
@@ -8671,6 +10247,12 @@ WindowsDirect2DParagraph
 					range.length=(int)length;
 					HRESULT hr=textLayout->SetDrawingEffect(brush, range);
 					return !FAILED(hr);
+				}
+
+				bool SetBackgroundColor(vint start, vint length, Color value)override
+				{
+					SetMap(backgroundColors, start, length, value);
+					return true;
 				}
 
 				bool SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)override
@@ -8687,7 +10269,9 @@ WindowsDirect2DParagraph
 							return false;
 						}
 					}
-					ComPtr<WindowsDirect2DElementInlineObject> inlineObject=new WindowsDirect2DElementInlineObject(properties, value, start, length);
+					formatDataAvailable=false;
+
+					ComPtr<WindowsDirect2DElementInlineObject> inlineObject=new WindowsDirect2DElementInlineObject(properties, value, this, start, length);
 					DWRITE_TEXT_RANGE range;
 					range.startPosition=(int)start;
 					range.length=(int)length;
@@ -8700,6 +10284,7 @@ WindowsDirect2DParagraph
 							renderer->SetRenderTarget(renderTarget);
 						}
 						inlineElements.Add(value.Obj(), inlineObject);
+						SetMap(graphicsElements, start, length, value.Obj());
 						return true;
 					}
 					else
@@ -8710,43 +10295,240 @@ WindowsDirect2DParagraph
 
 				bool ResetInlineObject(vint start, vint length)override
 				{
-					for(vint i=0;i<inlineElements.Count();i++)
+					IGuiGraphicsElement* element=0;
+					if(GetMap(graphicsElements, start, element) && element)
 					{
-						IGuiGraphicsElement* element=inlineElements.Keys().Get(i);
-						ComPtr<WindowsDirect2DElementInlineObject> inlineObject=inlineElements.Values().Get(i);
-						if(inlineObject->GetStart()==start && inlineObject->GetLength()==length)
+						ComPtr<WindowsDirect2DElementInlineObject> inlineObject=inlineElements[element];
+						DWRITE_TEXT_RANGE range;
+						range.startPosition=(int)inlineObject->GetStart();
+						range.length=(int)inlineObject->GetLength();
+						HRESULT hr=textLayout->SetInlineObject(NULL, range);
+						if(!FAILED(hr))
 						{
-							DWRITE_TEXT_RANGE range;
-							range.startPosition=(int)start;
-							range.length=(int)length;
-							HRESULT hr=textLayout->SetInlineObject(NULL, range);
-							if(!FAILED(hr))
-							{
-								inlineElements.Remove(element);
-								return true;
-							}
-							else
-							{
-								return false;
-							}
+							formatDataAvailable=false;
+							inlineElements.Remove(element);
+							SetMap(graphicsElements, inlineObject->GetStart(), inlineObject->GetLength(), (IGuiGraphicsElement*)0);
+							return true;
+						}
+						else
+						{
+							return false;
 						}
 					}
 					return false;
 				}
 
-				vint SearchInInteractionIdMap(vint textPosition)
+				vint GetHeight()override
 				{
+					DWRITE_TEXT_METRICS metrics;
+					textLayout->GetMetrics(&metrics);
+					return (vint)metrics.height;
+				}
+
+/***********************************************************************
+WindowsDirect2DParagraph (IRenderingCallback)
+***********************************************************************/
+
+				Color GetBackgroundColor(vint textPosition)override
+				{
+					Color color;
+					if(GetMap(backgroundColors, textPosition, color))
+					{
+						return color;
+					}
+					else
+					{
+						return Color(0, 0, 0, 0);
+					}
+				}
+
+				IWindowsDirect2DRenderTarget* GetDirect2DRenderTarget()override
+				{
+					return renderTarget;
+				}
+
+/***********************************************************************
+WindowsDirect2DParagraph (Rendering)
+***********************************************************************/
+
+				bool OpenCaret(vint _caret, Color _color, bool _frontSide)override
+				{
+					if(!IsValidCaret(_caret)) return false;
+					if(caret!=-1) CloseCaret();
+					caret=_caret;
+					caretColor=_color;
+					caretFrontSide=_frontSide;
+					caretBrush=renderTarget->CreateDirect2DBrush(caretColor);
+					return true;
+				}
+
+				bool CloseCaret()override
+				{
+					if(caret==-1) return false;
+					caret=-1;
+					renderTarget->DestroyDirect2DBrush(caretColor);
+					caretBrush=0;
+					return true;
+				}
+
+				void Render(Rect bounds)override
+				{
+					PrepareFormatData();
+					for(vint i=0;i<backgroundColors.Count();i++)
+					{
+						TextRange key=backgroundColors.Keys()[i];
+						Color color=backgroundColors.Values()[i];
+						if(color.a>0)
+						{
+							ID2D1SolidColorBrush* brush=renderTarget->CreateDirect2DBrush(color);
+
+							vint start=key.start;
+							if(start<0)
+							{
+								start=0;
+							}
+
+							while(start<charHitTestMap.Count() && start<key.end)
+							{
+								vint index=charHitTestMap[start];
+								DWRITE_HIT_TEST_METRICS& hitTest=hitTestMetrics[index];
+
+								FLOAT x1=hitTest.left+(FLOAT)bounds.x1;
+								FLOAT y1=hitTest.top+(FLOAT)bounds.y1;
+								FLOAT x2=x1+hitTest.width;
+								FLOAT y2=y1+hitTest.height;
+
+								x1-=0.5f;
+								y1-=0.0f;
+								x2+=0.5f;
+								y2+=0.5f;
+
+								renderTarget->GetDirect2DRenderTarget()->FillRectangle(
+									D2D1::RectF(x1, y1, x2, y2),
+									brush
+									);
+										
+								start=hitTest.textPosition+hitTest.length;
+							}
+
+							renderTarget->DestroyDirect2DBrush(color);
+						}
+					}
+
+					renderTarget->GetDirect2DRenderTarget()->DrawTextLayout(
+						D2D1::Point2F((FLOAT)bounds.Left(), (FLOAT)bounds.Top()),
+						textLayout.Obj(),
+						defaultTextColor,
+						D2D1_DRAW_TEXT_OPTIONS_NO_SNAP);
+
+					if(caret!=-1)
+					{
+						Rect caretBounds=GetCaretBounds(caret, caretFrontSide);
+						vint x=caretBounds.x1+bounds.x1;
+						vint y1=caretBounds.y1+bounds.y1;
+						vint y2=y1+caretBounds.Height();
+
+						renderTarget->GetDirect2DRenderTarget()->DrawLine(
+							D2D1::Point2F((FLOAT)x-0.5f, (FLOAT)y1+0.5f),
+							D2D1::Point2F((FLOAT)x-0.5f, (FLOAT)y2+0.5f),
+							caretBrush
+							);
+						renderTarget->GetDirect2DRenderTarget()->DrawLine(
+							D2D1::Point2F((FLOAT)x+0.5f, (FLOAT)y1+0.5f),
+							D2D1::Point2F((FLOAT)x+0.5f, (FLOAT)y2+0.5f),
+							caretBrush
+							);
+					}
+				}
+
+/***********************************************************************
+WindowsDirect2DParagraph (Caret Helper)
+***********************************************************************/
+
+				void GetLineIndexFromTextPos(vint textPos, vint& frontLineIndex, vint& backLineIndex)
+				{
+					frontLineIndex=-1;
+					backLineIndex=-1;
 					vint start=0;
-					vint end=interactionIds.Count()-1;
+					vint end=lineMetrics.Count()-1;
 					while(start<=end)
 					{
-						vint middle=start+(end-start)/2;
-						Pair<vint, vint> p=interactionIds.Keys()[middle];
-						if(textPosition<p.key)
+						vint middle=(start+end)/2;
+						DWRITE_LINE_METRICS& metrics=lineMetrics[middle];
+						vint lineStart=lineStarts[middle];
+						vint lineEnd=lineStart+metrics.length-metrics.newlineLength;
+
+						if(textPos<lineStart)
 						{
 							end=middle-1;
 						}
-						else if(p.key+p.value<=textPosition)
+						else if(textPos>lineEnd)
+						{
+							start=middle+1;
+						}
+						else if(textPos==lineStart && middle!=0)
+						{
+							DWRITE_LINE_METRICS& anotherLine=lineMetrics[middle-1];
+							frontLineIndex=anotherLine.newlineLength==0?middle-1:middle;
+							backLineIndex=middle;
+							return;
+						}
+						else if(textPos==lineEnd && middle!=lineMetrics.Count()-1)
+						{
+							frontLineIndex=middle;
+							backLineIndex=metrics.newlineLength==0?middle+1:middle;
+							return;
+						}
+						else
+						{
+							frontLineIndex=middle;
+							backLineIndex=middle;
+							return;
+						}
+					}
+				}
+
+				Pair<FLOAT, FLOAT> GetLineYRange(vint lineIndex)
+				{
+					DWRITE_LINE_METRICS& line=lineMetrics[lineIndex];
+					FLOAT top=lineTops[lineIndex];
+					return Pair<FLOAT, FLOAT>(top, top+line.height);
+				}
+
+				vint GetLineIndexFromY(vint y)
+				{
+					if(paragraphText.Length()==0) return 0;
+					FLOAT minY=0;
+					FLOAT maxY=0;
+					{
+						minY=hitTestMetrics[0].top;
+						DWRITE_HIT_TEST_METRICS& hitTest=hitTestMetrics[hitTestMetrics.Count()-1];
+						maxY=hitTest.top+hitTest.height;
+					}
+
+					if(y<minY)
+					{
+						return 0;
+					}
+					else if(y>=maxY)
+					{
+						return lineMetrics.Count()-1;
+					}
+
+					vint start=0;
+					vint end=lineMetrics.Count()-1;
+					while(start<=end)
+					{
+						vint middle=(start+end)/2;
+						Pair<FLOAT, FLOAT> yRange=GetLineYRange(middle);
+						minY=yRange.key;
+						maxY=yRange.value;
+
+						if(y<minY)
+						{
+							end=middle-1;
+						}
+						else if(y>=maxY)
 						{
 							start=middle+1;
 						}
@@ -8758,80 +10540,263 @@ WindowsDirect2DParagraph
 					return -1;
 				}
 
-				vint CutInteractionIdMap(vint textPosition, vint index)
+				vint GetCaretFromXWithLine(vint x, vint lineIndex)
 				{
-					Pair<vint, vint> p=interactionIds.Keys()[index];
-					CHECK_ERROR(p.key<=textPosition && textPosition<=p.key+p.value, L"WindowsDirect2DParagraph::CutInteractionIdMap(vint, vint)#textPosition与index不匹配。");
-					if(textPosition==p.key || textPosition==p.key+p.value)
+					DWRITE_LINE_METRICS& line=lineMetrics[lineIndex];
+					vint lineStart=lineStarts[lineIndex];
+					vint lineEnd=lineStart+line.length-line.newlineLength;
+
+					FLOAT minLineX=0;
+					FLOAT maxLineX=0;
+
+					for(vint i=lineStart;i<lineEnd;)
 					{
-						return 0;
+						vint index=charHitTestMap[i];
+						DWRITE_HIT_TEST_METRICS& hitTest=hitTestMetrics[index];
+						FLOAT minX=hitTest.left;
+						FLOAT maxX=minX+hitTest.width;
+
+						if(minLineX>minX) minLineX=minX;
+						if(maxLineX<maxX) maxLineX=maxX;
+
+						if(minX<=x && x<maxX)
+						{
+							DWRITE_CLUSTER_METRICS& cluster=clusterMetrics[index];
+							FLOAT d1=x-minX;
+							FLOAT d2=maxX-x;
+							if(d1<=d2)
+							{
+								return cluster.isRightToLeft?i+hitTest.length:i;
+							}
+							else
+							{
+								return cluster.isRightToLeft?i:i+hitTest.length;
+							}
+						}
+						i+=hitTest.length;
+					}
+					
+					if(x<minLineX) return lineStart;
+					if(x>=maxLineX) return lineEnd;
+					return lineStart;
+				}
+
+/***********************************************************************
+WindowsDirect2DParagraph (Caret)
+***********************************************************************/
+
+				vint GetCaret(vint comparingCaret, CaretRelativePosition position, bool& preferFrontSide)override
+				{
+					PrepareFormatData();
+					if(position==CaretFirst) return 0;
+					if(position==CaretLast) return paragraphText.Length();
+					if(!IsValidCaret(comparingCaret)) return -1;
+
+					vint frontLineIndex=-1;
+					vint backLineIndex=-1;
+					GetLineIndexFromTextPos(comparingCaret, frontLineIndex, backLineIndex);
+					vint lineIndex=preferFrontSide?frontLineIndex:backLineIndex;
+					DWRITE_LINE_METRICS& line=lineMetrics[lineIndex];
+					vint lineStart=lineStarts[lineIndex];
+					vint lineEnd=lineStart+line.length-line.newlineLength;
+
+					switch(position)
+					{
+					case CaretLineFirst:
+						return lineStarts[lineIndex];
+					case CaretLineLast:
+						return lineStarts[lineIndex]+line.length-line.newlineLength;
+					case CaretMoveLeft:
+						{
+							if(comparingCaret==0)
+							{
+								return 0;
+							}
+							else if(comparingCaret==lineStart)
+							{
+								vint offset=lineMetrics[lineIndex-1].newlineLength;
+								if(offset>0)
+								{
+									return lineStart-offset;
+								}
+							}
+							return hitTestMetrics[charHitTestMap[comparingCaret-1]].textPosition;
+						}
+					case CaretMoveRight:
+						{
+							if(comparingCaret==paragraphText.Length())
+							{
+								return paragraphText.Length();
+							}
+							else if(comparingCaret==lineEnd && line.newlineLength!=0)
+							{
+								return lineEnd+line.newlineLength;
+							}
+							else
+							{
+								vint index=charHitTestMap[comparingCaret];
+								if(index==hitTestMetrics.Count()-1) return paragraphText.Length();
+								return hitTestMetrics[index+1].textPosition;
+							}
+						}
+					case CaretMoveUp:
+						{
+							if(lineIndex==0)
+							{
+								return comparingCaret;
+							}
+							else
+							{
+								Rect bounds=GetCaretBounds(comparingCaret, preferFrontSide);
+								preferFrontSide=true;
+								return GetCaretFromXWithLine(bounds.x1, lineIndex-1);
+							}
+						}
+					case CaretMoveDown:
+						{
+							if(lineIndex==lineMetrics.Count()-1)
+							{
+								return comparingCaret;
+							}
+							else
+							{
+								Rect bounds=GetCaretBounds(comparingCaret, preferFrontSide);
+								preferFrontSide=false;
+								return GetCaretFromXWithLine(bounds.x1, lineIndex+1);
+							}
+						}
+					}
+					return -1;
+				}
+
+				Rect GetCaretBounds(vint caret, bool frontSide)override
+				{
+					PrepareFormatData();
+					if(!IsValidCaret(caret)) return Rect();
+					if(paragraphText.Length()==0) return Rect(Point(0, 0), Size(0, GetHeight()));
+
+					vint frontLineIndex=-1;
+					vint backLineIndex=-1;
+					GetLineIndexFromTextPos(caret, frontLineIndex, backLineIndex);
+					vint lineIndex=frontSide?frontLineIndex:backLineIndex;
+
+					Pair<FLOAT, FLOAT> lineYRange=GetLineYRange(lineIndex);
+					DWRITE_LINE_METRICS& line=lineMetrics[lineIndex];
+					if(line.length-line.newlineLength==0)
+					{
+						return Rect(0, (vint)lineYRange.key, 0, (vint)lineYRange.value);
 					}
 					else
 					{
-						vint id=interactionIds.Values().Get(index);
-						Pair<vint, vint> bp=p;
-						Pair<vint, vint> ep=p;
-						bp.value=textPosition-p.key;
-						ep.key=textPosition;
-						ep.value=p.value-bp.value;
+						vint lineStart=lineStarts[lineIndex];
+						vint lineEnd=lineStart+line.length-line.newlineLength;
+						if(caret==lineStart)
+						{
+							frontSide=false;
+						}
+						else if(caret==lineEnd)
+						{
+							frontSide=true;
+						}
+						if(frontSide)
+						{
+							caret--;
+						}
 
-						interactionIds.Remove(p);
-						interactionIds.Add(bp, id);
-						interactionIds.Add(ep, id);
-						return 1;
+						vint index=charHitTestMap[caret];
+						DWRITE_HIT_TEST_METRICS& hitTest=hitTestMetrics[index];
+						DWRITE_CLUSTER_METRICS& cluster=clusterMetrics[index];
+						if(cluster.isRightToLeft)
+						{
+							frontSide=!frontSide;
+						}
+
+						if(frontSide)
+						{
+							return Rect(
+								Point((vint)(hitTest.left+hitTest.width), (vint)hitTest.top),
+								Size(0, (vint)hitTest.height)
+								);
+						}
+						else
+						{
+							return Rect(
+								Point((vint)hitTest.left, (vint)hitTest.top),
+								Size(0, (vint)hitTest.height)
+								);
+						}
 					}
 				}
 
-				bool SetInteractionId(vint start, vint length, vint value)override
+				vint GetCaretFromPoint(Point point)override
 				{
-					vint begin=SearchInInteractionIdMap(start);
-					vint end=SearchInInteractionIdMap(start+length-1);
-					if(begin==-1 || end==-1) return false;
-
-					vint offset=CutInteractionIdMap(start, begin);
-					begin+=offset;
-					end+=offset;
-					CutInteractionIdMap(start+length, end);
-					for(vint i=begin;i<=end;i++)
-					{
-						interactionIds.Set(interactionIds.Keys()[i], value);
-					}
-					return true;
+					PrepareFormatData();
+					vint lineIndex=GetLineIndexFromY(point.y);
+					vint caret=GetCaretFromXWithLine(point.x, lineIndex);
+					return caret;
 				}
 
-				bool HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)override
+				Ptr<IGuiGraphicsElement> GetInlineObjectFromPoint(Point point, vint& start, vint& length)override
 				{
 					DWRITE_HIT_TEST_METRICS metrics={0};
 					BOOL trailingHit=FALSE;
 					BOOL inside=FALSE;
 					start=-1;
 					length=0;
-					interactionId=NullInteractionId;
 					HRESULT hr=textLayout->HitTestPoint((FLOAT)point.x, (FLOAT)point.y, &trailingHit, &inside, &metrics);
-					if(hr!=S_OK) return false;
-
-					start=metrics.textPosition;
-					length=metrics.length;
-					vint index=SearchInInteractionIdMap(start);
-					interactionId=index==-1?NullInteractionId:interactionIds.Values().Get(index);
-
-					return inside==TRUE;
+					if(hr==S_OK)
+					{
+						IGuiGraphicsElement* element=0;
+						if(GetMap(graphicsElements, metrics.textPosition, element) && element)
+						{
+							ComPtr<WindowsDirect2DElementInlineObject> inlineObject=inlineElements[element];
+							start=inlineObject->GetStart();
+							length=inlineObject->GetLength();
+							return inlineObject->GetElement();
+						}
+					}
+					return 0;
 				}
 
-				vint GetHeight()override
+				vint GetNearestCaretFromTextPos(vint textPos, bool frontSide)override
 				{
-					DWRITE_TEXT_METRICS metrics;
-					textLayout->GetMetrics(&metrics);
-					return (vint)metrics.height;
+					PrepareFormatData();
+					if(!IsValidTextPos(textPos)) return -1;
+					if(textPos==0 || textPos==paragraphText.Length()) return textPos;
+				
+					vint index=charHitTestMap[textPos];
+					DWRITE_HIT_TEST_METRICS& hitTest=hitTestMetrics[index];
+					if(hitTest.textPosition==textPos)
+					{
+						return textPos;
+					}
+					else if(frontSide)
+					{
+						return hitTest.textPosition;
+					}
+					else
+					{
+						return hitTest.textPosition+hitTest.length;
+					}
 				}
 
-				void Render(Rect bounds)override
+				bool IsValidCaret(vint caret)override
 				{
-					renderTarget->GetDirect2DRenderTarget()->DrawTextLayout(
-						D2D1::Point2F((FLOAT)bounds.Left(), (FLOAT)bounds.Top()),
-						textLayout.Obj(),
-						defaultTextColor,
-						D2D1_DRAW_TEXT_OPTIONS_NO_SNAP);
+					PrepareFormatData();
+					if(!IsValidTextPos(caret)) return false;
+					if(caret==0 || caret==paragraphText.Length()) return true;
+					if(hitTestMetrics[charHitTestMap[caret]].textPosition==caret) return true;
+
+					vint frontLineIndex=-1;
+					vint backLineIndex=-1;
+					GetLineIndexFromTextPos(caret, frontLineIndex, backLineIndex);
+					if(frontLineIndex==-1 && backLineIndex==-1) return false;
+					return false;
+				}
+
+				bool IsValidTextPos(vint textPos)
+				{
+					return 0<=textPos && textPos<=paragraphText.Length();
 				}
 			};
 

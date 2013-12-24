@@ -1,4 +1,4 @@
-#include "..\..\Public\Source\GacUI.h"
+#include "..\..\Public\Source\GacUIReflection.h"
 #include <Windows.h>
 
 using namespace vl::presentation::description;
@@ -10,6 +10,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
 void GuiMain()
 {
+	GetTypeDescriptor<GuiWindow>(); // should be called due to VC++'s static library bug
+
 	// auto currentTheme=ITheme::GetCurrentTheme();
 	Value currentTheme=Value::InvokeStatic(L"presentation::theme::ITheme", L"GetCurrentTheme");
 	// auto windowStyle=currentTheme->CreateWindowStyle();

@@ -31,9 +31,13 @@ private:
 		});
 	}
 
-	void OnPageContainerReady(GuiGraphicsComposition* sender, GuiEventArgs& arguments)
+public:
+	TextBoxPage()
+		:closeButton(0)
+		,textBox(0)
 	{
 		// create a table to place a button and a text box
+		this->SetText(L"TextBoxPage Sample No."+itow(++pageCounter));
 		GuiTableComposition* table=new GuiTableComposition;
 		table->SetRowsAndColumns(2, 1);
 		table->SetRowOption(0, GuiCellOption::MinSizeOption());
@@ -64,16 +68,7 @@ private:
 			cell->AddChild(textBox->GetBoundsComposition());
 		}
 
-		this->GetContainer()->GetContainerComposition()->AddChild(table);
-	}
-
-public:
-	TextBoxPage()
-		:closeButton(0)
-		,textBox(0)
-	{
-		PageContainerReady.AttachMethod(this, &TextBoxPage::OnPageContainerReady);
-		this->SetText(L"TextBoxPage Sample No."+itow(++pageCounter));
+		this->GetContainerComposition()->AddChild(table);
 	}
 
 	~TextBoxPage()
@@ -117,8 +112,8 @@ public:
 		buttonAddPage=g::NewButton();
 		buttonAddPage->SetText(L"Add a tab page");
 		buttonAddPage->Clicked.AttachMethod(this, &TextBoxPageWindow::buttonAddPage_Clicked);
-		controlPanelPage->GetContainer()->GetContainerComposition()->SetInternalMargin(Margin(2, 2, 2, 2));
-		controlPanelPage->GetContainer()->AddChild(buttonAddPage);
+		controlPanelPage->GetContainerComposition()->SetInternalMargin(Margin(2, 2, 2, 2));
+		controlPanelPage->GetContainerComposition()->AddChild(buttonAddPage->GetBoundsComposition());
 
 		this->ForceCalculateSizeImmediately();
 		this->MoveToScreenCenter();

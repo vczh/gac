@@ -65,12 +65,12 @@ public:
 			L"Tooltips/SaveAs",
 		};
 
-		GuiToolstripToolbar* toolbar=g::NewToolbar();
+		GuiToolstripToolBar* toolbar=g::NewToolBar();
 		toolbar->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, -1));
 		AddChild(toolbar);
 		for(vint i=0;i<4;i++)
 		{
-			GuiToolstripButton* button=g::NewToolbarButton();
+			GuiToolstripButton* button=g::NewToolBarButton();
 			button->SetImage(resource->GetValueByPath(images[i]).Cast<GuiImageData>());
 			AddTooltip(button, resource, paths[i], 100);
 			toolbar->GetToolstripItems().Add(button);

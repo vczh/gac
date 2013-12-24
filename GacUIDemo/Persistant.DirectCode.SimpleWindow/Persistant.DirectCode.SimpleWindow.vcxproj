@@ -80,12 +80,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ProjectReference Include="..\GacUIStaticLibrary\GacUIStaticLibrary.vcxproj">
-      <Project>{6698c71d-0d4e-4031-846a-8698f9c9d658}</Project>
-    </ProjectReference>
+    <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Main.cpp" />
+    <ProjectReference Include="..\GacUIReflectionStaticLibrary\GacUIReflectionStaticLibrary.vcxproj">
+      <Project>{8c242464-8009-4a8a-9443-abe406809c71}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

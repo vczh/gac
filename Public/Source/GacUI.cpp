@@ -19,6 +19,7 @@ namespace vl
 			using namespace collections;
 			using namespace compositions;
 			using namespace theme;
+			using namespace description;
 
 /***********************************************************************
 GuiApplication
@@ -285,15 +286,101 @@ GuiApplication
 			}
 
 /***********************************************************************
+GuiPluginManager
+***********************************************************************/
+
+			class GuiPluginManager : public Object, public IGuiPluginManager
+			{
+			protected:
+				List<Ptr<IGuiPlugin>>				plugins;
+				bool								loaded;
+			public:
+				GuiPluginManager()
+					:loaded(false)
+				{
+				}
+
+				~GuiPluginManager()
+				{
+					Unload();
+				}
+
+				void AddPlugin(Ptr<IGuiPlugin> plugin)override
+				{
+					plugins.Add(plugin);
+					if(loaded)
+					{
+						plugin->Load();
+					}
+				}
+
+				void Load()override
+				{
+					if(!loaded)
+					{
+						loaded=true;
+						FOREACH(Ptr<IGuiPlugin>, plugin, plugins)
+						{
+							plugin->Load();
+						}
+						FOREACH(Ptr<IGuiPlugin>, plugin, plugins)
+						{
+							plugin->AfterLoad();
+						}
+					}
+				}
+
+				void Unload()override
+				{
+					if(loaded)
+					{
+						loaded=false;
+						FOREACH(Ptr<IGuiPlugin>, plugin, plugins)
+						{
+							plugin->Unload();
+						}
+					}
+				}
+
+				bool IsLoaded()override
+				{
+					return loaded;
+				}
+			};
+
+/***********************************************************************
 Helpers
 ***********************************************************************/
 
 			GuiApplication* application=0;
+			IGuiPluginManager* pluginManager=0;
 
 			GuiApplication* GetApplication()
 			{
 				return application;
 			}
+
+			IGuiPluginManager* GetPluginManager()
+			{
+				if(!pluginManager)
+				{
+					pluginManager=new GuiPluginManager;
+				}
+				return pluginManager;
+			}
+
+			void DestroyPluginManager()
+			{
+				if(pluginManager)
+				{
+					delete pluginManager;
+					pluginManager=0;
+				}
+			}
+
+/***********************************************************************
+GuiApplicationMain
+***********************************************************************/
 
 			void GuiApplicationInitialize()
 			{
@@ -312,23 +399,17 @@ Helpers
 					}
 				}
 
-				description::LoadPredefinedTypes();
-				description::LoadParsingTypes();
-				description::LoadGuiBasicTypes();
-				description::LoadGuiElementTypes();
-				description::LoadGuiCompositionTypes();
-				description::LoadGuiControlsTypes();
-				description::LoadGuiEventTypes();
-				theme::SetCurrentTheme(theme.Obj());
-
 				GetCurrentController()->InputService()->StartTimer();
 				GuiApplication app;
 				application=&app;
-
-				description::GetGlobalTypeManager()->Load();
+				
+				GetPluginManager()->Load();
+				GetGlobalTypeManager()->Load();
+				theme::SetCurrentTheme(theme.Obj());
 				GuiMain();
 				theme::SetCurrentTheme(0);
-				description::DestroyGlobalTypeManager();
+				DestroyGlobalTypeManager();
+				DestroyPluginManager();
 			}
 		}
 	}
@@ -733,6 +814,14 @@ GuiComponent
 			}
 
 			GuiComponent::~GuiComponent()
+			{
+			}
+
+			void GuiComponent::Attach(GuiControlHost* controlHost)
+			{
+			}
+
+			void GuiComponent::Detach(GuiControlHost* controlHost)
 			{
 			}
 
@@ -1233,7 +1322,7 @@ namespace vl
 GuiTabPage
 ***********************************************************************/
 
-			bool GuiTabPage::AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController)
+			bool GuiTabPage::AssociateTab(GuiTab* _owner)
 			{
 				if(owner)
 				{
@@ -1241,18 +1330,9 @@ GuiTabPage
 				}
 				else
 				{
-					if(!container)
-					{
-						container=new GuiControl(_styleController);
-						TextChanged.SetAssociatedComposition(container->GetBoundsComposition());
-						PageInstalled.SetAssociatedComposition(container->GetBoundsComposition());
-						PageUninstalled.SetAssociatedComposition(container->GetBoundsComposition());
-						PageContainerReady.SetAssociatedComposition(container->GetBoundsComposition());
-
-						PageContainerReady.Execute(container->GetNotifyEventArguments());
-					}
 					owner=_owner;
-					PageInstalled.Execute(container->GetNotifyEventArguments());
+					GuiEventArgs arguments(containerComposition);
+					PageInstalled.Execute(arguments);
 					return true;
 				}
 			}
@@ -1261,7 +1341,8 @@ GuiTabPage
 			{
 				if(owner && owner==_owner)
 				{
-					PageUninstalled.Execute(container->GetNotifyEventArguments());
+					GuiEventArgs arguments(containerComposition);
+					PageUninstalled.Execute(arguments);
 					owner=0;
 					return true;
 				}
@@ -1272,22 +1353,28 @@ GuiTabPage
 			}
 
 			GuiTabPage::GuiTabPage()
-				:container(0)
+				:containerComposition(0)
 				,owner(0)
 			{
+				containerComposition = new GuiBoundsComposition;
+				containerComposition->SetAlignmentToParent(Margin(2, 2, 2, 2));
+
+				TextChanged.SetAssociatedComposition(containerComposition);
+				PageInstalled.SetAssociatedComposition(containerComposition);
+				PageUninstalled.SetAssociatedComposition(containerComposition);
 			}
 
 			GuiTabPage::~GuiTabPage()
 			{
-				if(!container->GetParent())
+				if(!containerComposition->GetParent())
 				{
-					delete container;
+					delete containerComposition;
 				}
 			}
 
-			GuiControl* GuiTabPage::GetContainer()
+			compositions::GuiBoundsComposition* GuiTabPage::GetContainerComposition()
 			{
-				return container;
+				return containerComposition;
 			}
 
 			GuiTab* GuiTabPage::GetOwnerTab()
@@ -1309,15 +1396,8 @@ GuiTabPage
 					{
 						owner->styleController->SetTabText(owner->tabPages.IndexOf(this), text);
 					}
-					if(container)
-					{
-						TextChanged.Execute(container->GetNotifyEventArguments());
-					}
-					else
-					{
-						GuiEventArgs arguments;
-						TextChanged.Execute(arguments);
-					}
+					GuiEventArgs arguments(containerComposition);
+					TextChanged.Execute(arguments);
 				}
 			}
 
@@ -1386,10 +1466,10 @@ GuiTab
 					index=-1;
 				}
 
-				if(page->AssociateTab(this, styleController->CreateTabPageStyleController()))
+				if(page->AssociateTab(this))
 				{
 					index=index==-1?tabPages.Add(page):tabPages.Insert(index, page);
-					GetContainerComposition()->AddChild(page->GetContainer()->GetBoundsComposition());
+					GetContainerComposition()->AddChild(page->GetContainerComposition());
 					styleController->InsertTab(index);
 					styleController->SetTabText(index, page->GetText());
 				
@@ -1397,7 +1477,7 @@ GuiTab
 					{
 						SetSelectedPage(page);
 					}
-					page->GetContainer()->SetVisible(page==selectedPage);
+					page->GetContainerComposition()->SetVisible(page==selectedPage);
 					return true;
 				}
 				else
@@ -1412,7 +1492,7 @@ GuiTab
 				{
 					vint index=tabPages.IndexOf(value);
 					styleController->RemoveTab(index);
-					GetContainerComposition()->RemoveChild(value->GetContainer()->GetBoundsComposition());
+					GetContainerComposition()->RemoveChild(value->GetContainerComposition());
 					tabPages.RemoveAt(index);
 					if(tabPages.Count()==0)
 					{
@@ -1470,7 +1550,7 @@ GuiTab
 						for(vint i=0;i<tabPages.Count();i++)
 						{
 							bool selected=tabPages[i]==value;
-							tabPages[i]->GetContainer()->SetVisible(selected);
+							tabPages[i]->GetContainerComposition()->SetVisible(selected);
 							if(selected)
 							{
 								styleController->SetSelectedTab(i);
@@ -2649,6 +2729,7 @@ GuiControlHost
 				styleController=0;
 				for(vint i=0;i<components.Count();i++)
 				{
+					components[i]->Detach(this);
 					delete components[i];
 				}
 				delete host;
@@ -2844,13 +2925,22 @@ GuiControlHost
 				else
 				{
 					components.Add(component);
+					component->Attach(this);
 					return true;
 				}
 			}
 
 			bool GuiControlHost::RemoveComponent(GuiComponent* component)
 			{
-				return components.Remove(component);
+				vint index = components.IndexOf(component);
+				if (index == -1)
+				{
+					return false;
+				}
+				{
+					component->Detach(this);
+					return components.RemoveAt(index);
+				}
 			}
 
 			bool GuiControlHost::ContainsComponent(GuiComponent* component)
@@ -3307,6 +3397,11 @@ GuiPopup
 			void GuiPopup::PopupClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
 			{
 				GetApplication()->RegisterPopupClosed(this);
+				INativeWindow* window=GetNativeWindow();
+				if(window)
+				{
+					window->SetParent(0);
+				}
 			}
 
 			GuiPopup::GuiPopup(IStyleController* _styleController)
@@ -8520,7 +8615,7 @@ ListViewItemStyleProvider
 ListViewBigIconContentProvider
 ***********************************************************************/
 
-				ListViewBigIconContentProvider::ItemContent::ItemContent(Size iconSize, const FontProperties& font)
+				ListViewBigIconContentProvider::ItemContent::ItemContent(Size minIconSize, bool fitImage, const FontProperties& font)
 					:contentComposition(0)
 				{
 					contentComposition=new GuiBoundsComposition;
@@ -8540,7 +8635,11 @@ ListViewBigIconContentProvider
 						GuiCellComposition* cell=new GuiCellComposition;
 						table->AddChild(cell);
 						cell->SetSite(0, 1, 1, 1);
-						cell->SetPreferredMinSize(iconSize);
+						cell->SetPreferredMinSize(minIconSize);
+						if (!fitImage)
+						{
+							cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+						}
 
 						image=GuiImageFrameElement::Create();
 						image->SetStretch(true);
@@ -8595,8 +8694,9 @@ ListViewBigIconContentProvider
 				{
 				}
 
-				ListViewBigIconContentProvider::ListViewBigIconContentProvider(Size _iconSize)
-					:iconSize(_iconSize)
+				ListViewBigIconContentProvider::ListViewBigIconContentProvider(Size _minIconSize, bool _fitImage)
+					:minIconSize(_minIconSize)
+					,fitImage(_fitImage)
 				{
 				}
 
@@ -8616,7 +8716,7 @@ ListViewBigIconContentProvider
 
 				ListViewItemStyleProvider::IListViewItemContent* ListViewBigIconContentProvider::CreateItemContent(const FontProperties& font)
 				{
-					return new ItemContent(iconSize, font);
+					return new ItemContent(minIconSize, fitImage, font);
 				}
 
 				void ListViewBigIconContentProvider::AttachListControl(GuiListControl* value)
@@ -8631,7 +8731,7 @@ ListViewBigIconContentProvider
 ListViewSmallIconContentProvider
 ***********************************************************************/
 
-				ListViewSmallIconContentProvider::ItemContent::ItemContent(Size iconSize, const FontProperties& font)
+				ListViewSmallIconContentProvider::ItemContent::ItemContent(Size minIconSize, bool fitImage, const FontProperties& font)
 					:contentComposition(0)
 				{
 					contentComposition=new GuiBoundsComposition;
@@ -8651,7 +8751,11 @@ ListViewSmallIconContentProvider
 						GuiCellComposition* cell=new GuiCellComposition;
 						table->AddChild(cell);
 						cell->SetSite(1, 0, 1, 1);
-						cell->SetPreferredMinSize(iconSize);
+						cell->SetPreferredMinSize(minIconSize);
+						if (!fitImage)
+						{
+							cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+						}
 
 						image=GuiImageFrameElement::Create();
 						image->SetStretch(true);
@@ -8704,8 +8808,9 @@ ListViewSmallIconContentProvider
 				{
 				}
 
-				ListViewSmallIconContentProvider::ListViewSmallIconContentProvider(Size _iconSize)
-					:iconSize(_iconSize)
+				ListViewSmallIconContentProvider::ListViewSmallIconContentProvider(Size _minIconSize, bool _fitImage)
+					:minIconSize(_minIconSize)
+					,fitImage(_fitImage)
 				{
 				}
 
@@ -8725,7 +8830,7 @@ ListViewSmallIconContentProvider
 
 				ListViewItemStyleProvider::IListViewItemContent* ListViewSmallIconContentProvider::CreateItemContent(const FontProperties& font)
 				{
-					return new ItemContent(iconSize, font);
+					return new ItemContent(minIconSize, fitImage, font);
 				}
 
 				void ListViewSmallIconContentProvider::AttachListControl(GuiListControl* value)
@@ -8740,7 +8845,7 @@ ListViewSmallIconContentProvider
 ListViewListContentProvider
 ***********************************************************************/
 
-				ListViewListContentProvider::ItemContent::ItemContent(Size iconSize, const FontProperties& font)
+				ListViewListContentProvider::ItemContent::ItemContent(Size minIconSize, bool fitImage, const FontProperties& font)
 					:contentComposition(0)
 				{
 					contentComposition=new GuiBoundsComposition;
@@ -8760,7 +8865,11 @@ ListViewListContentProvider
 						GuiCellComposition* cell=new GuiCellComposition;
 						table->AddChild(cell);
 						cell->SetSite(1, 0, 1, 1);
-						cell->SetPreferredMinSize(iconSize);
+						cell->SetPreferredMinSize(minIconSize);
+						if (!fitImage)
+						{
+							cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+						}
 
 						image=GuiImageFrameElement::Create();
 						image->SetStretch(true);
@@ -8812,8 +8921,9 @@ ListViewListContentProvider
 				{
 				}
 
-				ListViewListContentProvider::ListViewListContentProvider(Size _iconSize)
-					:iconSize(_iconSize)
+				ListViewListContentProvider::ListViewListContentProvider(Size _minIconSize, bool _fitImage)
+					:minIconSize(_minIconSize)
+					,fitImage(_fitImage)
 				{
 				}
 
@@ -8833,7 +8943,7 @@ ListViewListContentProvider
 
 				ListViewItemStyleProvider::IListViewItemContent* ListViewListContentProvider::CreateItemContent(const FontProperties& font)
 				{
-					return new ItemContent(iconSize, font);
+					return new ItemContent(minIconSize, fitImage, font);
 				}
 
 				void ListViewListContentProvider::AttachListControl(GuiListControl* value)
@@ -8881,7 +8991,7 @@ ListViewTileContentProvider
 					textTable->SetColumnOption(0, GuiCellOption::PercentageOption(1.0));
 				}
 
-				ListViewTileContentProvider::ItemContent::ItemContent(Size iconSize, const FontProperties& font)
+				ListViewTileContentProvider::ItemContent::ItemContent(Size minIconSize, bool fitImage, const FontProperties& font)
 					:contentComposition(0)
 				{
 					contentComposition=new GuiBoundsComposition;
@@ -8901,7 +9011,11 @@ ListViewTileContentProvider
 						GuiCellComposition* cell=new GuiCellComposition;
 						table->AddChild(cell);
 						cell->SetSite(1, 0, 1, 1);
-						cell->SetPreferredMinSize(iconSize);
+						cell->SetPreferredMinSize(minIconSize);
+						if (!fitImage)
+						{
+							cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+						}
 
 						image=GuiImageFrameElement::Create();
 						image->SetStretch(true);
@@ -8971,8 +9085,9 @@ ListViewTileContentProvider
 				{
 				}
 
-				ListViewTileContentProvider::ListViewTileContentProvider(Size _iconSize)
-					:iconSize(_iconSize)
+				ListViewTileContentProvider::ListViewTileContentProvider(Size _minIconSize, bool _fitImage)
+					:minIconSize(_minIconSize)
+					,fitImage(_fitImage)
 				{
 				}
 
@@ -8992,7 +9107,7 @@ ListViewTileContentProvider
 
 				ListViewItemStyleProvider::IListViewItemContent* ListViewTileContentProvider::CreateItemContent(const FontProperties& font)
 				{
-					return new ItemContent(iconSize, font);
+					return new ItemContent(minIconSize, fitImage, font);
 				}
 
 				void ListViewTileContentProvider::AttachListControl(GuiListControl* value)
@@ -9007,7 +9122,7 @@ ListViewTileContentProvider
 ListViewInformationContentProvider
 ***********************************************************************/
 
-				ListViewInformationContentProvider::ItemContent::ItemContent(Size iconSize, const FontProperties& font)
+				ListViewInformationContentProvider::ItemContent::ItemContent(Size minIconSize, bool fitImage, const FontProperties& font)
 					:contentComposition(0)
 					,baselineFont(font)
 				{
@@ -9036,7 +9151,11 @@ ListViewInformationContentProvider
 						GuiCellComposition* cell=new GuiCellComposition;
 						table->AddChild(cell);
 						cell->SetSite(1, 0, 1, 1);
-						cell->SetPreferredMinSize(iconSize);
+						cell->SetPreferredMinSize(minIconSize);
+						if (!fitImage)
+						{
+							cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+						}
 
 						image=GuiImageFrameElement::Create();
 						image->SetStretch(true);
@@ -9156,8 +9275,9 @@ ListViewInformationContentProvider
 				{
 				}
 
-				ListViewInformationContentProvider::ListViewInformationContentProvider(Size _iconSize)
-					:iconSize(_iconSize)
+				ListViewInformationContentProvider::ListViewInformationContentProvider(Size _minIconSize, bool _fitImage)
+					:minIconSize(_minIconSize)
+					,fitImage(_fitImage)
 				{
 				}
 
@@ -9177,7 +9297,7 @@ ListViewInformationContentProvider
 
 				ListViewItemStyleProvider::IListViewItemContent* ListViewInformationContentProvider::CreateItemContent(const FontProperties& font)
 				{
-					return new ItemContent(iconSize, font);
+					return new ItemContent(minIconSize, fitImage, font);
 				}
 
 				void ListViewInformationContentProvider::AttachListControl(GuiListControl* value)
@@ -9441,7 +9561,7 @@ ListViewColumnItemArranger
 ListViewDetailContentProvider
 ***********************************************************************/
 
-				ListViewDetailContentProvider::ItemContent::ItemContent(Size iconSize, const FontProperties& font, GuiListControl::IItemProvider* _itemProvider)
+				ListViewDetailContentProvider::ItemContent::ItemContent(Size minIconSize, bool fitImage, const FontProperties& font, GuiListControl::IItemProvider* _itemProvider)
 					:contentComposition(0)
 					,itemProvider(_itemProvider)
 				{
@@ -9474,7 +9594,11 @@ ListViewDetailContentProvider
 							GuiCellComposition* cell=new GuiCellComposition;
 							table->AddChild(cell);
 							cell->SetSite(1, 0, 1, 1);
-							cell->SetPreferredMinSize(iconSize);
+							cell->SetPreferredMinSize(minIconSize);
+							if (!fitImage)
+							{
+								cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+							}
 
 							image=GuiImageFrameElement::Create();
 							image->SetStretch(true);
@@ -9586,8 +9710,9 @@ ListViewDetailContentProvider
 					}
 				}
 
-				ListViewDetailContentProvider::ListViewDetailContentProvider(Size _iconSize)
-					:iconSize(_iconSize)
+				ListViewDetailContentProvider::ListViewDetailContentProvider(Size _minIconSize, bool _fitImage)
+					:minIconSize(_minIconSize)
+					,fitImage(_fitImage)
 					,itemProvider(0)
 					,columnItemView(0)
 					,listViewItemStyleProvider(0)
@@ -9610,7 +9735,7 @@ ListViewDetailContentProvider
 
 				ListViewItemStyleProvider::IListViewItemContent* ListViewDetailContentProvider::CreateItemContent(const FontProperties& font)
 				{
-					return new ItemContent(iconSize, font, itemProvider);
+					return new ItemContent(minIconSize, fitImage, font, itemProvider);
 				}
 
 				void ListViewDetailContentProvider::AttachListControl(GuiListControl* value)
@@ -11304,7 +11429,7 @@ TreeViewNodeItemStyleProvider::ItemController
 					}
 				}
 
-				TreeViewNodeItemStyleProvider::ItemController::ItemController(TreeViewNodeItemStyleProvider* _styleProvider)
+				TreeViewNodeItemStyleProvider::ItemController::ItemController(TreeViewNodeItemStyleProvider* _styleProvider, Size minIconSize, bool fitImage)
 					:list::ItemStyleControllerBase(_styleProvider->GetBindedItemStyleProvider(), 0)
 					,styleProvider(_styleProvider)
 				{
@@ -11342,7 +11467,11 @@ TreeViewNodeItemStyleProvider::ItemController
 						GuiCellComposition* cell=new GuiCellComposition;
 						table->AddChild(cell);
 						cell->SetSite(1, 2, 1, 1);
-						cell->SetPreferredMinSize(Size(16, 16));
+						cell->SetPreferredMinSize(minIconSize);
+						if (!fitImage)
+						{
+							cell->SetMinSizeLimitation(GuiGraphicsComposition::NoLimit);
+						}
 
 						image=GuiImageFrameElement::Create();
 						image->SetStretch(true);
@@ -11413,17 +11542,6 @@ TreeViewNodeItemStyleProvider::ItemController
 TreeViewNodeItemStyleProvider
 ***********************************************************************/
 
-				TreeViewNodeItemStyleProvider::TreeViewNodeItemStyleProvider()
-					:treeControl(0)
-					,bindedItemStyleProvider(0)
-					,treeViewItemView(0)
-				{
-				}
-
-				TreeViewNodeItemStyleProvider::~TreeViewNodeItemStyleProvider()
-				{
-				}
-
 				TreeViewNodeItemStyleProvider::ItemController* TreeViewNodeItemStyleProvider::GetRelatedController(INodeProvider* node)
 				{
 					vint index=treeControl->GetNodeItemView()->CalculateNodeVisibilityIndex(node);
@@ -11471,6 +11589,19 @@ TreeViewNodeItemStyleProvider
 					UpdateExpandingButton(node);
 				}
 
+				TreeViewNodeItemStyleProvider::TreeViewNodeItemStyleProvider(Size _minIconSize, bool _fitImage)
+					:treeControl(0)
+					,bindedItemStyleProvider(0)
+					,treeViewItemView(0)
+					, minIconSize(_minIconSize)
+					, fitImage(_fitImage)
+				{
+				}
+
+				TreeViewNodeItemStyleProvider::~TreeViewNodeItemStyleProvider()
+				{
+				}
+
 				void TreeViewNodeItemStyleProvider::BindItemStyleProvider(GuiListControl::IItemStyleProvider* styleProvider)
 				{
 					bindedItemStyleProvider=styleProvider;
@@ -11512,7 +11643,7 @@ TreeViewNodeItemStyleProvider
 
 				INodeItemStyleController* TreeViewNodeItemStyleProvider::CreateItemStyle(vint styleId)
 				{
-					return new ItemController(this);
+					return new ItemController(this, minIconSize, fitImage);
 				}
 
 				void TreeViewNodeItemStyleProvider::DestroyItemStyle(INodeItemStyleController* style)
@@ -12403,29 +12534,29 @@ namespace vl
 					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateMenuItemButtonStyle());
 				}
 
-				controls::GuiToolstripToolbar* NewToolbar()
+				controls::GuiToolstripToolBar* NewToolBar()
 				{
-					return new controls::GuiToolstripToolbar(GetCurrentTheme()->CreateToolbarStyle());
+					return new controls::GuiToolstripToolBar(GetCurrentTheme()->CreateToolBarStyle());
 				}
 
-				controls::GuiToolstripButton* NewToolbarButton()
+				controls::GuiToolstripButton* NewToolBarButton()
 				{
-					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateToolbarButtonStyle());
+					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateToolBarButtonStyle());
 				}
 
-				controls::GuiToolstripButton* NewToolbarDropdownButton()
+				controls::GuiToolstripButton* NewToolBarDropdownButton()
 				{
-					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateToolbarDropdownButtonStyle());
+					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateToolBarDropdownButtonStyle());
 				}
 
-				controls::GuiToolstripButton* NewToolbarSplitButton()
+				controls::GuiToolstripButton* NewToolBarSplitButton()
 				{
-					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateToolbarSplitButtonStyle());
+					return new controls::GuiToolstripButton(GetCurrentTheme()->CreateToolBarSplitButtonStyle());
 				}
 
-				controls::GuiControl* NewToolbarSplitter()
+				controls::GuiControl* NewToolBarSplitter()
 				{
-					return new controls::GuiControl(GetCurrentTheme()->CreateToolbarSplitterStyle());
+					return new controls::GuiControl(GetCurrentTheme()->CreateToolBarSplitterStyle());
 				}
 
 				controls::GuiButton* NewButton()
@@ -12631,27 +12762,27 @@ Win7Theme
 				return new Win7MenuItemButtonStyle;
 			}
 
-			controls::GuiControl::IStyleController* Win7Theme::CreateToolbarStyle()
+			controls::GuiControl::IStyleController* Win7Theme::CreateToolBarStyle()
 			{
-				return new Win7ToolstripToolbarStyle;
+				return new Win7ToolstripToolBarStyle;
 			}
 
-			controls::GuiToolstripButton::IStyleController* Win7Theme::CreateToolbarButtonStyle()
+			controls::GuiToolstripButton::IStyleController* Win7Theme::CreateToolBarButtonStyle()
 			{
 				return new Win7ToolstripButtonStyle(Win7ToolstripButtonStyle::CommandButton);
 			}
 
-			controls::GuiToolstripButton::IStyleController* Win7Theme::CreateToolbarDropdownButtonStyle()
+			controls::GuiToolstripButton::IStyleController* Win7Theme::CreateToolBarDropdownButtonStyle()
 			{
 				return new Win7ToolstripButtonStyle(Win7ToolstripButtonStyle::DropdownButton);
 			}
 
-			controls::GuiToolstripButton::IStyleController* Win7Theme::CreateToolbarSplitButtonStyle()
+			controls::GuiToolstripButton::IStyleController* Win7Theme::CreateToolBarSplitButtonStyle()
 			{
 				return new Win7ToolstripButtonStyle(Win7ToolstripButtonStyle::SplitButton);
 			}
 
-			controls::GuiControl::IStyleController* Win7Theme::CreateToolbarSplitterStyle()
+			controls::GuiControl::IStyleController* Win7Theme::CreateToolBarSplitterStyle()
 			{
 				return new Win7ToolstripSplitterStyle;
 			}
@@ -12861,27 +12992,27 @@ Win8Theme
 				return new Win8MenuItemButtonStyle;
 			}
 
-			controls::GuiControl::IStyleController* Win8Theme::CreateToolbarStyle()
+			controls::GuiControl::IStyleController* Win8Theme::CreateToolBarStyle()
 			{
-				return new Win8ToolstripToolbarStyle;
+				return new Win8ToolstripToolBarStyle;
 			}
 
-			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolbarButtonStyle()
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolBarButtonStyle()
 			{
 				return new Win8ToolstripButtonStyle(Win8ToolstripButtonStyle::CommandButton);
 			}
 
-			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolbarDropdownButtonStyle()
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolBarDropdownButtonStyle()
 			{
 				return new Win8ToolstripButtonStyle(Win8ToolstripButtonStyle::DropdownButton);
 			}
 
-			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolbarSplitButtonStyle()
+			controls::GuiToolstripButton::IStyleController* Win8Theme::CreateToolBarSplitButtonStyle()
 			{
 				return new Win8ToolstripButtonStyle(Win8ToolstripButtonStyle::SplitButton);
 			}
 
-			controls::GuiControl::IStyleController* Win8Theme::CreateToolbarSplitterStyle()
+			controls::GuiControl::IStyleController* Win8Theme::CreateToolBarSplitterStyle()
 			{
 				return new Win8ToolstripSplitterStyle;
 			}
@@ -13982,6 +14113,10 @@ Win7ListViewColumnHeaderStyle
 				}
 			}
 
+			void Win7ListViewColumnHeaderStyle::SetSelected(bool value)
+			{
+			}
+
 			void Win7ListViewColumnHeaderStyle::Transfer(GuiButton::ControlState value)
 			{
 				if(controlStyle!=value)
@@ -14646,6 +14781,10 @@ Win7MenuBarButtonStyle
 				}
 			}
 
+			void Win7MenuBarButtonStyle::SetSelected(bool value)
+			{
+			}
+
 			controls::GuiMenu::IStyleController* Win7MenuBarButtonStyle::CreateSubMenuStyleController()
 			{
 				return new Win7MenuStyle;
@@ -14716,7 +14855,7 @@ Win7MenuItemButtonStyle::MeasuringSource
 Win7MenuItemButtonStyle
 ***********************************************************************/
 
-			void Win7MenuItemButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool opening)
+			void Win7MenuItemButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected, bool opening)
 			{
 				Win7ButtonColors targetColor;
 				bool active=false;
@@ -14732,11 +14871,11 @@ Win7MenuItemButtonStyle
 						switch(value)
 						{
 						case GuiButton::Normal:
-							targetColor=Win7ButtonColors::MenuItemButtonNormal();
+							targetColor=selected?Win7ButtonColors::MenuItemButtonSelected():Win7ButtonColors::MenuItemButtonNormal();
 							break;
 						case GuiButton::Active:
 						case GuiButton::Pressed:
-							targetColor=Win7ButtonColors::MenuItemButtonNormalActive();
+							targetColor=selected?Win7ButtonColors::MenuItemButtonSelectedActive():Win7ButtonColors::MenuItemButtonNormalActive();
 							active=true;
 							break;
 						}
@@ -14757,12 +14896,13 @@ Win7MenuItemButtonStyle
 					}
 				}
 				elements.Apply(targetColor);
-				elements.SetActive(active);
+				elements.SetActive(active || selected);
 			}
 
 			Win7MenuItemButtonStyle::Win7MenuItemButtonStyle()
 				:controlStyle(GuiButton::Normal)
 				,isVisuallyEnabled(true)
+				,isSelected(false)
 				,isOpening(false)
 			{
 				elements=Win7MenuItemButtonElements::Create();
@@ -14805,7 +14945,16 @@ Win7MenuItemButtonStyle
 				{
 					isVisuallyEnabled=value;
 					elements.imageElement->SetEnabled(value);
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
+				}
+			}
+
+			void Win7MenuItemButtonStyle::SetSelected(bool value)
+			{
+				if(isSelected!=value)
+				{
+					isSelected=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -14824,7 +14973,7 @@ Win7MenuItemButtonStyle
 				if(isOpening!=value)
 				{
 					isOpening=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -14860,7 +15009,7 @@ Win7MenuItemButtonStyle
 				if(controlStyle!=value)
 				{
 					controlStyle=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -15903,6 +16052,21 @@ Win7ButtonColors
 				return colors;
 			}
 
+			Win7ButtonColors Win7ButtonColors::ToolstripButtonSelected()
+			{
+				Win7ButtonColors colors=
+				{
+					Color(84, 84, 84),
+					Color(250, 250, 250),
+					Color(250, 250, 250),
+					Color(250, 250, 250),
+					Color(250, 250, 250),
+					Color(250, 250, 250),
+					Win7GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
 			Win7ButtonColors Win7ButtonColors::ToolstripButtonDisabled()
 			{
 				Win7ButtonColors colors=
@@ -16007,6 +16171,36 @@ Win7ButtonColors
 					Color(231, 238, 247),
 					Color(229, 233, 238),
 					Color(245, 249, 255),
+					Win7GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win7ButtonColors Win7ButtonColors::MenuItemButtonSelected()
+			{
+				Win7ButtonColors colors=
+				{
+					Color(175, 208, 247),
+					Color(248, 248, 250),
+					Color(0, 0, 0, 0),
+					Color(0, 0, 0, 0),
+					Color(0, 0, 0, 0),
+					Color(0, 0, 0, 0),
+					Win7GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
+			Win7ButtonColors Win7ButtonColors::MenuItemButtonSelectedActive()
+			{
+				Win7ButtonColors colors=
+				{
+					Color(175, 208, 247),
+					Color(248, 248, 250),
+					Color(243, 245, 247),
+					Color(231, 238, 247),
+					Color(0, 0, 0, 0),
+					Color(0, 0, 0, 0),
 					Win7GetSystemTextColor(true),
 				};
 				return colors;
@@ -16841,8 +17035,12 @@ Win7TabStyle
 					GuiCellComposition* cell=new GuiCellComposition;
 					boundsComposition->AddChild(cell);
 					cell->SetSite(1, 0, 1, 2);
+					
+					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+					element->SetColor(GetBackgroundColor());
 
 					containerComposition=new GuiBoundsComposition;
+					containerComposition->SetOwnedElement(element);
 					containerComposition->SetAlignmentToParent(Margin(1, 0, 1, 1));
 					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
 					cell->AddChild(containerComposition);
@@ -17010,13 +17208,6 @@ Win7TabStyle
 				
 				UpdateHeaderLayout();
 			}
-
-			controls::GuiControl::IStyleController* Win7TabStyle::CreateTabPageStyleController()
-			{
-				GuiControl::IStyleController* style=new Win7EmptyStyle(GetBackgroundColor());
-				style->GetBoundsComposition()->SetAlignmentToParent(Margin(2, 2, 2, 2));
-				return style;
-			}
 		}
 	}
 }
@@ -17040,13 +17231,13 @@ namespace vl
 Win7WindowStyle
 ***********************************************************************/
 
-			Win7ToolstripToolbarStyle::Win7ToolstripToolbarStyle()
+			Win7ToolstripToolBarStyle::Win7ToolstripToolBarStyle()
 				:Win7EmptyStyle(Win7GetSystemWindowColor())
 			{
 				boundsComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
 			}
 
-			Win7ToolstripToolbarStyle::~Win7ToolstripToolbarStyle()
+			Win7ToolstripToolBarStyle::~Win7ToolstripToolBarStyle()
 			{
 			}
 
@@ -17140,7 +17331,7 @@ Win7ToolstripButtonStyle
 				style->elements.Apply(colorCurrent);
 			}
 
-			void Win7ToolstripButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool menuOpening)
+			void Win7ToolstripButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected, bool menuOpening)
 			{
 				Win7ButtonColors targetColor;
 				if(enabled)
@@ -17152,10 +17343,10 @@ Win7ToolstripButtonStyle
 					switch(value)
 					{
 					case GuiButton::Normal:
-						targetColor=Win7ButtonColors::ToolstripButtonNormal();
+						targetColor=selected?Win7ButtonColors::ToolstripButtonSelected():Win7ButtonColors::ToolstripButtonNormal();
 						break;
 					case GuiButton::Active:
-						targetColor=Win7ButtonColors::ToolstripButtonActive();
+						targetColor=selected?Win7ButtonColors::ToolstripButtonSelected():Win7ButtonColors::ToolstripButtonActive();
 						break;
 					case GuiButton::Pressed:
 						targetColor=Win7ButtonColors::ToolstripButtonPressed();
@@ -17172,6 +17363,7 @@ Win7ToolstripButtonStyle
 			Win7ToolstripButtonStyle::Win7ToolstripButtonStyle(ButtonStyle _buttonStyle)
 				:controlStyle(GuiButton::Normal)
 				,isVisuallyEnabled(true)
+				,isSelected(false)
 				,isOpening(false)
 				,buttonStyle(_buttonStyle)
 				,subMenuHost(0)
@@ -17271,7 +17463,16 @@ Win7ToolstripButtonStyle
 				{
 					isVisuallyEnabled=value;
 					imageElement->SetEnabled(value);
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
+				}
+			}
+
+			void Win7ToolstripButtonStyle::SetSelected(bool value)
+			{
+				if(isSelected!=value)
+				{
+					isSelected=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -17289,7 +17490,7 @@ Win7ToolstripButtonStyle
 				if(isOpening!=value)
 				{
 					isOpening=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -17324,7 +17525,7 @@ Win7ToolstripButtonStyle
 				if(controlStyle!=value)
 				{
 					controlStyle=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -18591,6 +18792,10 @@ Win8MenuBarButtonStyle
 				}
 			}
 
+			void Win8MenuBarButtonStyle::SetSelected(bool value)
+			{
+			}
+
 			controls::GuiMenu::IStyleController* Win8MenuBarButtonStyle::CreateSubMenuStyleController()
 			{
 				return new Win8MenuStyle;
@@ -18661,7 +18866,7 @@ Win8MenuItemButtonStyle::MeasuringSource
 Win8MenuItemButtonStyle
 ***********************************************************************/
 
-			void Win8MenuItemButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool opening)
+			void Win8MenuItemButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected, bool opening)
 			{
 				Win8ButtonColors targetColor;
 				bool active=false;
@@ -18677,11 +18882,11 @@ Win8MenuItemButtonStyle
 						switch(value)
 						{
 						case GuiButton::Normal:
-							targetColor=Win8ButtonColors::MenuItemButtonNormal();
+							targetColor=selected?Win8ButtonColors::MenuItemButtonSelected():Win8ButtonColors::MenuItemButtonNormal();
 							break;
 						case GuiButton::Active:
 						case GuiButton::Pressed:
-							targetColor=Win8ButtonColors::MenuItemButtonNormalActive();
+							targetColor=selected?Win8ButtonColors::MenuItemButtonSelectedActive():Win8ButtonColors::MenuItemButtonNormalActive();
 							active=true;
 							break;
 						}
@@ -18702,12 +18907,13 @@ Win8MenuItemButtonStyle
 					}
 				}
 				elements.Apply(targetColor);
-				elements.SetActive(active);
+				elements.SetActive(active || selected);
 			}
 
 			Win8MenuItemButtonStyle::Win8MenuItemButtonStyle()
 				:controlStyle(GuiButton::Normal)
 				,isVisuallyEnabled(true)
+				,isSelected(false)
 				,isOpening(false)
 			{
 				elements=Win8MenuItemButtonElements::Create();
@@ -18750,7 +18956,16 @@ Win8MenuItemButtonStyle
 				{
 					isVisuallyEnabled=value;
 					elements.imageElement->SetEnabled(value);
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
+				}
+			}
+
+			void Win8MenuItemButtonStyle::SetSelected(bool value)
+			{
+				if(isSelected!=value)
+				{
+					isSelected=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -18769,7 +18984,7 @@ Win8MenuItemButtonStyle
 				if(isOpening!=value)
 				{
 					isOpening=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -18805,7 +19020,7 @@ Win8MenuItemButtonStyle
 				if(controlStyle!=value)
 				{
 					controlStyle=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -19747,6 +19962,18 @@ Win8ButtonColors
 				return colors;
 			}
 
+			Win8ButtonColors Win8ButtonColors::ToolstripButtonSelected()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(96, 161, 226),
+					Color(233, 241, 250),
+					Color(233, 241, 250),
+					Win8GetSystemTextColor(true),
+				};
+				return colors;
+			}
+
 			Win8ButtonColors Win8ButtonColors::ToolstripButtonDisabled()
 			{
 				Win8ButtonColors colors=
@@ -19925,6 +20152,32 @@ Win8ButtonColors
 					Color(120, 174, 229),
 					Color(209, 226, 242),
 					Color(209, 226, 242),
+					Win8GetSystemTextColor(true),
+					Color(187, 204, 220),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuItemButtonSelected()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(120, 174, 229),
+					Color(233, 241, 250),
+					Color(233, 241, 250),
+					Win8GetSystemTextColor(true),
+					Color(233, 241, 250),
+				};
+				return colors;
+			}
+
+			Win8ButtonColors Win8ButtonColors::MenuItemButtonSelectedActive()
+			{
+				Win8ButtonColors colors=
+				{
+					Color(120, 174, 229),
+					Color(233, 241, 250),
+					Color(233, 241, 250),
 					Win8GetSystemTextColor(true),
 					Color(187, 204, 220),
 				};
@@ -20552,7 +20805,7 @@ namespace vl
 Win8WindowStyle
 ***********************************************************************/
 
-			Win8ToolstripToolbarStyle::Win8ToolstripToolbarStyle()
+			Win8ToolstripToolBarStyle::Win8ToolstripToolBarStyle()
 			{
 				{
 					GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
@@ -20581,33 +20834,33 @@ Win8WindowStyle
 				}
 			}
 
-			Win8ToolstripToolbarStyle::~Win8ToolstripToolbarStyle()
+			Win8ToolstripToolBarStyle::~Win8ToolstripToolBarStyle()
 			{
 			}
 
-			compositions::GuiBoundsComposition* Win8ToolstripToolbarStyle::GetBoundsComposition()
+			compositions::GuiBoundsComposition* Win8ToolstripToolBarStyle::GetBoundsComposition()
 			{
 				return boundsComposition;
 			}
 
-			compositions::GuiGraphicsComposition* Win8ToolstripToolbarStyle::GetContainerComposition()
+			compositions::GuiGraphicsComposition* Win8ToolstripToolBarStyle::GetContainerComposition()
 			{
 				return containerComposition;
 			}
 
-			void Win8ToolstripToolbarStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
+			void Win8ToolstripToolBarStyle::SetFocusableComposition(compositions::GuiGraphicsComposition* value)
 			{
 			}
 
-			void Win8ToolstripToolbarStyle::SetText(const WString& value)
+			void Win8ToolstripToolBarStyle::SetText(const WString& value)
 			{
 			}
 
-			void Win8ToolstripToolbarStyle::SetFont(const FontProperties& value)
+			void Win8ToolstripToolBarStyle::SetFont(const FontProperties& value)
 			{
 			}
 
-			void Win8ToolstripToolbarStyle::SetVisuallyEnabled(bool value)
+			void Win8ToolstripToolBarStyle::SetVisuallyEnabled(bool value)
 			{
 			}
 
@@ -20700,7 +20953,7 @@ Win8ToolstripButtonStyle
 				style->elements.Apply(colorCurrent);
 			}
 
-			void Win8ToolstripButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool menuOpening)
+			void Win8ToolstripButtonStyle::TransferInternal(GuiButton::ControlState value, bool enabled, bool selected, bool menuOpening)
 			{
 				Win8ButtonColors targetColor;
 				if(enabled)
@@ -20712,10 +20965,10 @@ Win8ToolstripButtonStyle
 					switch(value)
 					{
 					case GuiButton::Normal:
-						targetColor=Win8ButtonColors::ToolstripButtonNormal();
+						targetColor=selected?Win8ButtonColors::ToolstripButtonSelected():Win8ButtonColors::ToolstripButtonNormal();
 						break;
 					case GuiButton::Active:
-						targetColor=Win8ButtonColors::ToolstripButtonActive();
+						targetColor=selected?Win8ButtonColors::ToolstripButtonSelected():Win8ButtonColors::ToolstripButtonActive();
 						break;
 					case GuiButton::Pressed:
 						targetColor=Win8ButtonColors::ToolstripButtonPressed();
@@ -20732,6 +20985,7 @@ Win8ToolstripButtonStyle
 			Win8ToolstripButtonStyle::Win8ToolstripButtonStyle(ButtonStyle _buttonStyle)
 				:controlStyle(GuiButton::Normal)
 				,isVisuallyEnabled(true)
+				,isSelected(false)
 				,isOpening(false)
 				,buttonStyle(_buttonStyle)
 				,subMenuHost(0)
@@ -20831,7 +21085,16 @@ Win8ToolstripButtonStyle
 				{
 					isVisuallyEnabled=value;
 					imageElement->SetEnabled(value);
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
+				}
+			}
+
+			void Win8ToolstripButtonStyle::SetSelected(bool value)
+			{
+				if(isSelected!=value)
+				{
+					isSelected=value;
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -20849,7 +21112,7 @@ Win8ToolstripButtonStyle
 				if(isOpening!=value)
 				{
 					isOpening=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -20884,7 +21147,7 @@ Win8ToolstripButtonStyle
 				if(controlStyle!=value)
 				{
 					controlStyle=value;
-					TransferInternal(controlStyle, isVisuallyEnabled, isOpening);
+					TransferInternal(controlStyle, isVisuallyEnabled, isSelected, isOpening);
 				}
 			}
 
@@ -20955,6 +21218,7 @@ namespace vl
 	{
 		namespace controls
 		{
+			using namespace collections;
 			using namespace elements;
 			using namespace compositions;
 
@@ -20962,9 +21226,158 @@ namespace vl
 GuiDocumentViewer
 ***********************************************************************/
 
+			void GuiDocumentCommonInterface::UpdateCaretPoint()
+			{
+				GuiGraphicsHost* host=documentComposition->GetRelatedGraphicsHost();
+				if(host)
+				{
+					Rect caret=documentElement->GetCaretBounds(documentElement->GetCaretEnd(), documentElement->IsCaretEndPreferFrontSide());
+					Point view=GetDocumentViewPosition();
+					vint x=caret.x1-view.x;
+					vint y=caret.y2-view.y;
+					host->SetCaretPoint(Point(x, y), documentComposition);
+				}
+			}
+
+			void GuiDocumentCommonInterface::Move(TextPos caret, bool shift, bool frontSide)
+			{
+				TextPos begin=documentElement->GetCaretBegin();
+				TextPos end=documentElement->GetCaretEnd();
+				
+				TextPos newBegin=shift?begin:caret;
+				TextPos newEnd=caret;
+				documentElement->SetCaret(newBegin, newEnd, frontSide);
+				documentElement->SetCaretVisible(true);
+
+				Rect bounds=documentElement->GetCaretBounds(newEnd, frontSide);
+				if(bounds!=Rect())
+				{
+					bounds.x1-=15;
+					bounds.y1-=15;
+					bounds.x2+=15;
+					bounds.y2+=15;
+					EnsureRectVisible(bounds);
+				}
+				UpdateCaretPoint();
+				SelectionChanged.Execute(documentControl->GetNotifyEventArguments());
+			}
+
+			bool GuiDocumentCommonInterface::ProcessKey(vint code, bool shift, bool ctrl)
+			{
+				if(IGuiShortcutKeyItem* item=internalShortcutKeyManager->TryGetShortcut(ctrl, shift, false, code))
+				{
+					GuiEventArgs arguments;
+					item->Executed.Execute(arguments);
+					return true;
+				}
+
+				TextPos currentCaret=documentElement->GetCaretEnd();
+				bool frontSide=documentElement->IsCaretEndPreferFrontSide();
+				TextPos begin=documentElement->GetCaretBegin();
+				TextPos end=documentElement->GetCaretEnd();
+
+				switch(code)
+				{
+				case VKEY_UP:
+					{
+						TextPos newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretMoveUp, frontSide);
+						Move(newCaret, shift, frontSide);
+					}
+					break;
+				case VKEY_DOWN:
+					{
+						TextPos newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretMoveDown, frontSide);
+						Move(newCaret, shift, frontSide);
+					}
+					break;
+				case VKEY_LEFT:
+					{
+						TextPos newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretMoveLeft, frontSide);
+						Move(newCaret, shift, frontSide);
+					}
+					break;
+				case VKEY_RIGHT:
+					{
+						TextPos newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretMoveRight, frontSide);
+						Move(newCaret, shift, frontSide);
+					}
+					break;
+				case VKEY_HOME:
+					{
+						TextPos newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretLineFirst, frontSide);
+						if(newCaret==currentCaret)
+						{
+							newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretFirst, frontSide);
+						}
+						Move(newCaret, shift, frontSide);
+					}
+					break;
+				case VKEY_END:
+					{
+						TextPos newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretLineLast, frontSide);
+						if(newCaret==currentCaret)
+						{
+							newCaret=documentElement->CalculateCaret(currentCaret, IGuiGraphicsParagraph::CaretLast, frontSide);
+						}
+						Move(newCaret, shift, frontSide);
+					}
+					break;
+				case VKEY_PRIOR:
+					{
+					}
+					break;
+				case VKEY_NEXT:
+					{
+					}
+					break;
+				case VKEY_BACK:
+					if(editMode==Editable)
+					{
+						if(begin==end)
+						{
+							ProcessKey(VKEY_LEFT, true, false);
+						}
+						Array<WString> text;
+						EditText(documentElement->GetCaretBegin(), documentElement->GetCaretEnd(), documentElement->IsCaretEndPreferFrontSide(), text);
+						return true;
+					}
+					break;
+				case VKEY_DELETE:
+					if(editMode==Editable)
+					{
+						if(begin==end)
+						{
+							ProcessKey(VKEY_RIGHT, true, false);
+						}
+						Array<WString> text;
+						EditText(documentElement->GetCaretBegin(), documentElement->GetCaretEnd(), documentElement->IsCaretEndPreferFrontSide(), text);
+						return true;
+					}
+					break;
+				case VKEY_RETURN:
+					if(editMode==Editable)
+					{
+						if(ctrl)
+						{
+							Array<WString> text(1);
+							text[0]=L"\r\n";
+							EditText(documentElement->GetCaretBegin(), documentElement->GetCaretEnd(), documentElement->IsCaretEndPreferFrontSide(), text);
+						}
+						else
+						{
+							Array<WString> text(2);
+							EditText(documentElement->GetCaretBegin(), documentElement->GetCaretEnd(), documentElement->IsCaretEndPreferFrontSide(), text);
+						}
+						return true;
+					}
+					break;
+				}
+				return false;
+			}
+
 			void GuiDocumentCommonInterface::InstallDocumentViewer(GuiControl* _sender, compositions::GuiGraphicsComposition* _container)
 			{
-				senderControl=_sender;
+				documentControl=_sender;
 
 				documentElement=GuiDocumentElement::Create();
 				documentComposition=new GuiBoundsComposition;
@@ -20978,72 +21391,320 @@ GuiDocumentViewer
 				documentComposition->GetEventReceiver()->leftButtonUp.AttachMethod(this, &GuiDocumentCommonInterface::OnMouseUp);
 				documentComposition->GetEventReceiver()->mouseLeave.AttachMethod(this, &GuiDocumentCommonInterface::OnMouseLeave);
 
+				_sender->GetFocusableComposition()->GetEventReceiver()->caretNotify.AttachMethod(this, &GuiDocumentCommonInterface::OnCaretNotify);
+				_sender->GetFocusableComposition()->GetEventReceiver()->gotFocus.AttachMethod(this, &GuiDocumentCommonInterface::OnGotFocus);
+				_sender->GetFocusableComposition()->GetEventReceiver()->lostFocus.AttachMethod(this, &GuiDocumentCommonInterface::OnLostFocus);
+				_sender->GetFocusableComposition()->GetEventReceiver()->keyDown.AttachMethod(this, &GuiDocumentCommonInterface::OnKeyDown);
+				_sender->GetFocusableComposition()->GetEventReceiver()->charInput.AttachMethod(this, &GuiDocumentCommonInterface::OnCharInput);
+
+				undoRedoProcessor->Setup(documentElement, documentComposition);
 				ActiveHyperlinkChanged.SetAssociatedComposition(_sender->GetBoundsComposition());
 				ActiveHyperlinkExecuted.SetAssociatedComposition(_sender->GetBoundsComposition());
+				SelectionChanged.SetAssociatedComposition(_sender->GetBoundsComposition());
 			}
 
-			void GuiDocumentCommonInterface::SetActiveHyperlinkId(vint value)
+			void GuiDocumentCommonInterface::SetActiveHyperlink(Ptr<DocumentHyperlinkRun> hyperlink, vint paragraphIndex)
 			{
-				if(activeHyperlinkId!=value)
+				if(activeHyperlink!=hyperlink)
 				{
-					documentElement->ActivateHyperlink(activeHyperlinkId, false);
-					activeHyperlinkId=value;
-					documentElement->ActivateHyperlink(activeHyperlinkId, true);
-					ActiveHyperlinkChanged.Execute(senderControl->GetNotifyEventArguments());
+					ActivateActiveHyperlink(false);
+					activeHyperlink=hyperlink;
+					activeHyperlinkParagraph=paragraphIndex;
+					ActivateActiveHyperlink(true);
+					ActiveHyperlinkChanged.Execute(documentControl->GetNotifyEventArguments());
+				}
+			}
+
+			void GuiDocumentCommonInterface::ActivateActiveHyperlink(bool activate)
+			{
+				if(activeHyperlink)
+				{
+					activeHyperlink->styleName=activate?activeHyperlink->activeStyleName:activeHyperlink->normalStyleName;
+					documentElement->NotifyParagraphUpdated(activeHyperlinkParagraph, 1, 1, false);
+				}
+			}
+
+			void GuiDocumentCommonInterface::AddShortcutCommand(vint key, const Func<void()>& eventHandler)
+			{
+				IGuiShortcutKeyItem* item=internalShortcutKeyManager->CreateShortcut(true, false, false, key);
+				item->Executed.AttachLambda([=](GuiGraphicsComposition* sender, GuiEventArgs& arguments)
+				{
+					eventHandler();
+				});
+			}
+
+			void GuiDocumentCommonInterface::EditTextInternal(TextPos begin, TextPos end, const Func<void(TextPos, TextPos, vint&, vint&)>& editor)
+			{
+				// save run before editing
+				if(begin>end)
+				{
+					TextPos temp=begin;
+					begin=end;
+					end=temp;
+				}
+				Ptr<DocumentModel> originalModel=documentElement->GetDocument()->CopyDocument(begin, end, true);
+				if(originalModel)
+				{
+					// edit
+					vint paragraphCount=0;
+					vint lastParagraphLength=0;
+					editor(begin, end, paragraphCount, lastParagraphLength);
+
+					// calculate new caret
+					TextPos caret;
+					if(paragraphCount==0)
+					{
+						caret=begin;
+					}
+					else if(paragraphCount==1)
+					{
+						caret=TextPos(begin.row, begin.column+lastParagraphLength);
+					}
+					else
+					{
+						caret=TextPos(begin.row+paragraphCount-1, lastParagraphLength);
+					}
+					documentElement->SetCaret(caret, caret, true);
+					documentControl->TextChanged.Execute(documentControl->GetNotifyEventArguments());
+
+					// save run after editing
+					Ptr<DocumentModel> inputModel=documentElement->GetDocument()->CopyDocument(begin, caret, true);
+
+					// submit redo-undo
+					GuiDocumentUndoRedoProcessor::ReplaceModelStruct arguments;
+					arguments.originalStart=begin;
+					arguments.originalEnd=end;
+					arguments.originalModel=originalModel;
+					arguments.inputStart=begin;
+					arguments.inputEnd=caret;
+					arguments.inputModel=inputModel;
+					undoRedoProcessor->OnReplaceModel(arguments);
+				}
+			}
+
+			void GuiDocumentCommonInterface::EditStyleInternal(TextPos begin, TextPos end, const Func<void(TextPos, TextPos)>& editor)
+			{
+				// save run before editing
+				if(begin>end)
+				{
+					TextPos temp=begin;
+					begin=end;
+					end=temp;
+				}
+				Ptr<DocumentModel> originalModel=documentElement->GetDocument()->CopyDocument(begin, end, true);
+				if(originalModel)
+				{
+					// edit
+					editor(begin, end);
+
+					// save run after editing
+					Ptr<DocumentModel> inputModel=documentElement->GetDocument()->CopyDocument(begin, end, true);
+
+					// submit redo-undo
+					GuiDocumentUndoRedoProcessor::ReplaceModelStruct arguments;
+					arguments.originalStart=begin;
+					arguments.originalEnd=end;
+					arguments.originalModel=originalModel;
+					arguments.inputStart=begin;
+					arguments.inputEnd=end;
+					arguments.inputModel=inputModel;
+					undoRedoProcessor->OnReplaceModel(arguments);
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnCaretNotify(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				if(documentControl->GetVisuallyEnabled())
+				{
+					if(editMode!=ViewOnly)
+					{
+						documentElement->SetCaretVisible(!documentElement->GetCaretVisible());
+					}
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				if(documentControl->GetVisuallyEnabled())
+				{
+					if(editMode!=ViewOnly)
+					{
+						documentElement->SetCaretVisible(true);
+						UpdateCaretPoint();
+					}
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				if(documentControl->GetVisuallyEnabled())
+				{
+					documentElement->SetCaretVisible(false);
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments)
+			{
+				if(documentControl->GetVisuallyEnabled())
+				{
+					if(editMode!=ViewOnly)
+					{
+						if(ProcessKey(arguments.code, arguments.shift, arguments.ctrl))
+						{
+							arguments.handled=true;
+						}
+					}
+				}
+			}
+
+			void GuiDocumentCommonInterface::OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments)
+			{
+				if(documentControl->GetVisuallyEnabled())
+				{
+					if(editMode==Editable && arguments.code!=VKEY_ESCAPE && arguments.code!=VKEY_BACK && arguments.code!=VKEY_RETURN && !arguments.ctrl)
+					{
+						Array<WString> text(1);
+						text[0]=WString(arguments.code);
+						EditText(documentElement->GetCaretBegin(), documentElement->GetCaretEnd(), documentElement->IsCaretEndPreferFrontSide(), text);
+					}
 				}
 			}
 
 			void GuiDocumentCommonInterface::OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
 			{
-				vint id=documentElement->GetHyperlinkIdFromPoint(Point(arguments.x, arguments.y));
-				if(dragging && id!=draggingHyperlinkId)
+				if(documentControl->GetVisuallyEnabled())
 				{
-					id=DocumentRun::NullHyperlinkId;
-				}
-				SetActiveHyperlinkId(id);
-				if(id==DocumentRun::NullHyperlinkId)
-				{
-					documentComposition->SetAssociatedCursor(0);
-				}
-				else
-				{
-					INativeCursor* cursor=GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::Hand);
-					documentComposition->SetAssociatedCursor(cursor);
+					switch(editMode)
+					{
+					case ViewOnly:
+						{
+							Point point(arguments.x, arguments.y);
+							Ptr<DocumentHyperlinkRun> hyperlink=documentElement->GetHyperlinkFromPoint(point);
+							vint hyperlinkParagraph=hyperlink?documentElement->CalculateCaretFromPoint(point).row:-1;
+
+							if(dragging)
+							{
+								if(activeHyperlink)
+								{
+									ActivateActiveHyperlink(activeHyperlink==hyperlink);
+								}
+							}
+							else
+							{
+								SetActiveHyperlink(hyperlink, hyperlinkParagraph);
+							}
+
+							if(activeHyperlink && activeHyperlink==hyperlink)
+							{
+								INativeCursor* cursor=GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::Hand);
+								documentComposition->SetAssociatedCursor(cursor);
+							}
+							else
+							{
+								documentComposition->SetAssociatedCursor(0);
+							}
+						}
+						break;
+					case Selectable:
+					case Editable:
+						if(dragging)
+						{
+							TextPos caret=documentElement->CalculateCaretFromPoint(Point(arguments.x, arguments.y));
+							TextPos oldCaret=documentElement->GetCaretBegin();
+							Move(caret, true, (oldCaret==caret?documentElement->IsCaretEndPreferFrontSide():caret<oldCaret));
+						}
+						break;
+					}
 				}
 			}
 
 			void GuiDocumentCommonInterface::OnMouseDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
 			{
-				vint id=documentElement->GetHyperlinkIdFromPoint(Point(arguments.x, arguments.y));
-				draggingHyperlinkId=id;
-				SetActiveHyperlinkId(id);
-				dragging=true;
+				if(documentControl->GetVisuallyEnabled())
+				{
+					documentControl->SetFocus();
+					switch(editMode)
+					{
+					case ViewOnly:
+						{
+							Point point(arguments.x, arguments.y);
+							Ptr<DocumentHyperlinkRun> hyperlink=documentElement->GetHyperlinkFromPoint(point);
+							vint hyperlinkParagraph=hyperlink?documentElement->CalculateCaretFromPoint(point).row:-1;
+							SetActiveHyperlink(hyperlink, hyperlinkParagraph);
+						}
+						break;
+					case Selectable:
+					case Editable:
+						{
+							TextPos caret=documentElement->CalculateCaretFromPoint(Point(arguments.x, arguments.y));
+							TextPos oldCaret=documentElement->GetCaretEnd();
+							if(caret!=oldCaret)
+							{
+								Move(caret, arguments.shift, caret<oldCaret);
+							}
+						}
+						break;
+					}
+					dragging=true;
+				}
 			}
 
 			void GuiDocumentCommonInterface::OnMouseUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
 			{
-				dragging=false;
-				vint id=documentElement->GetHyperlinkIdFromPoint(Point(arguments.x, arguments.y));
-				if(id==draggingHyperlinkId && id!=DocumentRun::NullHyperlinkId)
+				if(documentControl->GetVisuallyEnabled())
 				{
-					ActiveHyperlinkExecuted.Execute(senderControl->GetNotifyEventArguments());
+					dragging=false;
+					switch(editMode)
+					{
+					case ViewOnly:
+						{
+							Point point(arguments.x, arguments.y);
+							Ptr<DocumentHyperlinkRun> hyperlink=documentElement->GetHyperlinkFromPoint(point);
+							if(activeHyperlink!=hyperlink)
+							{
+								SetActiveHyperlink(0);
+							}
+							if(activeHyperlink)
+							{
+								ActiveHyperlinkExecuted.Execute(documentControl->GetNotifyEventArguments());
+							}
+						}
+						break;
+					}
 				}
-				draggingHyperlinkId=DocumentRun::NullHyperlinkId;
 			}
 
 			void GuiDocumentCommonInterface::OnMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
 			{
-				SetActiveHyperlinkId(DocumentRun::NullHyperlinkId);
+				SetActiveHyperlink(0);
+			}
+
+			Point GuiDocumentCommonInterface::GetDocumentViewPosition()
+			{
+				return Point(0, 0);
+			}
+
+			void GuiDocumentCommonInterface::EnsureRectVisible(Rect bounds)
+			{
 			}
 
 			GuiDocumentCommonInterface::GuiDocumentCommonInterface()
 				:documentElement(0)
 				,documentComposition(0)
-				,activeHyperlinkId(DocumentRun::NullHyperlinkId)
-				,draggingHyperlinkId(DocumentRun::NullHyperlinkId)
+				,activeHyperlinkParagraph(-1)
 				,dragging(false)
-				,senderControl(0)
+				,editMode(ViewOnly)
+				,documentControl(0)
 			{
+				undoRedoProcessor=new GuiDocumentUndoRedoProcessor;
+
+				internalShortcutKeyManager=new GuiShortcutKeyManager;
+				AddShortcutCommand('Z', Func<bool()>(this, &GuiDocumentCommonInterface::Undo));
+				AddShortcutCommand('Y', Func<bool()>(this, &GuiDocumentCommonInterface::Redo));
+				AddShortcutCommand('A', Func<void()>(this, &GuiDocumentCommonInterface::SelectAll));
+				AddShortcutCommand('X', Func<bool()>(this, &GuiDocumentCommonInterface::Cut));
+				AddShortcutCommand('C', Func<bool()>(this, &GuiDocumentCommonInterface::Copy));
+				AddShortcutCommand('V', Func<bool()>(this, &GuiDocumentCommonInterface::Paste));
 			}
 
 			GuiDocumentCommonInterface::~GuiDocumentCommonInterface()
@@ -21057,44 +21718,467 @@ GuiDocumentViewer
 
 			void GuiDocumentCommonInterface::SetDocument(Ptr<DocumentModel> value)
 			{
-				SetActiveHyperlinkId(DocumentRun::NullHyperlinkId);
+				SetActiveHyperlink(0);
+				ClearUndoRedo();
+				NotifyModificationSaved();
+				if(value->paragraphs.Count()==0)
+				{
+					value->paragraphs.Add(new DocumentParagraphRun);
+				}
 				documentElement->SetDocument(value);
 			}
 
-			void GuiDocumentCommonInterface::NotifyParagraphUpdated(vint index)
+			//================ caret operations
+
+			TextPos GuiDocumentCommonInterface::GetCaretBegin()
 			{
-				documentElement->NotifyParagraphUpdated(index);
+				return documentElement->GetCaretBegin();
 			}
 
-			vint GuiDocumentCommonInterface::GetActiveHyperlinkId()
+			TextPos GuiDocumentCommonInterface::GetCaretEnd()
 			{
-				return activeHyperlinkId;
+				return documentElement->GetCaretEnd();
 			}
+
+			void GuiDocumentCommonInterface::SetCaret(TextPos begin, TextPos end)
+			{
+				documentElement->SetCaret(begin, end, end>=begin);
+			}
+
+			TextPos GuiDocumentCommonInterface::CalculateCaretFromPoint(Point point)
+			{
+				return documentElement->CalculateCaretFromPoint(point);
+			}
+
+			Rect GuiDocumentCommonInterface::GetCaretBounds(TextPos caret, bool frontSide)
+			{
+				return documentElement->GetCaretBounds(caret, frontSide);
+			}
+
+			//================ editing operations
+
+			void GuiDocumentCommonInterface::NotifyParagraphUpdated(vint index, vint oldCount, vint newCount, bool updatedText)
+			{
+				documentElement->NotifyParagraphUpdated(index, oldCount, newCount, updatedText);
+			}
+
+			void GuiDocumentCommonInterface::EditRun(TextPos begin, TextPos end, Ptr<DocumentModel> model)
+			{
+				EditTextInternal(begin, end, [=](TextPos begin, TextPos end, vint& paragraphCount, vint& lastParagraphLength)
+				{
+					documentElement->EditRun(begin, end, model);
+					paragraphCount=model->paragraphs.Count();
+					lastParagraphLength=paragraphCount==0?0:model->paragraphs[paragraphCount-1]->GetText(false).Length();
+				});
+			}
+
+			void GuiDocumentCommonInterface::EditText(TextPos begin, TextPos end, bool frontSide, const collections::Array<WString>& text)
+			{
+				EditTextInternal(begin, end, [=, &text](TextPos begin, TextPos end, vint& paragraphCount, vint& lastParagraphLength)
+				{
+					documentElement->EditText(begin, end, frontSide, text);
+					paragraphCount=text.Count();
+					lastParagraphLength=paragraphCount==0?0:text[paragraphCount-1].Length();
+				});
+			}
+
+			void GuiDocumentCommonInterface::EditStyle(TextPos begin, TextPos end, Ptr<DocumentStyleProperties> style)
+			{
+				EditStyleInternal(begin, end, [=](TextPos begin, TextPos end)
+				{
+					documentElement->EditStyle(begin, end, style);
+				});
+			}
+
+			void GuiDocumentCommonInterface::EditImage(TextPos begin, TextPos end, Ptr<GuiImageData> image)
+			{
+				EditTextInternal(begin, end, [=](TextPos begin, TextPos end, vint& paragraphCount, vint& lastParagraphLength)
+				{
+					documentElement->EditImage(begin, end, image);
+					paragraphCount=1;
+					lastParagraphLength=wcslen(DocumentImageRun::RepresentationText);
+				});
+			}
+
+			void GuiDocumentCommonInterface::EditHyperlink(vint paragraphIndex, vint begin, vint end, const WString& reference, const WString& normalStyleName, const WString& activeStyleName)
+			{
+				EditStyleInternal(TextPos(paragraphIndex, begin), TextPos(paragraphIndex, end), [=](TextPos begin, TextPos end)
+				{
+					documentElement->EditHyperlink(begin.row, begin.column, end.column, reference, normalStyleName, activeStyleName);
+				});
+			}
+
+			void GuiDocumentCommonInterface::RemoveHyperlink(vint paragraphIndex, vint begin, vint end)
+			{
+				EditStyleInternal(TextPos(paragraphIndex, begin), TextPos(paragraphIndex, end), [=](TextPos begin, TextPos end)
+				{
+					documentElement->RemoveHyperlink(begin.row, begin.column, end.column);
+				});
+			}
+
+			void GuiDocumentCommonInterface::EditStyleName(TextPos begin, TextPos end, const WString& styleName)
+			{
+				EditStyleInternal(begin, end, [=](TextPos begin, TextPos end)
+				{
+					documentElement->EditStyleName(begin, end, styleName);
+				});
+			}
+
+			void GuiDocumentCommonInterface::RemoveStyleName(TextPos begin, TextPos end)
+			{
+				EditStyleInternal(begin, end, [=](TextPos begin, TextPos end)
+				{
+					documentElement->RemoveStyleName(begin, end);
+				});
+			}
+
+			void GuiDocumentCommonInterface::RenameStyle(const WString& oldStyleName, const WString& newStyleName)
+			{
+				documentElement->RenameStyle(oldStyleName, newStyleName);
+
+				// submit redo-undo
+				GuiDocumentUndoRedoProcessor::RenameStyleStruct arguments;
+				arguments.oldStyleName=oldStyleName;
+				arguments.newStyleName=newStyleName;
+				undoRedoProcessor->OnRenameStyle(arguments);
+			}
+
+			void GuiDocumentCommonInterface::ClearStyle(TextPos begin, TextPos end)
+			{
+				EditStyleInternal(begin, end, [=](TextPos begin, TextPos end)
+				{
+					documentElement->ClearStyle(begin, end);
+				});
+			}
+
+			Ptr<DocumentStyleProperties> GuiDocumentCommonInterface::SummarizeStyle(TextPos begin, TextPos end)
+			{
+				return documentElement->SummarizeStyle(begin, end);
+			}
+
+			void GuiDocumentCommonInterface::SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments)
+			{
+				vint first=begin.row;
+				vint last=end.row;
+				if(first>last)
+				{
+					vint temp=first;
+					first=last;
+					last=temp;
+				}
+
+				Ptr<DocumentModel> document=documentElement->GetDocument();
+				if(0<=first && first<document->paragraphs.Count() && 0<=last && last<document->paragraphs.Count() && last-first+1==alignments.Count())
+				{
+					Ptr<GuiDocumentUndoRedoProcessor::SetAlignmentStruct> arguments=new GuiDocumentUndoRedoProcessor::SetAlignmentStruct;
+					arguments->start=first;
+					arguments->end=last;
+					arguments->originalAlignments.Resize(alignments.Count());
+					arguments->inputAlignments.Resize(alignments.Count());
+					for(vint i=first;i<=last;i++)
+					{
+						arguments->originalAlignments[i-first]=document->paragraphs[i]->alignment;
+						arguments->inputAlignments[i-first]=alignments[i-first];
+					}
+					documentElement->SetParagraphAlignment(begin, end, alignments);
+					undoRedoProcessor->OnSetAlignment(arguments);
+				}
+			}
+
+			//================ editing control
 
 			WString GuiDocumentCommonInterface::GetActiveHyperlinkReference()
 			{
-				if(activeHyperlinkId==DocumentRun::NullHyperlinkId) return L"";
-				Ptr<DocumentModel> document=documentElement->GetDocument();
-				if(!document) return L"";
-				vint index=document->hyperlinkInfos.Keys().IndexOf(activeHyperlinkId);
-				if(index==-1) return L"";
-				return document->hyperlinkInfos.Values().Get(index).reference;
+				return activeHyperlink?activeHyperlink->reference:L"";
+			}
+
+			GuiDocumentCommonInterface::EditMode GuiDocumentCommonInterface::GetEditMode()
+			{
+				return editMode;
+			}
+
+			void GuiDocumentCommonInterface::SetEditMode(EditMode value)
+			{
+				if(activeHyperlink)
+				{
+					SetActiveHyperlink(0);
+					activeHyperlink=0;
+					activeHyperlinkParagraph=-1;
+				}
+
+				editMode=value;
+				if(editMode==ViewOnly)
+				{
+					documentComposition->SetAssociatedCursor(0);
+				}
+				else
+				{
+					INativeCursor* cursor=GetCurrentController()->ResourceService()->GetSystemCursor(INativeCursor::IBeam);
+					documentComposition->SetAssociatedCursor(cursor);
+				}
+			}
+
+			//================ selection operations
+
+			void GuiDocumentCommonInterface::SelectAll()
+			{
+				vint lastIndex=documentElement->GetDocument()->paragraphs.Count()-1;
+				Ptr<DocumentParagraphRun> lastParagraph=documentElement->GetDocument()->paragraphs[lastIndex];
+
+				TextPos begin(0, 0);
+				TextPos end(lastIndex, lastParagraph->GetText(false).Length());
+				SetCaret(begin, end);
+			}
+
+			WString GuiDocumentCommonInterface::GetSelectionText()
+			{
+				TextPos begin=documentElement->GetCaretBegin();
+				TextPos end=documentElement->GetCaretEnd();
+				if(begin>end)
+				{
+					TextPos temp=begin;
+					begin=end;
+					end=temp;
+				}
+
+				Ptr<DocumentModel> model=documentElement->GetDocument()->CopyDocument(begin, end, false);
+				return model->GetText(true);
+			}
+
+			void GuiDocumentCommonInterface::SetSelectionText(const WString& value)
+			{
+				List<WString> paragraphs;
+				{
+					stream::StringReader reader(value);
+					WString paragraph;
+					bool empty=true;
+
+					while(!reader.IsEnd())
+					{
+						WString line=reader.ReadLine();
+						if(empty)
+						{
+							paragraph+=line;
+							empty=false;
+						}
+						else if(line!=L"")
+						{
+							paragraph+=L"\r\n"+line;
+						}
+						else
+						{
+							paragraphs.Add(paragraph);
+							paragraph=L"";
+							empty=true;
+						}
+					}
+
+					if(!empty)
+					{
+						paragraphs.Add(paragraph);
+					}
+				}
+
+				TextPos begin=documentElement->GetCaretBegin();
+				TextPos end=documentElement->GetCaretEnd();
+				if(begin>end)
+				{
+					TextPos temp=begin;
+					begin=end;
+					end=temp;
+				}
+
+				Array<WString> text;
+				CopyFrom(text, paragraphs);
+				EditText(begin, end, documentElement->IsCaretEndPreferFrontSide(), text);
+			}
+
+			Ptr<DocumentModel> GuiDocumentCommonInterface::GetSelectionModel()
+			{
+				TextPos begin=documentElement->GetCaretBegin();
+				TextPos end=documentElement->GetCaretEnd();
+				if(begin>end)
+				{
+					TextPos temp=begin;
+					begin=end;
+					end=temp;
+				}
+
+				Ptr<DocumentModel> model=documentElement->GetDocument()->CopyDocument(begin, end, true);
+				return model;
+			}
+
+			void GuiDocumentCommonInterface::SetSelectionModel(Ptr<DocumentModel> value)
+			{
+				TextPos begin=documentElement->GetCaretBegin();
+				TextPos end=documentElement->GetCaretEnd();
+				if(begin>end)
+				{
+					TextPos temp=begin;
+					begin=end;
+					end=temp;
+				}
+
+				EditRun(begin, end, value);
+			}
+
+			//================ clipboard operations
+
+			bool GuiDocumentCommonInterface::CanCut()
+			{
+				return editMode==Editable && documentElement->GetCaretBegin()!=documentElement->GetCaretEnd();
+			}
+
+			bool GuiDocumentCommonInterface::CanCopy()
+			{
+				return documentElement->GetCaretBegin()!=documentElement->GetCaretEnd();
+			}
+
+			bool GuiDocumentCommonInterface::CanPaste()
+			{
+				return editMode==Editable && GetCurrentController()->ClipboardService()->ContainsText();
+			}
+
+			bool GuiDocumentCommonInterface::Cut()
+			{
+				if(CanCut())
+				{
+					GetCurrentController()->ClipboardService()->SetText(GetSelectionText());
+					SetSelectionText(L"");
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool GuiDocumentCommonInterface::Copy()
+			{
+				if(CanCopy())
+				{
+					GetCurrentController()->ClipboardService()->SetText(GetSelectionText());
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool GuiDocumentCommonInterface::Paste()
+			{
+				if(CanPaste())
+				{
+					SetSelectionText(GetCurrentController()->ClipboardService()->GetText());
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			//================ undo redo control
+
+			bool GuiDocumentCommonInterface::CanUndo()
+			{
+				return editMode==Editable && undoRedoProcessor->CanUndo();
+			}
+
+			bool GuiDocumentCommonInterface::CanRedo()
+			{
+				return editMode==Editable && undoRedoProcessor->CanRedo();
+			}
+
+			void GuiDocumentCommonInterface::ClearUndoRedo()
+			{
+				undoRedoProcessor->ClearUndoRedo();
+			}
+
+			bool GuiDocumentCommonInterface::GetModified()
+			{
+				return undoRedoProcessor->GetModified();
+			}
+
+			void GuiDocumentCommonInterface::NotifyModificationSaved()
+			{
+				undoRedoProcessor->NotifyModificationSaved();
+			}
+
+			bool GuiDocumentCommonInterface::Undo()
+			{
+				if(CanUndo())
+				{
+					return undoRedoProcessor->Undo();
+				}
+				else
+				{
+					return false;
+				}
+			}
+
+			bool GuiDocumentCommonInterface::Redo()
+			{
+				if(CanRedo())
+				{
+					return undoRedoProcessor->Redo();
+				}
+				else
+				{
+					return false;
+				}
 			}
 
 /***********************************************************************
 GuiDocumentViewer
 ***********************************************************************/
 
+			Point GuiDocumentViewer::GetDocumentViewPosition()
+			{
+				return GetViewBounds().LeftTop();
+			}
+
+			void GuiDocumentViewer::EnsureRectVisible(Rect bounds)
+			{
+				Rect viewBounds=GetViewBounds();
+				vint offset=0;
+				if(bounds.y1<viewBounds.y1)
+				{
+					offset=bounds.y1-viewBounds.y1;
+				}
+				else if(bounds.y2>viewBounds.y2)
+				{
+					offset=bounds.y2-viewBounds.y2;
+				}
+
+				GetVerticalScroll()->SetPosition(viewBounds.y1+offset);
+			}
+
 			GuiDocumentViewer::GuiDocumentViewer(GuiDocumentViewer::IStyleProvider* styleProvider)
 				:GuiScrollContainer(styleProvider)
 			{
 				SetExtendToFullWidth(true);
 				SetHorizontalAlwaysVisible(false);
+				SetFocusableComposition(GetBoundsComposition());
 				InstallDocumentViewer(this, GetContainerComposition());
+				SetDocument(new DocumentModel);
 			}
 
 			GuiDocumentViewer::~GuiDocumentViewer()
 			{
+			}
+
+			const WString& GuiDocumentViewer::GetText()
+			{
+				text=documentElement->GetDocument()->GetText(true);
+				return text;
+			}
+
+			void GuiDocumentViewer::SetText(const WString& value)
+			{
+				SelectAll();
+				SetSelectionText(value);
 			}
 
 /***********************************************************************
@@ -21105,11 +22189,24 @@ GuiDocumentLabel
 				:GuiControl(styleController)
 			{
 				GetContainerComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+				SetFocusableComposition(GetBoundsComposition());
 				InstallDocumentViewer(this, GetContainerComposition());
 			}
 
 			GuiDocumentLabel::~GuiDocumentLabel()
 			{
+			}
+
+			const WString& GuiDocumentLabel::GetText()
+			{
+				text=documentElement->GetDocument()->GetText(true);
+				return text;
+			}
+
+			void GuiDocumentLabel::SetText(const WString& value)
+			{
+				SelectAll();
+				SetSelectionText(value);
 			}
 		}
 	}
@@ -21385,6 +22482,7 @@ GuiTextBoxAutoCompleteBase
 					if(selected!=-1)
 					{
 						autoCompleteList->SetSelected(selected, true);
+						autoCompleteList->EnsureItemVisible(selected);
 					}
 				}
 			}
@@ -23081,40 +24179,6 @@ GuiTextBoxCommonInterface::DefaultCallback
 			}
 
 /***********************************************************************
-GuiTextBoxCommonInterface::ShortcutCommand
-***********************************************************************/
-
-			GuiTextBoxCommonInterface::ShortcutCommand::ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<void()> _action)
-				:ctrl(_ctrl)
-				,shift(_shift)
-				,key(_key)
-				,action(_action)
-			{
-			}
-
-			GuiTextBoxCommonInterface::ShortcutCommand::ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<bool()> _action)
-				:ctrl(_ctrl)
-				,shift(_shift)
-				,key(_key)
-				,action(Func<void()>(_action))
-			{
-			}
-
-			GuiTextBoxCommonInterface::ShortcutCommand::~ShortcutCommand()
-			{
-			}
-
-			bool GuiTextBoxCommonInterface::ShortcutCommand::IsTheRightKey(bool _ctrl, bool _shift, vint _key)
-			{
-				return _ctrl==ctrl && _shift==shift && _key==key;
-			}
-
-			void GuiTextBoxCommonInterface::ShortcutCommand::Execute()
-			{
-				action();
-			}
-
-/***********************************************************************
 GuiTextBoxCommonInterface
 ***********************************************************************/
 
@@ -23125,7 +24189,6 @@ GuiTextBoxCommonInterface
 				{
 					Rect caret=textElement->GetLines().GetRectFromTextPos(textElement->GetCaretEnd());
 					Point view=textElement->GetViewPosition();
-					vint textMargin=callback->GetTextMargin();
 					vint x=caret.x1-view.x;
 					vint y=caret.y2-view.y;
 					host->SetCaretPoint(Point(x, y), textComposition);
@@ -23274,14 +24337,13 @@ GuiTextBoxCommonInterface
 
 			bool GuiTextBoxCommonInterface::ProcessKey(vint code, bool shift, bool ctrl)
 			{
-				for(vint i=0;i<shortcutCommands.Count();i++)
+				if(IGuiShortcutKeyItem* item=internalShortcutKeyManager->TryGetShortcut(ctrl, shift, false, code))
 				{
-					if(shortcutCommands[i]->IsTheRightKey(ctrl, shift, code))
-					{
-						shortcutCommands[i]->Execute();
-						return true;
-					}
+					GuiEventArgs arguments;
+					item->Executed.Execute(arguments);
+					return true;
 				}
+
 				TextPos begin=textElement->GetCaretBegin();
 				TextPos end=textElement->GetCaretEnd();
 				switch(code)
@@ -23427,7 +24489,7 @@ GuiTextBoxCommonInterface
 							{
 								ProcessKey(VKEY_LEFT, true, false);
 							}
-							SetSelectionText(L"", true);
+							SetSelectionTextAsKeyInput(L"");
 						}
 						return true;
 					}
@@ -23451,7 +24513,7 @@ GuiTextBoxCommonInterface
 							{
 								ProcessKey(VKEY_RIGHT, true, false);
 							}
-							SetSelectionText(L"", true);
+							SetSelectionTextAsKeyInput(L"");
 						}
 						return true;
 					}
@@ -23533,7 +24595,7 @@ GuiTextBoxCommonInterface
 				{
 					if(!readonly && arguments.code!=VKEY_ESCAPE && arguments.code!=VKEY_BACK && !arguments.ctrl)
 					{
-						SetSelectionText(WString(arguments.code), true);
+						SetSelectionTextAsKeyInput(WString(arguments.code));
 					}
 				}
 			}
@@ -23602,9 +24664,13 @@ GuiTextBoxCommonInterface
 				}
 			}
 
-			void GuiTextBoxCommonInterface::AddShortcutCommand(Ptr<ShortcutCommand> shortcutCommand)
+			void GuiTextBoxCommonInterface::AddShortcutCommand(vint key, const Func<void()>& eventHandler)
 			{
-				shortcutCommands.Add(shortcutCommand);
+				IGuiShortcutKeyItem* item=internalShortcutKeyManager->CreateShortcut(true, false, false, key);
+				item->Executed.AttachLambda([=](GuiGraphicsComposition* sender, GuiEventArgs& arguments)
+				{
+					eventHandler();
+				});
 			}
 
 			elements::GuiColorizedTextElement* GuiTextBoxCommonInterface::GetTextElement()
@@ -23639,12 +24705,13 @@ GuiTextBoxCommonInterface
 				undoRedoProcessor=new GuiTextBoxUndoRedoProcessor;
 				AttachTextEditCallback(undoRedoProcessor);
 
-				AddShortcutCommand(new ShortcutCommand(true, false, 'Z', Func<bool()>(this, &GuiTextBoxCommonInterface::Undo)));
-				AddShortcutCommand(new ShortcutCommand(true, false, 'Y', Func<bool()>(this, &GuiTextBoxCommonInterface::Redo)));
-				AddShortcutCommand(new ShortcutCommand(true, false, 'A', Func<void()>(this, &GuiTextBoxCommonInterface::SelectAll)));
-				AddShortcutCommand(new ShortcutCommand(true, false, 'X', Func<bool()>(this, &GuiTextBoxCommonInterface::Cut)));
-				AddShortcutCommand(new ShortcutCommand(true, false, 'C', Func<bool()>(this, &GuiTextBoxCommonInterface::Copy)));
-				AddShortcutCommand(new ShortcutCommand(true, false, 'V', Func<bool()>(this, &GuiTextBoxCommonInterface::Paste)));
+				internalShortcutKeyManager=new GuiShortcutKeyManager;
+				AddShortcutCommand('Z', Func<bool()>(this, &GuiTextBoxCommonInterface::Undo));
+				AddShortcutCommand('Y', Func<bool()>(this, &GuiTextBoxCommonInterface::Redo));
+				AddShortcutCommand('A', Func<void()>(this, &GuiTextBoxCommonInterface::SelectAll));
+				AddShortcutCommand('X', Func<bool()>(this, &GuiTextBoxCommonInterface::Cut));
+				AddShortcutCommand('C', Func<bool()>(this, &GuiTextBoxCommonInterface::Copy));
+				AddShortcutCommand('V', Func<bool()>(this, &GuiTextBoxCommonInterface::Paste));
 			}
 
 			GuiTextBoxCommonInterface::~GuiTextBoxCommonInterface()
@@ -23758,9 +24825,14 @@ GuiTextBoxCommonInterface
 				return textElement->GetLines().GetText(selectionBegin, selectionEnd);
 			}
 
-			void GuiTextBoxCommonInterface::SetSelectionText(const WString& value, bool asKeyInput)
+			void GuiTextBoxCommonInterface::SetSelectionText(const WString& value)
 			{
-				Modify(textElement->GetCaretBegin(), textElement->GetCaretEnd(), value, asKeyInput);
+				Modify(textElement->GetCaretBegin(), textElement->GetCaretEnd(), value, false);
+			}
+
+			void GuiTextBoxCommonInterface::SetSelectionTextAsKeyInput(const WString& value)
+			{
+				Modify(textElement->GetCaretBegin(), textElement->GetCaretEnd(), value, true);
 			}
 
 			WString GuiTextBoxCommonInterface::GetRowText(vint row)
@@ -23909,12 +24981,12 @@ GuiTextBoxCommonInterface
 
 			bool GuiTextBoxCommonInterface::CanUndo()
 			{
-				return undoRedoProcessor->CanUndo();
+				return !readonly && undoRedoProcessor->CanUndo();
 			}
 
 			bool GuiTextBoxCommonInterface::CanRedo()
 			{
-				return undoRedoProcessor->CanRedo();
+				return !readonly && undoRedoProcessor->CanRedo();
 			}
 
 			void GuiTextBoxCommonInterface::ClearUndoRedo()
@@ -23934,12 +25006,26 @@ GuiTextBoxCommonInterface
 
 			bool GuiTextBoxCommonInterface::Undo()
 			{
-				return undoRedoProcessor->Undo();
+				if(CanUndo())
+				{
+					return undoRedoProcessor->Undo();
+				}
+				else
+				{
+					return false;
+				}
 			}
 
 			bool GuiTextBoxCommonInterface::Redo()
 			{
-				return undoRedoProcessor->Redo();
+				if(CanRedo())
+				{
+					return undoRedoProcessor->Redo();
+				}
+				else
+				{
+					return false;
+				}
 			}
 		}
 	}
@@ -24159,7 +25245,7 @@ GuiMultilineTextBox
 
 			void GuiMultilineTextBox::SetText(const WString& value)
 			{
-				text=GetText();
+				text=styleController->GetText();
 				GuiScrollView::SetText(value);
 				CalculateView();
 			}
@@ -25043,6 +26129,118 @@ GuiTextBoxUndoRedoProcessor
 			void GuiTextBoxUndoRedoProcessor::TextEditFinished(vuint editVersion)
 			{
 			}
+
+/***********************************************************************
+GuiDocumentUndoRedoProcessor::ReplaceModelStep
+***********************************************************************/
+
+			void GuiDocumentUndoRedoProcessor::ReplaceModelStep::Undo()
+			{
+				GuiDocumentCommonInterface* ci=dynamic_cast<GuiDocumentCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->EditRun(arguments.inputStart, arguments.inputEnd, arguments.originalModel);
+					ci->SetCaret(arguments.originalStart, arguments.originalEnd);
+				}
+			}
+
+			void GuiDocumentUndoRedoProcessor::ReplaceModelStep::Redo()
+			{
+				GuiDocumentCommonInterface* ci=dynamic_cast<GuiDocumentCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->EditRun(arguments.originalStart, arguments.originalEnd, arguments.inputModel);
+					ci->SetCaret(arguments.inputStart, arguments.inputEnd);
+				}
+			}
+
+/***********************************************************************
+GuiDocumentUndoRedoProcessor::RenameStyleStep
+***********************************************************************/
+
+			void GuiDocumentUndoRedoProcessor::RenameStyleStep::Undo()
+			{
+				GuiDocumentCommonInterface* ci=dynamic_cast<GuiDocumentCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->RenameStyle(arguments.newStyleName, arguments.oldStyleName);
+				}
+			}
+
+			void GuiDocumentUndoRedoProcessor::RenameStyleStep::Redo()
+			{
+				GuiDocumentCommonInterface* ci=dynamic_cast<GuiDocumentCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->RenameStyle(arguments.oldStyleName, arguments.newStyleName);
+				}
+			}
+
+/***********************************************************************
+GuiDocumentUndoRedoProcessor::RenameStyleStep
+***********************************************************************/
+
+			void GuiDocumentUndoRedoProcessor::SetAlignmentStep::Undo()
+			{
+				GuiDocumentCommonInterface* ci=dynamic_cast<GuiDocumentCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->SetParagraphAlignment(TextPos(arguments->start, 0), TextPos(arguments->end, 0), arguments->originalAlignments);
+				}
+			}
+
+			void GuiDocumentUndoRedoProcessor::SetAlignmentStep::Redo()
+			{
+				GuiDocumentCommonInterface* ci=dynamic_cast<GuiDocumentCommonInterface*>(processor->ownerComposition->GetRelatedControl());
+				if(ci)
+				{
+					ci->SetParagraphAlignment(TextPos(arguments->start, 0), TextPos(arguments->end, 0), arguments->inputAlignments);
+				}
+			}
+
+/***********************************************************************
+GuiDocumentUndoRedoProcessor
+***********************************************************************/
+
+			GuiDocumentUndoRedoProcessor::GuiDocumentUndoRedoProcessor()
+				:element(0)
+				,ownerComposition(0)
+			{
+			}
+
+			GuiDocumentUndoRedoProcessor::~GuiDocumentUndoRedoProcessor()
+			{
+			}
+
+			void GuiDocumentUndoRedoProcessor::Setup(elements::GuiDocumentElement* _element, compositions::GuiGraphicsComposition* _ownerComposition)
+			{
+				element=_element;
+				ownerComposition=_ownerComposition;
+			}
+
+			void GuiDocumentUndoRedoProcessor::OnReplaceModel(const ReplaceModelStruct& arguments)
+			{
+				Ptr<ReplaceModelStep> step=new ReplaceModelStep;
+				step->processor=this;
+				step->arguments=arguments;
+				PushStep(step);
+			}
+
+			void GuiDocumentUndoRedoProcessor::OnRenameStyle(const RenameStyleStruct& arguments)
+			{
+				Ptr<RenameStyleStep> step=new RenameStyleStep;
+				step->processor=this;
+				step->arguments=arguments;
+				PushStep(step);
+			}
+
+			void GuiDocumentUndoRedoProcessor::OnSetAlignment(Ptr<SetAlignmentStruct> arguments)
+			{
+				Ptr<SetAlignmentStep> step=new SetAlignmentStep;
+				step->processor=this;
+				step->arguments=arguments;
+				PushStep(step);
+			}
 		}
 	}
 }
@@ -25329,13 +26527,14 @@ GuiMenuButton
 			}
 
 			GuiMenuButton::GuiMenuButton(IStyleController* _styleController)
-				:GuiButton(_styleController)
+				:GuiSelectableButton(_styleController)
 				,styleController(_styleController)
 				,subMenu(0)
 				,ownedSubMenu(false)
 				,ownerMenuService(0)
 				,cascadeAction(true)
 			{
+				SetAutoSelection(false);
 				SubMenuOpeningChanged.SetAssociatedComposition(boundsComposition);
 				ImageChanged.SetAssociatedComposition(boundsComposition);
 				ShortcutTextChanged.SetAssociatedComposition(boundsComposition);
@@ -25501,6 +26700,7 @@ namespace vl
 		namespace controls
 		{
 			using namespace compositions;
+			using namespace regex;
 
 /***********************************************************************
 GuiToolstripCommand
@@ -25517,14 +26717,90 @@ GuiToolstripCommand
 				DescriptionChanged.Execute(arguments);
 			}
 
+			void GuiToolstripCommand::ReplaceShortcut(compositions::IGuiShortcutKeyItem* value, Ptr<ShortcutBuilder> builder)
+			{
+				if(shortcutKeyItem!=value)
+				{
+					if(shortcutKeyItem)
+					{
+						shortcutKeyItem->Executed.Detach(shortcutKeyItemExecutedHandler);
+						if (shortcutBuilder)
+						{
+							auto manager = dynamic_cast<GuiShortcutKeyManager*>(shortcutOwner->GetShortcutKeyManager());
+							if (manager)
+							{
+								manager->DestroyShortcut(shortcutBuilder->ctrl, shortcutBuilder->shift, shortcutBuilder->alt, shortcutBuilder->key);
+							}
+						}
+					}
+					shortcutKeyItem=0;
+					shortcutKeyItemExecutedHandler=0;
+					shortcutBuilder = value ? builder : 0;
+					if(value)
+					{
+						shortcutKeyItem=value;
+						shortcutKeyItemExecutedHandler=shortcutKeyItem->Executed.AttachMethod(this, &GuiToolstripCommand::OnShortcutKeyItemExecuted);
+					}
+					InvokeDescriptionChanged();
+				}
+			}
+
+			void GuiToolstripCommand::BuildShortcut(const WString& builderText)
+			{
+				if (auto parser = GetParserManager()->GetParser<ShortcutBuilder>(L"SHORTCUT"))
+				if (Ptr<ShortcutBuilder> builder = parser->TypedParse(builderText))
+				{
+					if (shortcutOwner)
+					{
+						if (!shortcutOwner->GetShortcutKeyManager())
+						{
+							shortcutOwner->SetShortcutKeyManager(new GuiShortcutKeyManager);
+						}
+						if (auto manager = dynamic_cast<GuiShortcutKeyManager*>(shortcutOwner->GetShortcutKeyManager()))
+						{
+							IGuiShortcutKeyItem* item = manager->TryGetShortcut(builder->ctrl, builder->shift, builder->alt, builder->key);
+							if (!item)
+							{
+								item = manager->CreateShortcut(builder->ctrl, builder->shift, builder->alt, builder->key);
+								if (item)
+								{
+									ReplaceShortcut(item, builder);
+								}
+							}
+						}
+					}
+					else
+					{
+						shortcutBuilder = builder;
+					}
+				}
+			}
+
 			GuiToolstripCommand::GuiToolstripCommand()
 				:shortcutKeyItem(0)
 				,enabled(true)
+				,selected(false)
+				,shortcutOwner(0)
 			{
 			}
 
 			GuiToolstripCommand::~GuiToolstripCommand()
 			{
+			}
+
+			void GuiToolstripCommand::Attach(GuiControlHost* controlHost)
+			{
+				shortcutOwner = controlHost;
+				if (shortcutBuilder && !shortcutKeyItem)
+				{
+					BuildShortcut(shortcutBuilder->text);
+				}
+			}
+
+			void GuiToolstripCommand::Detach(GuiControlHost* controlHost)
+			{
+				ReplaceShortcut(0, false);
+				shortcutOwner = 0;
 			}
 
 			Ptr<GuiImageData> GuiToolstripCommand::GetImage()
@@ -25562,21 +26838,17 @@ GuiToolstripCommand
 
 			void GuiToolstripCommand::SetShortcut(compositions::IGuiShortcutKeyItem* value)
 			{
-				if(shortcutKeyItem!=value)
-				{
-					if(shortcutKeyItem)
-					{
-						shortcutKeyItem->Executed.Detach(shortcutKeyItemExecutedHandler);
-					}
-					shortcutKeyItem=0;
-					shortcutKeyItemExecutedHandler=0;
-					if(value)
-					{
-						shortcutKeyItem=value;
-						shortcutKeyItemExecutedHandler=shortcutKeyItem->Executed.AttachMethod(this, &GuiToolstripCommand::OnShortcutKeyItemExecuted);
-					}
-					InvokeDescriptionChanged();
-				}
+				ReplaceShortcut(value, 0);
+			}
+
+			WString GuiToolstripCommand::GetShortcutBuilder()
+			{
+				return shortcutBuilder ? shortcutBuilder->text : L"";
+			}
+
+			void GuiToolstripCommand::SetShortcutBuilder(const WString& value)
+			{
+				BuildShortcut(value);
 			}
 
 			bool GuiToolstripCommand::GetEnabled()
@@ -25592,6 +26864,80 @@ GuiToolstripCommand
 					InvokeDescriptionChanged();
 				}
 			}
+
+			bool GuiToolstripCommand::GetSelected()
+			{
+				return selected;
+			}
+
+			void GuiToolstripCommand::SetSelected(bool value)
+			{
+				if(selected!=value)
+				{
+					selected=value;
+					InvokeDescriptionChanged();
+				}
+			}
+
+/***********************************************************************
+GuiToolstripCommand::ShortcutBuilder Parser
+***********************************************************************/
+
+			class GuiToolstripCommandShortcutParser : public Object, public IGuiParser<GuiToolstripCommand::ShortcutBuilder>
+			{
+				typedef GuiToolstripCommand::ShortcutBuilder			ShortcutBuilder;
+			public:
+				Regex						regexShortcut;
+
+				GuiToolstripCommandShortcutParser()
+					:regexShortcut(L"((<ctrl>Ctrl)/+|(<shift>Shift)/+|(<alt>Alt)/+)*(<key>/.+)")
+				{
+				}
+
+				Ptr<ShortcutBuilder> TypedParse(const WString& text)override
+				{
+					Ptr<RegexMatch> match=regexShortcut.MatchHead(text);
+					if(match && match->Result().Length()!=text.Length()) return 0;
+
+					Ptr<ShortcutBuilder> builder = new ShortcutBuilder;
+					builder->text = text;
+					builder->ctrl = match->Groups().Contains(L"ctrl");
+					builder->shift = match->Groups().Contains(L"shift");
+					builder->alt = match->Groups().Contains(L"alt");
+
+					WString name = match->Groups()[L"key"][0].Value();
+					builder->key = GetCurrentController()->InputService()->GetKey(name);
+
+					return builder->key == -1 ? 0 : builder;
+				}
+			};
+
+/***********************************************************************
+GuiToolstripCommandPlugin
+***********************************************************************/
+
+			class GuiToolstripCommandPlugin : public Object, public IGuiPlugin
+			{
+			public:
+				GuiToolstripCommandPlugin()
+				{
+				}
+
+				void Load()override
+				{
+				}
+				
+				void AfterLoad()override
+				{
+					IGuiParserManager* manager=GetParserManager();
+					manager->SetParser(L"SHORTCUT", new GuiToolstripCommandShortcutParser);
+				}
+
+				void Unload()override
+				{
+				}
+			};
+			GUI_REGISTER_PLUGIN(GuiToolstripCommandPlugin)
 		}
 	}
 }
@@ -25723,8 +27069,8 @@ GuiToolstripBuilder
 				case MenuBar:
 					lastCreatedButton=new GuiToolstripButton(theme->CreateMenuBarButtonStyle());
 					break;
-				case Toolbar:
-					lastCreatedButton=new GuiToolstripButton(theme->CreateToolbarButtonStyle());
+				case ToolBar:
+					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarButtonStyle());
 					break;
 				}
 				if(lastCreatedButton)
@@ -25751,8 +27097,8 @@ GuiToolstripBuilder
 				case MenuBar:
 					lastCreatedButton=new GuiToolstripButton(theme->CreateMenuBarButtonStyle());
 					break;
-				case Toolbar:
-					lastCreatedButton=new GuiToolstripButton(theme->CreateToolbarButtonStyle());
+				case ToolBar:
+					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarButtonStyle());
 					break;
 				}
 				if(lastCreatedButton)
@@ -25772,8 +27118,8 @@ GuiToolstripBuilder
 				lastCreatedButton=0;
 				switch(environment)
 				{
-				case Toolbar:
-					lastCreatedButton=new GuiToolstripButton(theme->CreateToolbarDropdownButtonStyle());
+				case ToolBar:
+					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarDropdownButtonStyle());
 					break;
 				}
 				if(lastCreatedButton)
@@ -25794,8 +27140,8 @@ GuiToolstripBuilder
 				lastCreatedButton=0;
 				switch(environment)
 				{
-				case Toolbar:
-					lastCreatedButton=new GuiToolstripButton(theme->CreateToolbarDropdownButtonStyle());
+				case ToolBar:
+					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarDropdownButtonStyle());
 					break;
 				}
 				if(lastCreatedButton)
@@ -25815,8 +27161,8 @@ GuiToolstripBuilder
 				lastCreatedButton=0;
 				switch(environment)
 				{
-				case Toolbar:
-					lastCreatedButton=new GuiToolstripButton(theme->CreateToolbarSplitButtonStyle());
+				case ToolBar:
+					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarSplitButtonStyle());
 					break;
 				}
 				if(lastCreatedButton)
@@ -25837,8 +27183,8 @@ GuiToolstripBuilder
 				lastCreatedButton=0;
 				switch(environment)
 				{
-				case Toolbar:
-					lastCreatedButton=new GuiToolstripButton(theme->CreateToolbarSplitButtonStyle());
+				case ToolBar:
+					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarSplitButtonStyle());
 					break;
 				}
 				if(lastCreatedButton)
@@ -25861,8 +27207,8 @@ GuiToolstripBuilder
 				case Menu:
 					toolstripItems->Add(new GuiControl(theme->CreateMenuSplitterStyle()));
 					break;
-				case Toolbar:
-					toolstripItems->Add(new GuiControl(theme->CreateToolbarSplitterStyle()));
+				case ToolBar:
+					toolstripItems->Add(new GuiControl(theme->CreateToolBarSplitterStyle()));
 					break;
 				}
 				return this;
@@ -25965,10 +27311,10 @@ GuiToolstripMenuBar
 			}
 
 /***********************************************************************
-GuiToolstripToolbar
+GuiToolstripToolBar
 ***********************************************************************/
 				
-			GuiToolstripToolbar::GuiToolstripToolbar(IStyleController* _styleController)
+			GuiToolstripToolBar::GuiToolstripToolBar(IStyleController* _styleController)
 				:GuiControl(_styleController)
 			{
 				stackComposition=new GuiStackComposition;
@@ -25978,19 +27324,19 @@ GuiToolstripToolbar
 				GetContainerComposition()->AddChild(stackComposition);
 
 				toolstripItems=new GuiToolstripCollection(0, stackComposition, 0);
-				builder=new GuiToolstripBuilder(GuiToolstripBuilder::Toolbar, toolstripItems.Obj());
+				builder=new GuiToolstripBuilder(GuiToolstripBuilder::ToolBar, toolstripItems.Obj());
 			}
 
-			GuiToolstripToolbar::~GuiToolstripToolbar()
+			GuiToolstripToolBar::~GuiToolstripToolBar()
 			{
 			}
 
-			GuiToolstripCollection& GuiToolstripToolbar::GetToolstripItems()
+			GuiToolstripCollection& GuiToolstripToolBar::GetToolstripItems()
 			{
 				return *toolstripItems.Obj();
 			}
 
-			GuiToolstripBuilder* GuiToolstripToolbar::GetBuilder(theme::ITheme* themeObject)
+			GuiToolstripBuilder* GuiToolstripToolBar::GetBuilder(theme::ITheme* themeObject)
 			{
 				builder->theme=themeObject?themeObject:theme::GetCurrentTheme();
 				return builder.Obj();
@@ -26007,6 +27353,7 @@ GuiToolstripButton
 					SetImage(command->GetImage());
 					SetText(command->GetText());
 					SetEnabled(command->GetEnabled());
+					SetSelected(command->GetSelected());
 					if(command->GetShortcut())
 					{
 						SetShortcutText(command->GetShortcut()->GetName());
@@ -26021,6 +27368,7 @@ GuiToolstripButton
 					SetImage(0);
 					SetText(L"");
 					SetEnabled(true);
+					SetSelected(false);
 					SetShortcutText(L"");
 				}
 			}
@@ -28274,27 +29622,34 @@ GuiCellComposition
 
 			bool GuiCellComposition::SetSiteInternal(vint _row, vint _column, vint _rowSpan, vint _columnSpan)
 			{
-				if(!tableParent) return false;
-				if(_row<0 || _row>=tableParent->rows || _column<0 || _column>=tableParent->columns) return false;
-				if(_rowSpan<1 || _row+_rowSpan>tableParent->rows || _columnSpan<1 || _column+_columnSpan>tableParent->columns) return false;
-
-				for(vint r=0;r<_rowSpan;r++)
+				if (tableParent)
 				{
-					for(vint c=0;c<_columnSpan;c++)
+					if(_row<0 || _row>=tableParent->rows || _column<0 || _column>=tableParent->columns) return false;
+					if(_rowSpan<1 || _row+_rowSpan>tableParent->rows || _columnSpan<1 || _column+_columnSpan>tableParent->columns) return false;
+
+					for(vint r=0;r<_rowSpan;r++)
 					{
-						GuiCellComposition* cell=tableParent->GetSitedCell(_row+r, _column+c);
-						if(cell && cell!=this)
+						for(vint c=0;c<_columnSpan;c++)
 						{
-							return false;
+							GuiCellComposition* cell=tableParent->GetSitedCell(_row+r, _column+c);
+							if(cell && cell!=this)
+							{
+								return false;
+							}
 						}
 					}
+					ClearSitedCells(tableParent);
 				}
-				ClearSitedCells(tableParent);
+
 				row=_row;
 				column=_column;
 				rowSpan=_rowSpan;
 				columnSpan=_columnSpan;
-				SetSitedCells(tableParent);
+
+				if (tableParent)
+				{
+					SetSitedCells(tableParent);
+				}
 				return true;
 			}
 
@@ -28311,6 +29666,10 @@ GuiCellComposition
 				}
 				if(tableParent)
 				{
+					if (row != -1 && column != -1)
+					{
+						SetSiteInternal(row, column, rowSpan, columnSpan);
+					}
 					tableParent->UpdateCellBounds();
 				}
 			}
@@ -28366,7 +29725,10 @@ GuiCellComposition
 			{
 				if(SetSiteInternal(_row, _column, _rowSpan, _columnSpan))
 				{
-					tableParent->UpdateCellBounds();
+					if (tableParent)
+					{
+						tableParent->UpdateCellBounds();
+					}
 					return true;
 				}
 				else
@@ -28404,6 +29766,1021 @@ GuiCellComposition
 				else
 				{
 					return Rect();
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+GraphicsElement\GuiGraphicsDocumentElement.cpp
+***********************************************************************/
+
+namespace vl
+{
+	using namespace collections;
+
+	namespace presentation
+	{
+		namespace elements
+		{
+
+/***********************************************************************
+SetPropertiesVisitor
+***********************************************************************/
+
+			namespace visitors
+			{
+				class SetPropertiesVisitor : public Object, public DocumentRun::IVisitor
+				{
+					typedef DocumentModel::ResolvedStyle			ResolvedStyle;
+				public:
+					vint						start;
+					vint						length;
+					vint						selectionBegin;
+					vint						selectionEnd;
+					List<ResolvedStyle>			styles;
+					DocumentModel*				model;
+					IGuiGraphicsParagraph*		paragraph;
+
+					SetPropertiesVisitor(DocumentModel* _model, IGuiGraphicsParagraph* _paragraph, vint _selectionBegin, vint _selectionEnd)
+						:start(0)
+						,length(0)
+						,model(_model)
+						,paragraph(_paragraph)
+						,selectionBegin(_selectionBegin)
+						,selectionEnd(_selectionEnd)
+					{
+						ResolvedStyle style;
+						style=model->GetStyle(DocumentModel::DefaultStyleName, style);
+						styles.Add(style);
+					}
+
+					void VisitContainer(DocumentContainerRun* run)
+					{
+						FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+						{
+							subRun->Accept(this);
+						}
+					}
+
+					void ApplyStyle(vint start, vint length, const ResolvedStyle& style)
+					{
+						paragraph->SetFont(start, length, style.style.fontFamily);
+						paragraph->SetSize(start, length, style.style.size);
+						paragraph->SetStyle(start, length, 
+							(IGuiGraphicsParagraph::TextStyle)
+							( (style.style.bold?IGuiGraphicsParagraph::Bold:0)
+							| (style.style.italic?IGuiGraphicsParagraph::Italic:0)
+							| (style.style.underline?IGuiGraphicsParagraph::Underline:0)
+							| (style.style.strikeline?IGuiGraphicsParagraph::Strikeline:0)
+							));
+					}
+
+					void ApplyColor(vint start, vint length, const ResolvedStyle& style)
+					{
+						paragraph->SetColor(start, length, style.color);
+						paragraph->SetBackgroundColor(start, length, style.backgroundColor);
+					}
+
+					void Visit(DocumentTextRun* run)override
+					{
+						length=run->GetRepresentationText().Length();
+						if(length>0)
+						{
+							ResolvedStyle style=styles[styles.Count()-1];
+							ApplyStyle(start, length, style);
+							ApplyColor(start, length, style);
+
+							vint styleStart=start;
+							vint styleEnd=styleStart+length;
+							if(styleStart<selectionEnd && selectionBegin<styleEnd)
+							{
+								vint s2=styleStart>selectionBegin?styleStart:selectionBegin;
+								vint s3=selectionEnd<styleEnd?selectionEnd:styleEnd;
+
+								if(s2<s3)
+								{
+									ResolvedStyle selectionStyle=model->GetStyle(DocumentModel::SelectionStyleName, style);
+									ApplyColor(s2, s3-s2, selectionStyle);
+								}
+							}
+						}
+						start+=length;
+					}
+
+					void Visit(DocumentStylePropertiesRun* run)override
+					{
+						ResolvedStyle style=styles[styles.Count()-1];
+						style=model->GetStyle(run->style, style);
+						styles.Add(style);
+						VisitContainer(run);
+						styles.RemoveAt(styles.Count()-1);
+					}
+
+					void Visit(DocumentStyleApplicationRun* run)override
+					{
+						ResolvedStyle style=styles[styles.Count()-1];
+						style=model->GetStyle(run->styleName, style);
+						styles.Add(style);
+						VisitContainer(run);
+						styles.RemoveAt(styles.Count()-1);
+					}
+
+					void Visit(DocumentHyperlinkRun* run)override
+					{
+						ResolvedStyle style=styles[styles.Count()-1];
+						style=model->GetStyle(run->styleName, style);
+						styles.Add(style);
+						VisitContainer(run);
+						styles.RemoveAt(styles.Count()-1);
+					}
+
+					void Visit(DocumentImageRun* run)override
+					{
+						length=run->GetRepresentationText().Length();
+
+						IGuiGraphicsParagraph::InlineObjectProperties properties;
+						properties.size=run->size;
+						properties.baseline=run->baseline;
+						properties.breakCondition=IGuiGraphicsParagraph::Alone;
+
+						Ptr<GuiImageFrameElement> element=GuiImageFrameElement::Create();
+						element->SetImage(run->image, run->frameIndex);
+						element->SetStretch(true);
+
+						paragraph->SetInlineObject(start, length, properties, element);
+
+						if(start<selectionEnd && selectionBegin<start+length)
+						{
+							ResolvedStyle style=styles[styles.Count()-1];
+							ResolvedStyle selectionStyle=model->GetStyle(DocumentModel::SelectionStyleName, style);
+							ApplyColor(start, length, selectionStyle);
+						}
+						start+=length;
+					}
+
+					void Visit(DocumentParagraphRun* run)override
+					{
+						VisitContainer(run);
+					}
+
+					static vint SetProperty(DocumentModel* model, IGuiGraphicsParagraph* paragraph, Ptr<DocumentParagraphRun> run, vint selectionBegin, vint selectionEnd)
+					{
+						SetPropertiesVisitor visitor(model, paragraph, selectionBegin, selectionEnd);
+						run->Accept(&visitor);
+						return visitor.length;
+					}
+				};
+			}
+			using namespace visitors;
+
+/***********************************************************************
+GuiDocumentElement::GuiDocumentElementRenderer
+***********************************************************************/
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::InitializeInternal()
+			{
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::FinalizeInternal()
+			{
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget)
+			{
+				for(vint i=0;i<paragraphCaches.Count();i++)
+				{
+					ParagraphCache* cache=paragraphCaches[i].Obj();
+					if(cache)
+					{
+						cache->graphicsParagraph=0;
+					}
+				}
+			}
+
+			Ptr<GuiDocumentElement::GuiDocumentElementRenderer::ParagraphCache> GuiDocumentElement::GuiDocumentElementRenderer::EnsureAndGetCache(vint paragraphIndex, bool createParagraph)
+			{
+				if(paragraphIndex<0 || paragraphIndex>=paragraphCaches.Count()) return 0;
+				Ptr<DocumentParagraphRun> paragraph=element->document->paragraphs[paragraphIndex];
+				Ptr<ParagraphCache> cache=paragraphCaches[paragraphIndex];
+				if(!cache)
+				{
+					cache=new ParagraphCache;
+					cache->fullText=paragraph->GetText(false);
+					paragraphCaches[paragraphIndex]=cache;
+				}
+
+				if(createParagraph)
+				{
+					if(!cache->graphicsParagraph)
+					{
+						cache->graphicsParagraph=layoutProvider->CreateParagraph(cache->fullText, renderTarget);
+						cache->graphicsParagraph->SetParagraphAlignment(paragraph->alignment);
+						SetPropertiesVisitor::SetProperty(element->document.Obj(), cache->graphicsParagraph.Obj(), paragraph, cache->selectionBegin, cache->selectionEnd);
+					}
+					if(cache->graphicsParagraph->GetMaxWidth()!=lastMaxWidth)
+					{
+						cache->graphicsParagraph->SetMaxWidth(lastMaxWidth);
+					}
+
+					vint paragraphHeight=paragraphHeights[paragraphIndex];
+					vint height=cache->graphicsParagraph->GetHeight();
+					if(paragraphHeight!=height)
+					{
+						cachedTotalHeight+=height-paragraphHeight;
+						paragraphHeight=height;
+						paragraphHeights[paragraphIndex]=paragraphHeight;
+						minSize=Size(0, cachedTotalHeight);
+					}
+				}
+
+				return cache;
+			}
+
+			bool GuiDocumentElement::GuiDocumentElementRenderer::GetParagraphIndexFromPoint(Point point, vint& top, vint& index)
+			{
+				vint y=0;
+				for(vint i=0;i<paragraphHeights.Count();i++)
+				{
+					vint paragraphHeight=paragraphHeights[i];
+					vint nextY=y+paragraphHeight+paragraphDistance;
+					top=y;
+					index=i;
+
+					if(nextY<=point.y)
+					{
+						y=nextY;
+						continue;
+					}
+					else
+					{
+						break;
+					}
+				}
+				return true;
+			}
+
+			GuiDocumentElement::GuiDocumentElementRenderer::GuiDocumentElementRenderer()
+				:paragraphDistance(0)
+				,lastMaxWidth(-1)
+				,cachedTotalHeight(0)
+				,layoutProvider(GetGuiGraphicsResourceManager()->GetLayoutProvider())
+				,lastCaret(-1, -1)
+				,lastCaretFrontSide(false)
+			{
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::Render(Rect bounds)
+			{
+				renderTarget->PushClipper(bounds);
+				if(!renderTarget->IsClipperCoverWholeTarget())
+				{
+					vint maxWidth=bounds.Width();
+					Rect clipper=renderTarget->GetClipper();
+					vint cx=bounds.Left();
+					vint cy=bounds.Top();
+					vint y1=clipper.Top()-bounds.Top();
+					vint y2=y1+clipper.Height();
+					vint y=0;
+
+					lastMaxWidth=maxWidth;
+
+					for(vint i=0;i<paragraphHeights.Count();i++)
+					{
+						vint paragraphHeight=paragraphHeights[i];
+						if(y+paragraphHeight<=y1)
+						{
+							y+=paragraphHeight+paragraphDistance;
+							continue;
+						}
+						else if(y>=y2)
+						{
+							break;
+						}
+						else
+						{
+							Ptr<DocumentParagraphRun> paragraph=element->document->paragraphs[i];
+							Ptr<ParagraphCache> cache=paragraphCaches[i];
+							bool created=cache && cache->graphicsParagraph;
+							cache=EnsureAndGetCache(i, true);
+							if(!created && i==lastCaret.row && element->caretVisible)
+							{
+								cache->graphicsParagraph->OpenCaret(lastCaret.column, lastCaretColor, lastCaretFrontSide);
+							}
+
+							paragraphHeight=cache->graphicsParagraph->GetHeight();
+							cache->graphicsParagraph->Render(Rect(Point(cx, cy+y), Size(maxWidth, paragraphHeight)));
+						}
+
+						y+=paragraphHeight+paragraphDistance;
+					}
+				}
+				renderTarget->PopClipper();
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::OnElementStateChanged()
+			{
+				if(element->document && element->document->paragraphs.Count()>0)
+				{
+					vint defaultSize=GetCurrentController()->ResourceService()->GetDefaultFont().size;
+					paragraphDistance=defaultSize;
+					vint defaultHeight=defaultSize;
+
+					paragraphCaches.Resize(element->document->paragraphs.Count());
+					paragraphHeights.Resize(element->document->paragraphs.Count());
+					
+					for(vint i=0;i<paragraphCaches.Count();i++)
+					{
+						paragraphCaches[i]=0;
+					}
+					for(vint i=0;i<paragraphHeights.Count();i++)
+					{
+						paragraphHeights[i]=defaultHeight;
+					}
+					cachedTotalHeight=paragraphHeights.Count()*(defaultHeight+paragraphDistance);
+					minSize=Size(0, cachedTotalHeight);
+				}
+				else
+				{
+					paragraphCaches.Resize(0);
+					paragraphHeights.Resize(0);
+					cachedTotalHeight=0;
+					minSize=Size(0, 0);
+				}
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint index, vint oldCount, vint newCount, bool updatedText)
+			{
+				if(0<=index && index<paragraphCaches.Count() && 0<=oldCount && index+oldCount<=paragraphCaches.Count() && 0<=newCount)
+				{
+					vint paragraphCount=element->document->paragraphs.Count();
+					CHECK_ERROR(updatedText || oldCount==newCount, L"GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint, vint, vint, bool)#oldCount和newCount设置错误。");
+					CHECK_ERROR(paragraphCount-paragraphCaches.Count()==newCount-oldCount, L"GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint, vint, vint, bool)#oldCount和newCount设置错误。");
+
+					ParagraphCacheArray oldCaches;
+					CopyFrom(oldCaches, paragraphCaches);
+					paragraphCaches.Resize(paragraphCount);
+
+					ParagraphHeightArray oldHeights;
+					CopyFrom(oldHeights, paragraphHeights);
+					paragraphHeights.Resize(paragraphCount);
+
+					vint defaultHeight=GetCurrentController()->ResourceService()->GetDefaultFont().size;
+					cachedTotalHeight=0;
+
+					for(vint i=0;i<paragraphCount;i++)
+					{
+						if(i<index)
+						{
+							paragraphCaches[i]=oldCaches[i];
+							paragraphHeights[i]=oldHeights[i];
+						}
+						else if(i<index+newCount)
+						{
+							paragraphCaches[i]=0;
+							paragraphHeights[i]=defaultHeight;
+							if(!updatedText && i<index+oldCount)
+							{
+								Ptr<ParagraphCache> cache=oldCaches[i];
+								if(cache)
+								{
+									cache->graphicsParagraph=0;
+									if(updatedText)
+									{
+										cache->selectionBegin=-1;
+										cache->selectionEnd=-1;
+									}
+								}
+								paragraphCaches[i]=cache;
+							}
+						}
+						else
+						{
+							paragraphCaches[i]=oldCaches[i-(newCount-oldCount)];
+							paragraphHeights[i]=oldHeights[i-(newCount-oldCount)];
+						}
+						cachedTotalHeight+=paragraphHeights[i]+paragraphDistance;
+					}
+				}
+			}
+
+			Ptr<DocumentHyperlinkRun> GuiDocumentElement::GuiDocumentElementRenderer::GetHyperlinkFromPoint(Point point)
+			{
+				vint top=0;
+				vint index=-1;
+				if(GetParagraphIndexFromPoint(point, top, index))
+				{
+					Ptr<ParagraphCache> cache=EnsureAndGetCache(index, true);
+					Point paragraphPoint(point.x, point.y-top);
+
+					vint start=-1;
+					vint length=0;
+					if(cache->graphicsParagraph->GetInlineObjectFromPoint(paragraphPoint, start, length))
+					{
+						return element->document->GetHyperlink(index, start, start+length);
+					}
+
+					vint caret=cache->graphicsParagraph->GetCaretFromPoint(paragraphPoint);
+					return element->document->GetHyperlink(index, caret, caret);
+				}
+				return 0;
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::OpenCaret(TextPos caret, Color color, bool frontSide)
+			{
+				CloseCaret(caret);
+				lastCaret=caret;
+				lastCaretColor=color;
+				lastCaretFrontSide=frontSide;
+
+				Ptr<ParagraphCache> cache=paragraphCaches[lastCaret.row];
+				if(cache && cache->graphicsParagraph)
+				{
+					cache->graphicsParagraph->OpenCaret(lastCaret.column, lastCaretColor, lastCaretFrontSide);
+				}
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::CloseCaret(TextPos caret)
+			{
+				if(lastCaret!=TextPos(-1, -1))
+				{
+					if(0<=lastCaret.row && lastCaret.row<paragraphCaches.Count())
+					{
+						Ptr<ParagraphCache> cache=paragraphCaches[lastCaret.row];
+						if(cache && cache->graphicsParagraph)
+						{
+							cache->graphicsParagraph->CloseCaret();
+						}
+					}
+				}
+				lastCaret=caret;
+			}
+
+			void GuiDocumentElement::GuiDocumentElementRenderer::SetSelection(TextPos begin, TextPos end)
+			{
+				if(begin>end)
+				{
+					TextPos t=begin;
+					begin=end;
+					end=t;
+				}
+				if(begin==end)
+				{
+					begin=TextPos(-1, -1);
+					end=TextPos(-1, -1);
+				}
+
+				for(vint i=0;i<paragraphCaches.Count();i++)
+				{
+					if(begin.row<=i && i<=end.row)
+					{
+						Ptr<ParagraphCache> cache=EnsureAndGetCache(i, false);
+						vint newBegin=i==begin.row?begin.column:0;
+						vint newEnd=i==end.row?end.column:cache->fullText.Length();
+
+						if(cache->selectionBegin!=newBegin || cache->selectionEnd!=newEnd)
+						{
+							cache->selectionBegin=newBegin;
+							cache->selectionEnd=newEnd;
+							NotifyParagraphUpdated(i, 1, 1, false);
+						}
+					}
+					else
+					{
+						Ptr<ParagraphCache> cache=paragraphCaches[i];
+						if(cache)
+						{
+							if(cache->selectionBegin!=-1 || cache->selectionEnd!=-1)
+							{
+								cache->selectionBegin=-1;
+								cache->selectionEnd=-1;
+								NotifyParagraphUpdated(i, 1, 1, false);
+							}
+						}
+					}
+				}
+			}
+
+			TextPos GuiDocumentElement::GuiDocumentElementRenderer::CalculateCaret(TextPos comparingCaret, IGuiGraphicsParagraph::CaretRelativePosition position, bool& preferFrontSide)
+			{
+				Ptr<ParagraphCache> cache=EnsureAndGetCache(comparingCaret.row, true);
+				if(cache)
+				{
+					switch(position)
+					{
+					case IGuiGraphicsParagraph::CaretFirst:
+						{
+							preferFrontSide=false;
+							vint caret=cache->graphicsParagraph->GetCaret(0, IGuiGraphicsParagraph::CaretFirst, preferFrontSide);
+							return TextPos(comparingCaret.row, caret);
+						}
+					case IGuiGraphicsParagraph::CaretLast:
+						{
+							preferFrontSide=true;
+							vint caret=cache->graphicsParagraph->GetCaret(0, IGuiGraphicsParagraph::CaretLast, preferFrontSide);
+							return TextPos(comparingCaret.row, caret);
+						}
+					case IGuiGraphicsParagraph::CaretLineFirst:
+						{
+							preferFrontSide=false;
+							vint caret=cache->graphicsParagraph->GetCaret(comparingCaret.column, IGuiGraphicsParagraph::CaretLineFirst, preferFrontSide);
+							return TextPos(comparingCaret.row, caret);
+						}
+					case IGuiGraphicsParagraph::CaretLineLast:
+						{
+							preferFrontSide=true;
+							vint caret=cache->graphicsParagraph->GetCaret(comparingCaret.column, IGuiGraphicsParagraph::CaretLineLast, preferFrontSide);
+							return TextPos(comparingCaret.row, caret);
+						}
+					case IGuiGraphicsParagraph::CaretMoveUp:
+						{
+							vint caret=cache->graphicsParagraph->GetCaret(comparingCaret.column, IGuiGraphicsParagraph::CaretMoveUp, preferFrontSide);
+							if(caret==comparingCaret.column && comparingCaret.row>0)
+							{
+								Rect caretBounds=cache->graphicsParagraph->GetCaretBounds(comparingCaret.column, preferFrontSide);
+								Ptr<ParagraphCache> anotherCache=EnsureAndGetCache(comparingCaret.row-1, true);
+								vint height=anotherCache->graphicsParagraph->GetHeight();
+								caret=anotherCache->graphicsParagraph->GetCaretFromPoint(Point(caretBounds.x1, height));
+								return TextPos(comparingCaret.row-1, caret);
+							}
+							else
+							{
+								return TextPos(comparingCaret.row, caret);
+							}
+						}
+					case IGuiGraphicsParagraph::CaretMoveDown:
+						{
+							vint caret=cache->graphicsParagraph->GetCaret(comparingCaret.column, IGuiGraphicsParagraph::CaretMoveDown, preferFrontSide);
+							if(caret==comparingCaret.column && comparingCaret.row<paragraphCaches.Count()-1)
+							{
+								Rect caretBounds=cache->graphicsParagraph->GetCaretBounds(comparingCaret.column, preferFrontSide);
+								Ptr<ParagraphCache> anotherCache=EnsureAndGetCache(comparingCaret.row+1, true);
+								caret=anotherCache->graphicsParagraph->GetCaretFromPoint(Point(caretBounds.x1, 0));
+								return TextPos(comparingCaret.row+1, caret);
+							}
+							else
+							{
+								return TextPos(comparingCaret.row, caret);
+							}
+						}
+					case IGuiGraphicsParagraph::CaretMoveLeft:
+						{
+							preferFrontSide=false;
+							vint caret=cache->graphicsParagraph->GetCaret(comparingCaret.column, IGuiGraphicsParagraph::CaretMoveLeft, preferFrontSide);
+							if(caret==comparingCaret.column && comparingCaret.row>0)
+							{
+								Ptr<ParagraphCache> anotherCache=EnsureAndGetCache(comparingCaret.row-1, true);
+								caret=anotherCache->graphicsParagraph->GetCaret(0, IGuiGraphicsParagraph::CaretLast, preferFrontSide);
+								return TextPos(comparingCaret.row-1, caret);
+							}
+							else
+							{
+								return TextPos(comparingCaret.row, caret);
+							}
+						}
+					case IGuiGraphicsParagraph::CaretMoveRight:
+						{
+							preferFrontSide=true;
+							vint caret=cache->graphicsParagraph->GetCaret(comparingCaret.column, IGuiGraphicsParagraph::CaretMoveRight, preferFrontSide);
+							if(caret==comparingCaret.column && comparingCaret.row<paragraphCaches.Count()-1)
+							{
+								Ptr<ParagraphCache> anotherCache=EnsureAndGetCache(comparingCaret.row+1, true);
+								caret=anotherCache->graphicsParagraph->GetCaret(0, IGuiGraphicsParagraph::CaretFirst, preferFrontSide);
+								return TextPos(comparingCaret.row+1, caret);
+							}
+							else
+							{
+								return TextPos(comparingCaret.row, caret);
+							}
+						}
+					}
+				}
+				return comparingCaret;
+			}
+
+			TextPos GuiDocumentElement::GuiDocumentElementRenderer::CalculateCaretFromPoint(Point point)
+			{
+				vint top=0;
+				vint index=-1;
+				if(GetParagraphIndexFromPoint(point, top, index))
+				{
+					Ptr<ParagraphCache> cache=EnsureAndGetCache(index, true);
+					Point paragraphPoint(point.x, point.y-top);
+					vint caret=cache->graphicsParagraph->GetCaretFromPoint(paragraphPoint);
+					return TextPos(index, caret);
+				}
+				return TextPos(-1, -1);
+			}
+
+			Rect GuiDocumentElement::GuiDocumentElementRenderer::GetCaretBounds(TextPos caret, bool frontSide)
+			{
+				Ptr<ParagraphCache> cache=EnsureAndGetCache(caret.row, true);
+				if(cache)
+				{
+					Rect bounds=cache->graphicsParagraph->GetCaretBounds(caret.column, frontSide);
+					if(bounds!=Rect())
+					{
+						vint y=0;
+						for(vint i=0;i<caret.row;i++)
+						{
+							EnsureAndGetCache(i, true);
+							y+=paragraphHeights[i]+paragraphDistance;
+						}
+
+						bounds.y1+=y;
+						bounds.y2+=y;
+						return bounds;
+					}
+				}
+				return Rect();
+			}
+
+/***********************************************************************
+GuiDocumentElement
+***********************************************************************/
+
+			void GuiDocumentElement::UpdateCaret()
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					elementRenderer->SetSelection(caretBegin, caretEnd);
+					if(caretVisible)
+					{
+						elementRenderer->OpenCaret(caretEnd, caretColor, caretFrontSide);
+					}
+					else
+					{
+						elementRenderer->CloseCaret(caretEnd);
+					}
+				}
+			}
+
+			GuiDocumentElement::GuiDocumentElement()
+				:caretVisible(false)
+				,caretFrontSide(false)
+			{
+			}
+
+			GuiDocumentElement::~GuiDocumentElement()
+			{
+			}
+
+			Ptr<DocumentModel> GuiDocumentElement::GetDocument()
+			{
+				return document;
+			}
+
+			void GuiDocumentElement::SetDocument(Ptr<DocumentModel> value)
+			{
+				document=value;
+				if(renderer)
+				{
+					renderer->OnElementStateChanged();
+					SetCaret(TextPos(), TextPos(), false);
+				}
+			}
+
+			TextPos GuiDocumentElement::GetCaretBegin()
+			{
+				return caretBegin;
+			}
+
+			TextPos GuiDocumentElement::GetCaretEnd()
+			{
+				return caretEnd;
+			}
+
+			bool GuiDocumentElement::IsCaretEndPreferFrontSide()
+			{
+				return caretFrontSide;
+			}
+
+			void GuiDocumentElement::SetCaret(TextPos begin, TextPos end, bool frontSide)
+			{
+				caretBegin=begin;
+				caretEnd=end;
+				if(caretBegin<caretEnd)
+				{
+					caretFrontSide=true;
+				}
+				else if(caretBegin>caretEnd)
+				{
+					caretFrontSide=false;
+				}
+				else
+				{
+					caretFrontSide=frontSide;
+				}
+				UpdateCaret();
+			}
+
+			bool GuiDocumentElement::GetCaretVisible()
+			{
+				return caretVisible;
+			}
+
+			void GuiDocumentElement::SetCaretVisible(bool value)
+			{
+				caretVisible=value;
+				UpdateCaret();
+			}
+
+			Color GuiDocumentElement::GetCaretColor()
+			{
+				return caretColor;
+			}
+
+			void GuiDocumentElement::SetCaretColor(Color value)
+			{
+				caretColor=value;
+				UpdateCaret();
+			}
+
+			TextPos GuiDocumentElement::CalculateCaret(TextPos comparingCaret, IGuiGraphicsParagraph::CaretRelativePosition position, bool& preferFrontSide)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					TextPos caret=elementRenderer->CalculateCaret(comparingCaret, position, preferFrontSide);
+					return caret.column==-1?comparingCaret:caret;
+				}
+				else
+				{
+					return comparingCaret;
+				}
+			}
+
+			TextPos GuiDocumentElement::CalculateCaretFromPoint(Point point)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					return elementRenderer->CalculateCaretFromPoint(point);
+				}
+				else
+				{
+					return TextPos(0, 0);
+				}
+			}
+
+			Rect GuiDocumentElement::GetCaretBounds(TextPos caret, bool frontSide)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					return elementRenderer->GetCaretBounds(caret, frontSide);
+				}
+				else
+				{
+					return Rect();
+				}
+			}
+			
+			void GuiDocumentElement::NotifyParagraphUpdated(vint index, vint oldCount, vint newCount, bool updatedText)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					elementRenderer->NotifyParagraphUpdated(index, oldCount, newCount, updatedText);
+				}
+			}
+
+			void GuiDocumentElement::EditRun(TextPos begin, TextPos end, Ptr<DocumentModel> model)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					vint newRows=document->EditRun(begin, end, model);
+					if(newRows!=-1)
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, newRows, true);
+					}
+				}
+			}
+
+			void GuiDocumentElement::EditText(TextPos begin, TextPos end, bool frontSide, const collections::Array<WString>& text)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					vint newRows=document->EditText(begin, end, frontSide, text);
+					if(newRows!=-1)
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, newRows, true);
+					}
+				}
+			}
+
+			void GuiDocumentElement::EditStyle(TextPos begin, TextPos end, Ptr<DocumentStyleProperties> style)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->EditStyle(begin, end, style))
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, end.row-begin.row+1, false);
+					}
+				}
+			}
+
+			void GuiDocumentElement::EditImage(TextPos begin, TextPos end, Ptr<GuiImageData> image)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->EditImage(begin, end, image))
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, 1, true);
+					}
+				}
+			}
+
+			void GuiDocumentElement::EditHyperlink(vint paragraphIndex, vint begin, vint end, const WString& reference, const WString& normalStyleName, const WString& activeStyleName)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						vint temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->EditHyperlink(paragraphIndex, begin, end, reference, normalStyleName, activeStyleName))
+					{
+						elementRenderer->NotifyParagraphUpdated(paragraphIndex, 1, 1, false);
+					}
+				}
+			}
+
+			void GuiDocumentElement::RemoveHyperlink(vint paragraphIndex, vint begin, vint end)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						vint temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->RemoveHyperlink(paragraphIndex, begin, end))
+					{
+						elementRenderer->NotifyParagraphUpdated(paragraphIndex, 1, 1, false);
+					}
+				}
+			}
+
+			void GuiDocumentElement::EditStyleName(TextPos begin, TextPos end, const WString& styleName)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->EditStyleName(begin, end, styleName))
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, end.row-begin.row+1, false);
+					}
+				}
+			}
+
+			void GuiDocumentElement::RemoveStyleName(TextPos begin, TextPos end)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->RemoveStyleName(begin, end))
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, end.row-begin.row+1, false);
+					}
+				}
+			}
+
+			void GuiDocumentElement::RenameStyle(const WString& oldStyleName, const WString& newStyleName)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					document->RenameStyle(oldStyleName, newStyleName);
+				}
+			}
+
+			void GuiDocumentElement::ClearStyle(TextPos begin, TextPos end)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					if(document->ClearStyle(begin, end))
+					{
+						elementRenderer->NotifyParagraphUpdated(begin.row, end.row-begin.row+1, end.row-begin.row+1, false);
+					}
+				}
+			}
+
+			Ptr<DocumentStyleProperties> GuiDocumentElement::SummarizeStyle(TextPos begin, TextPos end)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					if(begin>end)
+					{
+						TextPos temp=begin;
+						begin=end;
+						end=temp;
+					}
+
+					return document->SummarizeStyle(begin, end);
+				}
+				return 0;
+			}
+
+			void GuiDocumentElement::SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					vint first=begin.row;
+					vint last=end.row;
+					if(first>last)
+					{
+						vint temp=first;
+						first=last;
+						last=temp;
+					}
+
+					if(0<=first && first<document->paragraphs.Count() && 0<=last && last<document->paragraphs.Count() && last-first+1==alignments.Count())
+					{
+						for(vint i=first;i<=last;i++)
+						{
+							document->paragraphs[i]->alignment=alignments[i-first];
+						}
+						elementRenderer->NotifyParagraphUpdated(first, alignments.Count(), alignments.Count(), false);
+					}
+				}
+			}
+
+			Ptr<DocumentHyperlinkRun> GuiDocumentElement::GetHyperlinkFromPoint(Point point)
+			{
+				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
+				if(elementRenderer)
+				{
+					return elementRenderer->GetHyperlinkFromPoint(point);
+				}
+				else
+				{
+					return 0;
 				}
 			}
 		}
@@ -30048,7 +32425,6 @@ GraphicsElement\GuiGraphicsTextElement.cpp
 namespace vl
 {
 	using namespace collections;
-	using namespace parsing::xml;
 
 	namespace presentation
 	{
@@ -30881,373 +33257,6 @@ GuiColorizedTextElement
 					}
 				}
 			}
-
-/***********************************************************************
-Visitors
-***********************************************************************/
-
-			namespace visitors
-			{
-				class ExtractTextVisitor : public Object, public DocumentRun::IVisitor
-				{
-				public:
-					WString						text;
-
-					void Visit(DocumentTextRun* run)override
-					{
-						text=run->text;
-					}
-
-					void Visit(DocumentHyperlinkTextRun* run)override
-					{
-						Visit(static_cast<DocumentTextRun*>(run));
-					}
-
-					void Visit(DocumentImageRun* run)override
-					{
-						text=L"[Image]";
-					}
-
-					static WString ExtractText(DocumentRun* run)
-					{
-						ExtractTextVisitor visitor;
-						run->Accept(&visitor);
-						return visitor.text;
-					}
-				};
-
-				class SetPropertiesVisitor : public Object, public DocumentRun::IVisitor
-				{
-				public:
-					vint						start;
-					vint						length;
-					IGuiGraphicsParagraph*		paragraph;
-
-					SetPropertiesVisitor(vint _start, IGuiGraphicsParagraph* _paragraph)
-						:start(_start)
-						,length(0)
-						,paragraph(_paragraph)
-					{
-					}
-
-					void Visit(DocumentTextRun* run)override
-					{
-						length=run->text.Length();
-						if(length>0)
-						{
-							paragraph->SetFont(start, length, run->style.fontFamily);
-							paragraph->SetSize(start, length, run->style.size);
-							paragraph->SetColor(start, length, run->color);
-							paragraph->SetStyle(start, length, 
-								(IGuiGraphicsParagraph::TextStyle)
-								( (run->style.bold?IGuiGraphicsParagraph::Bold:0)
-								| (run->style.italic?IGuiGraphicsParagraph::Italic:0)
-								| (run->style.underline?IGuiGraphicsParagraph::Underline:0)
-								| (run->style.strikeline?IGuiGraphicsParagraph::Strikeline:0)
-								));
-							if(run->hyperlinkId!=DocumentRun::NullHyperlinkId)
-							{
-								paragraph->SetInteractionId(start, length, run->hyperlinkId);
-							}
-						}
-					}
-
-					void Visit(DocumentHyperlinkTextRun* run)override
-					{
-						Visit(static_cast<DocumentTextRun*>(run));
-					}
-
-					void Visit(DocumentImageRun* run)override
-					{
-						// [Image]
-						length=7;
-
-						IGuiGraphicsParagraph::InlineObjectProperties properties;
-						properties.size=run->size;
-						properties.baseline=run->baseline;
-						properties.breakCondition=IGuiGraphicsParagraph::Alone;
-
-						Ptr<GuiImageFrameElement> element=GuiImageFrameElement::Create();
-						element->SetImage(run->image, run->frameIndex);
-						element->SetStretch(true);
-
-						paragraph->SetInlineObject(start, length, properties, element);
-						if(run->hyperlinkId!=DocumentRun::NullHyperlinkId)
-						{
-							paragraph->SetInteractionId(start, length, run->hyperlinkId);
-						}
-					}
-
-					static vint SetProperty(vint start, IGuiGraphicsParagraph* paragraph, DocumentRun* run)
-					{
-						SetPropertiesVisitor visitor(start, paragraph);
-						run->Accept(&visitor);
-						return visitor.length;
-					}
-				};
-			}
-			using namespace visitors;
-
-/***********************************************************************
-GuiDocumentElement::GuiDocumentElementRenderer
-***********************************************************************/
-
-			void GuiDocumentElement::GuiDocumentElementRenderer::InitializeInternal()
-			{
-			}
-
-			void GuiDocumentElement::GuiDocumentElementRenderer::FinalizeInternal()
-			{
-			}
-
-			void GuiDocumentElement::GuiDocumentElementRenderer::RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget)
-			{
-				for(vint i=0;i<paragraphCaches.Count();i++)
-				{
-					ParagraphCache* cache=paragraphCaches[i].Obj();
-					if(cache)
-					{
-						cache->graphicsParagraph=0;
-					}
-				}
-			}
-
-			GuiDocumentElement::GuiDocumentElementRenderer::GuiDocumentElementRenderer()
-				:paragraphDistance(0)
-				,lastMaxWidth(-1)
-				,cachedTotalHeight(0)
-				,layoutProvider(GetGuiGraphicsResourceManager()->GetLayoutProvider())
-			{
-			}
-
-			void GuiDocumentElement::GuiDocumentElementRenderer::Render(Rect bounds)
-			{
-				renderTarget->PushClipper(bounds);
-				if(!renderTarget->IsClipperCoverWholeTarget())
-				{
-					vint maxWidth=bounds.Width();
-					Rect clipper=renderTarget->GetClipper();
-					vint cx=bounds.Left();
-					vint cy=bounds.Top();
-					vint y1=clipper.Top()-bounds.Top();
-					vint y2=y1+clipper.Height();
-					vint y=0;
-
-					for(vint i=0;i<paragraphHeights.Count();i++)
-					{
-						vint paragraphHeight=paragraphHeights[i];
-						if(y+paragraphHeight<=y1)
-						{
-							y+=paragraphHeight+paragraphDistance;
-							continue;
-						}
-						else if(y>=y2)
-						{
-							break;
-						}
-						else
-						{
-							Ptr<DocumentParagraph> paragraph=element->document->paragraphs[i];
-							Ptr<ParagraphCache> cache=paragraphCaches[i];
-							if(!cache)
-							{
-								cache=new ParagraphCache;
-								paragraphCaches[i]=cache;
-
-								stream::MemoryStream stream;
-								{
-									stream::StreamWriter writer(stream);
-									FOREACH_INDEXER(Ptr<DocumentLine>, line, lineIndex, paragraph->lines)
-									{
-										FOREACH(Ptr<DocumentRun>, run, line->runs)
-										{
-											WString text=ExtractTextVisitor::ExtractText(run.Obj());
-											writer.WriteString(text);
-										}
-										if(lineIndex<paragraph->lines.Count()-1)
-										{
-											writer.WriteString(L"\r\n");
-										}
-									}
-								}
-								{
-									stream.SeekFromBegin(0);
-									stream::StreamReader reader(stream);
-									cache->fullText=reader.ReadToEnd();
-								}
-							}
-
-							if(!cache->graphicsParagraph)
-							{
-								cache->graphicsParagraph=layoutProvider->CreateParagraph(cache->fullText, renderTarget);
-								cache->graphicsParagraph->SetParagraphAlignment(paragraph->alignment);
-								vint start=0;
-								FOREACH(Ptr<DocumentLine>, line, paragraph->lines)
-								{
-									FOREACH(Ptr<DocumentRun>, run, line->runs)
-									{
-										vint length=SetPropertiesVisitor::SetProperty(start, cache->graphicsParagraph.Obj(), run.Obj());
-										start+=length;
-									}
-									start+=2;
-								}
-							}
-							if(cache->graphicsParagraph->GetMaxWidth()!=maxWidth)
-							{
-								cache->graphicsParagraph->SetMaxWidth(maxWidth);
-								vint height=cache->graphicsParagraph->GetHeight();
-								if(paragraphHeight!=height)
-								{
-									cachedTotalHeight+=height-paragraphHeight;
-									paragraphHeight=height;
-									paragraphHeights[i]=paragraphHeight;
-								}
-							}
-
-							cache->graphicsParagraph->Render(Rect(Point(cx, cy+y), Size(maxWidth, paragraphHeight)));
-						}
-
-						y+=paragraphHeight+paragraphDistance;
-					}
-
-					lastMaxWidth=maxWidth;
-					minSize=Size(0, cachedTotalHeight);
-				}
-				renderTarget->PopClipper();
-			}
-
-			void GuiDocumentElement::GuiDocumentElementRenderer::OnElementStateChanged()
-			{
-				if(element->document && element->document->paragraphs.Count()>0)
-				{
-					vint defaultSize=GetCurrentController()->ResourceService()->GetDefaultFont().size;
-					paragraphDistance=defaultSize;
-					vint defaultHeight=defaultSize;
-
-					paragraphCaches.Resize(element->document->paragraphs.Count());
-					paragraphHeights.Resize(element->document->paragraphs.Count());
-
-					for(vint i=0;i<paragraphHeights.Count();i++)
-					{
-						paragraphHeights[i]=defaultHeight;
-					}
-					cachedTotalHeight=paragraphHeights.Count()*defaultHeight+(paragraphHeights.Count()-1)*paragraphDistance;
-					minSize=Size(0, cachedTotalHeight);
-				}
-				else
-				{
-					paragraphCaches.Resize(0);
-					paragraphHeights.Resize(0);
-					cachedTotalHeight=0;
-					minSize=Size(0, 0);
-				}
-			}
-
-			void GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint index)
-			{
-				if(0<=index && index<paragraphCaches.Count())
-				{
-					Ptr<ParagraphCache> cache=paragraphCaches[index];
-					if(cache)
-					{
-						cache->graphicsParagraph=0;
-					}
-				}
-			}
-
-			vint GuiDocumentElement::GuiDocumentElementRenderer::GetHyperlinkIdFromPoint(Point point)
-			{
-				vint y=0;
-				for(vint i=0;i<paragraphHeights.Count();i++)
-				{
-					vint paragraphHeight=paragraphHeights[i];
-					if(y+paragraphHeight<=point.y)
-					{
-						y+=paragraphHeight+paragraphDistance;
-						continue;
-					}
-					else if(y>point.y)
-					{
-						break;
-					}
-					else
-					{
-						Ptr<ParagraphCache> cache=paragraphCaches[i];
-						if(cache && cache->graphicsParagraph)
-						{
-							vint start=0;
-							vint length=0;
-							vint id=0;
-							if(cache->graphicsParagraph->HitTestPoint(Point(point.x, point.y-y), start, length, id))
-							{
-								return id;
-							}
-						}
-						return DocumentRun::NullHyperlinkId;
-					}
-				}
-				return DocumentRun::NullHyperlinkId;
-			}
-
-/***********************************************************************
-GuiDocumentElement
-***********************************************************************/
-
-			GuiDocumentElement::GuiDocumentElement()
-			{
-			}
-
-			GuiDocumentElement::~GuiDocumentElement()
-			{
-			}
-
-			Ptr<DocumentModel> GuiDocumentElement::GetDocument()
-			{
-				return document;
-			}
-
-			void GuiDocumentElement::SetDocument(Ptr<DocumentModel> value)
-			{
-				document=value;
-				if(renderer)
-				{
-					renderer->OnElementStateChanged();
-				}
-			}
-			
-			void GuiDocumentElement::NotifyParagraphUpdated(vint index)
-			{
-				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
-				if(elementRenderer)
-				{
-					elementRenderer->NotifyParagraphUpdated(index);
-				}
-			}
-
-			vint GuiDocumentElement::GetHyperlinkIdFromPoint(Point point)
-			{
-				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
-				if(elementRenderer)
-				{
-					return elementRenderer->GetHyperlinkIdFromPoint(point);
-				}
-				else
-				{
-					return DocumentRun::NullHyperlinkId;
-				}
-			}
-
-			void GuiDocumentElement::ActivateHyperlink(vint hyperlinkId, bool active)
-			{
-				if(document)
-				{
-					vint paragraphIndex=document->ActivateHyperlink(hyperlinkId, active);
-					if(paragraphIndex!=-1)
-					{
-						NotifyParagraphUpdated(paragraphIndex);
-					}
-				}
-			}
 		}
 	}
 }
@@ -31461,7 +33470,7 @@ Native Window Provider
 }
 
 /***********************************************************************
-NativeWindow\GuiResource.cpp
+Resources\GuiDocument.cpp
 ***********************************************************************/
 
 namespace vl
@@ -31471,6 +33480,3128 @@ namespace vl
 		using namespace collections;
 		using namespace parsing::tabling;
 		using namespace parsing::xml;
+		using namespace regex;
+
+/***********************************************************************
+DocumentImageRun
+***********************************************************************/
+
+		const wchar_t* DocumentImageRun::RepresentationText=L"[Image]";
+
+/***********************************************************************
+ExtractTextVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class ExtractTextVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				stream::TextWriter&				writer;
+				bool							skipNonTextContent;
+
+				ExtractTextVisitor(stream::TextWriter& _writer, bool _skipNonTextContent)
+					:writer(_writer)
+					,skipNonTextContent(_skipNonTextContent)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						subRun->Accept(this);
+					}
+				}
+
+				void VisitContent(DocumentContentRun* run)
+				{
+					writer.WriteString(run->GetRepresentationText());
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					if(!skipNonTextContent)
+					{
+						VisitContent(run);
+					}
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+DocumentParagraphRun
+***********************************************************************/
+
+		WString DocumentParagraphRun::GetText(bool skipNonTextContent)
+		{
+			stream::MemoryStream memoryStream;
+			{
+				stream::StreamWriter writer(memoryStream);
+				GetText(writer, skipNonTextContent);
+			}
+
+			memoryStream.SeekFromBegin(0);
+			stream::StreamReader reader(memoryStream);
+			return reader.ReadToEnd();
+		}
+
+		void DocumentParagraphRun::GetText(stream::TextWriter& writer, bool skipNonTextContent)
+		{
+			ExtractTextVisitor visitor(writer, skipNonTextContent);
+			Accept(&visitor);
+		}
+
+/***********************************************************************
+DocumentModel
+***********************************************************************/
+
+		const wchar_t* DocumentModel::DefaultStyleName		= L"#Default";
+		const wchar_t* DocumentModel::SelectionStyleName	= L"#Selection";
+		const wchar_t* DocumentModel::ContextStyleName		= L"#Context";
+		const wchar_t* DocumentModel::NormalLinkStyleName	= L"#NormalLink";
+		const wchar_t* DocumentModel::ActiveLinkStyleName	= L"#ActiveLink";
+
+		DocumentModel::DocumentModel()
+		{
+			{
+				FontProperties font=GetCurrentController()->ResourceService()->GetDefaultFont();
+				Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+				sp->face=font.fontFamily;
+				sp->size=font.size;
+				sp->color=Color();
+				sp->backgroundColor=Color(0, 0, 0, 0);
+				sp->bold=font.bold;
+				sp->italic=font.italic;
+				sp->underline=font.underline;
+				sp->strikeline=font.strikeline;
+				sp->antialias=font.antialias;
+				sp->verticalAntialias=font.verticalAntialias;
+
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->styles=sp;
+				styles.Add(L"#Default", style);
+			}
+			{
+				Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+				sp->color=Color(255, 255, 255);
+				sp->backgroundColor=Color(51, 153, 255);
+
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->styles=sp;
+				styles.Add(L"#Selection", style);
+			}
+			{
+				Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->styles=sp;
+				styles.Add(L"#Context", style);
+			}
+			{
+				Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+				sp->color=Color(0, 0, 255);
+				sp->underline=true;
+
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->parentStyleName=L"#Context";
+				style->styles=sp;
+				styles.Add(L"#NormalLink", style);
+			}
+			{
+				Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+				sp->color=Color(0, 0, 255);
+				sp->underline=true;
+
+				Ptr<DocumentStyle> style=new DocumentStyle;
+				style->parentStyleName=L"#Context";
+				style->styles=sp;
+				styles.Add(L"#ActiveLink", style);
+			}
+		}
+
+		DocumentModel::ResolvedStyle DocumentModel::GetStyle(Ptr<DocumentStyleProperties> sp, const ResolvedStyle& context)
+		{
+			FontProperties font;
+			font.fontFamily			=sp->face				?sp->face.Value()				:context.style.fontFamily;
+			font.size				=sp->size				?sp->size.Value()				:context.style.size;
+			font.bold				=sp->bold				?sp->bold.Value()				:context.style.bold;
+			font.italic				=sp->italic				?sp->italic.Value()				:context.style.italic;
+			font.underline			=sp->underline			?sp->underline.Value()			:context.style.underline;
+			font.strikeline			=sp->strikeline			?sp->strikeline.Value()			:context.style.strikeline;
+			font.antialias			=sp->antialias			?sp->antialias.Value()			:context.style.antialias;
+			font.verticalAntialias	=sp->verticalAntialias	?sp->verticalAntialias.Value()	:context.style.verticalAntialias;
+			Color color				=sp->color				?sp->color.Value()				:context.color;
+			Color backgroundColor	=sp->backgroundColor	?sp->backgroundColor.Value()	:context.backgroundColor;
+			return ResolvedStyle(font, color, backgroundColor);
+		}
+
+		DocumentModel::ResolvedStyle DocumentModel::GetStyle(const WString& styleName, const ResolvedStyle& context)
+		{
+			Ptr<DocumentStyle> selectedStyle;
+			{
+				vint index=styles.Keys().IndexOf(styleName);
+				if(index!=-1)
+				{
+					selectedStyle=styles.Values()[index];
+				}
+				else
+				{
+					selectedStyle=styles[L"#Default"];
+				}
+			}
+
+			if(!selectedStyle->resolvedStyles)
+			{
+				Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+				selectedStyle->resolvedStyles=sp;
+
+				Ptr<DocumentStyle> currentStyle;
+				WString currentName=styleName;
+				while(true)
+				{
+					vint index=styles.Keys().IndexOf(currentName);
+					if(index==-1) break;
+					currentStyle=styles.Values().Get(index);
+					currentName=currentStyle->parentStyleName;
+					Ptr<DocumentStyleProperties> csp=currentStyle->styles;
+
+					if(!sp->face				&& csp->face)				sp->face				=csp->face;
+					if(!sp->size				&& csp->size)				sp->size				=csp->size;
+					if(!sp->color				&& csp->color)				sp->color				=csp->color;
+					if(!sp->backgroundColor		&& csp->backgroundColor)	sp->backgroundColor		=csp->backgroundColor;
+					if(!sp->bold				&& csp->bold)				sp->bold				=csp->bold;
+					if(!sp->italic				&& csp->italic)				sp->italic				=csp->italic;
+					if(!sp->underline			&& csp->underline)			sp->underline			=csp->underline;
+					if(!sp->strikeline			&& csp->strikeline)			sp->strikeline			=csp->strikeline;
+					if(!sp->antialias			&& csp->antialias)			sp->antialias			=csp->antialias;
+					if(!sp->verticalAntialias	&& csp->verticalAntialias)	sp->verticalAntialias	=csp->verticalAntialias;
+				}
+			}
+
+			Ptr<DocumentStyleProperties> sp=selectedStyle->resolvedStyles;
+			return GetStyle(sp, context);
+		}
+
+		WString DocumentModel::GetText(bool skipNonTextContent)
+		{
+			stream::MemoryStream memoryStream;
+			{
+				stream::StreamWriter writer(memoryStream);
+				GetText(writer, skipNonTextContent);
+			}
+
+			memoryStream.SeekFromBegin(0);
+			stream::StreamReader reader(memoryStream);
+			return reader.ReadToEnd();
+		}
+
+		void DocumentModel::GetText(stream::TextWriter& writer, bool skipNonTextContent)
+		{
+			for(vint i=0;i<paragraphs.Count();i++)
+			{
+				Ptr<DocumentParagraphRun> paragraph=paragraphs[i];
+				paragraph->GetText(writer, skipNonTextContent);
+				if(i<paragraphs.Count()-1)
+				{
+					writer.WriteString(L"\r\n\r\n");
+				}
+			}
+		}
+	}
+}
+
+/***********************************************************************
+Resources\GuiDocument_Edit.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace collections;
+
+		typedef DocumentModel::RunRange			RunRange;
+		typedef DocumentModel::RunRangeMap		RunRangeMap;
+
+/***********************************************************************
+document_operation_visitors::GetRunRangeVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class GetRunRangeVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				RunRangeMap&					runRanges;
+				vint							start;
+
+				GetRunRangeVisitor(RunRangeMap& _runRanges)
+					:runRanges(_runRanges)
+					,start(0)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					RunRange range;
+					range.start=start;
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						subRun->Accept(this);
+					}
+					range.end=start;
+					runRanges.Add(run, range);
+				}
+
+				void VisitContent(DocumentContentRun* run)
+				{
+					RunRange range;
+					range.start=start;
+					start+=run->GetRepresentationText().Length();
+					range.end=start;
+					runRanges.Add(run, range);
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void GetRunRange(DocumentParagraphRun* run, RunRangeMap& runRanges)
+				{
+					GetRunRangeVisitor visitor(runRanges);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::LocateStyleVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class LocateStyleVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				List<DocumentContainerRun*>&	locatedRuns;
+				RunRangeMap&					runRanges;
+				vint							position;
+				bool							frontSide;
+
+				LocateStyleVisitor(List<DocumentContainerRun*>& _locatedRuns, RunRangeMap& _runRanges, vint _position, bool _frontSide)
+					:locatedRuns(_locatedRuns)
+					,runRanges(_runRanges)
+					,position(_position)
+					,frontSide(_frontSide)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					locatedRuns.Add(run);
+					Ptr<DocumentRun> selectedRun;
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						RunRange range=runRanges[subRun.Obj()];
+						if(position==range.start)
+						{
+							if(!frontSide)
+							{
+								selectedRun=subRun;
+								break;
+							}
+						}
+						else if(position==range.end)
+						{
+							if(frontSide)
+							{
+								selectedRun=subRun;
+								break;
+							}
+						}
+						else if(range.start<position && position<range.end)
+						{
+							selectedRun=subRun;
+							break;
+						}
+					}
+
+					if(selectedRun)
+					{
+						selectedRun->Accept(this);
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void LocateStyle(DocumentParagraphRun* run, RunRangeMap& runRanges, vint position, bool frontSide, List<DocumentContainerRun*>& locatedRuns)
+				{
+					LocateStyleVisitor visitor(locatedRuns, runRanges, position, frontSide);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::LocateHyperlinkVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class LocateHyperlinkVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				Ptr<DocumentHyperlinkRun>		hyperlink;
+				RunRangeMap&					runRanges;
+				vint							start;
+				vint							end;
+
+				LocateHyperlinkVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:runRanges(_runRanges)
+					,start(_start)
+					,end(_end)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					Ptr<DocumentRun> selectedRun;
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						RunRange range=runRanges[subRun.Obj()];
+						if(range.start<=start && end<=range.end)
+						{
+							selectedRun=subRun;
+							break;
+						}
+					}
+
+					if(selectedRun)
+					{
+						selectedRun->Accept(this);
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					hyperlink=run;
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static Ptr<DocumentHyperlinkRun> LocateHyperlink(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end)
+				{
+					LocateHyperlinkVisitor visitor(runRanges, start, end);
+					run->Accept(&visitor);
+					return visitor.hyperlink;
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::CloneRunVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class CloneRunVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				Ptr<DocumentRun>				clonedRun;
+
+				CloneRunVisitor(Ptr<DocumentRun> subRun)
+					:clonedRun(subRun)
+				{
+				}
+
+				void VisitContainer(Ptr<DocumentContainerRun> cloned)
+				{
+					if(clonedRun)
+					{
+						cloned->runs.Add(clonedRun);
+					}
+					clonedRun=cloned;
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					Ptr<DocumentTextRun> cloned=new DocumentTextRun;
+					cloned->text=run->text;
+					clonedRun=cloned;
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					Ptr<DocumentStylePropertiesRun> cloned=new DocumentStylePropertiesRun;
+					cloned->style=CopyStyle(run->style);
+					VisitContainer(cloned);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					Ptr<DocumentStyleApplicationRun> cloned=new DocumentStyleApplicationRun;
+					cloned->styleName=run->styleName;
+					
+					VisitContainer(cloned);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					Ptr<DocumentHyperlinkRun> cloned=new DocumentHyperlinkRun;
+					cloned->styleName=run->styleName;
+					cloned->normalStyleName=run->normalStyleName;
+					cloned->activeStyleName=run->activeStyleName;
+					cloned->reference=run->reference;
+					
+					VisitContainer(cloned);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					Ptr<DocumentImageRun> cloned=new DocumentImageRun;
+					cloned->size=run->size;
+					cloned->baseline=run->baseline;
+					cloned->image=run->image;
+					cloned->frameIndex=run->frameIndex;
+					cloned->source=run->source;
+					clonedRun=cloned;
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					Ptr<DocumentParagraphRun> cloned=new DocumentParagraphRun;
+					cloned->alignment=run->alignment;
+						
+					VisitContainer(cloned);
+				}
+
+				static Ptr<DocumentStyleProperties> CopyStyle(Ptr<DocumentStyleProperties> style)
+				{
+					Ptr<DocumentStyleProperties> newStyle=new DocumentStyleProperties;
+					
+					newStyle->face					=style->face;
+					newStyle->size					=style->size;
+					newStyle->color					=style->color;
+					newStyle->backgroundColor		=style->backgroundColor;
+					newStyle->bold					=style->bold;
+					newStyle->italic				=style->italic;
+					newStyle->underline				=style->underline;
+					newStyle->strikeline			=style->strikeline;
+					newStyle->antialias				=style->antialias;
+					newStyle->verticalAntialias		=style->verticalAntialias;
+
+					return newStyle;
+				}
+
+				static Ptr<DocumentRun> CopyRun(DocumentRun* run)
+				{
+					CloneRunVisitor visitor(0);
+					run->Accept(&visitor);
+					return visitor.clonedRun;
+				}
+
+				static Ptr<DocumentRun> CopyStyledText(List<DocumentContainerRun*>& styleRuns, const WString& text)
+				{
+					Ptr<DocumentTextRun> textRun=new DocumentTextRun;
+					textRun->text=text;
+
+					CloneRunVisitor visitor(textRun);
+					for(vint i=styleRuns.Count()-1;i>=0;i--)
+					{
+						styleRuns[i]->Accept(&visitor);
+					}
+
+					return visitor.clonedRun;
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::CloneRunRecursivelyVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class CloneRunRecursivelyVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				Ptr<DocumentRun>				clonedRun;
+				RunRangeMap&					runRanges;
+				vint							start;
+				vint							end;
+				bool							deepCopy;
+
+				CloneRunRecursivelyVisitor(RunRangeMap& _runRanges, vint _start, vint _end, bool _deepCopy)
+					:runRanges(_runRanges)
+					,start(_start)
+					,end(_end)
+					,deepCopy(_deepCopy)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					clonedRun=0;
+					RunRange range=runRanges[run];
+					if(range.start<=end && start<=range.end)
+					{
+						if(start<=range.start && range.end<=end && !deepCopy)
+						{
+							clonedRun=run;
+						}
+						else
+						{
+							Ptr<DocumentContainerRun> containerRun=CloneRunVisitor::CopyRun(run).Cast<DocumentContainerRun>();
+							FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+							{
+								subRun->Accept(this);
+								if(clonedRun)
+								{
+									containerRun->runs.Add(clonedRun);
+								}
+							}
+							clonedRun=containerRun;
+						}
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					clonedRun=0;
+					RunRange range=runRanges[run];
+					if(range.start<end && start<range.end)
+					{
+						if(start<=range.start && range.end<=end)
+						{
+							if(deepCopy)
+							{
+								clonedRun=CloneRunVisitor::CopyRun(run);
+							}
+							else
+							{
+								clonedRun=run;
+							}
+						}
+						else
+						{
+							Ptr<DocumentTextRun> textRun=new DocumentTextRun;
+							vint copyStart=start>range.start?start:range.start;
+							vint copyEnd=end<range.end?end:range.end;
+							if(copyStart<copyEnd)
+							{
+								textRun->text=run->text.Sub(copyStart-range.start, copyEnd-copyStart);
+							}
+							clonedRun=textRun;
+						}
+					}
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					clonedRun=0;
+					RunRange range=runRanges[run];
+					if(range.start<end && start<range.end)
+					{
+						if(deepCopy)
+						{
+							clonedRun=CloneRunVisitor::CopyRun(run);
+						}
+						else
+						{
+							clonedRun=run;
+						}
+					}
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static Ptr<DocumentRun> CopyRun(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end, bool deepCopy)
+				{
+					CloneRunRecursivelyVisitor visitor(runRanges, start, end, deepCopy);
+					run->Accept(&visitor);
+					return visitor.clonedRun;
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::CollectStyleNameVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class CollectStyleNameVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				List<WString>&					styleNames;
+
+				CollectStyleNameVisitor(List<WString>& _styleNames)
+					:styleNames(_styleNames)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						subRun->Accept(this);
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					if(!styleNames.Contains(run->styleName))
+					{
+						styleNames.Add(run->styleName);
+					}
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					if(!styleNames.Contains(run->normalStyleName))
+					{
+						styleNames.Add(run->normalStyleName);
+					}
+					if(!styleNames.Contains(run->activeStyleName))
+					{
+						styleNames.Add(run->activeStyleName);
+					}
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void CollectStyleName(DocumentParagraphRun* run, List<WString>& styleNames)
+				{
+					CollectStyleNameVisitor visitor(styleNames);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::ReplaceStyleNameVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class ReplaceStyleNameVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				WString							oldStyleName;
+				WString							newStyleName;
+
+				ReplaceStyleNameVisitor(const WString& _oldStyleName, const WString& _newStyleName)
+					:oldStyleName(_oldStyleName)
+					,newStyleName(_newStyleName)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						subRun->Accept(this);
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					if(run->styleName==oldStyleName) run->styleName=newStyleName;
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					if(run->styleName==oldStyleName) run->styleName=newStyleName;
+					if(run->normalStyleName==oldStyleName) run->normalStyleName=newStyleName;
+					if(run->activeStyleName==oldStyleName) run->activeStyleName=newStyleName;
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void ReplaceStyleName(DocumentParagraphRun* run, const WString& oldStyleName, const WString& newStyleName)
+				{
+					ReplaceStyleNameVisitor visitor(oldStyleName, newStyleName);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::RemoveRunVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class RemoveRunVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				RunRangeMap&					runRanges;
+				vint							start;
+				vint							end;
+				List<Ptr<DocumentRun>>			replacedRuns;
+
+				RemoveRunVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:runRanges(_runRanges)
+					,start(_start)
+					,end(_end)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					if(start==end) return;
+					for(vint i=run->runs.Count()-1;i>=0;i--)
+					{
+						Ptr<DocumentRun> subRun=run->runs[i];
+						RunRange range=runRanges[subRun.Obj()];
+
+						if(range.start<=end && start<=range.end)
+						{
+							subRun->Accept(this);
+							if(replacedRuns.Count()==0 || subRun!=replacedRuns[0])
+							{
+								run->runs.RemoveAt(i);
+								for(vint j=0;j<replacedRuns.Count();j++)
+								{
+									run->runs.Insert(i+j, replacedRuns[j]);
+								}
+							}
+						}
+					}
+					replacedRuns.Clear();
+					replacedRuns.Add(run);
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					replacedRuns.Clear();
+					RunRange range=runRanges[run];
+
+					if(start<=range.start)
+					{
+						if(end<range.end)
+						{
+							run->text=run->text.Sub(end-range.start, range.end-end);
+							replacedRuns.Add(run);
+						}
+					}
+					else
+					{
+						if(end<range.end)
+						{
+							DocumentTextRun* firstRun=new DocumentTextRun;
+							DocumentTextRun* secondRun=new DocumentTextRun;
+
+							firstRun->text=run->text.Sub(0, start-range.start);
+							secondRun->text=run->text.Sub(end-range.start, range.end-end);
+
+							replacedRuns.Add(firstRun);
+							replacedRuns.Add(secondRun);
+						}
+						else
+						{
+							run->text=run->text.Sub(0, start-range.start);
+							replacedRuns.Add(run);
+						}
+					}
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					replacedRuns.Clear();
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void RemoveRun(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end)
+				{
+					RemoveRunVisitor visitor(runRanges, start, end);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::CutRunVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class CutRunVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				RunRangeMap&					runRanges;
+				vint							position;
+				Ptr<DocumentRun>				leftRun;
+				Ptr<DocumentRun>				rightRun;
+
+				CutRunVisitor(RunRangeMap& _runRanges, vint _position)
+					:runRanges(_runRanges)
+					,position(_position)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					vint leftCount=0;
+					Ptr<DocumentRun> selectedRun;
+
+					FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+					{
+						RunRange range=runRanges[subRun.Obj()];
+						if(range.start<position)
+						{
+							leftCount++;
+							if (position<range.end)
+							{
+								selectedRun=subRun;
+							}
+						}
+						else
+						{
+							break;
+						}
+					}
+
+					if(selectedRun)
+					{
+						selectedRun->Accept(this);
+						if(leftRun && rightRun)
+						{
+							run->runs.RemoveAt(leftCount-1);
+							run->runs.Insert(leftCount-1, leftRun);
+							run->runs.Insert(leftCount, rightRun);
+						}
+					}
+					
+					Ptr<DocumentContainerRun> leftContainer=CloneRunVisitor::CopyRun(run).Cast<DocumentContainerRun>();
+					Ptr<DocumentContainerRun> rightContainer=CloneRunVisitor::CopyRun(run).Cast<DocumentContainerRun>();
+					for(vint i=0;i<run->runs.Count();i++)
+					{
+						(i<leftCount?leftContainer:rightContainer)->runs.Add(run->runs[i]);
+					}
+					leftRun=leftContainer;
+					rightRun=rightContainer;
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					RunRange range=runRanges[run];
+
+					Ptr<DocumentTextRun> leftText=new DocumentTextRun;
+					leftText->text=run->text.Sub(0, position-range.start);
+
+					Ptr<DocumentTextRun> rightText=new DocumentTextRun;
+					rightText->text=run->text.Sub(position-range.start, range.end-position);
+
+					leftRun=leftText;
+					rightRun=rightText;
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					leftRun=0;
+					rightRun=0;
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void CutRun(DocumentParagraphRun* run, RunRangeMap& runRanges, vint position, Ptr<DocumentRun>& leftRun, Ptr<DocumentRun>& rightRun)
+				{
+					CutRunVisitor visitor(runRanges, position);
+					run->Accept(&visitor);
+					leftRun=visitor.leftRun;
+					rightRun=visitor.rightRun;
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::ClearRunVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class ClearRunVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				vint							start;
+
+				ClearRunVisitor()
+					:start(0)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					for(vint i=run->runs.Count()-1;i>=0;i--)
+					{
+						vint oldStart=start;
+						run->runs[i]->Accept(this);
+						if(oldStart==start)
+						{
+							run->runs.RemoveAt(i);
+						}
+					}
+				}
+
+				void VisitContent(DocumentContentRun* run)
+				{
+					start+=run->GetRepresentationText().Length();
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static void ClearRun(DocumentParagraphRun* run)
+				{
+					ClearRunVisitor visitor;
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::AddContainerVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class AddContainerVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				RunRangeMap&							runRanges;
+				vint									start;
+				vint									end;
+				bool									insertStyle;
+
+				virtual Ptr<DocumentContainerRun>		CreateContainer()=0;
+
+				AddContainerVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:runRanges(_runRanges)
+					,start(_start)
+					,end(_end)
+					,insertStyle(false)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					for(vint i=run->runs.Count()-1;i>=0;i--)
+					{
+						Ptr<DocumentRun> subRun=run->runs[i];
+						RunRange range=runRanges[subRun.Obj()];
+						if(range.start<end && start<range.end)
+						{
+							insertStyle=false;
+							subRun->Accept(this);
+							if(insertStyle)
+							{
+								Ptr<DocumentContainerRun> containerRun=CreateContainer();
+								run->runs.RemoveAt(i);
+								containerRun->runs.Add(subRun);
+								run->runs.Insert(i, containerRun);
+							}
+						}
+					}
+					insertStyle=false;
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					insertStyle=true;
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					insertStyle=false;
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+			};
+
+			class AddStyleVisitor : public AddContainerVisitor
+			{
+			public:
+				Ptr<DocumentStyleProperties>	style;
+
+				Ptr<DocumentContainerRun> CreateContainer()override
+				{
+					Ptr<DocumentStylePropertiesRun> containerRun=new DocumentStylePropertiesRun;
+					containerRun->style=CloneRunVisitor::CopyStyle(style);
+					return containerRun;
+				}
+
+				AddStyleVisitor(RunRangeMap& _runRanges, vint _start, vint _end, Ptr<DocumentStyleProperties> _style)
+					:AddContainerVisitor(_runRanges, _start, _end)
+					,style(_style)
+				{
+				}
+
+				static void AddStyle(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end, Ptr<DocumentStyleProperties> style)
+				{
+					AddStyleVisitor visitor(runRanges, start, end, style);
+					run->Accept(&visitor);
+				}
+			};
+
+			class AddHyperlinkVisitor : public AddContainerVisitor
+			{
+			public:
+				WString							reference;
+				WString							normalStyleName;
+				WString							activeStyleName;
+
+				Ptr<DocumentContainerRun> CreateContainer()override
+				{
+					Ptr<DocumentHyperlinkRun> containerRun=new DocumentHyperlinkRun;
+					containerRun->reference=reference;
+					containerRun->normalStyleName=normalStyleName;
+					containerRun->activeStyleName=activeStyleName;
+					containerRun->styleName=normalStyleName;
+					return containerRun;
+				}
+
+				AddHyperlinkVisitor(RunRangeMap& _runRanges, vint _start, vint _end, const WString& _reference, const WString& _normalStyleName, const WString& _activeStyleName)
+					:AddContainerVisitor(_runRanges, _start, _end)
+					,reference(_reference)
+					,normalStyleName(_normalStyleName)
+					,activeStyleName(_activeStyleName)
+				{
+				}
+
+				static void AddHyperlink(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end, const WString& reference, const WString& normalStyleName, const WString& activeStyleName)
+				{
+					AddHyperlinkVisitor visitor(runRanges, start, end, reference, normalStyleName, activeStyleName);
+					run->Accept(&visitor);
+				}
+			};
+
+			class AddStyleNameVisitor : public AddContainerVisitor
+			{
+			public:
+				WString							styleName;
+
+				Ptr<DocumentContainerRun> CreateContainer()override
+				{
+					Ptr<DocumentStyleApplicationRun> containerRun=new DocumentStyleApplicationRun;
+					containerRun->styleName=styleName;
+					return containerRun;
+				}
+
+				AddStyleNameVisitor(RunRangeMap& _runRanges, vint _start, vint _end, const WString& _styleName)
+					:AddContainerVisitor(_runRanges, _start, _end)
+					,styleName(_styleName)
+				{
+				}
+
+				static void AddStyleName(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end, const WString& styleName)
+				{
+					AddStyleNameVisitor visitor(runRanges, start, end, styleName);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::RemoveContainerVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class RemoveContainerVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				RunRangeMap&					runRanges;
+				vint							start;
+				vint							end;
+				List<Ptr<DocumentRun>>			replacedRuns;
+
+				RemoveContainerVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:runRanges(_runRanges)
+					,start(_start)
+					,end(_end)
+				{
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					for(vint i=run->runs.Count()-1;i>=0;i--)
+					{
+						Ptr<DocumentRun> subRun=run->runs[i];
+						RunRange range=runRanges[subRun.Obj()];
+						if(range.start<end && start<range.end)
+						{
+							replacedRuns.Clear();
+							subRun->Accept(this);
+							if(replacedRuns.Count()!=1 || replacedRuns[0]!=subRun)
+							{
+								run->runs.RemoveAt(i);
+								for(vint j=0;j<replacedRuns.Count();j++)
+								{
+									run->runs.Insert(i+j, replacedRuns[j]);
+								}
+								i+=replacedRuns.Count();
+							}
+						}
+					}
+					replacedRuns.Clear();
+					replacedRuns.Add(run);
+				}
+
+				void VisitContent(DocumentContentRun* run)
+				{
+					replacedRuns.Add(run);
+				}
+
+				void RemoveContainer(DocumentContainerRun* run)
+				{
+					CopyFrom(replacedRuns, run->runs);
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					VisitContent(run);
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+			};
+
+			class RemoveHyperlinkVisitor : public RemoveContainerVisitor
+			{
+			public:
+				RemoveHyperlinkVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:RemoveContainerVisitor(_runRanges, _start, _end)
+				{
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					RemoveContainer(run);
+				}
+
+				static void RemoveHyperlink(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end)
+				{
+					RemoveHyperlinkVisitor visitor(runRanges, start, end);
+					run->Accept(&visitor);
+				}
+			};
+
+			class RemoveStyleNameVisitor : public RemoveContainerVisitor
+			{
+			public:
+				RemoveStyleNameVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:RemoveContainerVisitor(_runRanges, _start, _end)
+				{
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					RemoveContainer(run);
+				}
+
+				static void RemoveStyleName(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end)
+				{
+					RemoveStyleNameVisitor visitor(runRanges, start, end);
+					run->Accept(&visitor);
+				}
+			};
+
+			class ClearStyleVisitor : public RemoveContainerVisitor
+			{
+			public:
+				ClearStyleVisitor(RunRangeMap& _runRanges, vint _start, vint _end)
+					:RemoveContainerVisitor(_runRanges, _start, _end)
+				{
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					RemoveContainer(run);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					RemoveContainer(run);
+				}
+
+				static void ClearStyle(DocumentParagraphRun* run, RunRangeMap& runRanges, vint start, vint end)
+				{
+					ClearStyleVisitor visitor(runRanges, start, end);
+					run->Accept(&visitor);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+document_operation_visitors::SummerizeStyleVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class SummerizeStyleVisitor : public Object, public DocumentRun::IVisitor
+			{
+			public:
+				RunRangeMap&							runRanges;
+				DocumentModel*							model;
+				vint									start;
+				vint									end;
+				Ptr<DocumentStyleProperties>			style;
+				List<DocumentModel::ResolvedStyle>		resolvedStyles;
+
+				SummerizeStyleVisitor(RunRangeMap& _runRanges, DocumentModel* _model, vint _start, vint _end)
+					:runRanges(_runRanges)
+					,model(_model)
+					,start(_start)
+					,end(_end)
+				{
+					DocumentModel::ResolvedStyle resolvedStyle=model->GetStyle(DocumentModel::DefaultStyleName, resolvedStyle);
+					resolvedStyles.Add(resolvedStyle);
+				}
+
+				const DocumentModel::ResolvedStyle& GetCurrentResolvedStyle()
+				{
+					return resolvedStyles[resolvedStyles.Count()-1];
+				}
+
+				template<typename T>
+				void OverrideStyleItem(Nullable<T> DocumentStyleProperties::* dstField, T FontProperties::* srcField)
+				{
+					const DocumentModel::ResolvedStyle& src=GetCurrentResolvedStyle();
+					style.Obj()->*dstField=src.style.*srcField;
+				}
+
+				template<typename T>
+				void OverrideStyleItem(Nullable<T> DocumentStyleProperties::* dstField, T DocumentModel::ResolvedStyle::* srcField)
+				{
+					const DocumentModel::ResolvedStyle& src=GetCurrentResolvedStyle();
+					style.Obj()->*dstField=src.*srcField;
+				}
+
+				template<typename T>
+				void SetStyleItem(Nullable<T> DocumentStyleProperties::* dstField, T FontProperties::* srcField)
+				{
+					const DocumentModel::ResolvedStyle& src=GetCurrentResolvedStyle();
+					if(style.Obj()->*dstField && (style.Obj()->*dstField).Value()!=src.style.*srcField)
+					{
+						style.Obj()->*dstField=Nullable<T>();
+					}
+				}
+
+				template<typename T>
+				void SetStyleItem(Nullable<T> DocumentStyleProperties::* dstField, T DocumentModel::ResolvedStyle::* srcField)
+				{
+					const DocumentModel::ResolvedStyle& src=GetCurrentResolvedStyle();
+					if(style.Obj()->*dstField && (style.Obj()->*dstField).Value()!=src.*srcField)
+					{
+						style.Obj()->*dstField=Nullable<T>();
+					}
+				}
+
+				void VisitContainer(DocumentContainerRun* run)
+				{
+					for(vint i=run->runs.Count()-1;i>=0;i--)
+					{
+						Ptr<DocumentRun> subRun=run->runs[i];
+						RunRange range=runRanges[subRun.Obj()];
+						if(range.start<end && start<range.end)
+						{
+							subRun->Accept(this);
+						}
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					const DocumentModel::ResolvedStyle& currentResolvedStyle=GetCurrentResolvedStyle();
+					if(style)
+					{
+						SetStyleItem(&DocumentStyleProperties::face,					&FontProperties::fontFamily);
+						SetStyleItem(&DocumentStyleProperties::size,					&FontProperties::size);
+						SetStyleItem(&DocumentStyleProperties::color,					&DocumentModel::ResolvedStyle::color);
+						SetStyleItem(&DocumentStyleProperties::backgroundColor,			&DocumentModel::ResolvedStyle::backgroundColor);
+						SetStyleItem(&DocumentStyleProperties::bold,					&FontProperties::bold);
+						SetStyleItem(&DocumentStyleProperties::italic,					&FontProperties::italic);
+						SetStyleItem(&DocumentStyleProperties::underline,				&FontProperties::underline);
+						SetStyleItem(&DocumentStyleProperties::strikeline,				&FontProperties::strikeline);
+						SetStyleItem(&DocumentStyleProperties::antialias,				&FontProperties::antialias);
+						SetStyleItem(&DocumentStyleProperties::verticalAntialias,		&FontProperties::verticalAntialias);
+					}
+					else
+					{
+						style=new DocumentStyleProperties;
+						OverrideStyleItem(&DocumentStyleProperties::face,				&FontProperties::fontFamily);
+						OverrideStyleItem(&DocumentStyleProperties::size,				&FontProperties::size);
+						OverrideStyleItem(&DocumentStyleProperties::color,				&DocumentModel::ResolvedStyle::color);
+						OverrideStyleItem(&DocumentStyleProperties::backgroundColor,	&DocumentModel::ResolvedStyle::backgroundColor);
+						OverrideStyleItem(&DocumentStyleProperties::bold,				&FontProperties::bold);
+						OverrideStyleItem(&DocumentStyleProperties::italic,				&FontProperties::italic);
+						OverrideStyleItem(&DocumentStyleProperties::underline,			&FontProperties::underline);
+						OverrideStyleItem(&DocumentStyleProperties::strikeline,			&FontProperties::strikeline);
+						OverrideStyleItem(&DocumentStyleProperties::antialias,			&FontProperties::antialias);
+						OverrideStyleItem(&DocumentStyleProperties::verticalAntialias,	&FontProperties::verticalAntialias);
+					}
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					const DocumentModel::ResolvedStyle& currentResolvedStyle=GetCurrentResolvedStyle();
+					DocumentModel::ResolvedStyle resolvedStyle=model->GetStyle(run->style, currentResolvedStyle);
+					resolvedStyles.Add(resolvedStyle);
+					VisitContainer(run);
+					resolvedStyles.RemoveAt(resolvedStyles.Count()-1);
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					const DocumentModel::ResolvedStyle& currentResolvedStyle=GetCurrentResolvedStyle();
+					DocumentModel::ResolvedStyle resolvedStyle=model->GetStyle(run->styleName, currentResolvedStyle);
+					resolvedStyles.Add(resolvedStyle);
+					VisitContainer(run);
+					resolvedStyles.RemoveAt(resolvedStyles.Count()-1);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					const DocumentModel::ResolvedStyle& currentResolvedStyle=GetCurrentResolvedStyle();
+					DocumentModel::ResolvedStyle resolvedStyle=model->GetStyle(run->styleName, currentResolvedStyle);
+					resolvedStyles.Add(resolvedStyle);
+					VisitContainer(run);
+					resolvedStyles.RemoveAt(resolvedStyles.Count()-1);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					VisitContainer(run);
+				}
+
+				static Ptr<DocumentStyleProperties> SummerizeStyle(DocumentParagraphRun* run, RunRangeMap& runRanges, DocumentModel* model, vint start, vint end)
+				{
+					SummerizeStyleVisitor visitor(runRanges, model, start, end);
+					run->Accept(&visitor);
+					return visitor.style;
+				}
+
+				template<typename T>
+				static void AggregateStyleItem(Ptr<DocumentStyleProperties>& dst, Ptr<DocumentStyleProperties> src, Nullable<T> DocumentStyleProperties::* field)
+				{
+					if(dst.Obj()->*field && (!(src.Obj()->*field) || (dst.Obj()->*field).Value()!=(src.Obj()->*field).Value()))
+					{
+						dst.Obj()->*field=Nullable<T>();
+					}
+				}
+
+				static void AggregateStyle(Ptr<DocumentStyleProperties>& dst, Ptr<DocumentStyleProperties> src)
+				{
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::face);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::size);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::color);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::backgroundColor);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::bold);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::italic);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::underline);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::strikeline);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::antialias);
+					AggregateStyleItem(dst, src, &DocumentStyleProperties::verticalAntialias);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+DocumentModel::EditRangeOperations
+***********************************************************************/
+
+		bool DocumentModel::CheckEditRange(TextPos begin, TextPos end, RunRangeMap& relatedRanges)
+		{
+			// check caret range
+			if(begin>end) return false;
+			if(begin.row<0 || begin.row>=paragraphs.Count()) return false;
+			if(end.row<0 || end.row>=paragraphs.Count()) return false;
+
+			// determine run ranges
+			GetRunRangeVisitor::GetRunRange(paragraphs[begin.row].Obj(), relatedRanges);
+			if(begin.row!=end.row)
+			{
+				GetRunRangeVisitor::GetRunRange(paragraphs[end.row].Obj(), relatedRanges);
+			}
+			
+			// check caret range
+			RunRange beginRange=relatedRanges[paragraphs[begin.row].Obj()];
+			RunRange endRange=relatedRanges[paragraphs[end.row].Obj()];
+			if(begin.column<0 || begin.column>beginRange.end) return false;
+			if(end.column<0 || end.column>endRange.end) return false;
+
+			return true;
+		}
+
+		Ptr<DocumentModel> DocumentModel::CopyDocument(TextPos begin, TextPos end, bool deepCopy)
+		{
+			// check caret range
+			RunRangeMap runRanges;
+			if(!CheckEditRange(begin, end, runRanges)) return 0;
+
+			// get ranges
+			for(vint i=begin.row+1;i<end.row;i++)
+			{
+				GetRunRangeVisitor::GetRunRange(paragraphs[i].Obj(), runRanges);
+			}
+
+			Ptr<DocumentModel> newDocument=new DocumentModel;
+
+			// copy paragraphs
+			if(begin.row==end.row)
+			{
+				newDocument->paragraphs.Add(CloneRunRecursivelyVisitor::CopyRun(paragraphs[begin.row].Obj(), runRanges, begin.column, end.column, deepCopy).Cast<DocumentParagraphRun>());
+			}
+			else
+			{
+				for(vint i=begin.row;i<=end.row;i++)
+				{
+					Ptr<DocumentParagraphRun> paragraph=paragraphs[i];
+					RunRange range=runRanges[paragraph.Obj()];
+					if(i==begin.row)
+					{
+						newDocument->paragraphs.Add(CloneRunRecursivelyVisitor::CopyRun(paragraph.Obj(), runRanges, begin.column, range.end, deepCopy).Cast<DocumentParagraphRun>());
+					}
+					else if(i==end.row)
+					{
+						newDocument->paragraphs.Add(CloneRunRecursivelyVisitor::CopyRun(paragraph.Obj(), runRanges, range.start, end.column, deepCopy).Cast<DocumentParagraphRun>());
+					}
+					else if(deepCopy)
+					{
+						newDocument->paragraphs.Add(CloneRunRecursivelyVisitor::CopyRun(paragraph.Obj(), runRanges, range.start, range.end, deepCopy).Cast<DocumentParagraphRun>());
+					}
+					else
+					{
+						newDocument->paragraphs.Add(paragraph);
+					}
+				}
+			}
+
+			// copy styles
+			List<WString> styleNames;
+			FOREACH(Ptr<DocumentParagraphRun>, paragraph, newDocument->paragraphs)
+			{
+				CollectStyleNameVisitor::CollectStyleName(paragraph.Obj(), styleNames);
+			}
+
+			for(vint i=0;i<styleNames.Count();i++)
+			{
+				WString styleName=styleNames[i];
+				if(!newDocument->styles.Keys().Contains(styleName))
+				{
+					Ptr<DocumentStyle> style=styles[styleName];
+					if(deepCopy)
+					{
+						Ptr<DocumentStyle> newStyle=new DocumentStyle;
+						newStyle->parentStyleName=style->parentStyleName;
+						newStyle->styles=CloneRunVisitor::CopyStyle(style->styles);
+						newStyle->resolvedStyles=CloneRunVisitor::CopyStyle(style->resolvedStyles);
+						newDocument->styles.Add(styleName, newStyle);
+					}
+					else
+					{
+						newDocument->styles.Add(styleName, style);
+					}
+
+					if(!styleNames.Contains(style->parentStyleName))
+					{
+						styleNames.Add(style->parentStyleName);
+					}
+				}
+			}
+
+			return newDocument;
+		}
+
+		bool DocumentModel::CutParagraph(TextPos position)
+		{
+			if(position.row<0 || position.row>=paragraphs.Count()) return false;
+
+			Ptr<DocumentParagraphRun> paragraph=paragraphs[position.row];
+			RunRangeMap runRanges;
+			Ptr<DocumentRun> leftRun, rightRun;
+
+			GetRunRangeVisitor::GetRunRange(paragraph.Obj(), runRanges);
+			CutRunVisitor::CutRun(paragraph.Obj(), runRanges, position.column, leftRun, rightRun);
+
+			CopyFrom(paragraph->runs, leftRun.Cast<DocumentParagraphRun>()->runs);
+			CopyFrom(paragraph->runs, rightRun.Cast<DocumentParagraphRun>()->runs, true);
+			
+			return true;
+		}
+
+		bool DocumentModel::CutEditRange(TextPos begin, TextPos end)
+		{
+			// check caret range
+			if(begin>end) return false;
+			if(begin.row<0 || begin.row>=paragraphs.Count()) return false;
+			if(end.row<0 || end.row>=paragraphs.Count()) return false;
+
+			// cut paragraphs
+			CutParagraph(begin);
+			if(begin!=end)
+			{
+				CutParagraph(end);
+			}
+			return true;
+		}
+
+		bool DocumentModel::EditContainer(TextPos begin, TextPos end, const Func<void(DocumentParagraphRun*, RunRangeMap&, vint, vint)>& editor)
+		{
+			if(begin==end) return false;
+
+			// cut paragraphs
+			if(!CutEditRange(begin, end)) return false;
+
+			// check caret range
+			RunRangeMap runRanges;
+			if(!CheckEditRange(begin, end, runRanges)) return false;
+
+			// edit container
+			if(begin.row==end.row)
+			{
+				editor(paragraphs[begin.row].Obj(), runRanges, begin.column, end.column);
+			}
+			else
+			{
+				for(vint i=begin.row;i<=end.row;i++)
+				{
+					Ptr<DocumentParagraphRun> paragraph=paragraphs[i];
+					if(begin.row<i && i<end.row)
+					{
+						GetRunRangeVisitor::GetRunRange(paragraph.Obj(), runRanges);
+					}
+					RunRange range=runRanges[paragraph.Obj()];
+					if(i==begin.row)
+					{
+						editor(paragraph.Obj(), runRanges, begin.column, range.end);
+					}
+					else if(i==end.row)
+					{
+						editor(paragraph.Obj(), runRanges, range.start, end.column);
+					}
+					else
+					{
+						editor(paragraph.Obj(), runRanges, range.start, range.end);
+					}
+				}
+			}
+
+			// clear paragraphs
+			for(vint i=begin.row;i<=end.row;i++)
+			{
+				ClearRunVisitor::ClearRun(paragraphs[i].Obj());
+			}
+
+			return true;
+		}
+
+/***********************************************************************
+DocumentModel::EditRun
+***********************************************************************/
+
+		vint DocumentModel::EditRun(TextPos begin, TextPos end, Ptr<DocumentModel> model)
+		{
+			// check caret range
+			RunRangeMap runRanges;
+			if(!CheckEditRange(begin, end, runRanges)) return -1;
+
+			// calculate new names for the model's styles to prevent conflicting
+			List<WString> oldNames, newNames;
+			CopyFrom(oldNames, model->styles.Keys());
+			CopyFrom(newNames, model->styles.Keys());
+			for(vint i=0;i<newNames.Count();i++)
+			{
+				WString name=newNames[i];
+				if((name.Length()==0 || name[0]!=L'#') && styles.Keys().Contains(name))
+				{
+					vint index=2;
+					while(true)
+					{
+						WString newName=name+L"_"+itow(index++);
+						if(!styles.Keys().Contains(newName) && !model->styles.Keys().Contains(newName))
+						{
+							newNames[i]=newName;
+							break;
+						}
+					}
+				}
+			}
+
+			// rename model's styles
+			typedef Pair<WString, WString> NamePair;
+			FOREACH(NamePair, name, From(oldNames).Pairwise(newNames))
+			{
+				model->RenameStyle(name.key, name.value);
+			}
+			FOREACH(WString, name, newNames)
+			{
+				if((name.Length()==0 || name[0]!=L'#') && !styles.Keys().Contains(name))
+				{
+					styles.Add(name, model->styles[name]);
+				}
+			}
+
+			// edit runs
+			Array<Ptr<DocumentParagraphRun>> runs;
+			CopyFrom(runs, model->paragraphs);
+			return EditRun(begin, end, runs);
+		}
+
+		vint DocumentModel::EditRun(TextPos begin, TextPos end, const collections::Array<Ptr<DocumentParagraphRun>>& runs)
+		{
+			// check caret range
+			RunRangeMap runRanges;
+			if(!CheckEditRange(begin, end, runRanges)) return -1;
+
+			// remove unnecessary paragraphs
+			if(begin.row!=end.row)
+			{
+				for(vint i=end.row-1;i>begin.row;i--)
+				{
+					paragraphs.RemoveAt(i);
+				}
+				end.row=begin.row+1;
+			}
+
+			// remove unnecessary runs and ensure begin.row!=end.row
+			if(begin.row==end.row)
+			{
+				RemoveRunVisitor::RemoveRun(paragraphs[begin.row].Obj(), runRanges, begin.column, end.column);
+
+				Ptr<DocumentRun> leftRun, rightRun;
+				runRanges.Clear();
+				GetRunRangeVisitor::GetRunRange(paragraphs[begin.row].Obj(), runRanges);
+				CutRunVisitor::CutRun(paragraphs[begin.row].Obj(), runRanges, begin.column, leftRun, rightRun);
+
+				paragraphs.RemoveAt(begin.row);
+				paragraphs.Insert(begin.row, leftRun.Cast<DocumentParagraphRun>());
+				paragraphs.Insert(begin.row+1, rightRun.Cast<DocumentParagraphRun>());
+				end.row=begin.row+1;
+			}
+			else
+			{
+				RemoveRunVisitor::RemoveRun(paragraphs[begin.row].Obj(), runRanges, begin.column, runRanges[paragraphs[begin.row].Obj()].end);
+				RemoveRunVisitor::RemoveRun(paragraphs[end.row].Obj(), runRanges, 0, end.column);
+			}
+
+			// insert new paragraphs
+			Ptr<DocumentParagraphRun> beginParagraph=paragraphs[begin.row];
+			Ptr<DocumentParagraphRun> endParagraph=paragraphs[end.row];
+			if(runs.Count()==0)
+			{
+				CopyFrom(beginParagraph->runs, endParagraph->runs, true);
+				paragraphs.RemoveAt(end.row);
+			}
+			else if(runs.Count()==1)
+			{
+				CopyFrom(beginParagraph->runs, runs[0]->runs, true);
+				CopyFrom(beginParagraph->runs, endParagraph->runs, true);
+				paragraphs.RemoveAt(end.row);
+			}
+			else
+			{
+				Ptr<DocumentParagraphRun> newBeginRuns=runs[0];
+				CopyFrom(beginParagraph->runs, newBeginRuns->runs, true);
+				
+				Ptr<DocumentParagraphRun> newEndRuns=runs[runs.Count()-1];
+				for(vint i=0;i<newEndRuns->runs.Count();i++)
+				{
+					endParagraph->runs.Insert(i, newEndRuns->runs[i]);
+				}
+
+				for(vint i=1;i<runs.Count()-1;i++)
+				{
+					paragraphs.Insert(begin.row+i, runs[i]);
+				}
+			}
+
+			// clear unnecessary runs
+			vint rows=runs.Count()==0?1:runs.Count();
+			for(vint i=0;i<rows;i++)
+			{
+				ClearRunVisitor::ClearRun(paragraphs[begin.row+i].Obj());
+			}
+			return rows;
+		}
+
+/***********************************************************************
+DocumentModel::EditText
+***********************************************************************/
+
+		vint DocumentModel::EditText(TextPos begin, TextPos end, bool frontSide, const collections::Array<WString>& text)
+		{
+			// check caret range
+			RunRangeMap runRanges;
+			if(!CheckEditRange(begin, end, runRanges)) return -1;
+
+			// calcuate the position to get the text style
+			TextPos stylePosition;
+			if(frontSide)
+			{
+				stylePosition=begin;
+				if(stylePosition.column==0)
+				{
+					frontSide=false;
+				}
+			}
+			else
+			{
+				stylePosition=end;
+				if(stylePosition.column==runRanges[paragraphs[end.row].Obj()].end)
+				{
+					frontSide=true;
+				}
+			}
+
+			// copy runs that contains the target style for new text
+			List<DocumentContainerRun*> styleRuns;
+			LocateStyleVisitor::LocateStyle(paragraphs[stylePosition.row].Obj(), runRanges, stylePosition.column, frontSide, styleRuns);
+
+			// create paragraphs
+			Array<Ptr<DocumentParagraphRun>> runs(text.Count());
+			for(vint i=0;i<text.Count();i++)
+			{
+				Ptr<DocumentRun> paragraph=CloneRunVisitor::CopyStyledText(styleRuns, text[i]);
+				runs[i]=paragraph.Cast<DocumentParagraphRun>();
+			}
+
+			// replace the paragraphs
+			return EditRun(begin, end, runs);
+		}
+
+/***********************************************************************
+DocumentModel::EditStyle
+***********************************************************************/
+
+		bool DocumentModel::EditStyle(TextPos begin, TextPos end, Ptr<DocumentStyleProperties> style)
+		{
+			return EditContainer(begin, end, [=](DocumentParagraphRun* paragraph, RunRangeMap& runRanges, vint start, vint end)
+			{
+				AddStyleVisitor::AddStyle(paragraph, runRanges, start, end, style);
+			});
+		}
+
+/***********************************************************************
+DocumentModel::EditImage
+***********************************************************************/
+
+		Ptr<DocumentImageRun> DocumentModel::EditImage(TextPos begin, TextPos end, Ptr<GuiImageData> image)
+		{
+			Ptr<DocumentImageRun> imageRun=new DocumentImageRun;
+			imageRun->size=image->GetImage()->GetFrame(image->GetFrameIndex())->GetSize();
+			imageRun->baseline=imageRun->size.y;
+			imageRun->image=image->GetImage();
+			imageRun->frameIndex=image->GetFrameIndex();
+
+			Ptr<DocumentParagraphRun> paragraph=new DocumentParagraphRun;
+			paragraph->runs.Add(imageRun);
+
+			Array<Ptr<DocumentParagraphRun>> runs(1);
+			runs[0]=paragraph;
+			if(EditRun(begin, end, runs))
+			{
+				return imageRun;
+			}
+			else
+			{
+				return 0;
+			}
+		}
+
+/***********************************************************************
+DocumentModel::EditHyperlink
+***********************************************************************/
+
+		bool DocumentModel::EditHyperlink(vint paragraphIndex, vint begin, vint end, const WString& reference, const WString& normalStyleName, const WString& activeStyleName)
+		{
+			Ptr<DocumentHyperlinkRun> run=GetHyperlink(paragraphIndex, begin, end);
+			if(run)
+			{
+				run->reference=reference;
+				run->normalStyleName=normalStyleName;
+				run->activeStyleName=activeStyleName;
+				run->styleName=normalStyleName;
+				return true;
+			}
+			else if(RemoveHyperlink(paragraphIndex, begin, end))
+			{
+				CutEditRange(TextPos(paragraphIndex, begin), TextPos(paragraphIndex, end));
+
+				RunRangeMap runRanges;
+				Ptr<DocumentParagraphRun> paragraph=paragraphs[paragraphIndex];
+				GetRunRangeVisitor::GetRunRange(paragraph.Obj(), runRanges);
+				AddHyperlinkVisitor::AddHyperlink(paragraph.Obj(), runRanges, begin, end, reference, normalStyleName, activeStyleName);
+
+				ClearRunVisitor::ClearRun(paragraph.Obj());
+				return true;
+			}
+			return false;
+		}
+
+		bool DocumentModel::RemoveHyperlink(vint paragraphIndex, vint begin, vint end)
+		{
+			RunRangeMap runRanges;
+			if(!CheckEditRange(TextPos(paragraphIndex, begin), TextPos(paragraphIndex, end), runRanges)) return false;
+
+			Ptr<DocumentParagraphRun> paragraph=paragraphs[paragraphIndex];
+			RemoveHyperlinkVisitor::RemoveHyperlink(paragraph.Obj(), runRanges, begin, end);
+			ClearRunVisitor::ClearRun(paragraph.Obj());
+			return true;
+		}
+
+		Ptr<DocumentHyperlinkRun> DocumentModel::GetHyperlink(vint paragraphIndex, vint begin, vint end)
+		{
+			RunRangeMap runRanges;
+			if(!CheckEditRange(TextPos(paragraphIndex, begin), TextPos(paragraphIndex, end), runRanges)) return 0;
+
+			Ptr<DocumentParagraphRun> paragraph=paragraphs[paragraphIndex];
+			return LocateHyperlinkVisitor::LocateHyperlink(paragraph.Obj(), runRanges, begin, end);
+		}
+
+/***********************************************************************
+DocumentModel::EditStyleName
+***********************************************************************/
+
+		bool DocumentModel::EditStyleName(TextPos begin, TextPos end, const WString& styleName)
+		{
+			return EditContainer(begin, end, [=](DocumentParagraphRun* paragraph, RunRangeMap& runRanges, vint start, vint end)
+			{
+				AddStyleNameVisitor::AddStyleName(paragraph, runRanges, start, end, styleName);
+			});
+		}
+
+		bool DocumentModel::RemoveStyleName(TextPos begin, TextPos end)
+		{
+			return EditContainer(begin, end, [=](DocumentParagraphRun* paragraph, RunRangeMap& runRanges, vint start, vint end)
+			{
+				RemoveStyleNameVisitor::RemoveStyleName(paragraph, runRanges, start, end);
+			});
+		}
+
+		bool DocumentModel::RenameStyle(const WString& oldStyleName, const WString& newStyleName)
+		{
+			vint index=styles.Keys().IndexOf(oldStyleName);
+			if(index==-1) return false;
+			if(styles.Keys().Contains(newStyleName)) return false;
+
+			Ptr<DocumentStyle> style=styles.Values()[index];
+			styles.Remove(oldStyleName);
+			styles.Add(newStyleName, style);
+
+			FOREACH(Ptr<DocumentStyle>, subStyle, styles.Values())
+			{
+				if(subStyle->parentStyleName==oldStyleName)
+				{
+					subStyle->parentStyleName=newStyleName;
+				}
+			}
+
+			FOREACH(Ptr<DocumentParagraphRun>, paragraph, paragraphs)
+			{
+				ReplaceStyleNameVisitor::ReplaceStyleName(paragraph.Obj(), oldStyleName, newStyleName);
+			}
+			return true;
+		}
+
+/***********************************************************************
+DocumentModel::ClearStyle
+***********************************************************************/
+
+		bool DocumentModel::ClearStyle(TextPos begin, TextPos end)
+		{
+			return EditContainer(begin, end, [=](DocumentParagraphRun* paragraph, RunRangeMap& runRanges, vint start, vint end)
+			{
+				ClearStyleVisitor::ClearStyle(paragraph, runRanges, start, end);
+			});
+		}
+
+/***********************************************************************
+DocumentModel::ClearStyle
+***********************************************************************/
+
+		Ptr<DocumentStyleProperties> DocumentModel::SummarizeStyle(TextPos begin, TextPos end)
+		{
+			Ptr<DocumentStyleProperties> style;
+			RunRangeMap runRanges;
+
+			if(begin==end) goto END_OF_SUMMERIZING;
+
+			// check caret range
+			if(!CheckEditRange(begin, end, runRanges)) return false;
+
+			// summerize container
+			if(begin.row==end.row)
+			{
+				style=SummerizeStyleVisitor::SummerizeStyle(paragraphs[begin.row].Obj(), runRanges, this, begin.column, end.column);
+			}
+			else
+			{
+				for(vint i=begin.row;i<=end.row;i++)
+				{
+					Ptr<DocumentParagraphRun> paragraph=paragraphs[i];
+					if(begin.row<i && i<end.row)
+					{
+						GetRunRangeVisitor::GetRunRange(paragraph.Obj(), runRanges);
+					}
+					RunRange range=runRanges[paragraph.Obj()];
+					Ptr<DocumentStyleProperties> paragraphStyle;
+					if(i==begin.row)
+					{
+						paragraphStyle=SummerizeStyleVisitor::SummerizeStyle(paragraph.Obj(), runRanges, this, begin.column, range.end);
+					}
+					else if(i==end.row)
+					{
+						paragraphStyle=SummerizeStyleVisitor::SummerizeStyle(paragraph.Obj(), runRanges, this, range.start, end.column);
+					}
+					else
+					{
+						paragraphStyle=SummerizeStyleVisitor::SummerizeStyle(paragraph.Obj(), runRanges, this, range.start, range.end);
+					}
+
+					if(!style)
+					{
+						style=paragraphStyle;
+					}
+					else if(paragraphStyle)
+					{
+						SummerizeStyleVisitor::AggregateStyle(style, paragraphStyle);
+					}
+				}
+			}
+
+		END_OF_SUMMERIZING:
+			if(!style)
+			{
+				style=new DocumentStyleProperties;
+			}
+			return style;
+		}
+	}
+}
+
+/***********************************************************************
+Resources\GuiDocument_Load.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace collections;
+		using namespace parsing::tabling;
+		using namespace parsing::xml;
+		using namespace regex;
+
+/***********************************************************************
+document_operation_visitors::DeserializeNodeVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class DeserializeNodeVisitor : public XmlNode::IVisitor
+			{
+			public:
+				Ptr<DocumentModel>					model;
+				Ptr<DocumentContainerRun>			container;
+				vint								paragraphIndex;
+				Ptr<GuiResourcePathResolver>		resolver;
+				Regex								regexAttributeApply;
+
+				DeserializeNodeVisitor(Ptr<DocumentModel> _model, Ptr<DocumentParagraphRun> _paragraph, vint _paragraphIndex, Ptr<GuiResourcePathResolver> _resolver)
+					:model(_model)
+					,container(_paragraph)
+					,paragraphIndex(_paragraphIndex)
+					,resolver(_resolver)
+					,regexAttributeApply(L"/{@(<value>[^{}]+)/}")
+				{
+				}
+
+				void PrintText(const WString& text)
+				{
+					Ptr<DocumentTextRun> run=new DocumentTextRun;
+					run->text=text;
+					container->runs.Add(run);
+				}
+
+				void Visit(XmlText* node)override
+				{
+					PrintText(node->content.value);
+				}
+
+				void Visit(XmlCData* node)override
+				{
+					PrintText(node->content.value);
+				}
+
+				void Visit(XmlAttribute* node)override
+				{
+				}
+
+				void Visit(XmlComment* node)override
+				{
+				}
+
+				void Visit(XmlElement* node)override
+				{
+					Ptr<DocumentContainerRun> createdContainer;
+					bool useTemplateInfo=false;
+					XmlElement* subNodeContainer=node;
+
+					if(node->name.value==L"br")
+					{
+						PrintText(L"\r\n");
+					}
+					else if(node->name.value==L"sp")
+					{
+						PrintText(L" ");
+					}
+					else if(node->name.value==L"tab")
+					{
+						PrintText(L"\t");
+					}
+					else if(node->name.value==L"img")
+					{
+						Ptr<DocumentImageRun> run=new DocumentImageRun;
+						if(Ptr<XmlAttribute> source=XmlGetAttribute(node, L"source"))
+						{
+							run->source=source->value.value;
+							WString protocol, path;
+							if(IsResourceUrl(run->source, protocol, path))
+							{
+								Ptr<GuiImageData> imageData=resolver->ResolveResource(protocol, path).Cast<GuiImageData>();
+								if(imageData)
+								{
+									run->image=imageData->GetImage();
+								}
+								if(run->image && run->image->GetFrameCount()>0)
+								{
+									run->size=run->image->GetFrame(0)->GetSize();
+									run->baseline=run->size.y;
+									run->frameIndex=0;
+								}
+							}
+
+							FOREACH(Ptr<XmlAttribute>, att, node->attributes)
+							{
+								if(att->name.value==L"width")
+								{
+									run->size.x=wtoi(att->value.value);
+								}
+								else if(att->name.value==L"height")
+								{
+									run->size.y=wtoi(att->value.value);
+								}
+								else if(att->name.value==L"baseline")
+								{
+									run->baseline=wtoi(att->value.value);
+								}
+								else if(att->name.value==L"frameIndex")
+								{
+									run->frameIndex=wtoi(att->value.value);
+								}
+							}
+							container->runs.Add(run);
+						}
+					}
+					else if(node->name.value==L"font")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+						run->style=sp;
+
+						FOREACH(Ptr<XmlAttribute>, att, node->attributes)
+						{
+							if(att->name.value==L"face")
+							{
+								sp->face=att->value.value;
+							}
+							else if(att->name.value==L"size")
+							{
+								sp->size=wtoi(att->value.value);
+							}
+							else if(att->name.value==L"color")
+							{
+								sp->color=Color::Parse(att->value.value);
+							}
+							else if(att->name.value==L"bkcolor")
+							{
+								sp->backgroundColor=Color::Parse(att->value.value);
+							}
+						}
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"b" || node->name.value==L"b-")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->bold=node->name.value==L"b";
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"i" || node->name.value==L"i-")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->italic=node->name.value==L"i";
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"u" || node->name.value==L"u-")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->underline=node->name.value==L"u";
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"s" || node->name.value==L"s-")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->strikeline=node->name.value==L"s";
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"ha")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->antialias=true;
+						run->style->verticalAntialias=false;
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"va")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->antialias=true;
+						run->style->verticalAntialias=true;
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"na")
+					{
+						Ptr<DocumentStylePropertiesRun> run=new DocumentStylePropertiesRun();
+						run->style=new DocumentStyleProperties;
+						run->style->antialias=false;
+						run->style->verticalAntialias=false;
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"div")
+					{
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"style"))
+						{
+							WString styleName=att->value.value;
+							
+							Ptr<DocumentStyleApplicationRun> run=new DocumentStyleApplicationRun;
+							run->styleName=styleName;
+							container->runs.Add(run);
+							createdContainer=run;
+						}
+						else
+						{
+							createdContainer=container;
+						}
+					}
+					else if(node->name.value==L"a")
+					{
+						Ptr<DocumentHyperlinkRun> run=new DocumentHyperlinkRun;
+						run->normalStyleName=L"#NormalLink";
+						run->activeStyleName=L"#ActiveLink";
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"normal"))
+						{
+							run->normalStyleName=att->value.value;
+						}
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"active"))
+						{
+							run->activeStyleName=att->value.value;
+						}
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"href"))
+						{
+							run->reference=att->value.value;
+						}
+						run->styleName=run->normalStyleName;
+						container->runs.Add(run);
+						createdContainer=run;
+					}
+					else if(node->name.value==L"p")
+					{
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+					}
+					else
+					{
+						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
+						{
+							sub->Accept(this);
+						}
+					}
+
+					if(createdContainer)
+					{
+						Ptr<DocumentContainerRun> oldContainer=container;
+						container=createdContainer;
+						FOREACH(Ptr<XmlNode>, subNode, subNodeContainer->subNodes)
+						{
+							subNode->Accept(this);
+						}
+						container=oldContainer;
+					}
+				}
+
+				void Visit(XmlInstruction* node)override
+				{
+				}
+
+				void Visit(XmlDocument* node)override
+				{
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+DocumentModel
+***********************************************************************/
+
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<GuiResourcePathResolver> resolver)
+		{
+			Ptr<DocumentModel> model=new DocumentModel;
+			if(xml->rootElement->name.value==L"Doc")
+			{
+				if(Ptr<XmlElement> styles=XmlGetElement(xml->rootElement, L"Styles"))
+				{
+					FOREACH(Ptr<XmlElement>, styleElement, XmlGetElements(styles, L"Style"))
+					if(Ptr<XmlAttribute> name=XmlGetAttribute(styleElement, L"name"))
+					if(!model->styles.Keys().Contains(name->value.value))
+					{
+						Ptr<DocumentStyle> style=new DocumentStyle;
+						model->styles.Add(name->value.value, style);
+
+						if(Ptr<XmlAttribute> parent=XmlGetAttribute(styleElement, L"parent"))
+						{
+							style->parentStyleName=parent->value.value;
+						}
+
+						Ptr<DocumentStyleProperties> sp=new DocumentStyleProperties;
+						style->styles=sp;
+
+						FOREACH(Ptr<XmlElement>, att, XmlGetElements(styleElement))
+						{
+							if(att->name.value==L"face")
+							{
+								sp->face=XmlGetValue(att);
+							}
+							else if(att->name.value==L"size")
+							{
+								sp->size=wtoi(XmlGetValue(att));
+							}
+							else if(att->name.value==L"color")
+							{
+								sp->color=Color::Parse(XmlGetValue(att));
+							}
+							else if(att->name.value==L"bkcolor")
+							{
+								sp->backgroundColor=Color::Parse(XmlGetValue(att));
+							}
+							else if(att->name.value==L"b")
+							{
+								sp->bold=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"i")
+							{
+								sp->italic=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"u")
+							{
+								sp->underline=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"s")
+							{
+								sp->strikeline=XmlGetValue(att)==L"true";
+							}
+							else if(att->name.value==L"antialias")
+							{
+								WString value=XmlGetValue(att);
+								if(value==L"horizontal" || value==L"default")
+								{
+									sp->antialias=true;
+									sp->verticalAntialias=false;
+								}
+								else if(value==L"no")
+								{
+									sp->antialias=false;
+									sp->verticalAntialias=false;
+								}
+								else if(value==L"vertical")
+								{
+									sp->antialias=true;
+									sp->verticalAntialias=true;
+								}
+							}
+						}
+					}
+				}
+				if(Ptr<XmlElement> content=XmlGetElement(xml->rootElement, L"Content"))
+				{
+					FOREACH_INDEXER(Ptr<XmlElement>, p, i, XmlGetElements(content, L"p"))
+					{
+						Ptr<DocumentParagraphRun> paragraph=new DocumentParagraphRun;
+						if(Ptr<XmlAttribute> att=XmlGetAttribute(p, L"align"))
+						{
+							if(att->value.value==L"Left")
+							{
+								paragraph->alignment=Alignment::Left;
+							}
+							else if(att->value.value==L"Center")
+							{
+								paragraph->alignment=Alignment::Center;
+							}
+							else if(att->value.value==L"Right")
+							{
+								paragraph->alignment=Alignment::Right;
+							}
+						}
+						model->paragraphs.Add(paragraph);
+						DeserializeNodeVisitor visitor(model, paragraph, i, resolver);
+						p->Accept(&visitor);
+					}
+				}
+			}
+			return model;
+		}
+
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory)
+		{
+			Ptr<GuiResourcePathResolver> resolver=new GuiResourcePathResolver(0, workingDirectory);
+			return LoadFromXml(xml, resolver);
+		}
+
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(const WString& filePath)
+		{
+			Ptr<XmlDocument> xml;
+			Ptr<DocumentModel> document;
+			if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
+			{
+				WString text;
+				if(LoadTextFile(filePath, text))
+				{
+					xml=parser->TypedParse(text);
+				}
+			}
+			if(xml)
+			{
+				document=DocumentModel::LoadFromXml(xml, GetFolderPath(filePath));
+			}
+			return document;
+		}
+	}
+}
+
+/***********************************************************************
+Resources\GuiDocument_Save.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace collections;
+		using namespace parsing::xml;
+
+/***********************************************************************
+document_operation_visitors::SerializeRunVisitor
+***********************************************************************/
+
+		namespace document_operation_visitors
+		{
+			class SerializeRunVisitor : public Object, public DocumentRun::IVisitor
+			{
+			protected:
+				DocumentModel*				model;
+				Ptr<XmlElement>				parent;
+
+			public:
+				SerializeRunVisitor(DocumentModel* _model, Ptr<XmlElement> _parent)
+					:model(_model)
+					,parent(_parent)
+				{
+				}
+
+				void VisitContainer(Ptr<XmlElement> replacedParent, DocumentContainerRun* run)
+				{
+					if(replacedParent)
+					{
+						parent->subNodes.Add(replacedParent);
+						Ptr<XmlElement> oldParent=parent;
+						parent=replacedParent;
+						FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+						{
+							subRun->Accept(this);
+						}
+						parent=oldParent;
+					}
+					else
+					{
+						FOREACH(Ptr<DocumentRun>, subRun, run->runs)
+						{
+							subRun->Accept(this);
+						}
+					}
+				}
+
+				void Visit(DocumentTextRun* run)override
+				{
+					if(run->text!=L"")
+					{
+						XmlElementWriter writer(parent);
+						writer.Text(run->text);
+					}
+				}
+
+				void Visit(DocumentStylePropertiesRun* run)override
+				{
+					Ptr<DocumentStyleProperties> sp=run->style;
+					Ptr<XmlElement> oldParent=parent;
+					if(sp->face || sp->size || sp->color)
+					{
+						Ptr<XmlElement> element=new XmlElement;
+						element->name.value=L"font";
+						parent->subNodes.Add(element);
+
+						XmlElementWriter writer(element);
+						if(sp->face)
+						{
+							writer.Attribute(L"face", sp->face.Value());
+						}
+						if(sp->size)
+						{
+							writer.Attribute(L"size", itow(sp->size.Value()));
+						}
+						if(sp->color)
+						{
+							writer.Attribute(L"color", sp->color.Value().ToString());
+						}
+						if(sp->backgroundColor)
+						{
+							writer.Attribute(L"bkcolor", sp->backgroundColor.Value().ToString());
+						}
+						parent=element;
+					}
+					if(sp->bold)
+					{
+						Ptr<XmlElement> element=new XmlElement;
+						element->name.value=sp->bold.Value()?L"b":L"b-";
+						parent->subNodes.Add(element);
+						parent=element;
+					}
+					if(sp->italic)
+					{
+						Ptr<XmlElement> element=new XmlElement;
+						element->name.value=sp->italic.Value()?L"i":L"i-";
+						parent->subNodes.Add(element);
+						parent=element;
+					}
+					if(sp->underline)
+					{
+						Ptr<XmlElement> element=new XmlElement;
+						element->name.value=sp->underline.Value()?L"u":L"u-";
+						parent->subNodes.Add(element);
+						parent=element;
+					}
+					if(sp->strikeline)
+					{
+						Ptr<XmlElement> element=new XmlElement;
+						element->name.value=sp->strikeline.Value()?L"s":L"s-";
+						parent->subNodes.Add(element);
+						parent=element;
+					}
+					if(sp->antialias || sp->verticalAntialias)
+					{
+						bool ha=sp->antialias?sp->antialias.Value():true;
+						bool va=sp->verticalAntialias?sp->verticalAntialias.Value():false;
+						if(!ha)
+						{
+							Ptr<XmlElement> element=new XmlElement;
+							element->name.value=L"ha";
+							parent->subNodes.Add(element);
+							parent=element;
+						}
+						else if(!va)
+						{
+							Ptr<XmlElement> element=new XmlElement;
+							element->name.value=L"va";
+							parent->subNodes.Add(element);
+							parent=element;
+						}
+						else
+						{
+							Ptr<XmlElement> element=new XmlElement;
+							element->name.value=L"na";
+							parent->subNodes.Add(element);
+							parent=element;
+						}
+					}
+					VisitContainer(0, run);
+					parent=oldParent;
+				}
+
+				void Visit(DocumentStyleApplicationRun* run)override
+				{
+					Ptr<XmlElement> element=new XmlElement;
+					element->name.value=L"div";
+					XmlElementWriter(element).Attribute(L"style", run->styleName);
+					VisitContainer(element, run);
+				}
+
+				void Visit(DocumentHyperlinkRun* run)override
+				{
+					Ptr<XmlElement> element=new XmlElement;
+					element->name.value=L"a";
+					XmlElementWriter writer(element);
+					if(run->normalStyleName!=L"#NormalLink")
+					{
+						writer.Attribute(L"normal", run->normalStyleName);
+					}
+					if(run->activeStyleName!=L"#ActiveLink")
+					{
+						writer.Attribute(L"active", run->activeStyleName);
+					}
+					if(run->reference!=L"")
+					{
+						writer.Attribute(L"href", run->reference);
+					}
+					VisitContainer(element, run);
+				}
+
+				void Visit(DocumentImageRun* run)override
+				{
+					XmlElementWriter writer(parent);
+					writer
+						.Element(L"img")
+						.Attribute(L"width", itow(run->size.x))
+						.Attribute(L"height", itow(run->size.y))
+						.Attribute(L"baseline", itow(run->baseline))
+						.Attribute(L"frameIndex", itow(run->frameIndex))
+						.Attribute(L"source", run->source)
+						;
+				}
+
+				void Visit(DocumentParagraphRun* run)override
+				{
+					Ptr<XmlElement> element=new XmlElement;
+					element->name.value=L"p";
+
+					XmlElementWriter writer(element);
+					switch(run->alignment)
+					{
+					case Alignment::Left:
+						writer.Attribute(L"align", L"Left");
+						break;
+					case Alignment::Center:
+						writer.Attribute(L"align", L"Center");
+						break;
+					case Alignment::Right:
+						writer.Attribute(L"align", L"Right");
+						break;
+					}
+					VisitContainer(element, run);
+				}
+			};
+		}
+		using namespace document_operation_visitors;
+
+/***********************************************************************
+DocumentModel
+***********************************************************************/
+
+		Ptr<parsing::xml::XmlDocument> DocumentModel::SaveToXml()
+		{
+			Ptr<XmlDocument> xml=new XmlDocument;
+			Ptr<XmlElement> doc=new XmlElement;
+			doc->name.value=L"Doc";
+			xml->rootElement=doc;
+			{
+				Ptr<XmlElement> content=new XmlElement;
+				content->name.value=L"Content";
+				doc->subNodes.Add(content);
+				
+				FOREACH(Ptr<DocumentParagraphRun>, p, paragraphs)
+				{
+					SerializeRunVisitor visitor(this, content);
+					p->Accept(&visitor);
+				}
+			}
+			{
+				Ptr<XmlElement> stylesElement=new XmlElement;
+				stylesElement->name.value=L"Styles";
+				doc->subNodes.Add(stylesElement);
+
+				for(vint i=0;i<styles.Count();i++)
+				{
+					WString name=styles.Keys()[i];
+					if(name.Length()>0 && name[0]==L'#') continue;
+
+					Ptr<DocumentStyle> style=styles.Values().Get(i);
+					Ptr<DocumentStyleProperties> sp=style->styles;
+					Ptr<XmlElement> styleElement=new XmlElement;
+					styleElement->name.value=L"Style";
+					stylesElement->subNodes.Add(styleElement);
+
+					XmlElementWriter(styleElement).Attribute(L"name", name);
+					if(style->parentStyleName!=L"")
+					{
+						XmlElementWriter(styleElement).Attribute(L"parent", style->parentStyleName);
+					}
+
+					if(sp->face)				XmlElementWriter(styleElement).Element(L"face").Text(		sp->face.Value()						);
+					if(sp->size)				XmlElementWriter(styleElement).Element(L"size").Text(itow(	sp->size.Value()						));
+					if(sp->color)				XmlElementWriter(styleElement).Element(L"color").Text(		sp->color.Value().ToString()			);
+					if(sp->backgroundColor)		XmlElementWriter(styleElement).Element(L"bkcolor").Text(	sp->color.Value().ToString()			);
+					if(sp->bold)				XmlElementWriter(styleElement).Element(L"b").Text(			sp->bold.Value()?L"true":L"false"		);
+					if(sp->italic)				XmlElementWriter(styleElement).Element(L"i").Text(			sp->italic.Value()?L"true":L"false"		);
+					if(sp->underline)			XmlElementWriter(styleElement).Element(L"u").Text(			sp->underline.Value()?L"true":L"false"	);
+					if(sp->strikeline)			XmlElementWriter(styleElement).Element(L"s").Text(			sp->strikeline.Value()?L"true":L"false"	);
+					if(sp->antialias && sp->verticalAntialias)
+					{
+						bool h=sp->antialias;
+						bool v=sp->verticalAntialias;
+						if(!h)
+						{
+							XmlElementWriter(styleElement).Element(L"antialias").Text(L"no");
+						}
+						else if(!v)
+						{
+							XmlElementWriter(styleElement).Element(L"antialias").Text(L"horizontal");
+						}
+						else
+						{
+							XmlElementWriter(styleElement).Element(L"antialias").Text(L"vertical");
+						}
+					}
+				}
+			}
+			return xml;
+		}
+
+		bool DocumentModel::SaveToXml(const WString& filePath)
+		{
+			Ptr<XmlDocument> xml=SaveToXml();
+			if(xml)
+			{
+				stream::FileStream fileStream(filePath, stream::FileStream::WriteOnly);
+				stream::BomEncoder encoder(stream::BomEncoder::Utf16);
+				stream::EncoderStream encoderStream(fileStream, encoder);
+				stream::StreamWriter writer(encoderStream);
+				XmlPrint(xml, writer);
+				return true;
+			}
+			return false;
+		}
+	}
+}
+
+/***********************************************************************
+Resources\GuiParserManager.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace collections;
+		using namespace controls;
+		using namespace parsing::tabling;
+		using namespace parsing::xml;
+		using namespace parsing::json;
+		using namespace regex;
+
+/***********************************************************************
+IGuiParserManager
+***********************************************************************/
+
+		IGuiParserManager* parserManager=0;
+
+		IGuiParserManager* GetParserManager()
+		{
+			return parserManager;
+		}
+
+		class GuiParserManager : public Object, public IGuiParserManager, public IGuiPlugin
+		{
+		protected:
+			Dictionary<WString, Ptr<Table>>				tables;
+			Dictionary<WString, Func<Ptr<Table>()>>		loaders;
+			SpinLock									lock;
+
+			Dictionary<WString, Ptr<IGuiGeneralParser>>	parsers;
+		public:
+			GuiParserManager()
+			{
+			}
+
+			~GuiParserManager()
+			{
+			}
+
+			void Load()override
+			{
+				parserManager=this;
+				SetParsingTable(L"XML", &XmlLoadTable);
+				SetParsingTable(L"JSON", &JsonLoadTable);
+				SetTableParser(L"XML", L"XML", &XmlParseDocument);
+				SetTableParser(L"JSON", L"JSON", &JsonParse);
+			}
+
+			void AfterLoad()override
+			{
+			}
+
+			void Unload()override
+			{
+				parserManager=0;
+			}
+
+			Ptr<Table> GetParsingTable(const WString& name)override
+			{
+				SPIN_LOCK(lock)
+				{
+					vint index=tables.Keys().IndexOf(name);
+					if(index!=-1)
+					{
+						return tables.Values()[index];
+					}
+
+					index=loaders.Keys().IndexOf(name);
+					if(index!=-1)
+					{
+						Ptr<Table> table=loaders.Values()[index]();
+						tables.Add(name, table);
+						return table;
+					}
+				}
+				return 0;
+			}
+
+			bool SetParsingTable(const WString& name, Func<Ptr<Table>()> loader)override
+			{
+				if(loaders.Keys().Contains(name)) return false;
+				loaders.Add(name, loader);
+				return true;
+			}
+
+			Ptr<IGuiGeneralParser> GetParser(const WString& name)override
+			{
+				vint index=parsers.Keys().IndexOf(name);
+				return index==-1?0:parsers.Values()[index];
+			}
+
+			bool SetParser(const WString& name, Ptr<IGuiGeneralParser> parser)override
+			{
+				if(parsers.Keys().Contains(name)) return false;
+				parsers.Add(name, parser);
+				return true;
+			}
+		};
+		GUI_REGISTER_PLUGIN(GuiParserManager)
+	}
+}
+
+/***********************************************************************
+Resources\GuiResource.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace controls;
+		using namespace collections;
+		using namespace parsing::tabling;
+		using namespace parsing::xml;
+		using namespace parsing::json;
 		using namespace regex;
 
 		WString GetFolderPath(const WString& filePath)
@@ -31516,6 +36647,21 @@ namespace vl
 			return false;
 		}
 
+		bool IsResourceUrl(const WString& text, WString& protocol, WString& path)
+		{
+			Pair<vint, vint> index=INVLOC.FindFirst(text, L"://", Locale::None);
+			if(index.key!=-1)
+			{
+				protocol=INVLOC.ToLower(text.Sub(0, index.key));
+				path=text.Sub(index.key+index.value, text.Length()-index.key-index.value);
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
 /***********************************************************************
 GuiImageData
 ***********************************************************************/
@@ -31546,964 +36692,21 @@ GuiImageData
 		}
 
 /***********************************************************************
-DocumentResolver
+GuiTextData
 ***********************************************************************/
 
-		DocumentResolver::DocumentResolver(Ptr<DocumentResolver> _previousResolver)
-			:previousResolver(_previousResolver)
+		GuiTextData::GuiTextData()
 		{
 		}
 
-		DocumentResolver::~DocumentResolver()
+		GuiTextData::GuiTextData(const WString& _text)
+			:text(_text)
 		{
 		}
 
-		Ptr<INativeImage> DocumentResolver::ResolveImage(const WString& protocol, const WString& path)
+		WString GuiTextData::GetText()
 		{
-			auto result=ResolveImageInternal(protocol, path);
-			if(!result && previousResolver)
-			{
-				result=previousResolver->ResolveImage(protocol, path);
-			}
-			return result;
-		}
-
-/***********************************************************************
-document_serialization_visitors::SerializeRunVisitor
-***********************************************************************/
-
-		namespace document_serialization_visitors
-		{
-			class SerializeRunVisitor : public Object, public DocumentRun::IVisitor
-			{
-			protected:
-
-				const XmlElementWriter& Text(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					return writer.Text(run->text);
-				}
-
-				const XmlElementWriter& Antialias(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					if(!run->style.antialias)
-					{
-						return Text(run, writer.Element(L"na")).End();
-					}
-					else if(!run->style.verticalAntialias)
-					{
-						return Text(run, writer);
-					}
-					else
-					{
-						return Text(run, writer.Element(L"va")).End();
-					}
-				}
-
-				const XmlElementWriter& Strikeline(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					if(run->style.strikeline)
-					{
-						return Antialias(run, writer.Element(L"s")).End();
-					}
-					else
-					{
-						return Antialias(run, writer);
-					}
-				}
-
-				const XmlElementWriter& Underline(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					if(run->style.underline)
-					{
-						return Strikeline(run, writer.Element(L"u")).End();
-					}
-					else
-					{
-						return Strikeline(run, writer);
-					}
-				}
-
-				const XmlElementWriter& Italic(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					if(run->style.italic)
-					{
-						return Underline(run, writer.Element(L"i")).End();
-					}
-					else
-					{
-						return Underline(run, writer);
-					}
-				}
-
-				const XmlElementWriter& Bold(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					if(run->style.bold)
-					{
-						return Italic(run, writer.Element(L"b")).End();
-					}
-					else
-					{
-						return Italic(run, writer);
-					}
-				}
-
-				const XmlElementWriter& Font(DocumentTextRun* run, const XmlElementWriter& writer)
-				{
-					const XmlElementWriter& font=writer.Element(L"font");
-					font.Attribute(L"face", run->style.fontFamily);
-					font.Attribute(L"size", itow(run->style.size));
-					font.Attribute(L"color", run->color.ToString());
-					Bold(run, font);
-					return writer;
-				}
-			public:
-				Ptr<XmlElement> container;
-
-				void Visit(DocumentTextRun* run)override
-				{
-					if(run->text!=L"")
-					{
-						XmlElementWriter writer(container);
-						Font(run, writer);
-					}
-				}
-
-				void Visit(DocumentHyperlinkTextRun* run)override
-				{
-					Visit(static_cast<DocumentTextRun*>(run));
-				}
-
-				void Visit(DocumentImageRun* run)override
-				{
-					XmlElementWriter writer(container);
-					writer
-						.Element(L"img")
-						.Attribute(L"width", itow(run->size.x))
-						.Attribute(L"height", itow(run->size.y))
-						.Attribute(L"baseline", itow(run->baseline))
-						.Attribute(L"frameIndex", itow(run->frameIndex))
-						.Attribute(L"source", run->source)
-						;
-				}
-			};
-		}
-		using namespace document_serialization_visitors;
-
-/***********************************************************************
-document_serialization_visitors::DeserializeNodeVisitor
-***********************************************************************/
-
-		namespace document_serialization_visitors
-		{
-			class DeserializeNodeVisitor : public XmlNode::IVisitor
-			{
-			public:
-				struct TemplateInfo
-				{
-					Dictionary<WString, WString>	attributes;
-					XmlElement*						templateElement;
-					XmlElement*						contentElement;
-
-					TemplateInfo()
-						:templateElement(0)
-						,contentElement(0)
-					{
-					}
-				};
-
-				struct StyleStackItem
-				{
-					Pair<FontProperties, Color>		normalStyle;
-					Pair<FontProperties, Color>		activeStyle;
-					vint							hyperlinkId;
-
-					StyleStackItem()
-						:hyperlinkId(DocumentRun::NullHyperlinkId)
-					{
-					}
-				};
-
-				List<StyleStackItem>				styleStack;
-				Ptr<DocumentModel>					model;
-				Ptr<DocumentParagraph>				paragraph;
-				vint								paragraphIndex;
-				Ptr<DocumentLine>					line;
-				Ptr<DocumentResolver>				resolver;
-				Ptr<TemplateInfo>					templateInfo;
-				Regex								regexAttributeApply;
-
-				DeserializeNodeVisitor(Ptr<DocumentModel> _model, Ptr<DocumentParagraph> _paragraph, vint _paragraphIndex, Ptr<DocumentResolver> _resolver)
-					:model(_model)
-					,paragraph(_paragraph)
-					,paragraphIndex(_paragraphIndex)
-					,resolver(_resolver)
-					,regexAttributeApply(L"/{@(<value>[^{}]+)/}")
-				{
-					StyleStackItem item;
-					item.normalStyle=Pair<FontProperties, Color>(GetCurrentController()->ResourceService()->GetDefaultFont(), Color());
-					item.activeStyle=item.normalStyle;
-					styleStack.Add(item);
-				}
-
-				WString TranslateAttribute(const WString& value)
-				{
-					if(templateInfo)
-					{
-						WString result;
-						RegexMatch::List matches;
-						regexAttributeApply.Cut(value, false, matches);
-						FOREACH(RegexMatch::Ref, match, matches)
-						{
-							if(match->Success())
-							{
-								WString name=match->Groups()[L"value"].Get(0).Value();
-								vint index=templateInfo->attributes.Keys().IndexOf(name);
-								result+=(index==-1?match->Result().Value():templateInfo->attributes.Values().Get(index));
-							}
-							else
-							{
-								result+=match->Result().Value();
-							}
-						}
-						return result;
-					}
-					else
-					{
-						return value;
-					}
-				}
-
-				void PrintText(const WString& text)
-				{
-					if(!line)
-					{
-						line=new DocumentLine;
-						paragraph->lines.Add(line);
-					}
-					Ptr<DocumentTextRun> run;
-					const StyleStackItem& item=styleStack[styleStack.Count()-1];
-					if(item.hyperlinkId==DocumentRun::NullHyperlinkId || item.normalStyle==item.activeStyle)
-					{
-						run=new DocumentTextRun;
-					}
-					else
-					{
-						Ptr<DocumentHyperlinkTextRun> hyperlink=new DocumentHyperlinkTextRun;
-						hyperlink->normalStyle=item.normalStyle.key;
-						hyperlink->normalColor=item.normalStyle.value;
-						hyperlink->activeStyle=item.activeStyle.key;
-						hyperlink->activeColor=item.activeStyle.value;
-						run=hyperlink;
-					}
-					run->hyperlinkId=item.hyperlinkId;
-					run->style=item.normalStyle.key;
-					run->color=item.normalStyle.value;
-					run->text=text;
-					line->runs.Add(run);
-				}
-
-				void Visit(XmlText* node)override
-				{
-					PrintText(TranslateAttribute(node->content.value));
-				}
-
-				void Visit(XmlCData* node)override
-				{
-					PrintText(node->content.value);
-				}
-
-				void Visit(XmlAttribute* node)override
-				{
-				}
-
-				void Visit(XmlComment* node)override
-				{
-				}
-
-				void Visit(XmlElement* node)override
-				{
-					if(node->name.value==L"br")
-					{
-						if(!line) PrintText(L"");
-						line=0;
-					}
-					else if(node->name.value==L"sp")
-					{
-						PrintText(L" ");
-					}
-					else if(node->name.value==L"tab")
-					{
-						PrintText(L"\t");
-					}
-					else if(node->name.value==L"img")
-					{
-						if(!line)
-						{
-							line=new DocumentLine;
-							paragraph->lines.Add(line);
-						}
-						Ptr<DocumentImageRun> run=new DocumentImageRun;
-						if(Ptr<XmlAttribute> source=XmlGetAttribute(node, L"source"))
-						{
-							run->hyperlinkId=styleStack[styleStack.Count()-1].hyperlinkId;
-							run->source=TranslateAttribute(source->value.value);
-							Pair<vint, vint> index=INVLOC.FindFirst(run->source, L"://", Locale::IgnoreCase);
-							if(index.key!=-1)
-							{
-								WString protocol=run->source.Sub(0, index.key);
-								WString path=run->source.Sub(index.key+index.value, run->source.Length()-index.key-index.value);
-								run->image=resolver->ResolveImage(protocol, path);
-								if(run->image && run->image->GetFrameCount()>0)
-								{
-									run->size=run->image->GetFrame(0)->GetSize();
-									run->baseline=run->size.y;
-									run->frameIndex=0;
-								}
-							}
-
-							FOREACH(Ptr<XmlAttribute>, att, node->attributes)
-							{
-								if(att->name.value==L"width")
-								{
-									run->size.x=wtoi(TranslateAttribute(att->value.value));
-								}
-								else if(att->name.value==L"height")
-								{
-									run->size.y=wtoi(TranslateAttribute(att->value.value));
-								}
-								else if(att->name.value==L"baseline")
-								{
-									run->baseline=wtoi(TranslateAttribute(att->value.value));
-								}
-								else if(att->name.value==L"frameIndex")
-								{
-									run->frameIndex=wtoi(TranslateAttribute(att->value.value));
-								}
-							}
-							line->runs.Add(run);
-						}
-					}
-					else if(node->name.value==L"font")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						FOREACH(Ptr<XmlAttribute>, att, node->attributes)
-						{
-							if(att->name.value==L"face")
-							{
-								style.normalStyle.key.fontFamily=TranslateAttribute(att->value.value);
-								style.activeStyle.key.fontFamily=TranslateAttribute(att->value.value);
-							}
-							else if(att->name.value==L"size")
-							{
-								style.normalStyle.key.size=wtoi(TranslateAttribute(att->value.value));
-								style.activeStyle.key.size=wtoi(TranslateAttribute(att->value.value));
-							}
-							else if(att->name.value==L"color")
-							{
-								style.normalStyle.value=Color::Parse(TranslateAttribute(att->value.value));
-								style.activeStyle.value=Color::Parse(TranslateAttribute(att->value.value));
-							}
-						}
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"b")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.bold=true;
-						style.activeStyle.key.bold=true;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"i")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.italic=true;
-						style.activeStyle.key.italic=true;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"u")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.underline=true;
-						style.activeStyle.key.underline=true;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"s")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.strikeline=true;
-						style.activeStyle.key.strikeline=true;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"ha")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.antialias=true;
-						style.normalStyle.key.verticalAntialias=false;
-						style.activeStyle.key.antialias=true;
-						style.activeStyle.key.verticalAntialias=false;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"va")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.antialias=true;
-						style.normalStyle.key.verticalAntialias=true;
-						style.activeStyle.key.antialias=true;
-						style.activeStyle.key.verticalAntialias=true;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"na")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						style.normalStyle.key.antialias=false;
-						style.normalStyle.key.verticalAntialias=false;
-						style.activeStyle.key.antialias=false;
-						style.activeStyle.key.verticalAntialias=false;
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"div")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						WString styleName;
-						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"style"))
-						{
-							styleName=TranslateAttribute(att->value.value);
-						}
-						style.normalStyle=model->GetStyle(styleName, style.normalStyle);
-						style.activeStyle=model->GetStyle(styleName, style.activeStyle);
-						styleStack.Add(style);
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"a")
-					{
-						auto style=styleStack[styleStack.Count()-1];
-						WString normalStyle=L"#NormalLink";
-						WString activeStyle=L"#ActiveLink";
-						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"normal"))
-						{
-							normalStyle=TranslateAttribute(att->value.value);
-						}
-						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"active"))
-						{
-							activeStyle=TranslateAttribute(att->value.value);
-						}
-						style.normalStyle=model->GetStyle(normalStyle, style.normalStyle);
-						style.activeStyle=model->GetStyle(activeStyle, style.activeStyle);
-						style.hyperlinkId=model->hyperlinkInfos.Count();
-						styleStack.Add(style);
-
-						WString href;
-						if(Ptr<XmlAttribute> att=XmlGetAttribute(node, L"href"))
-						{
-							href=TranslateAttribute(att->value.value);
-						}
-						{
-							DocumentModel::HyperlinkInfo info;
-							info.paragraphIndex=paragraphIndex;
-							info.reference=href;
-							model->hyperlinkInfos.Add(style.hyperlinkId, info);
-						}
-						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-						{
-							sub->Accept(this);
-						}
-
-						styleStack.RemoveAt(styleStack.Count()-1);
-					}
-					else if(node->name.value==L"template-content")
-					{
-						if(templateInfo && templateInfo->contentElement)
-						{
-							Ptr<TemplateInfo> info=templateInfo;
-							templateInfo=0;
-							FOREACH(Ptr<XmlNode>, sub, info->contentElement->subNodes)
-							{
-								sub->Accept(this);
-							}
-							templateInfo=info;
-						}
-					}
-					else
-					{
-						vint index=model->templates.Keys().IndexOf(node->name.value);
-						if(index==-1)
-						{
-							FOREACH(Ptr<XmlNode>, sub, node->subNodes)
-							{
-								sub->Accept(this);
-							}
-						}
-						else
-						{
-							Ptr<TemplateInfo> newInfo=new TemplateInfo;
-							newInfo->templateElement=model->templates.Values().Get(index).Obj();
-							newInfo->contentElement=node;
-							FOREACH(Ptr<XmlAttribute>, att, newInfo->contentElement->attributes)
-							{
-								newInfo->attributes.Add(att->name.value, TranslateAttribute(att->value.value));
-							}
-
-							Ptr<TemplateInfo> info=templateInfo;
-							templateInfo=newInfo;
-							FOREACH(Ptr<XmlNode>, sub, newInfo->templateElement->subNodes)
-							{
-								sub->Accept(this);
-							}
-							templateInfo=info;
-						}
-					}
-				}
-
-				void Visit(XmlInstruction* node)override
-				{
-				}
-
-				void Visit(XmlDocument* node)override
-				{
-				}
-			};
-		}
-		using namespace document_serialization_visitors;
-
-/***********************************************************************
-document_serialization_visitors::ActivateHyperlinkVisitor
-***********************************************************************/
-
-		namespace document_serialization_visitors
-		{
-			class ActivateHyperlinkVisitor : public Object, public DocumentRun::IVisitor
-			{
-			public:
-				vint			hyperlinkId;
-				bool			active;
-
-				ActivateHyperlinkVisitor(vint _hyperlinkId, bool _active)
-					:hyperlinkId(_hyperlinkId)
-					,active(_active)
-				{
-				}
-
-				void Visit(DocumentTextRun* run)override
-				{
-				}
-
-				void Visit(DocumentHyperlinkTextRun* run)override
-				{
-					if(run->hyperlinkId==hyperlinkId)
-					{
-						if(active)
-						{
-							run->style=run->activeStyle;
-							run->color=run->activeColor;
-						}
-						else
-						{
-							run->style=run->normalStyle;
-							run->color=run->normalColor;
-						}
-					}
-				}
-
-				void Visit(DocumentImageRun* run)override
-				{
-				}
-			};
-		}
-		using namespace document_serialization_visitors;
-
-/***********************************************************************
-DocumentModel
-***********************************************************************/
-
-		DocumentModel::DocumentModel()
-		{
-			{
-				FontProperties font=GetCurrentController()->ResourceService()->GetDefaultFont();
-				Ptr<DocumentStyle> style=new DocumentStyle;
-				style->face=font.fontFamily;
-				style->size=font.size;
-				style->color=Color();
-				style->bold=font.bold;
-				style->italic=font.italic;
-				style->underline=font.underline;
-				style->strikeline=font.strikeline;
-				style->antialias=font.antialias;
-				style->verticalAntialias=font.verticalAntialias;
-				styles.Add(L"#Default", style);
-			}
-			{
-				Ptr<DocumentStyle> style=new DocumentStyle;
-				styles.Add(L"#Context", style);
-			}
-			{
-				Ptr<DocumentStyle> style=new DocumentStyle;
-				style->parentStyleName=L"#Context";
-				style->color=Color(0, 0, 255);
-				style->underline=true;
-				styles.Add(L"#NormalLink", style);
-			}
-			{
-				Ptr<DocumentStyle> style=new DocumentStyle;
-				style->parentStyleName=L"#Context";
-				style->color=Color(0, 0, 255);
-				style->underline=true;
-				styles.Add(L"#ActiveLink", style);
-			}
-		}
-
-		DocumentModel::RawStylePair DocumentModel::GetStyle(const WString& styleName, const RawStylePair& context)
-		{
-			DocumentStyle result;
-			Ptr<DocumentStyle> currentStyle;
-			WString currentName=styleName;
-			while(true)
-			{
-				vint index=styles.Keys().IndexOf(currentName);
-				if(index==-1) break;
-				currentStyle=styles.Values().Get(index);
-				currentName=currentStyle->parentStyleName;
-
-				if(!result.face && currentStyle->face) result.face=currentStyle->face;
-				if(!result.size && currentStyle->size) result.size=currentStyle->size;
-				if(!result.color && currentStyle->color) result.color=currentStyle->color;
-				if(!result.bold && currentStyle->bold) result.bold=currentStyle->bold;
-				if(!result.italic && currentStyle->italic) result.italic=currentStyle->italic;
-				if(!result.underline && currentStyle->underline) result.underline=currentStyle->underline;
-				if(!result.strikeline && currentStyle->strikeline) result.strikeline=currentStyle->strikeline;
-				if(!result.antialias && currentStyle->antialias) result.antialias=currentStyle->antialias;
-				if(!result.verticalAntialias && currentStyle->verticalAntialias) result.verticalAntialias=currentStyle->verticalAntialias;
-			}
-
-			if(!result.face) result.face=context.key.fontFamily;
-			if(!result.size) result.size=context.key.size;
-			if(!result.color) result.color=context.value;
-			if(!result.bold) result.bold=context.key.bold;
-			if(!result.italic) result.italic=context.key.italic;
-			if(!result.underline) result.underline=context.key.underline;
-			if(!result.strikeline) result.strikeline=context.key.strikeline;
-			if(!result.antialias) result.antialias=context.key.antialias;
-			if(!result.verticalAntialias) result.verticalAntialias=context.key.verticalAntialias;
-
-			FontProperties font;
-			font.fontFamily=result.face.Value();
-			font.size=result.size.Value();
-			font.bold=result.bold.Value();
-			font.italic=result.italic.Value();
-			font.underline=result.underline.Value();
-			font.strikeline=result.strikeline.Value();
-			font.antialias=result.antialias.Value();
-			font.verticalAntialias=result.verticalAntialias.Value();
-			return RawStylePair(font, result.color.Value());
-		}
-
-		vint DocumentModel::ActivateHyperlink(vint hyperlinkId, bool active)
-		{
-			vint index=hyperlinkInfos.Keys().IndexOf(hyperlinkId);
-			if(index!=-1)
-			{
-				vint paragraphIndex=hyperlinkInfos.Values().Get(index).paragraphIndex;
-				if(0<=paragraphIndex && paragraphIndex<paragraphs.Count())
-				{
-					Ptr<DocumentParagraph> paragraph=paragraphs[paragraphIndex];
-					ActivateHyperlinkVisitor visitor(hyperlinkId, active);
-					FOREACH(Ptr<DocumentLine>, line, paragraph->lines)
-					{
-						FOREACH(Ptr<DocumentRun>, run, line->runs)
-						{
-							run->Accept(&visitor);
-						}
-					}
-					return paragraphIndex;
-				}
-			}
-			return  -1;
-		}
-
-		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<DocumentResolver> resolver)
-		{
-			Ptr<DocumentModel> model=new DocumentModel;
-			if(xml->rootElement->name.value==L"Doc")
-			{
-				if(Ptr<XmlElement> styles=XmlGetElement(xml->rootElement, L"Styles"))
-				{
-					FOREACH(Ptr<XmlElement>, styleElement, XmlGetElements(styles, L"Style"))
-					if(Ptr<XmlAttribute> name=XmlGetAttribute(styleElement, L"name"))
-					if(!model->styles.Keys().Contains(name->value.value))
-					{
-						Ptr<DocumentStyle> style=new DocumentStyle;
-						model->styles.Add(name->value.value, style);
-
-						if(Ptr<XmlAttribute> parent=XmlGetAttribute(styleElement, L"parent"))
-						{
-							style->parentStyleName=parent->value.value;
-						}
-
-						FOREACH(Ptr<XmlElement>, att, XmlGetElements(styleElement))
-						{
-							if(att->name.value==L"face")
-							{
-								style->face=XmlGetValue(att);
-							}
-							else if(att->name.value==L"size")
-							{
-								style->size=wtoi(XmlGetValue(att));
-							}
-							else if(att->name.value==L"color")
-							{
-								style->color=Color::Parse(XmlGetValue(att));
-							}
-							else if(att->name.value==L"b")
-							{
-								style->bold=XmlGetValue(att)==L"true";
-							}
-							else if(att->name.value==L"i")
-							{
-								style->italic=XmlGetValue(att)==L"true";
-							}
-							else if(att->name.value==L"u")
-							{
-								style->underline=XmlGetValue(att)==L"true";
-							}
-							else if(att->name.value==L"s")
-							{
-								style->strikeline=XmlGetValue(att)==L"true";
-							}
-							else if(att->name.value==L"antialias")
-							{
-								WString value=XmlGetValue(att);
-								if(value==L"horizontal" || value==L"default")
-								{
-									style->antialias=true;
-									style->verticalAntialias=false;
-								}
-								else if(value==L"no")
-								{
-									style->antialias=false;
-									style->verticalAntialias=false;
-								}
-								else if(value==L"vertical")
-								{
-									style->antialias=true;
-									style->verticalAntialias=true;
-								}
-							}
-						}
-					}
-				}
-				if(Ptr<XmlElement> styles=XmlGetElement(xml->rootElement, L"Templates"))
-				{
-					FOREACH(Ptr<XmlElement>, templateElement, XmlGetElements(styles, L"Template"))
-					if(Ptr<XmlAttribute> name=XmlGetAttribute(templateElement, L"name"))
-					if(!model->styles.Keys().Contains(name->value.value))
-					{
-						model->templates.Add(name->value.value, templateElement);
-					}
-				}
-				if(Ptr<XmlElement> content=XmlGetElement(xml->rootElement, L"Content"))
-				{
-					FOREACH_INDEXER(Ptr<XmlElement>, p, i, XmlGetElements(content, L"p"))
-					{
-						Ptr<DocumentParagraph> paragraph=new DocumentParagraph;
-						if(Ptr<XmlAttribute> att=XmlGetAttribute(p, L"align"))
-						{
-							if(att->value.value==L"Left")
-							{
-								paragraph->alignment=Alignment::Left;
-							}
-							else if(att->value.value==L"Center")
-							{
-								paragraph->alignment=Alignment::Center;
-							}
-							else if(att->value.value==L"Right")
-							{
-								paragraph->alignment=Alignment::Right;
-							}
-						}
-						model->paragraphs.Add(paragraph);
-						DeserializeNodeVisitor visitor(model, paragraph, i, resolver);
-						p->Accept(&visitor);
-					}
-				}
-			}
-			return model;
-		}
-
-		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory)
-		{
-			Ptr<DocumentFileProtocolResolver> resolver=new DocumentFileProtocolResolver(workingDirectory);
-			return LoadFromXml(xml, resolver);
-		}
-
-		Ptr<parsing::xml::XmlDocument> DocumentModel::SaveToXml()
-		{
-			SerializeRunVisitor visitor;
-			Ptr<XmlDocument> xml=new XmlDocument;
-			Ptr<XmlElement> doc=new XmlElement;
-			doc->name.value=L"Doc";
-			xml->rootElement=doc;
-			{
-				Ptr<XmlElement> content=new XmlElement;
-				content->name.value=L"Content";
-				doc->subNodes.Add(content);
-
-				FOREACH(Ptr<DocumentParagraph>, p, paragraphs)
-				{
-					Ptr<XmlElement> paragraph=new XmlElement;
-					paragraph->name.value=L"p";
-					content->subNodes.Add(paragraph);
-
-					FOREACH(Ptr<DocumentLine>, l, p->lines)
-					{
-						FOREACH(Ptr<DocumentRun>, r, l->runs)
-						{
-							visitor.container=paragraph;
-							r->Accept(&visitor);
-						}
-						{
-							Ptr<XmlElement> line=new XmlElement;
-							line->name.value=L"br";
-							paragraph->subNodes.Add(line);
-						}
-					}
-				}
-			}
-			{
-				Ptr<XmlElement> stylesElement=new XmlElement;
-				stylesElement->name.value=L"Styles";
-				doc->subNodes.Add(stylesElement);
-
-				for(vint i=0;i<styles.Count();i++)
-				{
-					WString name=styles.Keys()[i];
-					if(name.Length()>0 && name[0]==L'#') continue;
-
-					Ptr<DocumentStyle> style=styles.Values().Get(i);
-					Ptr<XmlElement> styleElement=new XmlElement;
-					styleElement->name.value=L"Style";
-					stylesElement->subNodes.Add(styleElement);
-
-					XmlElementWriter(styleElement).Attribute(L"name", name);
-					if(style->parentStyleName!=L"")
-					{
-						XmlElementWriter(styleElement).Attribute(L"parent", style->parentStyleName);
-					}
-
-					if(style->face) XmlElementWriter(styleElement).Element(L"face").Text(style->face.Value());
-					if(style->size) XmlElementWriter(styleElement).Element(L"size").Text(itow(style->size.Value()));
-					if(style->color) XmlElementWriter(styleElement).Element(L"color").Text(style->color.Value().ToString());
-					if(style->bold) XmlElementWriter(styleElement).Element(L"bold").Text(style->bold.Value()?L"true":L"false");
-					if(style->italic) XmlElementWriter(styleElement).Element(L"italic").Text(style->italic.Value()?L"true":L"false");
-					if(style->underline) XmlElementWriter(styleElement).Element(L"underline").Text(style->underline.Value()?L"true":L"false");
-					if(style->strikeline) XmlElementWriter(styleElement).Element(L"strikeline").Text(style->strikeline.Value()?L"true":L"false");
-					if(style->antialias && style->verticalAntialias)
-					{
-						bool h=style->antialias;
-						bool v=style->verticalAntialias;
-						if(!h)
-						{
-							XmlElementWriter(styleElement).Element(L"antialias").Text(L"no");
-						}
-						else if(!v)
-						{
-							XmlElementWriter(styleElement).Element(L"antialias").Text(L"default");
-						}
-						else
-						{
-							XmlElementWriter(styleElement).Element(L"antialias").Text(L"vertical");
-						}
-					}
-				}
-			}
-			return xml;
-		}
-
-/***********************************************************************
-DocumentFileProtocolResolver
-***********************************************************************/
-
-		Ptr<INativeImage> DocumentFileProtocolResolver::ResolveImageInternal(const WString& protocol, const WString& path)
-		{
-			if(INVLOC.ToUpper(protocol)!=L"FILE") return 0;
-			WString filename=path;
-			if(filename.Length()>=2 && filename[1]!=L':')
-			{
-				filename=workingDirectory+filename;
-			}
-			return GetCurrentController()->ImageService()->CreateImageFromFile(filename);
-		}
-
-		DocumentFileProtocolResolver::DocumentFileProtocolResolver(const WString& _workingDirectory, Ptr<DocumentResolver> previousResolver)
-			:DocumentResolver(previousResolver)
-			,workingDirectory(_workingDirectory)
-		{
-		}
-
-/***********************************************************************
-DocumentResProtocolResolver
-***********************************************************************/
-
-		Ptr<INativeImage> DocumentResProtocolResolver::ResolveImageInternal(const WString& protocol, const WString& path)
-		{
-			if(INVLOC.ToUpper(protocol)!=L"RES") return 0;
-			Ptr<GuiImageData> image=resource->GetValueByPath(path).Cast<GuiImageData>();
-			if(image)
-			{
-				return image->GetImage();
-			}
-			else
-			{
-				return 0;
-			}
-		}
-
-		DocumentResProtocolResolver::DocumentResProtocolResolver(Ptr<GuiResource> _resource, Ptr<DocumentResolver> previousResolver)
-			:DocumentResolver(previousResolver)
-			,resource(_resource)
-		{
+			return text;
 		}
 
 /***********************************************************************
@@ -32561,9 +36764,9 @@ GuiResourceItem
 			return content.Cast<XmlDocument>();
 		}
 
-		Ptr<ObjectBox<WString>> GuiResourceItem::AsString()
+		Ptr<GuiTextData> GuiResourceItem::AsString()
 		{
-			return content.Cast<ObjectBox<WString>>();
+			return content.Cast<GuiTextData>();
 		}
 
 		Ptr<DocumentModel> GuiResourceItem::AsDocument()
@@ -32575,7 +36778,7 @@ GuiResourceItem
 GuiResourceFolder
 ***********************************************************************/
 
-		void GuiResourceFolder::LoadResourceFolderXml(DelayLoading& delayLoading, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, Ptr<parsing::tabling::ParsingTable> xmlParsingTable)
+		void GuiResourceFolder::LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml)
 		{
 			ClearItems();
 			ClearFolders();
@@ -32603,16 +36806,18 @@ GuiResourceFolder
 									WString text;
 									if(LoadTextFile(filePath, text))
 									{
-										Ptr<XmlDocument> xml=XmlParseDocument(text, xmlParsingTable);
-										if(xml)
+										if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
 										{
-											newContainingFolder=GetFolderPath(filePath);
-											newFolderXml=xml->rootElement;
+											if(auto xml=parser->TypedParse(text))
+											{
+												newContainingFolder=GetFolderPath(filePath);
+												newFolderXml=xml->rootElement;
+											}
 										}
 									}
 								}
 							}
-							folder->LoadResourceFolderXml(delayLoading, newContainingFolder, newFolderXml, xmlParsingTable);
+							folder->LoadResourceFolderXml(delayLoadings, newContainingFolder, newFolderXml);
 						}
 					}
 				}
@@ -32634,71 +36839,49 @@ GuiResourceFolder
 					Ptr<GuiResourceItem> item=new GuiResourceItem;
 					if(AddItem(name, item))
 					{
-						if(filePath!=L"")
+						WString type=element->name.value;
+						IGuiResourceTypeResolver* typeResolver=GetResourceResolverManager()->GetTypeResolver(type);
+						IGuiResourceTypeResolver* preloadResolver=typeResolver;
+
+						if(typeResolver)
 						{
-							stream::FileStream fileStream(filePath, stream::FileStream::ReadOnly);
-							if(fileStream.IsAvailable())
+							WString preloadType=typeResolver->GetPreloadType();
+							if(preloadType!=L"")
 							{
-								if(element->name.value==L"Xml" || element->name.value==L"Doc")
-								{
-									WString text;
-									if(LoadTextFromStream(fileStream, text))
-									{
-										Ptr<XmlDocument> xml=XmlParseDocument(text, xmlParsingTable);
-										if(xml)
-										{
-											item->SetContent(xml);
-											if(element->name.value==L"Doc")
-											{
-												delayLoading.documentModelFolders.Add(item, containingFolder);
-											}
-										}
-									}
-								}
-								else if(element->name.value==L"Text")
-								{
-									WString text;
-									if(LoadTextFromStream(fileStream, text))
-									{
-										item->SetContent(new ObjectBox<WString>(text));
-									}
-								}
-								else if(element->name.value==L"Image")
-								{
-									Ptr<INativeImage> image=GetCurrentController()->ImageService()->CreateImageFromStream(fileStream);
-									if(image)
-									{
-										Ptr<GuiImageData> imageData=new GuiImageData(image, 0);
-										item->SetContent(imageData);
-									}
-								}
+								preloadResolver=GetResourceResolverManager()->GetTypeResolver(preloadType);
 							}
 						}
-						else
+
+						if(typeResolver && preloadResolver)
 						{
-							if(element->name.value==L"Xml" || element->name.value==L"Doc")
+							Ptr<Object> resource;
+							if(filePath==L"")
 							{
-								Ptr<XmlElement> root=XmlGetElements(element).First(0);
-								if(root)
+								resource=preloadResolver->ResolveResource(element);
+							}
+							else
+							{
+								resource=preloadResolver->ResolveResource(filePath);
+							}
+
+							if(typeResolver!=preloadResolver)
+							{
+								if(typeResolver->IsDelayLoad())
 								{
-									Ptr<XmlDocument> xml=new XmlDocument;
-									xml->rootElement=root;
-									item->SetContent(xml);
-									if(element->name.value==L"Doc")
-									{
-										delayLoading.documentModelFolders.Add(item, containingFolder);
-									}
+									DelayLoading delayLoading;
+									delayLoading.type=type;
+									delayLoading.workingDirectory=containingFolder;
+									delayLoading.preloadResource=item;
+									delayLoadings.Add(delayLoading);
+								}
+								else if(resource)
+								{
+									resource=typeResolver->ResolveResource(resource, 0);
 								}
 							}
-							else if(element->name.value==L"Text")
-							{
-								WString text=XmlGetValue(element);
-								item->SetContent(new ObjectBox<WString>(text));
-							}
-							else if(element->name.value==L"Image")
-							{
-							}
+							item->SetContent(resource);
 						}
+
 						if(!item->GetContent())
 						{
 							RemoveItem(name);
@@ -32809,6 +36992,30 @@ GuiResourceFolder
 			return 0;
 		}
 
+		Ptr<GuiResourceFolder> GuiResourceFolder::GetFolderByPath(const WString& path)
+		{
+			const wchar_t* buffer=path.Buffer();
+			const wchar_t* index=wcschr(buffer, L'\\');
+			if(!index) index=wcschr(buffer, '/');
+			if(!index) return 0;
+
+			WString name=path.Sub(0, index-buffer);
+			Ptr<GuiResourceFolder> folder=GetFolder(name);
+
+			if(index-buffer==path.Length()-1)
+			{
+				return folder;
+			}
+
+			if(folder)
+			{
+				vint start=index-buffer+1;
+				return folder->GetFolderByPath(path.Sub(start, path.Length()-start));
+			}
+
+			return 0;
+		}
+
 /***********************************************************************
 GuiResource
 ***********************************************************************/
@@ -32821,34 +37028,45 @@ GuiResource
 		{
 		}
 
+		WString GuiResource::GetWorkingDirectory()
+		{
+			return workingDirectory;
+		}
+
 		Ptr<GuiResource> GuiResource::LoadFromXml(const WString& filePath)
 		{
-			Ptr<ParsingTable> table;
 			Ptr<XmlDocument> xml;
 			Ptr<GuiResource> resource;
+			if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
 			{
 				WString text;
 				if(LoadTextFile(filePath, text))
 				{
-					table=XmlLoadTable();
-					xml=XmlParseDocument(text, table);
+					xml=parser->TypedParse(text);
 				}
 			}
 			if(xml)
 			{
 				resource=new GuiResource;
-				DelayLoading delayLoading;
-				resource->LoadResourceFolderXml(delayLoading, GetFolderPath(filePath), xml->rootElement, table);
+				resource->workingDirectory=GetFolderPath(filePath);
+				DelayLoadingList delayLoadings;
+				resource->LoadResourceFolderXml(delayLoadings, resource->workingDirectory, xml->rootElement);
 
-				for(vint i=0;i<delayLoading.documentModelFolders.Count();i++)
+				FOREACH(DelayLoading, delay, delayLoadings)
 				{
-					Ptr<GuiResourceItem> item=delayLoading.documentModelFolders.Keys()[i];
-					WString folder=delayLoading.documentModelFolders.Values().Get(i);
-					if(Ptr<XmlDocument> xml=item->AsXml())
+					WString type=delay.type;
+					WString folder=delay.workingDirectory;
+					Ptr<GuiResourceItem> item=delay.preloadResource;
+
+					IGuiResourceTypeResolver* typeResolver=GetResourceResolverManager()->GetTypeResolver(type);
+					if(typeResolver && item->GetContent())
 					{
-						Ptr<DocumentResolver> resolver=new DocumentResProtocolResolver(resource, new DocumentFileProtocolResolver(folder));
-						Ptr<DocumentModel> model=DocumentModel::LoadFromXml(xml, resolver);
-						item->SetContent(model);
+						Ptr<GuiResourcePathResolver> pathResolver=new GuiResourcePathResolver(resource, folder);
+						Ptr<Object> resource=typeResolver->ResolveResource(item->GetContent(), pathResolver);
+						if(resource)
+						{
+							item->SetContent(resource);
+						}
 					}
 				}
 			}
@@ -32882,2934 +37100,430 @@ GuiResource
 			if(!result) throw ArgumentException(L"Path not exists.", L"GuiResource::GetStringByPath", L"path");
 			return result->Unbox();
 		}
-	}
-}
 
 /***********************************************************************
-Reflection\GuiReflectionBasic.cpp
+GuiResourcePathResolver
 ***********************************************************************/
 
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
+		GuiResourcePathResolver::GuiResourcePathResolver(Ptr<GuiResource> _resource, const WString& _workingDirectory)
+			:resource(_resource)
+			,workingDirectory(_workingDirectory)
 		{
-			using namespace collections;
-			using namespace parsing;
-			using namespace parsing::tabling;
-			using namespace parsing::xml;
-			using namespace stream;
+		}
 
-#ifndef VCZH_DEBUG_NO_REFLECTION
+		GuiResourcePathResolver::~GuiResourcePathResolver()
+		{
+		}
 
-			GUIREFLECTIONBASIC_TYPELIST(IMPL_TYPE_INFO)
-
-			bool TypedValueSerializerProvider<Color>::Serialize(const Color& input, WString& output)
+		Ptr<Object> GuiResourcePathResolver::ResolveResource(const WString& protocol, const WString& path)
+		{
+			Ptr<IGuiResourcePathResolver> resolver;
+			vint index=resolvers.Keys().IndexOf(protocol);
+			if(index==-1)
 			{
-				output=input.ToString();
+				IGuiResourcePathResolverFactory* factory=GetResourceResolverManager()->GetPathResolverFactory(protocol);
+				if(factory)
+				{
+					resolver=factory->CreateResolver(resource, workingDirectory);
+				}
+				resolvers.Add(protocol, resolver);
+			}
+			else
+			{
+				resolver=resolvers.Values()[index];
+			}
+
+			if(resolver)
+			{
+				return resolver->ResolveResource(path);
+			}
+			else
+			{
+				return 0;
+			}
+		}
+
+/***********************************************************************
+GuiResourcePathFileResolver
+***********************************************************************/
+
+		class GuiResourcePathFileResolver : public Object, public IGuiResourcePathResolver
+		{
+		protected:
+			WString					workingDirectory;
+
+		public:
+			GuiResourcePathFileResolver(const WString& _workingDirectory)
+				:workingDirectory(_workingDirectory)
+			{
+			}
+
+			Ptr<Object> ResolveResource(const WString& path)
+			{
+				WString filename=path;
+				if(filename.Length()>=2 && filename[1]!=L':')
+				{
+					filename=workingDirectory+filename;
+				}
+				Ptr<INativeImage> image=GetCurrentController()->ImageService()->CreateImageFromFile(filename);
+				return new GuiImageData(image, 0);
+			}
+
+			class Factory : public Object, public IGuiResourcePathResolverFactory
+			{
+			public:
+				WString GetProtocol()override
+				{
+					return L"file";
+				}
+
+				Ptr<IGuiResourcePathResolver> CreateResolver(Ptr<GuiResource> resource, const WString& workingDirectory)override
+				{
+					return new GuiResourcePathFileResolver(workingDirectory);
+				}
+			};
+		};
+
+/***********************************************************************
+GuiResourcePathResResolver
+***********************************************************************/
+
+		class GuiResourcePathResResolver : public Object, public IGuiResourcePathResolver
+		{
+		protected:
+			Ptr<GuiResource>		resource;
+
+		public:
+			GuiResourcePathResResolver(Ptr<GuiResource> _resource)
+				:resource(_resource)
+			{
+			}
+
+			Ptr<Object> ResolveResource(const WString& path)
+			{
+				if(resource)
+				{
+					if(path.Length()>0)
+					{
+						switch(path[path.Length()-1])
+						{
+						case L'\\':case L'/':
+							return resource->GetFolderByPath(path);
+						default:
+							return resource->GetValueByPath(path);
+						}
+					}
+				}
+				return 0;
+			}
+
+			class Factory : public Object, public IGuiResourcePathResolverFactory
+			{
+			public:
+				WString GetProtocol()override
+				{
+					return L"res";
+				}
+
+				Ptr<IGuiResourcePathResolver> CreateResolver(Ptr<GuiResource> resource, const WString& workingDirectory)override
+				{
+					return new GuiResourcePathResResolver(resource);
+				}
+			};
+		};
+
+/***********************************************************************
+IGuiResourceResolverManager
+***********************************************************************/
+
+		IGuiResourceResolverManager* resourceResolverManager=0;
+
+		IGuiResourceResolverManager* GetResourceResolverManager()
+		{
+			return resourceResolverManager;
+		}
+
+		class GuiResourceResolverManager : public Object, public IGuiResourceResolverManager, public IGuiPlugin
+		{
+		protected:
+			Dictionary<WString, Ptr<IGuiResourcePathResolverFactory>>		pathFactories;
+			Dictionary<WString, Ptr<IGuiResourceTypeResolver>>				typeResolvers;
+
+		public:
+			GuiResourceResolverManager()
+			{
+			}
+
+			~GuiResourceResolverManager()
+			{
+			}
+
+			void Load()override
+			{
+				resourceResolverManager=this;
+				SetPathResolverFactory(new GuiResourcePathFileResolver::Factory);
+				SetPathResolverFactory(new GuiResourcePathResResolver::Factory);
+			}
+
+			void AfterLoad()override
+			{
+			}
+
+			void Unload()override
+			{
+				resourceResolverManager=0;
+			}
+
+			IGuiResourcePathResolverFactory* GetPathResolverFactory(const WString& protocol)override
+			{
+				vint index=pathFactories.Keys().IndexOf(protocol);
+				return index==-1?0:pathFactories.Values()[index].Obj();
+			}
+
+			bool SetPathResolverFactory(Ptr<IGuiResourcePathResolverFactory> factory)override
+			{
+				if(pathFactories.Keys().Contains(factory->GetProtocol())) return false;
+				pathFactories.Add(factory->GetProtocol(), factory);
 				return true;
 			}
 
-			bool TypedValueSerializerProvider<Color>::Deserialize(const WString& input, Color& output)
+			IGuiResourceTypeResolver* GetTypeResolver(const WString& type)override
 			{
-				output=Color::Parse(input);
+				vint index=typeResolvers.Keys().IndexOf(type);
+				return index==-1?0:typeResolvers.Values()[index].Obj();
+			}
+
+			bool SetTypeResolver(Ptr<IGuiResourceTypeResolver> resolver)override
+			{
+				if(typeResolvers.Keys().Contains(resolver->GetType())) return false;
+				typeResolvers.Add(resolver->GetType(), resolver);
+				return true;
+			}
+		};
+		GUI_REGISTER_PLUGIN(GuiResourceResolverManager)
+	}
+}
+
+/***********************************************************************
+Resources\GuiResourceTypeResolvers.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace controls;
+		using namespace parsing;
+		using namespace parsing::tabling;
+		using namespace parsing::xml;
+
+/***********************************************************************
+Image Type Resolver
+***********************************************************************/
+
+		class GuiResourceImageTypeResolver : public Object, public IGuiResourceTypeResolver
+		{
+		public:
+			WString GetType()
+			{
+				return L"Image";
+			}
+
+			WString GetPreloadType()
+			{
+				return L"";
+			}
+
+			bool IsDelayLoad()
+			{
+				return false;
+			}
+
+			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			{
+				return 0;
+			}
+
+			Ptr<Object> ResolveResource(const WString& path)
+			{
+				Ptr<INativeImage> image=GetCurrentController()->ImageService()->CreateImageFromFile(path);
+				if(image)
+				{
+					return new GuiImageData(image, 0);
+				}
+				return 0;
+			}
+
+			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			{
+				return 0;
+			}
+		};
+
+/***********************************************************************
+Text Type Resolver
+***********************************************************************/
+
+		class GuiResourceTextTypeResolver : public Object, public IGuiResourceTypeResolver
+		{
+		public:
+			WString GetType()
+			{
+				return L"Text";
+			}
+
+			WString GetPreloadType()
+			{
+				return L"";
+			}
+
+			bool IsDelayLoad()
+			{
+				return false;
+			}
+
+			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			{
+				return new GuiTextData(XmlGetValue(element));
+			}
+
+			Ptr<Object> ResolveResource(const WString& path)
+			{
+				WString text;
+				if(LoadTextFile(path, text))
+				{
+					return new GuiTextData(text);
+				}
+				return 0;
+			}
+
+			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			{
+				return 0;
+			}
+		};
+
+/***********************************************************************
+Xml Type Resolver
+***********************************************************************/
+
+		class GuiResourceXmlTypeResolver : public Object, public IGuiResourceTypeResolver
+		{
+		public:
+			WString GetType()
+			{
+				return L"Xml";
+			}
+
+			WString GetPreloadType()
+			{
+				return L"";
+			}
+
+			bool IsDelayLoad()
+			{
+				return false;
+			}
+
+			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			{
+				Ptr<XmlElement> root=XmlGetElements(element).First(0);
+				if(root)
+				{
+					Ptr<XmlDocument> xml=new XmlDocument;
+					xml->rootElement=root;
+					return xml;
+				}
+				return 0;
+			}
+
+			Ptr<Object> ResolveResource(const WString& path)
+			{
+				if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
+				{
+					WString text;
+					if(LoadTextFile(path, text))
+					{
+						return parser->TypedParse(text);
+					}
+				}
+				return 0;
+			}
+
+			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			{
+				return 0;
+			}
+		};
+
+/***********************************************************************
+Doc Type Resolver
+***********************************************************************/
+
+		class GuiResourceDocTypeResolver : public Object, public IGuiResourceTypeResolver
+		{
+		public:
+			WString GetType()
+			{
+				return L"Doc";
+			}
+
+			WString GetPreloadType()
+			{
+				return L"Xml";
+			}
+
+			bool IsDelayLoad()
+			{
 				return true;
 			}
 
-			GuiGraphicsAnimationManager* GuiControlHost_GetAnimationManager(GuiControlHost* thisObject)
+			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
 			{
-				return thisObject->GetGraphicsHost()->GetAnimationManager();
+				return 0;
 			}
 
-/***********************************************************************
-External Functions
-***********************************************************************/
-
-			Ptr<INativeImage> INativeImage_Constructor(const WString& path)
+			Ptr<Object> ResolveResource(const WString& path)
 			{
-				return GetCurrentController()->ImageService()->CreateImageFromFile(path);
+				return 0;
 			}
 
-			INativeCursor* INativeCursor_Constructor1()
+			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
 			{
-				return GetCurrentController()->ResourceService()->GetDefaultSystemCursor();
-			}
-
-			INativeCursor* INativeCursor_Constructor2(INativeCursor::SystemCursorType type)
-			{
-				return GetCurrentController()->ResourceService()->GetSystemCursor(type);
-			}
-
-			Ptr<DocumentModel> DocumentModel_Constructor(const WString& path)
-			{
-				FileStream fileStream(path, FileStream::ReadOnly);
-				if(!fileStream.IsAvailable()) return 0;
-
-				BomDecoder decoder;
-				DecoderStream decoderStream(fileStream, decoder);
-				StreamReader reader(decoderStream);
-				WString xmlText=reader.ReadToEnd();
-
-				Ptr<ParsingTable> table=XmlLoadTable();
-				Ptr<XmlDocument> xml=XmlParseDocument(xmlText, table);
-				if(!xml) return 0;
-
-				return DocumentModel::LoadFromXml(xml, GetFolderPath(path));
-			}
-
-/***********************************************************************
-Type Declaration
-***********************************************************************/
-
-#define _ ,
-
-			BEGIN_ENUM_ITEM(Alignment)
-				ENUM_CLASS_ITEM(Left)
-				ENUM_CLASS_ITEM(Top)
-				ENUM_CLASS_ITEM(Center)
-				ENUM_CLASS_ITEM(Right)
-				ENUM_CLASS_ITEM(Bottom)
-			END_ENUM_ITEM(Alignment)
-
-			BEGIN_STRUCT_MEMBER(TextPos)
-				STRUCT_MEMBER(row)
-				STRUCT_MEMBER(column)
-			END_STRUCT_MEMBER(TextPos)
-
-			BEGIN_STRUCT_MEMBER(GridPos)
-				STRUCT_MEMBER(row)
-				STRUCT_MEMBER(column)
-			END_STRUCT_MEMBER(GridPos)
-
-			BEGIN_STRUCT_MEMBER(Point)
-				STRUCT_MEMBER(x)
-				STRUCT_MEMBER(y)
-			END_STRUCT_MEMBER(Point)
-
-			BEGIN_STRUCT_MEMBER(Size)
-				STRUCT_MEMBER(x)
-				STRUCT_MEMBER(y)
-			END_STRUCT_MEMBER(Size)
-
-			BEGIN_STRUCT_MEMBER(Rect)
-				STRUCT_MEMBER(x1)
-				STRUCT_MEMBER(y1)
-				STRUCT_MEMBER(x2)
-				STRUCT_MEMBER(y2)
-			END_STRUCT_MEMBER(Rect)
-
-			BEGIN_STRUCT_MEMBER(Margin)
-				STRUCT_MEMBER(left)
-				STRUCT_MEMBER(top)
-				STRUCT_MEMBER(right)
-				STRUCT_MEMBER(bottom)
-			END_STRUCT_MEMBER(Margin)
-
-			BEGIN_STRUCT_MEMBER(FontProperties)
-				STRUCT_MEMBER(fontFamily)
-				STRUCT_MEMBER(size)
-				STRUCT_MEMBER(bold)
-				STRUCT_MEMBER(italic)
-				STRUCT_MEMBER(underline)
-				STRUCT_MEMBER(strikeline)
-				STRUCT_MEMBER(antialias)
-				STRUCT_MEMBER(verticalAntialias)
-			END_STRUCT_MEMBER(FontProperties)
-
-			BEGIN_CLASS_MEMBER(INativeImageFrame)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_METHOD(GetImage, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetSize, NO_PARAMETER)
-			END_CLASS_MEMBER(INativeImageFrame)
-
-			BEGIN_CLASS_MEMBER(INativeImage)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_METHOD(GetFormat, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetFrameCount, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetFrame, {L"index"})
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<INativeImage>(const WString&), {L"filePath"}, &INativeImage_Constructor)
-			END_CLASS_MEMBER(INativeImage)
-
-			BEGIN_ENUM_ITEM(INativeImage::FormatType)
-				ENUM_ITEM_NAMESPACE(INativeImage)
-				ENUM_NAMESPACE_ITEM(Bmp)
-				ENUM_NAMESPACE_ITEM(Gif)
-				ENUM_NAMESPACE_ITEM(Icon)
-				ENUM_NAMESPACE_ITEM(Jpeg)
-				ENUM_NAMESPACE_ITEM(Png)
-				ENUM_NAMESPACE_ITEM(Tiff)
-				ENUM_NAMESPACE_ITEM(Wmp)
-				ENUM_NAMESPACE_ITEM(Unknown)
-			END_ENUM_ITEM(INativeImage::FormatType)
-
-			BEGIN_CLASS_MEMBER(INativeCursor)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_METHOD(IsSystemCursor, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetSystemCursorType, NO_PARAMETER)
-				CLASS_MEMBER_EXTERNALCTOR(INativeCursor*(), NO_PARAMETER, &INativeCursor_Constructor1)
-				CLASS_MEMBER_EXTERNALCTOR(INativeCursor*(INativeCursor::SystemCursorType), NO_PARAMETER, &INativeCursor_Constructor2)
-			END_CLASS_MEMBER(INativeCursor)
-
-			BEGIN_ENUM_ITEM(INativeCursor::SystemCursorType)
-				ENUM_ITEM_NAMESPACE(INativeCursor)
-				ENUM_NAMESPACE_ITEM(SmallWaiting)
-				ENUM_NAMESPACE_ITEM(LargeWaiting)
-				ENUM_NAMESPACE_ITEM(Arrow)
-				ENUM_NAMESPACE_ITEM(Cross)
-				ENUM_NAMESPACE_ITEM(Hand)
-				ENUM_NAMESPACE_ITEM(Help)
-				ENUM_NAMESPACE_ITEM(IBeam)
-				ENUM_NAMESPACE_ITEM(SizeAll)
-				ENUM_NAMESPACE_ITEM(SizeNESW)
-				ENUM_NAMESPACE_ITEM(SizeNS)
-				ENUM_NAMESPACE_ITEM(SizeNWSE)
-				ENUM_NAMESPACE_ITEM(SizeWE)
-			END_ENUM_ITEM(INativeCursor::SystemCursorType)
-
-			BEGIN_CLASS_MEMBER(INativeWindow)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_PROPERTY_FAST(Bounds)
-				CLASS_MEMBER_PROPERTY_FAST(ClientSize)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ClientBoundsInScreen)
-				CLASS_MEMBER_PROPERTY_FAST(Title)
-				CLASS_MEMBER_PROPERTY_FAST(WindowCursor)
-				CLASS_MEMBER_PROPERTY_FAST(CaretPoint)
-				CLASS_MEMBER_PROPERTY_FAST(Parent)
-				CLASS_MEMBER_PROPERTY_FAST(AlwaysPassFocusToParent)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SizeState)
-				CLASS_MEMBER_PROPERTY_FAST(MinimizedBox)
-				CLASS_MEMBER_PROPERTY_FAST(MaximizedBox)
-				CLASS_MEMBER_PROPERTY_FAST(Border)
-				CLASS_MEMBER_PROPERTY_FAST(SizeBox)
-				CLASS_MEMBER_PROPERTY_FAST(IconVisible)
-				CLASS_MEMBER_PROPERTY_FAST(TitleBar)
-				CLASS_MEMBER_PROPERTY_FAST(TopMost)
-
-				CLASS_MEMBER_METHOD(EnableCustomFrameMode, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(DisableCustomFrameMode, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsCustomFrameModeEnabled, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Show, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowDeactivated, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowRestored, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowMaximized, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowMinimized, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Hide, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsVisible, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Enable, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Disable, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsEnabled, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetFocus, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsFocused, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetActivate, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsActivated, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowInTaskBar, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(HideInTaskBar, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsAppearedInTaskBar, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(EnableActivate, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(DisableActivate, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsEnabledActivate, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(RequireCapture, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ReleaseCapture, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsCapturing, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(RedrawContent, NO_PARAMETER)
-			END_CLASS_MEMBER(INativeWindow)
-
-			BEGIN_ENUM_ITEM(INativeWindow::WindowSizeState)
-				ENUM_ITEM_NAMESPACE(INativeWindow)
-				ENUM_NAMESPACE_ITEM(Minimized)
-				ENUM_NAMESPACE_ITEM(Restored)
-				ENUM_NAMESPACE_ITEM(Maximized)
-			END_ENUM_ITEM(INativeWindow::WindowSizeState)
-
-			BEGIN_CLASS_MEMBER(INativeDelay)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Status)
-
-				CLASS_MEMBER_METHOD(Delay, {L"milliseconds"})
-				CLASS_MEMBER_METHOD(Cancel, NO_PARAMETER)
-			END_CLASS_MEMBER(INativeDelay)
-
-			BEGIN_ENUM_ITEM(INativeDelay::ExecuteStatus)
-				ENUM_ITEM_NAMESPACE(INativeDelay)
-				ENUM_NAMESPACE_ITEM(Pending)
-				ENUM_NAMESPACE_ITEM(Executing)
-				ENUM_NAMESPACE_ITEM(Executed)
-				ENUM_NAMESPACE_ITEM(Canceled)
-			END_ENUM_ITEM(INativeDelay::ExecuteStatus)
-
-			BEGIN_CLASS_MEMBER(GuiImageData)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiImageData>(), NO_PARAMETER)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiImageData>(Ptr<INativeImage>, vint), {L"image" _ L"frameIndex"})
-
-				CLASS_MEMBER_METHOD(GetImage, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetFrameIndex, NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_READONLY(Image, GetImage)
-				CLASS_MEMBER_PROPERTY_READONLY(FrameIndex, GetFrameIndex)
-			END_CLASS_MEMBER(GuiImageData)
-
-			BEGIN_CLASS_MEMBER(DocumentModel)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<DocumentModel>(const WString&), {L"filePath"}, &DocumentModel_Constructor)
-			END_CLASS_MEMBER(DocumentModel)
-
-			BEGIN_CLASS_MEMBER(GuiResource)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiResource>(), NO_PARAMETER)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiResource>(const WString&), {L"filePath"}, &GuiResource::LoadFromXml);
-
-				CLASS_MEMBER_METHOD(GetDocumentByPath, {L"path"})
-				CLASS_MEMBER_METHOD(GetImageByPath, {L"path"})
-				CLASS_MEMBER_METHOD(GetStringByPath, {L"path"})
-			END_CLASS_MEMBER(GuiResource)
-
-			BEGIN_CLASS_MEMBER(IGuiGraphicsElement)
-				CLASS_MEMBER_BASE(IDescriptable)
-			END_CLASS_MEMBER(IGuiGraphicsElement)
-
-			BEGIN_CLASS_MEMBER(GuiGraphicsComposition)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(leftButtonDown)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(leftButtonUp)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(leftButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(middleButtonDown)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(middleButtonUp)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(middleButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(rightButtonDown)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(rightButtonUp)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(rightButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(horizontalWheel)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(verticalWheel)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(mouseMove)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(mouseEnter)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(mouseLeave)
-				
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(previewKey)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(keyDown)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(keyUp)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(systemKeyDown)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(systemKeyUp)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(previewCharInput)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(charInput)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(gotFocus)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(lostFocus)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(caretNotify)
-				CLASS_MEMBER_GUIEVENT_COMPOSITION(clipboardNotify)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Parent)
-				CLASS_MEMBER_PROPERTY_FAST(OwnedElement)
-				CLASS_MEMBER_PROPERTY_FAST(Visible)
-				CLASS_MEMBER_PROPERTY_FAST(MinSizeLimitation)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(GlobalBounds)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(AssociatedControl)
-				CLASS_MEMBER_PROPERTY_FAST(AssociatedCursor)
-				CLASS_MEMBER_PROPERTY_FAST(AssociatedHitTestResult)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RelatedControl)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RelatedControlHost)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RelatedCursor)
-				CLASS_MEMBER_PROPERTY_FAST(Margin)
-				CLASS_MEMBER_PROPERTY_FAST(InternalMargin)
-				CLASS_MEMBER_PROPERTY_FAST(PreferredMinSize)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ClientArea)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MinPreferredClientSize)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(PreferredBounds)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Bounds)
-
-				CLASS_MEMBER_METHOD_RENAME(GetChildren, Children, NO_PARAMETER)
-				CLASS_MEMBER_PROPERTY_READONLY(Children, GetChildren)
-
-				CLASS_MEMBER_METHOD(AddChild, {L"child"})
-				CLASS_MEMBER_METHOD(InsertChild, {L"index" _ L"child"})
-				CLASS_MEMBER_METHOD(RemoveChild, {L"child"})
-				CLASS_MEMBER_METHOD(MoveChild, {L"child" _ L"newIndex"})
-				CLASS_MEMBER_METHOD(Render, {L"size"})
-				CLASS_MEMBER_METHOD(FindComposition, {L"location"})
-				CLASS_MEMBER_METHOD(ForceCalculateSizeImmediately, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsSizeAffectParent, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiGraphicsComposition)
-
-			BEGIN_ENUM_ITEM(GuiGraphicsComposition::MinSizeLimitation)
-				ENUM_ITEM_NAMESPACE(GuiGraphicsComposition)
-				ENUM_NAMESPACE_ITEM(NoLimit)
-				ENUM_NAMESPACE_ITEM(LimitToElement)
-				ENUM_NAMESPACE_ITEM(LimitToElementAndChildren)
-			END_ENUM_ITEM(GuiGraphicsComposition::MinSizeLimitation)
-
-			BEGIN_ENUM_ITEM(INativeWindowListener::HitTestResult)
-				ENUM_ITEM_NAMESPACE(INativeWindowListener)
-				ENUM_NAMESPACE_ITEM(BorderNoSizing)
-				ENUM_NAMESPACE_ITEM(BorderLeft)
-				ENUM_NAMESPACE_ITEM(BorderRight)
-				ENUM_NAMESPACE_ITEM(BorderTop)
-				ENUM_NAMESPACE_ITEM(BorderBottom)
-				ENUM_NAMESPACE_ITEM(BorderLeftTop)
-				ENUM_NAMESPACE_ITEM(BorderRightTop)
-				ENUM_NAMESPACE_ITEM(BorderLeftBottom)
-				ENUM_NAMESPACE_ITEM(BorderRightBottom)
-				ENUM_NAMESPACE_ITEM(Title)
-				ENUM_NAMESPACE_ITEM(ButtonMinimum)
-				ENUM_NAMESPACE_ITEM(ButtonMaximum)
-				ENUM_NAMESPACE_ITEM(ButtonClose)
-				ENUM_NAMESPACE_ITEM(Client)
-				ENUM_NAMESPACE_ITEM(Icon)
-				ENUM_NAMESPACE_ITEM(NoDecision)
-			END_ENUM_ITEM(INativeWindowListener::HitTestResult)
-
-			BEGIN_CLASS_MEMBER(GuiGraphicsSite)
-				CLASS_MEMBER_BASE(GuiGraphicsComposition)
-			END_CLASS_MEMBER(GuiGraphicsSite)
-
-			BEGIN_CLASS_MEMBER(GuiWindowComposition)
-				CLASS_MEMBER_BASE(GuiGraphicsSite)
-				CLASS_MEMBER_CONSTRUCTOR(GuiWindowComposition*(), NO_PARAMETER)
-			END_CLASS_MEMBER(GuiWindowComposition)
-
-			BEGIN_CLASS_MEMBER(GuiBoundsComposition)
-				CLASS_MEMBER_BASE(GuiGraphicsSite)
-				CLASS_MEMBER_CONSTRUCTOR(GuiBoundsComposition*(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Bounds)
-				CLASS_MEMBER_PROPERTY_FAST(AlignmentToParent)
-				
-				CLASS_MEMBER_METHOD(ClearAlignmentToParent, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsAlignedToParent, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiBoundsComposition)
-
-			BEGIN_CLASS_MEMBER(GuiControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiControl*(GuiControl::IStyleController*), {L"styleController"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(StyleController)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BoundsComposition)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ContainerComposition)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(FocusableComposition)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Parent)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ChildrenCount)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RelatedControlHost)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_READONLY_FAST(VisuallyEnabled)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Enabled)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Visible)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Text)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Font)
-				CLASS_MEMBER_PROPERTY_FAST(TooltipControl)
-				CLASS_MEMBER_PROPERTY_FAST(TooltipWidth)
-
-				CLASS_MEMBER_METHOD(GetChild, {L"index"})
-				CLASS_MEMBER_METHOD(AddChild, {L"control"})
-				CLASS_MEMBER_METHOD(HasChild, {L"control"})
-				CLASS_MEMBER_METHOD(SetFocus, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(DisplayTooltip, {L"location"})
-				CLASS_MEMBER_METHOD(CloseTooltip, NO_PARAMETER)
-				CLASS_MEMBER_METHOD_OVERLOAD(QueryService, {L"identifier"}, IDescriptable*(GuiControl::*)(const WString&))
-			END_CLASS_MEMBER(GuiControl)
-
-			BEGIN_CLASS_MEMBER(GuiControl::IStyleController)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_EXTERNALCTOR(GuiControl::IStyleController*(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::GuiControl_IStyleController::Create)
-
-				CLASS_MEMBER_METHOD(GetBoundsComposition, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetContainerComposition, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetFocusableComposition, {L"value"})
-				CLASS_MEMBER_METHOD(SetText, {L"value"})
-				CLASS_MEMBER_METHOD(SetFont, {L"value"})
-				CLASS_MEMBER_METHOD(SetVisuallyEnabled, {L"value"})
-			END_CLASS_MEMBER(GuiControl::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiControl::IStyleProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_EXTERNALCTOR(GuiControl::IStyleProvider*(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::GuiControl_IStyleProvider::Create)
-
-				CLASS_MEMBER_METHOD(AssociateStyleController, {L"controller"})
-				CLASS_MEMBER_METHOD(SetFocusableComposition, {L"value"})
-				CLASS_MEMBER_METHOD(SetText, {L"value"})
-				CLASS_MEMBER_METHOD(SetFont, {L"value"})
-				CLASS_MEMBER_METHOD(SetVisuallyEnabled, {L"value"})
-			END_CLASS_MEMBER(GuiControl::IStyleProvider)
-
-			BEGIN_CLASS_MEMBER(GuiComponent)
-			END_CLASS_MEMBER(GuiComponent)
-
-			BEGIN_CLASS_MEMBER(GuiControlHost)
-				CLASS_MEMBER_BASE(GuiControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiControlHost*(GuiControl::IStyleController*), {L"styleController"})
-
-				CLASS_MEMBER_GUIEVENT(WindowGotFocus)
-				CLASS_MEMBER_GUIEVENT(WindowLostFocus)
-				CLASS_MEMBER_GUIEVENT(WindowActivated)
-				CLASS_MEMBER_GUIEVENT(WindowDeactivated)
-				CLASS_MEMBER_GUIEVENT(WindowOpened)
-				CLASS_MEMBER_GUIEVENT(WindowClosing)
-				CLASS_MEMBER_GUIEVENT(WindowClosed)
-				CLASS_MEMBER_GUIEVENT(WindowDestroying)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MainComposition)
-				CLASS_MEMBER_PROPERTY_FAST(ShowInTaskBar)
-				CLASS_MEMBER_PROPERTY_FAST(EnabledActivate)
-				CLASS_MEMBER_PROPERTY_FAST(TopMost)
-				CLASS_MEMBER_PROPERTY_FAST(ClientSize)
-				CLASS_MEMBER_PROPERTY_FAST(Bounds)
-				CLASS_MEMBER_PROPERTY_FAST(ShortcutKeyManager)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(AnimationManager)
-
-				CLASS_MEMBER_METHOD(ForceCalculateSizeImmediately, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Render, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetFocused, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetFocused, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetActivated, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetActivated, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(AddComponent, {L"component"})
-				CLASS_MEMBER_METHOD(RemoveComponent, {L"component"})
-				CLASS_MEMBER_METHOD(ContainsComponent, {L"component"})
-				CLASS_MEMBER_METHOD(Show, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowDeactivated, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowRestored, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowMaximized, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowMinimized, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Hide, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Close, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetOpening, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiControlHost)
-
-#undef _
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-			class GuiBasicTypeLoader : public Object, public ITypeLoader
-			{
-			public:
-				void Load(ITypeManager* manager)
+				Ptr<XmlDocument> xml=resource.Cast<XmlDocument>();
+				if(xml)
 				{
-					GUIREFLECTIONBASIC_TYPELIST(ADD_TYPE_INFO)
+					Ptr<DocumentModel> model=DocumentModel::LoadFromXml(xml, resolver);
+					return model;
 				}
-
-				void Unload(ITypeManager* manager)
-				{
-				}
-			};
-
-#endif
-
-			bool LoadGuiBasicTypes()
-			{
-#ifndef VCZH_DEBUG_NO_REFLECTION
-				ITypeManager* manager=GetGlobalTypeManager();
-				if(manager)
-				{
-					Ptr<ITypeLoader> loader=new GuiBasicTypeLoader;
-					return manager->AddTypeLoader(loader);
-				}
-#endif
-				return false;
+				return 0;
 			}
-		}
-	}
-}
+		};
 
 /***********************************************************************
-Reflection\GuiReflectionCompositions.cpp
+Type Resolver Plugin
 ***********************************************************************/
 
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
+		class GuiResourceTypeResolverPlugin : public Object, public IGuiPlugin
 		{
-			using namespace collections;
-			using namespace parsing;
-			using namespace parsing::tabling;
-			using namespace parsing::xml;
-			using namespace stream;
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-			GUIREFLECTIONCOMPOSITION_TYPELIST(IMPL_TYPE_INFO)
-
-/***********************************************************************
-External Functions
-***********************************************************************/
-
-			void GuiTableComposition_SetRows(GuiTableComposition* thisObject, vint value)
+		public:
+			void Load()override
 			{
-				int columns=thisObject->GetColumns();
-				if(columns<=0) columns=1;
-				thisObject->SetRowsAndColumns(value, columns);
 			}
 
-			void GuiTableComposition_SetColumns(GuiTableComposition* thisObject, vint value)
+			void AfterLoad()override
 			{
-				int row=thisObject->GetRows();
-				if(row<=0) row=1;
-				thisObject->SetRowsAndColumns(row, value);
+				IGuiResourceResolverManager* manager=GetResourceResolverManager();
+				manager->SetTypeResolver(new GuiResourceImageTypeResolver);
+				manager->SetTypeResolver(new GuiResourceTextTypeResolver);
+				manager->SetTypeResolver(new GuiResourceXmlTypeResolver);
+				manager->SetTypeResolver(new GuiResourceDocTypeResolver);
 			}
 
-/***********************************************************************
-Type Declaration
-***********************************************************************/
-
-#define _ ,
-
-#define INTERFACE_EXTERNALCTOR(CONTROL, INTERFACE)\
-	CLASS_MEMBER_EXTERNALCTOR(decltype(interface_proxy::CONTROL##_##INTERFACE::Create(0))(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::CONTROL##_##INTERFACE::Create)
-
-			BEGIN_CLASS_MEMBER(GuiStackComposition)
-				CLASS_MEMBER_BASE(GuiBoundsComposition)
-				CLASS_MEMBER_CONSTRUCTOR(GuiStackComposition*(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(StackItems)
-
-				CLASS_MEMBER_PROPERTY_FAST(Direction)
-				CLASS_MEMBER_PROPERTY_FAST(Padding)
-				CLASS_MEMBER_PROPERTY_FAST(ExtraMargin)
-
-				CLASS_MEMBER_METHOD(InsertStackItem, {L"index" _ L"item"})
-				CLASS_MEMBER_METHOD(IsStackItemClipped, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(EnsureVisible, {L"index"})
-			END_CLASS_MEMBER(GuiStackComposition)
-
-			BEGIN_ENUM_ITEM(GuiStackComposition::Direction)
-				ENUM_ITEM_NAMESPACE(GuiStackComposition)
-				ENUM_NAMESPACE_ITEM(Horizontal)
-				ENUM_NAMESPACE_ITEM(Vertical)
-			END_ENUM_ITEM(GuiStackComposition::Direction)
-
-			BEGIN_CLASS_MEMBER(GuiStackItemComposition)
-				CLASS_MEMBER_BASE(GuiGraphicsSite)
-				CLASS_MEMBER_CONSTRUCTOR(GuiStackItemComposition*(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_FAST(Bounds)
-				CLASS_MEMBER_PROPERTY_FAST(ExtraMargin)
-			END_CLASS_MEMBER(GuiStackItemComposition)
-
-			BEGIN_STRUCT_MEMBER(GuiCellOption)
-				STRUCT_MEMBER(composeType)
-				STRUCT_MEMBER(absolute)
-				STRUCT_MEMBER(percentage)
-			END_STRUCT_MEMBER(GuiCellOption)
-
-			BEGIN_ENUM_ITEM(GuiCellOption::ComposeType)
-				ENUM_ITEM_NAMESPACE(GuiCellOption)
-				ENUM_NAMESPACE_ITEM(Absolute)
-				ENUM_NAMESPACE_ITEM(Percentage)
-				ENUM_NAMESPACE_ITEM(MinSize)
-			END_ENUM_ITEM(GuiCellOption::ComposeType)
-
-			BEGIN_CLASS_MEMBER(GuiTableComposition)
-				CLASS_MEMBER_BASE(GuiBoundsComposition)
-				CLASS_MEMBER_CONSTRUCTOR(GuiTableComposition*(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_FAST(CellPadding)
-
-				CLASS_MEMBER_METHOD(GetRows, NO_PARAMETER)
-				CLASS_MEMBER_EXTERNALMETHOD(SetRows, {L"value"}, void(GuiTableComposition::*)(vint), &GuiTableComposition_SetRows)
-				CLASS_MEMBER_PROPERTY(Rows, GetRows, SetRows)
-				CLASS_MEMBER_METHOD(GetColumns, NO_PARAMETER)
-				CLASS_MEMBER_EXTERNALMETHOD(SetColumns, {L"value"}, void(GuiTableComposition::*)(vint), &GuiTableComposition_SetColumns)
-				CLASS_MEMBER_PROPERTY(Columns, GetColumns, SetColumns)
-				CLASS_MEMBER_METHOD(SetRowsAndColumns, {L"rows" _ L"columns"})
-
-				CLASS_MEMBER_METHOD(GetSitedCell, {L"rows" _ L"columns"})
-				CLASS_MEMBER_METHOD(GetRowOption, {L"row"})
-				CLASS_MEMBER_METHOD(SetRowOption, {L"row" _ L"option"})
-				CLASS_MEMBER_METHOD(GetColumnOption, {L"column"})
-				CLASS_MEMBER_METHOD(SetColumnOption, {L"column" _ L"option"})
-				CLASS_MEMBER_METHOD(GetCellArea, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(UpdateCellBounds, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiTableComposition)
-
-			BEGIN_CLASS_MEMBER(GuiCellComposition)
-				CLASS_MEMBER_BASE(GuiGraphicsSite)
-				CLASS_MEMBER_CONSTRUCTOR(GuiCellComposition*(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TableParent)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Row)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowSpan)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Column)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ColumnSpan)
-
-				CLASS_MEMBER_METHOD(SetSite, {L"row" _ L"column" _ L"rowSpan" _ L"columnSpan"})
-			END_CLASS_MEMBER(GuiCellComposition)
-
-			BEGIN_CLASS_MEMBER(GuiSideAlignedComposition)
-				CLASS_MEMBER_BASE(GuiGraphicsSite)
-				CLASS_MEMBER_CONSTRUCTOR(GuiSideAlignedComposition*(), NO_PARAMETER)
-				
-				CLASS_MEMBER_PROPERTY_FAST(Direction)
-				CLASS_MEMBER_PROPERTY_FAST(MaxLength)
-				CLASS_MEMBER_PROPERTY_FAST(MaxRatio)
-			END_CLASS_MEMBER(GuiSideAlignedComposition)
-
-			BEGIN_ENUM_ITEM(GuiSideAlignedComposition::Direction)
-				ENUM_ITEM_NAMESPACE(GuiSideAlignedComposition)
-				ENUM_NAMESPACE_ITEM(Left)
-				ENUM_NAMESPACE_ITEM(Top)
-				ENUM_NAMESPACE_ITEM(Right)
-				ENUM_NAMESPACE_ITEM(Bottom)
-			END_ENUM_ITEM(GuiSideAlignedComposition::Direction)
-
-			BEGIN_CLASS_MEMBER(GuiPartialViewComposition)
-				CLASS_MEMBER_BASE(GuiGraphicsSite)
-				CLASS_MEMBER_CONSTRUCTOR(GuiPartialViewComposition*(), NO_PARAMETER)
-				
-				CLASS_MEMBER_PROPERTY_FAST(WidthRatio)
-				CLASS_MEMBER_PROPERTY_FAST(WidthPageSize)
-				CLASS_MEMBER_PROPERTY_FAST(HeightRatio)
-				CLASS_MEMBER_PROPERTY_FAST(HeightPageSize)
-			END_CLASS_MEMBER(GuiPartialViewComposition)
-
-			BEGIN_CLASS_MEMBER(GuiSubComponentMeasurer)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiSubComponentMeasurer>(), NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(AttachMeasuringSource, {L"value"})
-				CLASS_MEMBER_METHOD(DetachMeasuringSource, {L"value"})
-				CLASS_MEMBER_METHOD(MeasureAndUpdate, {L"measuringCategory" _ L"direction"})
-			END_CLASS_MEMBER(GuiSubComponentMeasurer)
-
-			BEGIN_ENUM_ITEM(GuiSubComponentMeasurer::Direction)
-				ENUM_ITEM_NAMESPACE(GuiSubComponentMeasurer)
-				ENUM_NAMESPACE_ITEM(Horizontal)
-				ENUM_NAMESPACE_ITEM(Vertical)
-			END_ENUM_ITEM(GuiSubComponentMeasurer::Direction)
-
-			BEGIN_CLASS_MEMBER(GuiSubComponentMeasurer::IMeasuringSource)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiSubComponentMeasurer, IMeasuringSource)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(AttachedMeasurer)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MeasuringCategory)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SubComponentCount)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MainComposition)
-
-				CLASS_MEMBER_METHOD(AttachMeasurer, {L"value"})
-				CLASS_MEMBER_METHOD(DetachMeasurer, {L"value"})
-				CLASS_MEMBER_METHOD(GetSubComponentName, {L"index"})
-				CLASS_MEMBER_METHOD_OVERLOAD(GetSubComponentComposition, {L"index"}, GuiGraphicsComposition*(GuiSubComponentMeasurer::IMeasuringSource::*)(vint))
-				CLASS_MEMBER_METHOD_OVERLOAD(GetSubComponentComposition, {L"name"}, GuiGraphicsComposition*(GuiSubComponentMeasurer::IMeasuringSource::*)(const WString&))
-				CLASS_MEMBER_METHOD(SubComponentPreferredMinSizeUpdated, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiSubComponentMeasurer::IMeasuringSource)
-
-			BEGIN_CLASS_MEMBER(GuiSubComponentMeasurer::MeasuringSource)
-				CLASS_MEMBER_BASE(GuiSubComponentMeasurer::IMeasuringSource)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiSubComponentMeasurer::MeasuringSource>(const WString& _ GuiGraphicsComposition*), {L"measuringCategory" _ L"mainComposition"})
-
-				CLASS_MEMBER_METHOD(AddSubComponent, {L"name" _ L"composition"})
-			END_CLASS_MEMBER(GuiSubComponentMeasurer::MeasuringSource)
-
-			BEGIN_CLASS_MEMBER(IGuiGraphicsAnimation)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(composition, IGuiGraphicsAnimation)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TotalLength)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(CurrentPosition)
-
-				CLASS_MEMBER_METHOD(Play, {L"currentPosition" _ L"totalLength"})
-				CLASS_MEMBER_METHOD(Stop, NO_PARAMETER)
-			END_CLASS_MEMBER(IGuiGraphicsAnimation)
-
-			BEGIN_CLASS_MEMBER(GuiGraphicsAnimationManager)
-				CLASS_MEMBER_METHOD(AddAnimation, {L"animation"})
-				CLASS_MEMBER_METHOD(HasAnimation, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Play, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiGraphicsAnimationManager)
-
-			BEGIN_CLASS_MEMBER(IGuiShortcutKeyItem)
-				CLASS_MEMBER_BASE(IDescriptable)
-				
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Manager)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Name)
-			END_CLASS_MEMBER(IGuiShortcutKeyItem)
-
-			BEGIN_CLASS_MEMBER(IGuiShortcutKeyManager)
-				CLASS_MEMBER_BASE(IDescriptable)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemCount)
-
-				CLASS_MEMBER_METHOD(GetItem, {L"index"})
-			END_CLASS_MEMBER(IGuiShortcutKeyManager)
-
-			BEGIN_CLASS_MEMBER(GuiShortcutKeyManager)
-				CLASS_MEMBER_BASE(IGuiShortcutKeyManager)
-				CLASS_MEMBER_CONSTRUCTOR(GuiShortcutKeyManager*(), NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(CreateShortcut, {L"ctrl" _ L"shift" _ L"alt" _ L"ket"})
-				CLASS_MEMBER_METHOD(DestroyShortcut, {L"ctrl" _ L"shift" _ L"alt" _ L"ket"})
-				CLASS_MEMBER_METHOD(TryGetShortcut, {L"ctrl" _ L"shift" _ L"alt" _ L"ket"})
-			END_CLASS_MEMBER(GuiShortcutKeyManager)
-
-#undef INTERFACE_EXTERNALCTOR
-#undef _
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-			class GuiCompositionTypeLoader : public Object, public ITypeLoader
+			void Unload()override
 			{
-			public:
-				void Load(ITypeManager* manager)
-				{
-					GUIREFLECTIONCOMPOSITION_TYPELIST(ADD_TYPE_INFO)
-				}
-
-				void Unload(ITypeManager* manager)
-				{
-				}
-			};
-
-#endif
-
-			bool LoadGuiCompositionTypes()
-			{
-#ifndef VCZH_DEBUG_NO_REFLECTION
-				ITypeManager* manager=GetGlobalTypeManager();
-				if(manager)
-				{
-					Ptr<ITypeLoader> loader=new GuiCompositionTypeLoader;
-					return manager->AddTypeLoader(loader);
-				}
-#endif
-				return false;
 			}
-		}
-	}
-}
-
-/***********************************************************************
-Reflection\GuiReflectionControls.cpp
-***********************************************************************/
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-			using namespace collections;
-			using namespace parsing;
-			using namespace parsing::tabling;
-			using namespace parsing::definitions;
-			using namespace parsing::analyzing;
-			using namespace parsing::xml;
-			using namespace stream;
-			using namespace list;
-			using namespace tree;
-			using namespace text;
-			using namespace theme;
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-			GUIREFLECTIONCONTROLS_TYPELIST(IMPL_TYPE_INFO)
-
-/***********************************************************************
-External Functions
-***********************************************************************/
-
-			Ptr<ITheme> CreateWin7Theme()
-			{
-				return new win7::Win7Theme();
-			}
-
-			Ptr<ITheme> CreateWin8Theme()
-			{
-				return new win8::Win8Theme();
-			}
-
-			TextItemProvider* GuiTextList_GetItemProvider(GuiTextList* thisObject)
-			{
-				return &thisObject->GetItems();
-			}
-
-			ListViewItemStyleProvider::IListViewItemContent* ListViewItemStyleProvider_GetItemContent(ListViewItemStyleProvider* thisObject, GuiListControl::IItemStyleController* itemStyleController)
-			{
-				return thisObject->GetItemContent<ListViewItemStyleProvider::IListViewItemContent>(itemStyleController);
-			}
-
-			ListViewDataColumns& GuiListView_GetDataColumns(GuiListView* thisObject)
-			{
-				return thisObject->GetItems().GetDataColumns();
-			}
-
-			ListViewColumns& GuiListView_GetColumns(GuiListView* thisObject)
-			{
-				return thisObject->GetItems().GetColumns();
-			}
-
-			Ptr<RepeatingParsingExecutor> CreateRepeatingParsingExecutor(const WString& grammar, bool enableAmbiguity, const WString& rule, Ptr<ILanguageProvider> provider)
-			{
-			    Ptr<ParsingGeneralParser> parser=CreateBootstrapStrictParser();
-			    List<Ptr<ParsingError>> errors;
-			    Ptr<ParsingTreeNode> definitionNode=parser->Parse(grammar, L"ParserDecl", errors);
-			    Ptr<ParsingDefinition> definition=DeserializeDefinition(definitionNode);
-			    Ptr<ParsingTable> table=GenerateTable(definition, enableAmbiguity, errors);
-				Ptr<ParsingGeneralParser> grammarParser=CreateAutoRecoverParser(table);
-				return new RepeatingParsingExecutor(grammarParser, rule, provider);
-			}
-
-/***********************************************************************
-Type Declaration
-***********************************************************************/
-
-#define _ ,
-
-#define CONTROL_CONSTRUCTOR_CONTROLLER(CONTROL)\
-	CLASS_MEMBER_CONSTRUCTOR(CONTROL*(CONTROL::IStyleController*), {L"styleController"})
-
-#define CONTROL_CONSTRUCTOR_PROVIDER(CONTROL)\
-	CLASS_MEMBER_CONSTRUCTOR(CONTROL*(CONTROL::IStyleProvider*), {L"styleProvider"})
-
-#define INTERFACE_EXTERNALCTOR(CONTROL, INTERFACE)\
-	CLASS_MEMBER_EXTERNALCTOR(decltype(interface_proxy::CONTROL##_##INTERFACE::Create(0))(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::CONTROL##_##INTERFACE::Create)
-
-#define INTERFACE_IDENTIFIER(INTERFACE)\
-	CLASS_MEMBER_STATIC_EXTERNALMETHOD(GetIdentifier, NO_PARAMETER, WString(*)(), []()->WString{return INTERFACE::Identifier;})
-
-			BEGIN_CLASS_MEMBER(GuiApplication)
-				CLASS_MEMBER_STATIC_EXTERNALMETHOD(GetApplication, NO_PARAMETER, GuiApplication*(*)(), &GetApplication)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MainWindow)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TooltipOwner)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ExecutablePath)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ExecutableFolder)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Windows)
-				
-				CLASS_MEMBER_METHOD(Run, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ShowTooltip, {L"owner" _ L"tooltip" _ L"preferredContentWidth" _ L"location"})
-				CLASS_MEMBER_METHOD(CloseTooltip, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsInMainThread, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(InvokeAsync, {L"proc"})
-				CLASS_MEMBER_METHOD(InvokeInMainThread, {L"proc"})
-				CLASS_MEMBER_METHOD(InvokeInMainThreadAndWait, {L"proc" _ L"milliseconds"})
-				CLASS_MEMBER_METHOD(DelayExecute, {L"proc" _ L"milliseconds"})
-				CLASS_MEMBER_METHOD(DelayExecuteInMainThread, {L"proc" _ L"milliseconds"})
-			END_CLASS_MEMBER(GuiApplication)
-
-			BEGIN_CLASS_MEMBER(ITheme)
-				CLASS_MEMBER_STATIC_EXTERNALMETHOD(GetCurrentTheme, NO_PARAMETER, ITheme*(*)(), &GetCurrentTheme)
-				CLASS_MEMBER_STATIC_EXTERNALMETHOD(SetCurrentTheme, {L"theme"}, void(*)(ITheme*), &SetCurrentTheme)
-				CLASS_MEMBER_STATIC_EXTERNALMETHOD(CreateWin7Theme, NO_PARAMETER, Ptr<ITheme>(*)(), &CreateWin7Theme)
-				CLASS_MEMBER_STATIC_EXTERNALMETHOD(CreateWin8Theme, NO_PARAMETER, Ptr<ITheme>(*)(), &CreateWin8Theme)
-
-				CLASS_MEMBER_METHOD(CreateWindowStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateTooltipStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateLabelStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateScrollContainerStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateGroupBoxStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateTabStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateComboBoxStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateMultilineTextBoxStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateTextBoxStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetDefaultTextBoxColorEntry, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateDocumentViewerStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateDocumentLabelStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateListViewStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateTreeViewStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateListItemBackgroundStyle, NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(CreateMenuStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateMenuBarStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateMenuSplitterStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateMenuBarButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateMenuItemButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateToolbarStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateToolbarButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateToolbarDropdownButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateToolbarSplitButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateToolbarSplitterStyle, NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(CreateButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateCheckBoxStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateRadioButtonStyle, NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(CreateHScrollStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateVScrollStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateHTrackerStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateVTrackerStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateProgressBarStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetScrollDefaultSize, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateWindowStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetTrackerDefaultSize, NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(CreateTextListStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateTextListItemStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateCheckTextListItemStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateRadioTextListItemStyle, NO_PARAMETER)
-			END_CLASS_MEMBER(ITheme)
-
-			BEGIN_CLASS_MEMBER(GuiLabel)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiLabel)
-
-				CLASS_MEMBER_PROPERTY_FAST(TextColor)
-			END_CLASS_MEMBER(GuiLabel)
-
-			BEGIN_CLASS_MEMBER(GuiLabel::IStyleController)
-				CLASS_MEMBER_BASE(GuiControl::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiLabel, IStyleController)
-
-				CLASS_MEMBER_METHOD(GetDefaultTextColor, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetTextColor, {L"value"})
-			END_CLASS_MEMBER(GuiLabel::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiButton)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiButton)
-
-				CLASS_MEMBER_GUIEVENT(Clicked)
-
-				CLASS_MEMBER_PROPERTY_FAST(ClickOnMouseUp)
-			END_CLASS_MEMBER(GuiButton)
-
-			BEGIN_ENUM_ITEM(GuiButton::ControlState)
-				ENUM_ITEM_NAMESPACE(GuiButton)
-				ENUM_NAMESPACE_ITEM(Normal)
-				ENUM_NAMESPACE_ITEM(Active)
-				ENUM_NAMESPACE_ITEM(Pressed)
-			END_ENUM_ITEM(GuiButton::ControlState)
-
-			BEGIN_CLASS_MEMBER(GuiButton::IStyleController)
-				CLASS_MEMBER_BASE(GuiControl::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiButton, IStyleController)
-
-				CLASS_MEMBER_METHOD(Transfer, {L"value"})
-			END_CLASS_MEMBER(GuiButton::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiSelectableButton)
-				CLASS_MEMBER_BASE(GuiButton)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiSelectableButton)
-
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(GroupController)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(AutoSelection)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Selected)
-			END_CLASS_MEMBER(GuiSelectableButton)
-
-			BEGIN_CLASS_MEMBER(GuiSelectableButton::IStyleController)
-				CLASS_MEMBER_BASE(GuiButton::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiSelectableButton, IStyleController)
-
-				CLASS_MEMBER_METHOD(SetSelected, {L"value"})
-			END_CLASS_MEMBER(GuiSelectableButton::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiSelectableButton::GroupController)
-				CLASS_MEMBER_BASE(GuiComponent)
-
-				CLASS_MEMBER_METHOD(Attach, {L"button"})
-				CLASS_MEMBER_METHOD(Detach, {L"button"})
-				CLASS_MEMBER_METHOD(OnSelectedChanged, {L"button"})
-			END_CLASS_MEMBER(GuiSelectableButton::GroupController)
-
-			BEGIN_CLASS_MEMBER(GuiSelectableButton::MutexGroupController)
-				CLASS_MEMBER_BASE(GuiSelectableButton::GroupController)
-				CLASS_MEMBER_CONSTRUCTOR(GuiSelectableButton::MutexGroupController*(), NO_PARAMETER)
-			END_CLASS_MEMBER(GuiSelectableButton::MutexGroupController)
-
-			BEGIN_CLASS_MEMBER(GuiScroll)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiScroll)
-
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(TotalSize)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(PageSize)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Position)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(SmallMove)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(BigMove)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MinPosition)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxPosition)
-			END_CLASS_MEMBER(GuiScroll)
-
-			BEGIN_CLASS_MEMBER(GuiScroll::ICommandExecutor)
-				CLASS_MEMBER_METHOD(SmallDecrease, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SmallIncrease, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(BigDecrease, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(BigIncrease, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetTotalSize, {L"value"})
-				CLASS_MEMBER_METHOD(SetPageSize, {L"value"})
-				CLASS_MEMBER_METHOD(SetPosition, {L"value"})
-			END_CLASS_MEMBER(GuiScroll::ICommandExecutor)
-
-			BEGIN_CLASS_MEMBER(GuiScroll::IStyleController)
-				CLASS_MEMBER_BASE(GuiControl::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiScroll, IStyleController)
-
-				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
-				CLASS_MEMBER_METHOD(SetTotalSize, {L"value"})
-				CLASS_MEMBER_METHOD(SetPageSize, {L"value"})
-				CLASS_MEMBER_METHOD(SetPosition, {L"value"})
-			END_CLASS_MEMBER(GuiScroll::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiTabPage)
-				CLASS_MEMBER_GUIEVENT(PageInstalled)
-				CLASS_MEMBER_GUIEVENT(PageUninstalled)
-				CLASS_MEMBER_GUIEVENT(PageContainerReady)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Container)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(OwnerTab)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Text)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Selected)
-			END_CLASS_MEMBER(GuiTabPage)
-
-			BEGIN_CLASS_MEMBER(GuiTab)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiTab)
-
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(SelectedPage)
-
-				CLASS_MEMBER_METHOD_OVERLOAD(CreatePage, {L"index"}, GuiTabPage*(GuiTab::*)(vint))
-				CLASS_MEMBER_METHOD_OVERLOAD(CreatePage, {L"page" _ L"index"}, bool(GuiTab::*)(GuiTabPage* _ vint))
-				CLASS_MEMBER_METHOD(RemovePage, {L"value"})
-				CLASS_MEMBER_METHOD(MovePage, {L"page" _ L"newIndex"})
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Pages)
-			END_CLASS_MEMBER(GuiTab)
-
-			BEGIN_CLASS_MEMBER(GuiTab::ICommandExecutor)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_METHOD(ShowTab, {L"index"})
-			END_CLASS_MEMBER(GuiTab::ICommandExecutor)
-
-			BEGIN_CLASS_MEMBER(GuiTab::IStyleController)
-				CLASS_MEMBER_BASE(GuiControl::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiTab, IStyleController)
-
-				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
-				CLASS_MEMBER_METHOD(InsertTab, {L"index"})
-				CLASS_MEMBER_METHOD(SetTabText, {L"index" _ L"value"})
-				CLASS_MEMBER_METHOD(RemoveTab, {L"index"})
-				CLASS_MEMBER_METHOD(MoveTab, {L"oldIndex" _ L"newIndex"})
-				CLASS_MEMBER_METHOD(SetSelectedTab, {L"index"})
-				CLASS_MEMBER_METHOD(CreateTabPageStyleController, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiTab::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiScrollView)
-				CLASS_MEMBER_BASE(GuiControl)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ViewSize)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ViewBounds)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(HorizontalScroll)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(VerticalScroll)
-				CLASS_MEMBER_PROPERTY_FAST(HorizontalAlwaysVisible)
-				CLASS_MEMBER_PROPERTY_FAST(VerticalAlwaysVisible)
-
-				CLASS_MEMBER_METHOD(CalculateView, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiScrollView)
-
-			BEGIN_CLASS_MEMBER(GuiScrollView::IStyleProvider)
-				CLASS_MEMBER_BASE(GuiControl::IStyleProvider)
-				INTERFACE_EXTERNALCTOR(GuiScrollView, IStyleProvider)
-
-				CLASS_MEMBER_METHOD(CreateHorizontalScrollStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateVerticalScrollStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetDefaultScrollSize, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(InstallBackground, {L"boundsComposition"})
-			END_CLASS_MEMBER(GuiScrollView::IStyleProvider)
-
-			BEGIN_CLASS_MEMBER(GuiScrollContainer)
-				CLASS_MEMBER_BASE(GuiScrollView)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiScrollContainer)
-
-				CLASS_MEMBER_PROPERTY_FAST(ExtendToFullWidth)
-			END_CLASS_MEMBER(GuiScrollContainer)
-
-			BEGIN_CLASS_MEMBER(GuiWindow)
-				CLASS_MEMBER_BASE(GuiControlHost)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiWindow)
-
-				CLASS_MEMBER_GUIEVENT(ClipboardUpdated)
-
-				CLASS_MEMBER_PROPERTY_FAST(MaximizedBox)
-				CLASS_MEMBER_PROPERTY_FAST(MinimizedBox)
-				CLASS_MEMBER_PROPERTY_FAST(Border)
-				CLASS_MEMBER_PROPERTY_FAST(SizeBox)
-				CLASS_MEMBER_PROPERTY_FAST(IconVisible)
-				CLASS_MEMBER_PROPERTY_FAST(TitleBar)
-
-				CLASS_MEMBER_METHOD(MoveToScreenCenter, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiWindow)
-
-			BEGIN_CLASS_MEMBER(GuiWindow::IStyleController)
-				CLASS_MEMBER_BASE(GuiControl::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiWindow, IStyleController)
-
-				CLASS_MEMBER_PROPERTY_FAST(MaximizedBox)
-				CLASS_MEMBER_PROPERTY_FAST(MinimizedBox)
-				CLASS_MEMBER_PROPERTY_FAST(Border)
-				CLASS_MEMBER_PROPERTY_FAST(SizeBox)
-				CLASS_MEMBER_PROPERTY_FAST(IconVisible)
-				CLASS_MEMBER_PROPERTY_FAST(TitleBar)
-			END_CLASS_MEMBER(GuiWindow::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiPopup)
-				CLASS_MEMBER_BASE(GuiWindow)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiPopup)
-
-				CLASS_MEMBER_METHOD(IsClippedByScreen, {L"location"})
-				CLASS_MEMBER_METHOD_OVERLOAD(ShowPopup, {L"location"}, void(GuiPopup::*)(Point))
-				CLASS_MEMBER_METHOD_OVERLOAD(ShowPopup, {L"control" _ L"location"}, void(GuiPopup::*)(GuiControl* _ Point))
-				CLASS_MEMBER_METHOD_OVERLOAD(ShowPopup, {L"control" _ L"preferredTopBottomSide"}, void(GuiPopup::*)(GuiControl* _ bool))
-			END_CLASS_MEMBER(GuiPopup)
-
-			BEGIN_CLASS_MEMBER(GuiTooltip)
-				CLASS_MEMBER_BASE(GuiPopup)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiPopup)
-				
-				CLASS_MEMBER_PROPERTY_FAST(PreferredContentWidth)
-				CLASS_MEMBER_PROPERTY_FAST(TemporaryContentControl)
-			END_CLASS_MEMBER(GuiTooltip)
-
-			BEGIN_CLASS_MEMBER(GuiListControl)
-				CLASS_MEMBER_BASE(GuiScrollView)
-				CLASS_MEMBER_CONSTRUCTOR(GuiListControl*(GuiListControl::IStyleProvider* _ GuiListControl::IItemProvider* _ bool), {L"styleProvider" _ L"itemProvider" _ L"acceptFocus"})
-
-				CLASS_MEMBER_GUIEVENT(ItemLeftButtonDown)
-				CLASS_MEMBER_GUIEVENT(ItemLeftButtonUp)
-				CLASS_MEMBER_GUIEVENT(ItemLeftButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT(ItemMiddleButtonDown)
-				CLASS_MEMBER_GUIEVENT(ItemMiddleButtonUp)
-				CLASS_MEMBER_GUIEVENT(ItemMiddleButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT(ItemRightButtonDown)
-				CLASS_MEMBER_GUIEVENT(ItemRightButtonUp)
-				CLASS_MEMBER_GUIEVENT(ItemRightButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT(ItemMouseMove)
-				CLASS_MEMBER_GUIEVENT(ItemMouseEnter)
-				CLASS_MEMBER_GUIEVENT(ItemMouseLeave)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemProvider)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(StyleProvider)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Arranger)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(CoordinateTransformer)
-
-				CLASS_MEMBER_METHOD(EnsureItemVisible, {L"itemIndex"})
-			END_CLASS_MEMBER(GuiListControl)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemProviderCallback)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemProviderCallback)
-
-				CLASS_MEMBER_METHOD(OnAttached, {L"provider"})
-				CLASS_MEMBER_METHOD(OnItemModified, {L"start" _ L"count" _ L"newCount"})
-			END_CLASS_MEMBER(GuiListControl::IItemProviderCallback)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemArrangerCallback)
-				CLASS_MEMBER_BASE(IDescriptable)
-				CLASS_MEMBER_METHOD(RequestItem, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(ReleaseItem, {L"style"})
-				CLASS_MEMBER_METHOD(SetViewLocation, {L"value"})
-				CLASS_MEMBER_METHOD(GetStylePreferredSize, {L"style"})
-				CLASS_MEMBER_METHOD(SetStyleAlignmentToParent, {L"style" _ L"margin"})
-				CLASS_MEMBER_METHOD(GetStyleBounds, {L"style"})
-				CLASS_MEMBER_METHOD(SetStyleBounds, {L"style" _ L"bounds"})
-				CLASS_MEMBER_METHOD(GetContainerComposition, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(OnTotalSizeChanged, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiListControl::IItemArrangerCallback)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemPrimaryTextView)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemPrimaryTextView)
-				INTERFACE_IDENTIFIER(GuiListControl::IItemPrimaryTextView)
-
-				CLASS_MEMBER_METHOD(GetPrimaryTextViewText, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(ContainsPrimaryText, {L"itemIndex"})
-			END_CLASS_MEMBER(GuiListControl::IItemPrimaryTextView)
-
-			BEGIN_ENUM_ITEM(GuiListControl::KeyDirection)
-				ENUM_ITEM_NAMESPACE(GuiListControl)
-				ENUM_NAMESPACE_ITEM(Up)
-				ENUM_NAMESPACE_ITEM(Down)
-				ENUM_NAMESPACE_ITEM(Left)
-				ENUM_NAMESPACE_ITEM(Right)
-				ENUM_NAMESPACE_ITEM(Home)
-				ENUM_NAMESPACE_ITEM(End)
-				ENUM_NAMESPACE_ITEM(PageUp)
-				ENUM_NAMESPACE_ITEM(PageDown)
-				ENUM_NAMESPACE_ITEM(PageLeft)
-				ENUM_NAMESPACE_ITEM(PageRight)
-			END_ENUM_ITEM(GuiListControl::KeyDirection)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemProvider)
-
-				CLASS_MEMBER_METHOD(AttachCallback, {L"value"})
-				CLASS_MEMBER_METHOD(DetachCallback, {L"value"})
-				CLASS_MEMBER_METHOD(Count, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(RequestView, {L"identifier"})
-				CLASS_MEMBER_METHOD(ReleaseView, {L"view"})
-			END_CLASS_MEMBER(GuiListControl::IItemProvider)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemStyleController)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(StyleProvider)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemStyleId)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BoundsComposition)
-
-				CLASS_MEMBER_METHOD(IsCacheable, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsInstalled, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(OnInstalled, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(OnUninstalled, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiListControl::IItemStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemStyleProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemStyleProvider)
-
-				CLASS_MEMBER_METHOD(AttachListControl, {L"value"})
-				CLASS_MEMBER_METHOD(DetachListControl, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetItemStyleId, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(CreateItemStyle, {L"styleId"})
-				CLASS_MEMBER_METHOD(DestroyItemStyle, {L"style"})
-				CLASS_MEMBER_METHOD(Install, {L"style" _ L"itemIndex"})
-			END_CLASS_MEMBER(GuiListControl::IItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemArranger)
-				CLASS_MEMBER_BASE(GuiListControl::IItemProviderCallback)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemArranger)
-
-				CLASS_MEMBER_PROPERTY_FAST(Callback)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TotalSize)
-				
-				CLASS_MEMBER_METHOD(AttachListControl, {L"value"})
-				CLASS_MEMBER_METHOD(DetachListControl, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetVisibleStyle, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(GetVisibleIndex, {L"style"})
-				CLASS_MEMBER_METHOD(OnViewChanged, {L"bounds"})
-				CLASS_MEMBER_METHOD(FindItem, {L"itemIndex" _ L"key"})
-				CLASS_MEMBER_METHOD(EnsureItemVisible, {L"itemIndex"})
-			END_CLASS_MEMBER(GuiListControl::IItemArranger)
-
-			BEGIN_CLASS_MEMBER(GuiListControl::IItemCoordinateTransformer)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(GuiListControl, IItemCoordinateTransformer)
-
-				CLASS_MEMBER_METHOD(RealSizeToVirtualSize, {L"size"})
-				CLASS_MEMBER_METHOD(VirtualSizeToRealSize, {L"size"})
-				CLASS_MEMBER_METHOD(RealPointToVirtualPoint, {L"realFullSize" _ L"point"})
-				CLASS_MEMBER_METHOD(VirtualPointToRealPoint, {L"realFullSize" _ L"point"})
-				CLASS_MEMBER_METHOD(RealRectToVirtualRect, {L"realFullSize" _ L"rect"})
-				CLASS_MEMBER_METHOD(VirtualRectToRealRect, {L"realFullSize" _ L"rect"})
-				CLASS_MEMBER_METHOD(RealMarginToVirtualMargin, {L"margin"})
-				CLASS_MEMBER_METHOD(VirtualMarginToRealMargin, {L"margin"})
-				CLASS_MEMBER_METHOD(RealKeyDirectionToVirtualKeyDirection, {L"key"})
-			END_CLASS_MEMBER(GuiListControl::IItemCoordinateTransformer)
-
-			BEGIN_CLASS_MEMBER(GuiSelectableListControl)
-				CLASS_MEMBER_BASE(GuiListControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiSelectableListControl*(GuiSelectableListControl::IStyleProvider* _ GuiSelectableListControl::IItemProvider*), {L"styleProvider" _ L"itemProvider"})
-
-				CLASS_MEMBER_GUIEVENT(SelectionChanged)
-
-				CLASS_MEMBER_PROPERTY_FAST(MultiSelect)
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItems, SelectionChanged)
-
-				CLASS_MEMBER_METHOD(GetSelected, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(SetSelected, {L"itemIndex" _ L"value"})
-				CLASS_MEMBER_METHOD(SelectItemsByClick, {L"itemIndex" _ L"ctrl" _ L"shift" _ L"leftButton"})
-				CLASS_MEMBER_METHOD(SelectItemsByKey, {L"code" _ L"ctrl" _ L"shift"})
-				CLASS_MEMBER_METHOD(ClearSelection, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiSelectableListControl)
-
-			BEGIN_CLASS_MEMBER(GuiSelectableListControl::IItemStyleProvider)
-				CLASS_MEMBER_BASE(GuiListControl::IItemStyleProvider)
-				INTERFACE_EXTERNALCTOR(GuiSelectableListControl, IItemStyleProvider)
-
-				CLASS_MEMBER_METHOD(SetStyleSelected, {L"style" _ L"value"})
-			END_CLASS_MEMBER(GuiSelectableListControl::IItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(DefaultItemCoordinateTransformer)
-				CLASS_MEMBER_BASE(GuiListControl::IItemCoordinateTransformer)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<DefaultItemCoordinateTransformer>(), NO_PARAMETER)
-			END_CLASS_MEMBER(DefaultItemCoordinateTransformer)
-
-			BEGIN_CLASS_MEMBER(AxisAlignedItemCoordinateTransformer)
-				CLASS_MEMBER_BASE(GuiListControl::IItemCoordinateTransformer)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<AxisAlignedItemCoordinateTransformer>(AxisAlignedItemCoordinateTransformer::Alignment), {L"alignment"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Alignment)
-			END_CLASS_MEMBER(AxisAlignedItemCoordinateTransformer)
-
-			BEGIN_ENUM_ITEM(AxisAlignedItemCoordinateTransformer::Alignment)
-				ENUM_ITEM_NAMESPACE(AxisAlignedItemCoordinateTransformer)
-				ENUM_NAMESPACE_ITEM(LeftDown)
-				ENUM_NAMESPACE_ITEM(RightDown)
-				ENUM_NAMESPACE_ITEM(LeftUp)
-				ENUM_NAMESPACE_ITEM(RightUp)
-				ENUM_NAMESPACE_ITEM(DownLeft)
-				ENUM_NAMESPACE_ITEM(DownRight)
-				ENUM_NAMESPACE_ITEM(UpLeft)
-				ENUM_NAMESPACE_ITEM(UpRight)
-			END_ENUM_ITEM(AxisAlignedItemCoordinateTransformer::Alignment)
-
-			BEGIN_CLASS_MEMBER(RangedItemArrangerBase)
-				CLASS_MEMBER_BASE(GuiListControl::IItemArranger)
-			END_CLASS_MEMBER(RangedItemArrangerBase)
-
-			BEGIN_CLASS_MEMBER(FixedHeightItemArranger)
-				CLASS_MEMBER_BASE(RangedItemArrangerBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<FixedHeightItemArranger>(), NO_PARAMETER)
-			END_CLASS_MEMBER(FixedHeightItemArranger)
-
-			BEGIN_CLASS_MEMBER(FixedSizeMultiColumnItemArranger)
-				CLASS_MEMBER_BASE(RangedItemArrangerBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<FixedSizeMultiColumnItemArranger>(), NO_PARAMETER)
-			END_CLASS_MEMBER(FixedSizeMultiColumnItemArranger)
-
-			BEGIN_CLASS_MEMBER(FixedHeightMultiColumnItemArranger)
-				CLASS_MEMBER_BASE(RangedItemArrangerBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<FixedHeightMultiColumnItemArranger>(), NO_PARAMETER)
-			END_CLASS_MEMBER(FixedHeightMultiColumnItemArranger)
-
-			BEGIN_CLASS_MEMBER(ItemStyleControllerBase)
-				CLASS_MEMBER_BASE(GuiListControl::IItemStyleController)
-			END_CLASS_MEMBER(ItemStyleControllerBase)
-
-			BEGIN_CLASS_MEMBER(ItemProviderBase)
-				CLASS_MEMBER_BASE(GuiListControl::IItemProvider)
-			END_CLASS_MEMBER(ItemProviderBase)
-
-			BEGIN_CLASS_MEMBER(TextItemStyleProvider)
-				CLASS_MEMBER_BASE(GuiSelectableListControl::IItemStyleProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextItemStyleProvider>(TextItemStyleProvider::ITextItemStyleProvider*), {L"textItemStyleProvider"})
-			END_CLASS_MEMBER(TextItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(TextItemStyleProvider::ITextItemStyleProvider)
-				INTERFACE_EXTERNALCTOR(TextItemStyleProvider, ITextItemStyleProvider)
-
-				CLASS_MEMBER_METHOD(CreateBackgroundStyleController, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateBulletStyleController, NO_PARAMETER)
-			END_CLASS_MEMBER(TextItemStyleProvider::ITextItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(TextItemStyleProvider::ITextItemView)
-				CLASS_MEMBER_BASE(GuiListControl::IItemPrimaryTextView)
-				INTERFACE_EXTERNALCTOR(TextItemStyleProvider, ITextItemView)
-				INTERFACE_IDENTIFIER(TextItemStyleProvider::ITextItemView)
-
-				CLASS_MEMBER_METHOD(GetText, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(GetChecked, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(SetCheckedSilently, {L"itemIndex" _ L"value"})
-			END_CLASS_MEMBER(TextItemStyleProvider::ITextItemView)
-
-			BEGIN_CLASS_MEMBER(TextItemStyleProvider::TextItemStyleController)
-				CLASS_MEMBER_BASE(ItemStyleControllerBase)
-				CLASS_MEMBER_CONSTRUCTOR(TextItemStyleProvider::TextItemStyleController*(TextItemStyleProvider*), {L"provider"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Selected)
-				CLASS_MEMBER_PROPERTY_FAST(Checked)
-				CLASS_MEMBER_PROPERTY_FAST(Text)
-			END_CLASS_MEMBER(TextItemStyleProvider::TextItemStyleController)
-
-			BEGIN_CLASS_MEMBER(TextItem)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextItem>(), NO_PARAMETER)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextItem>(const WString&), {L"text"})
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextItem>(const WString&, bool), {L"text" _ L"checked"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Text)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Checked)
-			END_CLASS_MEMBER(TextItem)
-
-			BEGIN_CLASS_MEMBER(TextItemProvider)
-				CLASS_MEMBER_BASE(ItemProviderBase)
-
-				CLASS_MEMBER_METHOD(SetText, {L"itemIndex" _ L"value"})
-				CLASS_MEMBER_METHOD(SetChecked, {L"itemIndex" _ L"value"})
-			END_CLASS_MEMBER(TextItemProvider)
-
-			BEGIN_CLASS_MEMBER(GuiVirtualTextList)
-				CLASS_MEMBER_BASE(GuiSelectableListControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualTextList*(GuiSelectableListControl::IStyleProvider* _ TextItemStyleProvider::ITextItemStyleProvider* _ GuiListControl::IItemProvider*), {L"styleProvider" _ L"itemStyleProvider" _ L"itemProvider"})
-
-				CLASS_MEMBER_GUIEVENT(ItemChecked)
-
-				CLASS_MEMBER_METHOD(ChangeItemStyle, {L"itemStyleProvider"})
-			END_CLASS_MEMBER(GuiVirtualTextList)
-
-			BEGIN_CLASS_MEMBER(GuiTextList)
-				CLASS_MEMBER_BASE(GuiVirtualTextList)
-				CLASS_MEMBER_CONSTRUCTOR(GuiTextList*(GuiSelectableListControl::IStyleProvider* _ TextItemStyleProvider::ITextItemStyleProvider*), {L"styleProvider" _ L"itemStyleProvider"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Items)
-
-				CLASS_MEMBER_EXTERNALMETHOD(GetItemProvider, NO_PARAMETER, TextItemProvider*(GuiTextList::*)(), &GuiTextList_GetItemProvider)
-				CLASS_MEMBER_PROPERTY_READONLY(ItemProvider, GetItemProvider)
-			END_CLASS_MEMBER(GuiTextList)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProviderBase)
-				CLASS_MEMBER_BASE(GuiSelectableListControl::IItemStyleProvider)
-			END_CLASS_MEMBER(ListViewItemStyleProviderBase)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProviderBase::ListViewItemStyleController)
-				CLASS_MEMBER_BASE(ItemStyleControllerBase)
-				CLASS_MEMBER_CONSTRUCTOR(ListViewItemStyleProviderBase::ListViewItemStyleController*(ListViewItemStyleProviderBase*), {L"provider"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Selected)
-			END_CLASS_MEMBER(ListViewItemStyleProviderBase::ListViewItemStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiListViewColumnHeader)
-				CLASS_MEMBER_BASE(GuiMenuButton)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiListViewColumnHeader)
-
-				CLASS_MEMBER_PROPERTY_FAST(ColumnSortingState)
-			END_CLASS_MEMBER(GuiListViewColumnHeader)
-
-			BEGIN_ENUM_ITEM(GuiListViewColumnHeader::ColumnSortingState)
-				ENUM_ITEM_NAMESPACE(GuiListViewColumnHeader)
-				ENUM_NAMESPACE_ITEM(NotSorted)
-				ENUM_NAMESPACE_ITEM(Ascending)
-				ENUM_NAMESPACE_ITEM(Descending)
-			END_ENUM_ITEM(GuiListViewColumnHeader::ColumnSortingState)
-
-			BEGIN_CLASS_MEMBER(GuiListViewColumnHeader::IStyleController)
-				CLASS_MEMBER_BASE(GuiMenuButton::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiListViewColumnHeader, IStyleController)
-
-				CLASS_MEMBER_METHOD(SetColumnSortingState, {L"value"})
-			END_CLASS_MEMBER(GuiListViewColumnHeader::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiListViewBase)
-				CLASS_MEMBER_BASE(GuiSelectableListControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiListViewBase*(GuiListViewBase::IStyleProvider* _ GuiListControl::IItemProvider*), {L"styleProvider" _ L"itemProvider"})
-
-				CLASS_MEMBER_GUIEVENT(ColumnClicked)
-
-				CLASS_MEMBER_METHOD(GetListViewStyleProvider, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiListViewBase)
-
-			BEGIN_CLASS_MEMBER(GuiListViewBase::IStyleProvider)
-				CLASS_MEMBER_BASE(GuiSelectableListControl::IStyleProvider)
-				INTERFACE_EXTERNALCTOR(GuiListViewBase, IStyleProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(PrimaryTextColor)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SecondaryTextColor)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemSeparatorColor)
-
-				CLASS_MEMBER_METHOD(CreateItemBackground, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateColumnStyle, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiListViewBase::IStyleProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProviderBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewItemStyleProvider>(Ptr<ListViewItemStyleProvider::IListViewItemContentProvider>), {L"itemContentProvider"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemContentProvider)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(CreatedItemStyles)
-
-				CLASS_MEMBER_METHOD(IsItemStyleAttachedToListView, {L"itemStyle"})
-				CLASS_MEMBER_METHOD(GetItemContentFromItemStyleController, {L"itemStyleController"})
-				CLASS_MEMBER_METHOD(GetItemStyleControllerFromItemContent, {L"itemContent"})
-				CLASS_MEMBER_EXTERNALMETHOD(GetItemContent, {L"itemStyleController"}, ListViewItemStyleProvider::IListViewItemContent*(ListViewItemStyleProvider::*)(GuiListControl::IItemStyleController*), &ListViewItemStyleProvider_GetItemContent)
-			END_CLASS_MEMBER(ListViewItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProvider::IListViewItemView)
-				CLASS_MEMBER_BASE(GuiListControl::IItemPrimaryTextView)
-				INTERFACE_EXTERNALCTOR(ListViewItemStyleProvider, IListViewItemView)
-				INTERFACE_IDENTIFIER(ListViewItemStyleProvider::IListViewItemView)
-
-				CLASS_MEMBER_METHOD(GetSmallImage, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(GetLargeImage, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(GetText, {L"itemIndex"})
-				CLASS_MEMBER_METHOD(GetSubItem, {L"itemIndex" _ L"index"})
-				CLASS_MEMBER_METHOD(GetDataColumnCount, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetDataColumn, {L"index"})
-				CLASS_MEMBER_METHOD(GetColumnCount, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetColumnText, {L"index"})
-			END_CLASS_MEMBER(ListViewItemStyleProvider::IListViewItemView)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProvider::IListViewItemContent)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(ListViewItemStyleProvider, IListViewItemContent)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ContentComposition)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BackgroundDecorator)
-				
-				CLASS_MEMBER_METHOD(Install, {L"styleProvider" _ L"view" _ L"itemIndex"})
-			END_CLASS_MEMBER(ListViewItemStyleProvider::IListViewItemContent)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(ListViewItemStyleProvider, IListViewItemContentProvider)
-
-				CLASS_MEMBER_METHOD(CreatePreferredCoordinateTransformer, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreatePreferredArranger, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateItemContent, {L"font"})
-				CLASS_MEMBER_METHOD(AttachListControl, {L"value"})
-				CLASS_MEMBER_METHOD(DetachListControl, NO_PARAMETER)
-			END_CLASS_MEMBER(ListViewItemStyleProvider::IListViewItemContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewItemStyleProvider::ListViewContentItemStyleController)
-				CLASS_MEMBER_BASE(ListViewItemStyleProviderBase::ListViewItemStyleController)
-				CLASS_MEMBER_CONSTRUCTOR(ListViewItemStyleProvider::ListViewContentItemStyleController*(ListViewItemStyleProvider*), {L"provider"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemContent)
-
-				CLASS_MEMBER_METHOD(Install, {L"view" _ L"itemIndex"})
-			END_CLASS_MEMBER(ListViewItemStyleProvider::ListViewContentItemStyleController)
-
-			BEGIN_CLASS_MEMBER(ListViewBigIconContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewBigIconContentProvider>(Size), {L"iconSize"})
-			END_CLASS_MEMBER(ListViewBigIconContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewSmallIconContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewSmallIconContentProvider>(Size), {L"iconSize"})
-			END_CLASS_MEMBER(ListViewSmallIconContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewListContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewListContentProvider>(Size), {L"iconSize"})
-			END_CLASS_MEMBER(ListViewListContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewTileContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewTileContentProvider>(Size), {L"iconSize"})
-			END_CLASS_MEMBER(ListViewTileContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewInformationContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewInformationContentProvider>(Size), {L"iconSize"})
-			END_CLASS_MEMBER(ListViewInformationContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewColumnItemArranger)
-				CLASS_MEMBER_BASE(FixedHeightItemArranger)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewColumnItemArranger>(), NO_PARAMETER)
-			END_CLASS_MEMBER(ListViewColumnItemArranger)
-
-			BEGIN_CLASS_MEMBER(ListViewColumnItemArranger::IColumnItemViewCallback)
-				CLASS_MEMBER_METHOD(OnColumnChanged, NO_PARAMETER)
-			END_CLASS_MEMBER(ListViewColumnItemArranger::IColumnItemViewCallback)
-
-			BEGIN_CLASS_MEMBER(ListViewColumnItemArranger::IColumnItemView)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(ListViewColumnItemArranger, IColumnItemView)
-				INTERFACE_IDENTIFIER(ListViewColumnItemArranger::IColumnItemView)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ColumnCount)
-
-				CLASS_MEMBER_METHOD(AttachCallback, {L"value"})
-				CLASS_MEMBER_METHOD(DetachCallback, {L"value"})
-				CLASS_MEMBER_METHOD(GetColumnText, {L"index"})
-				CLASS_MEMBER_METHOD(GetColumnSize, {L"index"})
-				CLASS_MEMBER_METHOD(SetColumnSize, {L"index" _ L"value"})
-				CLASS_MEMBER_METHOD(GetDropdownPopup, {L"index"})
-				CLASS_MEMBER_METHOD(GetSortingState, {L"index"})
-			END_CLASS_MEMBER(ListViewColumnItemArranger::IColumnItemView)
-
-			BEGIN_CLASS_MEMBER(ListViewDetailContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewDetailContentProvider>(Size), {L"iconSize"})
-			END_CLASS_MEMBER(ListViewDetailContentProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewItem)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewItem>(), NO_PARAMETER)
-
-				CLASS_MEMBER_FIELD(smallImage)
-				CLASS_MEMBER_FIELD(largeImage)
-				CLASS_MEMBER_FIELD(text)
-				CLASS_MEMBER_FIELD(subItems)
-			END_CLASS_MEMBER(ListViewItem)
-
-			BEGIN_CLASS_MEMBER(ListViewColumn)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewColumn>(), NO_PARAMETER)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewColumn>(const WString&), {L"text"})
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewColumn>(const WString&, vint), {L"text" _ L"size"})
-
-				CLASS_MEMBER_FIELD(text)
-				CLASS_MEMBER_FIELD(size)
-				CLASS_MEMBER_FIELD(dropdownPopup)
-				CLASS_MEMBER_FIELD(sortingState)
-			END_CLASS_MEMBER(ListViewColumn)
-
-			BEGIN_CLASS_MEMBER(GuiVirtualListView)
-				CLASS_MEMBER_BASE(GuiListViewBase)
-				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualListView*(GuiVirtualListView::IStyleProvider* _ GuiListControl::IItemProvider*), {L"styleProvider" _ L"itemProvider"})
-
-				CLASS_MEMBER_METHOD(ChangeItemStyle, {L"contentProvider"})
-			END_CLASS_MEMBER(GuiVirtualListView)
-
-			BEGIN_CLASS_MEMBER(GuiListView)
-				CLASS_MEMBER_BASE(GuiVirtualListView)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiListView)
-
-				CLASS_MEMBER_EXTERNALMETHOD(GetDataColumns, NO_PARAMETER, ListViewDataColumns&(GuiListView::*)(), &GuiListView_GetDataColumns)
-				CLASS_MEMBER_EXTERNALMETHOD(GetColumns, NO_PARAMETER, ListViewColumns&(GuiListView::*)(), &GuiListView_GetColumns)
-
-				CLASS_MEMBER_PROPERTY_READONLY(DataColumns, GetDataColumns)
-				CLASS_MEMBER_PROPERTY_READONLY(Columns, GetColumns)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Items)
-			END_CLASS_MEMBER(GuiListView)
-
-			BEGIN_CLASS_MEMBER(IGuiMenuService)
-				INTERFACE_IDENTIFIER(IGuiMenuService)
-
-				CLASS_MEMBER_METHOD(GetParentMenuService, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetPreferredDirection, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsActiveState, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(IsSubMenuActivatedByMouseDown, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(MenuItemExecuted, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetOpeningMenu, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(MenuOpened, {L"menu"})
-				CLASS_MEMBER_METHOD(MenuClosed, {L"menu"})
-			END_CLASS_MEMBER(IGuiMenuService)
-
-			BEGIN_ENUM_ITEM(IGuiMenuService::Direction)
-				ENUM_ITEM_NAMESPACE(IGuiMenuService)
-				ENUM_NAMESPACE_ITEM(Horizontal)
-				ENUM_NAMESPACE_ITEM(Vertical)
-			END_ENUM_ITEM(IGuiMenuService::Direction)
-
-			BEGIN_CLASS_MEMBER(GuiMenu)
-				CLASS_MEMBER_BASE(GuiPopup)
-				CLASS_MEMBER_CONSTRUCTOR(GuiMenu*(GuiMenu::IStyleController* _ GuiControl*), {L"styleController" _ L"owner"})
-
-				CLASS_MEMBER_METHOD(UpdateMenuService, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(QueryService, {L"identifier"})
-			END_CLASS_MEMBER(GuiMenu)
-
-			BEGIN_CLASS_MEMBER(GuiMenuBar)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiMenuBar)
-			END_CLASS_MEMBER(GuiMenuBar)
-
-			BEGIN_CLASS_MEMBER(GuiMenuButton)
-				CLASS_MEMBER_BASE(GuiButton)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiMenuButton)
-
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(Image)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(ShortcutText)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SubMenu)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(OwnedSubMenu)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(SubMenuOpening)
-				CLASS_MEMBER_PROPERTY_FAST(PreferredMenuClientSize)
-				CLASS_MEMBER_PROPERTY_FAST(CascadeAction)
-
-				CLASS_MEMBER_METHOD(IsSubMenuExists, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateSubMenu, {L"subMenuStyleController"})
-				CLASS_MEMBER_METHOD(SetSubMenu, {L"value" _ L"owned"})
-			END_CLASS_MEMBER(GuiMenuButton)
-
-			BEGIN_CLASS_MEMBER(GuiMenuButton::IStyleController)
-				CLASS_MEMBER_BASE(GuiButton::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiMenuButton, IStyleController)
-
-				CLASS_MEMBER_METHOD(CreateSubMenuStyleController, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetSubMenuExisting, {L"value"})
-				CLASS_MEMBER_METHOD(SetSubMenuOpening, {L"value"})
-				CLASS_MEMBER_METHOD(GetSubMenuHost, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SetImage, {L"value"})
-				CLASS_MEMBER_METHOD(SetShortcutText, {L"value"})
-				CLASS_MEMBER_METHOD(GetMeasuringSource, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiMenuButton::IStyleController)
-
-			BEGIN_CLASS_MEMBER(INodeProviderCallback)
-				CLASS_MEMBER_BASE(IDescriptable)
-
-				CLASS_MEMBER_METHOD(OnAttached, {L"provider"})
-				CLASS_MEMBER_METHOD(OnBeforeItemModified, {L"parentNode" _ L"start" _ L"count" _ L"newCount"})
-				CLASS_MEMBER_METHOD(OnAfterItemModified, {L"parentNode" _ L"start" _ L"count" _ L"newCount"})
-				CLASS_MEMBER_METHOD(OnItemExpanded, {L"node"})
-				CLASS_MEMBER_METHOD(OnItemCollapsed, {L"node"})
-			END_CLASS_MEMBER(INodeProviderCallback)
-
-			BEGIN_CLASS_MEMBER(INodeProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(tree, INodeProvider)
-
-				CLASS_MEMBER_PROPERTY_FAST(Expanding)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ChildCount)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Parent)
-
-				CLASS_MEMBER_METHOD(CalculateTotalVisibleNodes, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetChild, {L"index"})
-				CLASS_MEMBER_METHOD(Increase, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Release, NO_PARAMETER)
-			END_CLASS_MEMBER(INodeProvider)
-
-			BEGIN_CLASS_MEMBER(INodeRootProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(tree, INodeRootProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RootNode)
-
-				CLASS_MEMBER_METHOD(CanGetNodeByVisibleIndex, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetNodeByVisibleIndex, {L"index"})
-				CLASS_MEMBER_METHOD(AttachCallback, {L"value"})
-				CLASS_MEMBER_METHOD(DetachCallback, {L"value"})
-				CLASS_MEMBER_METHOD(RequestView, {L"identifier"})
-				CLASS_MEMBER_METHOD(ReleaseView, {L"value"})
-			END_CLASS_MEMBER(INodeRootProvider)
-
-			BEGIN_CLASS_MEMBER(INodeItemView)
-				CLASS_MEMBER_BASE(GuiListControl::IItemPrimaryTextView)
-				INTERFACE_EXTERNALCTOR(tree, INodeItemView)
-				INTERFACE_IDENTIFIER(INodeItemView)
-
-				CLASS_MEMBER_METHOD(RequestNode, {L"index"})
-				CLASS_MEMBER_METHOD(ReleaseNode, {L"node"})
-				CLASS_MEMBER_METHOD(CalculateNodeVisibilityIndex, {L"node"})
-			END_CLASS_MEMBER(INodeItemView)
-
-			BEGIN_CLASS_MEMBER(INodeItemPrimaryTextView)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(tree, INodeItemPrimaryTextView)
-				INTERFACE_IDENTIFIER(INodeItemPrimaryTextView)
-
-				CLASS_MEMBER_METHOD(GetPrimaryTextViewText, {L"node"})
-			END_CLASS_MEMBER(INodeItemPrimaryTextView)
-
-			BEGIN_CLASS_MEMBER(NodeItemProvider)
-				CLASS_MEMBER_BASE(ItemProviderBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<NodeItemProvider>(Ptr<INodeRootProvider>), {L"root"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Root)
-			END_CLASS_MEMBER(NodeItemProvider)
-
-			BEGIN_CLASS_MEMBER(INodeItemStyleController)
-				CLASS_MEMBER_BASE(GuiListControl::IItemStyleController)
-				INTERFACE_EXTERNALCTOR(tree, INodeItemStyleController)
-
-				CLASS_MEMBER_METHOD(GetNodeStyleProvider, NO_PARAMETER)
-			END_CLASS_MEMBER(INodeItemStyleController)
-
-			BEGIN_CLASS_MEMBER(INodeItemStyleProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(tree, INodeItemStyleProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BindedItemStyleProvider)
-
-				CLASS_MEMBER_METHOD(BindItemStyleProvider, {L"styleProvider"})
-				CLASS_MEMBER_METHOD(AttachListControl, {L"value"})
-				CLASS_MEMBER_METHOD(DetachListControl, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetItemStyleId, {L"node"})
-				CLASS_MEMBER_METHOD(CreateItemStyle, {L"styleId"})
-				CLASS_MEMBER_METHOD(DestroyItemStyle, {L"style"})
-				CLASS_MEMBER_METHOD(Install, {L"style" _ L"node"})
-				CLASS_MEMBER_METHOD(SetStyleSelected, {L"style" _ L"value"})
-			END_CLASS_MEMBER(INodeItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(NodeItemStyleProvider)
-				CLASS_MEMBER_BASE(GuiSelectableListControl::IItemStyleProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<NodeItemStyleProvider>(Ptr<INodeItemStyleProvider>), {L"provider"})
-			END_CLASS_MEMBER(NodeItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(IMemoryNodeData)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(tree, IMemoryNodeData)
-			END_CLASS_MEMBER(IMemoryNodeData)
-
-			BEGIN_CLASS_MEMBER(MemoryNodeProvider)
-				CLASS_MEMBER_BASE(INodeProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<MemoryNodeProvider>(), NO_PARAMETER)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<MemoryNodeProvider>(Ptr<IMemoryNodeData>), {L"data"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Data)
-
-				CLASS_MEMBER_METHOD(NotifyDataModified, NO_PARAMETER)
-				CLASS_MEMBER_METHOD_RENAME(GetChildren, Children, NO_PARAMETER)
-				CLASS_MEMBER_PROPERTY_READONLY(Children, GetChildren)
-			END_CLASS_MEMBER(MemoryNodeProvider)
-
-			BEGIN_CLASS_MEMBER(NodeRootProviderBase)
-				CLASS_MEMBER_BASE(INodeRootProvider)
-			END_CLASS_MEMBER(NodeRootProviderBase)
-
-			BEGIN_CLASS_MEMBER(MemoryNodeRootProvider)
-				CLASS_MEMBER_BASE(NodeRootProviderBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<MemoryNodeRootProvider>(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RootNode)
-
-				CLASS_MEMBER_METHOD(GetMemoryNode, {L"node"})
-			END_CLASS_MEMBER(MemoryNodeRootProvider)
-
-			BEGIN_CLASS_MEMBER(GuiVirtualTreeListControl)
-				CLASS_MEMBER_BASE(GuiSelectableListControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualTreeListControl*(GuiVirtualTreeListControl::IStyleProvider* _ Ptr<INodeRootProvider>), {L"styleProvider" _ L"rootNodeProvider"})
-
-				CLASS_MEMBER_GUIEVENT(NodeLeftButtonDown)
-				CLASS_MEMBER_GUIEVENT(NodeLeftButtonUp)
-				CLASS_MEMBER_GUIEVENT(NodeLeftButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT(NodeMiddleButtonDown)
-				CLASS_MEMBER_GUIEVENT(NodeMiddleButtonUp)
-				CLASS_MEMBER_GUIEVENT(NodeMiddleButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT(NodeRightButtonDown)
-				CLASS_MEMBER_GUIEVENT(NodeRightButtonUp)
-				CLASS_MEMBER_GUIEVENT(NodeRightButtonDoubleClick)
-				CLASS_MEMBER_GUIEVENT(NodeMouseMove)
-				CLASS_MEMBER_GUIEVENT(NodeMouseEnter)
-				CLASS_MEMBER_GUIEVENT(NodeMouseLeave)
-				CLASS_MEMBER_GUIEVENT(NodeExpanded)
-				CLASS_MEMBER_GUIEVENT(NodeCollapsed)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(NodeItemView)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(NodeRootProvider)
-				CLASS_MEMBER_PROPERTY_FAST(NodeStyleProvider)
-			END_CLASS_MEMBER(GuiVirtualTreeListControl)
-
-			BEGIN_CLASS_MEMBER(ITreeViewItemView)
-				CLASS_MEMBER_BASE(INodeItemPrimaryTextView)
-				INTERFACE_EXTERNALCTOR(tree, ITreeViewItemView)
-				INTERFACE_IDENTIFIER(ITreeViewItemView)
-
-				CLASS_MEMBER_METHOD(GetNodeImage, {L"node"})
-				CLASS_MEMBER_METHOD(GetNodeText, {L"node"})
-			END_CLASS_MEMBER(ITreeViewItemView)
-
-			BEGIN_CLASS_MEMBER(TreeViewItem)
-				CLASS_MEMBER_BASE(IMemoryNodeData)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TreeViewItem>(), NO_PARAMETER)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TreeViewItem>(const Ptr<GuiImageData>&, const WString&), {L"image" _ L"text"})
-
-				CLASS_MEMBER_FIELD(image)
-				CLASS_MEMBER_FIELD(text)
-			END_CLASS_MEMBER(TreeViewItem)
-
-			BEGIN_CLASS_MEMBER(TreeViewItemRootProvider)
-				CLASS_MEMBER_BASE(MemoryNodeRootProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TreeViewItemRootProvider>(), NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(GetTreeViewData, {L"node"})
-				CLASS_MEMBER_METHOD(SetTreeViewData, {L"node" _ L"value"})
-				CLASS_MEMBER_METHOD(UpdateTreeViewData, {L"node"})
-			END_CLASS_MEMBER(TreeViewItemRootProvider)
-
-			BEGIN_CLASS_MEMBER(GuiVirtualTreeView)
-				CLASS_MEMBER_BASE(GuiVirtualTreeListControl)
-				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualTreeView*(GuiVirtualTreeView::IStyleProvider* _ Ptr<INodeRootProvider>), {L"styleProvider" _ L"rootNodeProvider"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TreeViewStyleProvider)
-			END_CLASS_MEMBER(GuiVirtualTreeView)
-
-			BEGIN_CLASS_MEMBER(GuiVirtualTreeView::IStyleProvider)
-				CLASS_MEMBER_BASE(GuiVirtualTreeListControl::IStyleProvider)
-				INTERFACE_EXTERNALCTOR(GuiVirtualTreeView, IStyleProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextColor)
-
-				CLASS_MEMBER_METHOD(CreateItemBackground, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateItemExpandingDecorator, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiVirtualTreeView::IStyleProvider)
-
-			BEGIN_CLASS_MEMBER(GuiTreeView)
-				CLASS_MEMBER_BASE(GuiVirtualTreeView)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiTreeView)
-
-				CLASS_MEMBER_METHOD_RENAME(GetNodes, Nodes, NO_PARAMETER)
-				CLASS_MEMBER_PROPERTY_READONLY(Nodes, GetNodes)
-			END_CLASS_MEMBER(GuiTreeView)
-
-			BEGIN_CLASS_MEMBER(TreeViewNodeItemStyleProvider)
-				CLASS_MEMBER_BASE(INodeItemStyleProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TreeViewNodeItemStyleProvider>(), NO_PARAMETER)
-			END_CLASS_MEMBER(TreeViewNodeItemStyleProvider)
-
-			BEGIN_CLASS_MEMBER(GuiComboBoxBase)
-				CLASS_MEMBER_BASE(GuiMenuButton)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiComboBoxBase)
-
-				CLASS_MEMBER_GUIEVENT(ItemSelected)
-			END_CLASS_MEMBER(GuiComboBoxBase)
-
-			BEGIN_CLASS_MEMBER(GuiComboBoxBase::ICommandExecutor)
-				CLASS_MEMBER_BASE(IDescriptable)
-				
-				CLASS_MEMBER_METHOD(SelectItem, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiComboBoxBase::ICommandExecutor)
-
-			BEGIN_CLASS_MEMBER(GuiComboBoxBase::IStyleController)
-				CLASS_MEMBER_BASE(GuiMenuButton::IStyleController)
-				INTERFACE_EXTERNALCTOR(GuiComboBoxBase, IStyleController)
-				
-				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
-				CLASS_MEMBER_METHOD(OnItemSelected, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiComboBoxBase::IStyleController)
-
-			BEGIN_CLASS_MEMBER(GuiComboBoxListControl)
-				CLASS_MEMBER_BASE(GuiComboBoxBase)
-				CLASS_MEMBER_CONSTRUCTOR(GuiComboBoxListControl*(GuiComboBoxListControl::IStyleController* _ GuiSelectableListControl*), {L"styleController" _ L"containedListControl"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Font)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ContainedListControl)
-				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(SelectedIndex)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ItemProvider)
-			END_CLASS_MEMBER(GuiComboBoxListControl)
-
-			BEGIN_CLASS_MEMBER(GuiToolstripCommand)
-				CLASS_MEMBER_BASE(GuiComponent)
-				CLASS_MEMBER_CONSTRUCTOR(GuiToolstripCommand*(), NO_PARAMETER)
-
-				CLASS_MEMBER_GUIEVENT(Executed)
-				CLASS_MEMBER_GUIEVENT(DescriptionChanged)
-
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(Image, DescriptionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(Text, DescriptionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(Shortcut, DescriptionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(Enabled, DescriptionChanged)
-			END_CLASS_MEMBER(GuiToolstripCommand)
-
-			BEGIN_CLASS_MEMBER(GuiToolstripMenu)
-				CLASS_MEMBER_BASE(GuiMenu)
-				CLASS_MEMBER_CONSTRUCTOR(GuiToolstripMenu*(GuiToolstripMenu::IStyleController* _ GuiControl*), {L"styleController" _ L"owner"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ToolstripItems)
-			END_CLASS_MEMBER(GuiToolstripMenu)
-
-			BEGIN_CLASS_MEMBER(GuiToolstripMenuBar)
-				CLASS_MEMBER_BASE(GuiMenuBar)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiToolstripMenuBar)
-				
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ToolstripItems)
-			END_CLASS_MEMBER(GuiToolstripMenuBar)
-
-			BEGIN_CLASS_MEMBER(GuiToolstripToolbar)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiToolstripToolbar)
-				
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ToolstripItems)
-			END_CLASS_MEMBER(GuiToolstripToolbar)
-
-			BEGIN_CLASS_MEMBER(GuiToolstripButton)
-				CLASS_MEMBER_BASE(GuiMenuButton)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiToolstripToolbar)
-
-				CLASS_MEMBER_PROPERTY_FAST(Command)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ToolstripSubMenu)
-
-				CLASS_MEMBER_METHOD(CreateToolstripSubMenu, {L"subMenuStyleController"})
-			END_CLASS_MEMBER(GuiToolstripButton)
-
-			BEGIN_CLASS_MEMBER(GuiDocumentCommonInterface)
-				CLASS_MEMBER_PROPERTY_FAST(Document)
-
-				CLASS_MEMBER_GUIEVENT(ActiveHyperlinkChanged)
-				CLASS_MEMBER_GUIEVENT(ActiveHyperlinkExecuted)
-
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(ActiveHyperlinkId, ActiveHyperlinkChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(ActiveHyperlinkReference, ActiveHyperlinkChanged)
-
-				CLASS_MEMBER_METHOD(NotifyParagraphUpdated, {L"index"})
-			END_CLASS_MEMBER(GuiDocumentCommonInterface)
-
-			BEGIN_CLASS_MEMBER(GuiDocumentViewer)
-				CLASS_MEMBER_BASE(GuiScrollContainer)
-				CLASS_MEMBER_BASE(GuiDocumentCommonInterface)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiDocumentViewer)
-			END_CLASS_MEMBER(GuiDocumentViewer)
-
-			BEGIN_CLASS_MEMBER(GuiDocumentLabel)
-				CLASS_MEMBER_BASE(GuiControl)
-				CLASS_MEMBER_BASE(GuiDocumentCommonInterface)
-				CONTROL_CONSTRUCTOR_CONTROLLER(GuiDocumentLabel)
-			END_CLASS_MEMBER(GuiDocumentLabel)
-
-			BEGIN_CLASS_MEMBER(GuiTextBoxCommonInterface)
-				CLASS_MEMBER_GUIEVENT(SelectionChanged)
-				
-				CLASS_MEMBER_PROPERTY_FAST(Readonly)
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(SelectionText, SelectionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(CaretBegin, SelectionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(CaretEnd, SelectionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(CaretSmall, SelectionChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(CaretLarge, SelectionChanged)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowHeight)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxWidth)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxHeight)
-				CLASS_MEMBER_PROPERTY_FAST(Colorizer)
-				CLASS_MEMBER_PROPERTY_FAST(AutoComplete)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(EditVersion)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Modified)
-
-				CLASS_MEMBER_METHOD(CanCut, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CanCopy, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CanPaste, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Cut, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Copy, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Paste, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(SelectAll, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Select, {L"begin" _ L"end"})
-				CLASS_MEMBER_METHOD(GetRowText, {L"row"})
-				CLASS_MEMBER_METHOD(GetFragmentText, {L"start" _ L"end"})
-				CLASS_MEMBER_METHOD(GetRowWidth, {L"row"})
-				CLASS_MEMBER_METHOD(GetTextPosFromPoint, {L"point"})
-				CLASS_MEMBER_METHOD(GetPointFromTextPos, {L"pos"})
-				CLASS_MEMBER_METHOD(GetRectFromTextPos, {L"pos"})
-				CLASS_MEMBER_METHOD(GetNearestTextPos, {L"point"})
-				CLASS_MEMBER_METHOD(CanUndo, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CanRedo, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ClearUndoRedo, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(NotifyModificationSaved, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Undo, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Redo, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiTextBoxCommonInterface)
-
-			BEGIN_CLASS_MEMBER(ILanguageProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(controls, ILanguageProvider)
-
-				CLASS_MEMBER_METHOD(CreateSymbolFromNode, {L"obj" _ L"executor" _ L"finder"})
-				CLASS_MEMBER_METHOD(FindReferencedSymbols, {L"obj" _  L"finder"})
-				CLASS_MEMBER_METHOD(FindPossibleSymbols, {L"obj" _ L"field" _ L"finder"})
-			END_CLASS_MEMBER(ILanguageProvider)
-
-			BEGIN_CLASS_MEMBER(RepeatingParsingExecutor)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<RepeatingParsingExecutor>(const WString&, bool, const WString&, Ptr<ILanguageProvider>), {L"grammar" _ L"enableAmbiguity" _ L"rule" _ L"provider"}, &CreateRepeatingParsingExecutor)
-				
-				CLASS_MEMBER_METHOD(GetTokenIndex, {L"tokenName"})
-				CLASS_MEMBER_METHOD(GetSemanticId, {L"name"})
-				CLASS_MEMBER_METHOD(GetSemanticName, {L"id"})
-			END_CLASS_MEMBER(RepeatingParsingExecutor)
-
-			BEGIN_CLASS_MEMBER(GuiTextBoxColorizerBase)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(LexerStartState)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ContextStartState)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Colors)
-
-				CLASS_MEMBER_METHOD(RestartColorizer, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiTextBoxColorizerBase)
-
-			BEGIN_CLASS_MEMBER(GuiTextBoxRegexColorizer)
-				CLASS_MEMBER_BASE(GuiTextBoxColorizerBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiTextBoxRegexColorizer>(), NO_PARAMETER)
-
-				CLASS_MEMBER_PROPERTY_FAST(DefaultColor)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ExtraTokenIndexStart)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TokenRegexes)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TokenColors)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ExtraTokenColors)
-
-				CLASS_MEMBER_METHOD(AddToken, {L"regex" _ L"color"})
-				CLASS_MEMBER_METHOD(AddExtraToken, {L"color"})
-				CLASS_MEMBER_METHOD(ClearTokens, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(Setup, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiTextBoxRegexColorizer)
-
-			BEGIN_CLASS_MEMBER(GuiGrammarColorizer)
-				CLASS_MEMBER_BASE(GuiTextBoxRegexColorizer)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiGrammarColorizer>(Ptr<RepeatingParsingExecutor>), {L"parsingExecutor"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ParsingExecutor)
-
-				CLASS_MEMBER_METHOD(BeginSetColors, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetColorNames, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetColor, {L"name"})
-				CLASS_MEMBER_METHOD_OVERLOAD(SetColor, {L"name" _ L"color"}, void(GuiGrammarColorizer::*)(const WString&, const ColorEntry&))
-				CLASS_MEMBER_METHOD_OVERLOAD(SetColor, {L"name" _ L"color"}, void(GuiGrammarColorizer::*)(const WString&, const Color&))
-				CLASS_MEMBER_METHOD(EndSetColors, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiGrammarColorizer)
-
-			BEGIN_CLASS_MEMBER(GuiTextBoxAutoCompleteBase)
-			END_CLASS_MEMBER(GuiTextBoxAutoCompleteBase)
-
-			BEGIN_CLASS_MEMBER(GuiGrammarAutoComplete)
-				CLASS_MEMBER_BASE(GuiTextBoxAutoCompleteBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<GuiGrammarAutoComplete>(Ptr<RepeatingParsingExecutor>), {L"parsingExecutor"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ParsingExecutor)
-			END_CLASS_MEMBER(GuiGrammarAutoComplete)
-
-			BEGIN_CLASS_MEMBER(GuiMultilineTextBox)
-				CLASS_MEMBER_BASE(GuiScrollView)
-				CLASS_MEMBER_BASE(GuiTextBoxCommonInterface)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiMultilineTextBox)
-			END_CLASS_MEMBER(GuiMultilineTextBox)
-
-			BEGIN_CLASS_MEMBER(GuiSinglelineTextBox)
-				CLASS_MEMBER_BASE(GuiControl)
-				CLASS_MEMBER_BASE(GuiTextBoxCommonInterface)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiSinglelineTextBox)
-
-				CLASS_MEMBER_PROPERTY_FAST(PasswordChar)
-			END_CLASS_MEMBER(GuiSinglelineTextBox)
-
-			BEGIN_CLASS_MEMBER(GuiSinglelineTextBox::IStyleProvider)
-				CLASS_MEMBER_BASE(GuiControl::IStyleProvider)
-				INTERFACE_EXTERNALCTOR(GuiSinglelineTextBox, IStyleProvider)
-
-				CLASS_MEMBER_METHOD(InstallBackground, {L"background"})
-			END_CLASS_MEMBER(GuiSinglelineTextBox::IStyleProvider)
-
-			BEGIN_CLASS_MEMBER(IDataVisualizerFactory)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IDataVisualizerFactory)
-
-				CLASS_MEMBER_METHOD(CreateVisualizer, {L"font" _ L"styleProvider"})
-			END_CLASS_MEMBER(IDataVisualizerFactory)
-
-			BEGIN_CLASS_MEMBER(IDataVisualizer)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IDataVisualizer)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Factory)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BoundsComposition)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(DecoratedDataVisualizer)
-
-				CLASS_MEMBER_METHOD(BeforeVisualizeCell, {L"dataProvider" _ L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(SetSelected, {L"value"})
-			END_CLASS_MEMBER(IDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(IDataEditorCallback)
-				CLASS_MEMBER_BASE(IDescriptable)
-
-				CLASS_MEMBER_METHOD(RequestSaveData, NO_PARAMETER);
-			END_CLASS_MEMBER(IDataEditorCallback)
-
-			BEGIN_CLASS_MEMBER(IDataEditorFactory)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IDataEditorFactory)
-
-				CLASS_MEMBER_METHOD(CreateEditor, {L"callback"})
-			END_CLASS_MEMBER(IDataEditorFactory)
-
-			BEGIN_CLASS_MEMBER(IDataEditor)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IDataEditor)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Factory)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BoundsComposition)
-
-				CLASS_MEMBER_METHOD(BeforeEditCell, {L"dataProvider" _ L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(ReinstallEditor, NO_PARAMETER)
-			END_CLASS_MEMBER(IDataEditor)
-
-			BEGIN_CLASS_MEMBER(IDataProviderCommandExecutor)
-				CLASS_MEMBER_BASE(IDescriptable)
-
-				CLASS_MEMBER_METHOD(OnDataProviderColumnChanged, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(OnDataProviderItemModified, {L"start" _ L"count" _ L"newCount"})
-			END_CLASS_MEMBER(IDataProviderCommandExecutor)
-
-			BEGIN_CLASS_MEMBER(IDataProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IDataProvider)
-				INTERFACE_IDENTIFIER(IDataProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ColumnCount)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SortedColumn)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowCount)
-
-				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
-				CLASS_MEMBER_METHOD(GetColumnText, {L"column"})
-				CLASS_MEMBER_METHOD(GetColumnSize, {L"column"})
-				CLASS_MEMBER_METHOD(SetColumnSize, {L"column" _ L"value"})
-				CLASS_MEMBER_METHOD(GetColumnPopup, {L"column"})
-				CLASS_MEMBER_METHOD(IsColumnSortable, {L"column"})
-				CLASS_MEMBER_METHOD(SortByColumn, {L"column" _ L"ascending"})
-				CLASS_MEMBER_METHOD(IsSortOrderAscending, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetRowLargeImage, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(GetRowSmallImage, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(GetCellSpan, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(GetCellText, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(GetCellDataVisualizerFactory, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(VisualizeCell, {L"row" _ L"column" _ L"dataVisualizer"})
-				CLASS_MEMBER_METHOD(GetCellDataEditorFactory, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(BeforeEditCell, {L"row" _ L"column" _ L"dataEditor"})
-				CLASS_MEMBER_METHOD(SaveCellData, {L"row" _ L"column" _ L"dataEditor"})
-			END_CLASS_MEMBER(IDataProvider)
-
-			BEGIN_CLASS_MEMBER(IStructuredDataFilterCommandExecutor)
-				CLASS_MEMBER_BASE(IDescriptable)
-
-				CLASS_MEMBER_METHOD(OnFilterChanged, NO_PARAMETER)
-			END_CLASS_MEMBER(IStructuredDataFilterCommandExecutor)
-
-			BEGIN_CLASS_MEMBER(IStructuredDataFilter)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IStructuredDataFilter)
-
-				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
-				CLASS_MEMBER_METHOD(Filter, {L"row"})
-			END_CLASS_MEMBER(IStructuredDataFilter)
-
-			BEGIN_CLASS_MEMBER(IStructuredDataSorter)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IStructuredDataSorter)
-
-				CLASS_MEMBER_METHOD(Compare, {L"row1" _ L"row2"})
-			END_CLASS_MEMBER(IStructuredDataSorter)
-
-			BEGIN_CLASS_MEMBER(IStructuredColumnProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IStructuredColumnProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Text)
-				CLASS_MEMBER_PROPERTY_FAST(Size)
-				CLASS_MEMBER_PROPERTY_FAST(SortingState)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Popup)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(InherentFilter)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(InherentSorter)
-				CLASS_MEMBER_METHOD(GetCellText, {L"row"})
-				CLASS_MEMBER_METHOD(GetCellDataVisualizerFactory, {L"row"})
-				CLASS_MEMBER_METHOD(VisualizeCell, {L"row" _ L"dataVisualizer"})
-				CLASS_MEMBER_METHOD(GetCellDataEditorFactory, {L"row"})
-				CLASS_MEMBER_METHOD(BeforeEditCell, {L"row" _ L"dataEditor"})
-				CLASS_MEMBER_METHOD(SaveCellData, {L"row" _ L"dataEditor"})
-			END_CLASS_MEMBER(IStructuredColumnProvider)
-
-			BEGIN_CLASS_MEMBER(IStructuredDataProvider)
-				CLASS_MEMBER_BASE(IDescriptable)
-				INTERFACE_EXTERNALCTOR(list, IStructuredDataProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ColumnCount)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowCount)
-
-				CLASS_MEMBER_METHOD(SetCommandExecutor, {L"value"})
-				CLASS_MEMBER_METHOD(GetColumn, {L"column"})
-				CLASS_MEMBER_METHOD(GetRowLargeImage, {L"row"})
-				CLASS_MEMBER_METHOD(GetRowSmallImage, {L"row"})
-			END_CLASS_MEMBER(IStructuredDataProvider)
-
-			BEGIN_CLASS_MEMBER(DataGridContentProvider)
-				CLASS_MEMBER_BASE(ListViewItemStyleProvider::IListViewItemContentProvider)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<DataGridContentProvider>(), NO_PARAMETER)
-			END_CLASS_MEMBER(DataGridContentProvider)
-
-			BEGIN_CLASS_MEMBER(GuiVirtualDataGrid)
-				CLASS_MEMBER_BASE(GuiVirtualListView)
-				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualDataGrid*(GuiVirtualListView::IStyleProvider* _ list::IDataProvider*), {L"styleProvider" _ L"dataProvider"})
-				CLASS_MEMBER_CONSTRUCTOR(GuiVirtualDataGrid*(GuiVirtualListView::IStyleProvider* _ list::IStructuredDataProvider*), {L"styleProvider" _ L"dataProvider"})
-
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(SelectedCell, SelectedCellChanged)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(DataProvider)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(StructuredDataProvider)
-			END_CLASS_MEMBER(GuiVirtualDataGrid)
-
-			BEGIN_CLASS_MEMBER(StructuredDataFilterBase)
-				CLASS_MEMBER_BASE(IStructuredDataFilter)
-			END_CLASS_MEMBER(StructuredDataFilterBase)
-
-			BEGIN_CLASS_MEMBER(StructuredDataMultipleFilter)
-				CLASS_MEMBER_BASE(StructuredDataFilterBase)
-
-				CLASS_MEMBER_METHOD(AddSubFilter, {L"value"})
-				CLASS_MEMBER_METHOD(RemoveSubFilter, {L"value"})
-			END_CLASS_MEMBER(StructuredDataMultipleFilter)
-
-			BEGIN_CLASS_MEMBER(StructuredDataAndFilter)
-				CLASS_MEMBER_BASE(StructuredDataMultipleFilter)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataAndFilter>(), NO_PARAMETER)
-			END_CLASS_MEMBER(StructuredDataAndFilter)
-
-			BEGIN_CLASS_MEMBER(StructuredDataOrFilter)
-				CLASS_MEMBER_BASE(StructuredDataMultipleFilter)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataOrFilter>(), NO_PARAMETER)
-			END_CLASS_MEMBER(StructuredDataOrFilter)
-
-			BEGIN_CLASS_MEMBER(StructuredDataNotFilter)
-				CLASS_MEMBER_BASE(StructuredDataFilterBase)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataNotFilter>(), NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(SetSubFilter, {L"value"})
-			END_CLASS_MEMBER(StructuredDataNotFilter)
-
-			BEGIN_CLASS_MEMBER(StructuredDataMultipleSorter)
-				CLASS_MEMBER_BASE(IStructuredDataSorter)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataMultipleSorter>(), NO_PARAMETER)
-
-				CLASS_MEMBER_METHOD(SetLeftSorter, {L"value"})
-				CLASS_MEMBER_METHOD(SetRightSorter, {L"value"})
-			END_CLASS_MEMBER(StructuredDataMultipleSorter)
-
-			BEGIN_CLASS_MEMBER(StructuredDataReverseSorter)
-				CLASS_MEMBER_BASE(IStructuredDataSorter)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<StructuredDataReverseSorter>(), NO_PARAMETER)
-				
-				CLASS_MEMBER_METHOD(SetSubSorter, {L"value"})
-			END_CLASS_MEMBER(StructuredDataReverseSorter)
-
-			BEGIN_CLASS_MEMBER(StructuredDataProvider)
-				CLASS_MEMBER_BASE(IDataProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(StructuredDataProvider)
-				CLASS_MEMBER_PROPERTY_FAST(AdditionalFilter)
-			END_CLASS_MEMBER(StructuredDataProvider)
-
-			BEGIN_CLASS_MEMBER(ListViewMainColumnDataVisualizer)
-				CLASS_MEMBER_BASE(IDataVisualizer)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextElement)
-			END_CLASS_MEMBER(ListViewMainColumnDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(ListViewMainColumnDataVisualizer::Factory)
-				CLASS_MEMBER_BASE(IDataVisualizerFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewMainColumnDataVisualizer::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(ListViewMainColumnDataVisualizer::Factory)
-
-			BEGIN_CLASS_MEMBER(ListViewSubColumnDataVisualizer)
-				CLASS_MEMBER_BASE(IDataVisualizer)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextElement)
-			END_CLASS_MEMBER(ListViewSubColumnDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(ListViewSubColumnDataVisualizer::Factory)
-				CLASS_MEMBER_BASE(IDataVisualizerFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewSubColumnDataVisualizer::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(ListViewSubColumnDataVisualizer::Factory)
-
-			BEGIN_CLASS_MEMBER(HyperlinkDataVisualizer)
-				CLASS_MEMBER_BASE(ListViewSubColumnDataVisualizer)
-			END_CLASS_MEMBER(HyperlinkDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(HyperlinkDataVisualizer::Factory)
-				CLASS_MEMBER_BASE(IDataVisualizerFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<HyperlinkDataVisualizer::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(HyperlinkDataVisualizer::Factory)
-
-			BEGIN_CLASS_MEMBER(ImageDataVisualizer)
-				CLASS_MEMBER_BASE(IDataVisualizer)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ImageElement)
-			END_CLASS_MEMBER(ImageDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(ImageDataVisualizer::Factory)
-				CLASS_MEMBER_BASE(IDataVisualizerFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ImageDataVisualizer::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(ImageDataVisualizer::Factory)
-
-			BEGIN_CLASS_MEMBER(CellBorderDataVisualizer)
-				CLASS_MEMBER_BASE(IDataVisualizer)
-			END_CLASS_MEMBER(CellBorderDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(CellBorderDataVisualizer::Factory)
-				CLASS_MEMBER_BASE(IDataVisualizerFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<CellBorderDataVisualizer::Factory>(Ptr<IDataVisualizerFactory>), {L"decoratedFactory"})
-			END_CLASS_MEMBER(CellBorderDataVisualizer::Factory)
-
-			BEGIN_CLASS_MEMBER(NotifyIconDataVisualizer)
-				CLASS_MEMBER_BASE(IDataVisualizer)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(LeftImageElement)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RightImageElement)
-			END_CLASS_MEMBER(NotifyIconDataVisualizer)
-
-			BEGIN_CLASS_MEMBER(NotifyIconDataVisualizer::Factory)
-				CLASS_MEMBER_BASE(IDataVisualizerFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<NotifyIconDataVisualizer::Factory>(Ptr<IDataVisualizerFactory>), {L"decoratedFactory"})
-			END_CLASS_MEMBER(NotifyIconDataVisualizer::Factory)
-
-			BEGIN_CLASS_MEMBER(TextBoxDataEditor)
-				CLASS_MEMBER_BASE(IDataEditor)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextBox)
-			END_CLASS_MEMBER(TextBoxDataEditor)
-
-			BEGIN_CLASS_MEMBER(TextBoxDataEditor::Factory)
-				CLASS_MEMBER_BASE(IDataEditorFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextBoxDataEditor::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(TextBoxDataEditor::Factory)
-
-			BEGIN_CLASS_MEMBER(TextComboBoxDataEditor)
-				CLASS_MEMBER_BASE(IDataEditor)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ComboBoxControl)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(TextListControl)
-			END_CLASS_MEMBER(TextComboBoxDataEditor)
-
-			BEGIN_CLASS_MEMBER(TextComboBoxDataEditor::Factory)
-				CLASS_MEMBER_BASE(IDataEditorFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<TextComboBoxDataEditor::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(TextComboBoxDataEditor::Factory)
-
-			BEGIN_CLASS_MEMBER(DateComboBoxDataEditor)
-				CLASS_MEMBER_BASE(IDataEditor)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ComboBoxControl)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(DatePickerControl)
-			END_CLASS_MEMBER(DateComboBoxDataEditor)
-
-			BEGIN_CLASS_MEMBER(DateComboBoxDataEditor::Factory)
-				CLASS_MEMBER_BASE(IDataEditorFactory)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<DateComboBoxDataEditor::Factory>(), NO_PARAMETER)
-			END_CLASS_MEMBER(DateComboBoxDataEditor::Factory)
-
-			BEGIN_CLASS_MEMBER(GuiDatePicker)
-				CLASS_MEMBER_BASE(GuiControl)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiDatePicker)
-
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(Date, DateChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(DateFormat, DateFormatChanged)
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(DateLocale, DateLocaleChanged)
-
-				CLASS_MEMBER_GUIEVENT(DateSelected);
-				CLASS_MEMBER_GUIEVENT(DateNavigated);
-			END_CLASS_MEMBER(GuiDatePicker)
-
-			BEGIN_CLASS_MEMBER(GuiDatePicker::IStyleProvider)
-				CLASS_MEMBER_BASE(GuiControl::IStyleProvider)
-				INTERFACE_EXTERNALCTOR(GuiDatePicker, IStyleProvider)
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(BackgroundColor)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(PrimaryTextColor)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SecondaryTextColor)
-
-				CLASS_MEMBER_METHOD(CreateDateButtonStyle, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateTextList, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(CreateComboBoxStyle, NO_PARAMETER)
-			END_CLASS_MEMBER(GuiDatePicker::IStyleProvider)
-
-			BEGIN_CLASS_MEMBER(GuiDateComboBox)
-				CLASS_MEMBER_BASE(GuiComboBoxBase)
-				CLASS_MEMBER_CONSTRUCTOR(GuiDateComboBox*(GuiDateComboBox::IStyleController* _ GuiDatePicker*), {L"styleController" _ L"datePicker"})
-
-				CLASS_MEMBER_PROPERTY_EVENT_FAST(SelectedDate, SelectedDateChanged)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(DatePicker)
-			END_CLASS_MEMBER(GuiDateComboBox)
-
-			BEGIN_CLASS_MEMBER(GuiStringGrid)
-				CLASS_MEMBER_BASE(GuiVirtualDataGrid)
-				CONTROL_CONSTRUCTOR_PROVIDER(GuiStringGrid)
-
-				CLASS_MEMBER_METHOD_RENAME(GetGrids, Grids, NO_PARAMETER)
-				CLASS_MEMBER_PROPERTY_READONLY(Grids, GetGrids)
-			END_CLASS_MEMBER(GuiStringGrid)
-
-			BEGIN_CLASS_MEMBER(StringGridProvider)
-				CLASS_MEMBER_METHOD(InsertRow, {L"row"})
-				CLASS_MEMBER_METHOD(AppendRow, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(MoveRow, {L"source" _ L"target"})
-				CLASS_MEMBER_METHOD(RemoveRow, {L"row"})
-				CLASS_MEMBER_METHOD(ClearRows, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetGridString, {L"row" _ L"column"})
-				CLASS_MEMBER_METHOD(SetGridString, {L"row" _ L"column" _ L"value"})
-
-				CLASS_MEMBER_METHOD(InsertColumn, {L"column" _ L"text" _ L"size"})
-				CLASS_MEMBER_METHOD(AppendColumn, {L"text" _ L"size"})
-				CLASS_MEMBER_METHOD(MoveColumn, {L"source" _ L"target"})
-				CLASS_MEMBER_METHOD(RemoveColumn, {L"column"})
-				CLASS_MEMBER_METHOD(ClearColumns, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetColumnText, {L"column"})
-				CLASS_MEMBER_METHOD(SetColumnText, {L"column" _ L"value"})
-			END_CLASS_MEMBER(StringGridProvider)
-
-#undef INTERFACE_IDENTIFIER
-#undef CONTROL_CONSTRUCTOR_CONTROLLER
-#undef INTERFACE_EXTERNALCTOR
-#undef _
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-			class GuiControlsTypeLoader : public Object, public ITypeLoader
-			{
-			public:
-				void Load(ITypeManager* manager)
-				{
-					GUIREFLECTIONCONTROLS_TYPELIST(ADD_TYPE_INFO)
-				}
-
-				void Unload(ITypeManager* manager)
-				{
-				}
-			};
-
-#endif
-
-			bool LoadGuiControlsTypes()
-			{
-#ifndef VCZH_DEBUG_NO_REFLECTION
-				ITypeManager* manager=GetGlobalTypeManager();
-				if(manager)
-				{
-					Ptr<ITypeLoader> loader=new GuiControlsTypeLoader;
-					return manager->AddTypeLoader(loader);
-				}
-#endif
-				return false;
-			}
-		}
-	}
-}
-
-/***********************************************************************
-Reflection\GuiReflectionElements.cpp
-***********************************************************************/
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-			using namespace collections;
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-			GUIREFLECTIONELEMENT_TYPELIST(IMPL_TYPE_INFO)
-
-/***********************************************************************
-External Functions
-***********************************************************************/
-
-			template<typename T>
-			Ptr<T> Element_Constructor()
-			{
-				return T::Create();
-			}
-
-			text::TextLines* GuiColorizedTextElement_GetLines(GuiColorizedTextElement* thisObject)
-			{
-				return &thisObject->GetLines();
-			}
-
-/***********************************************************************
-Type Declaration
-***********************************************************************/
-
-#define _ ,
-
-			BEGIN_ENUM_ITEM(ElementShape)
-				ENUM_CLASS_ITEM(Rectangle)
-				ENUM_CLASS_ITEM(Ellipse)
-			END_ENUM_ITEM(ElementShape)
-
-			BEGIN_CLASS_MEMBER(GuiSolidBorderElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiSolidBorderElement>(), NO_PARAMETER, &Element_Constructor<GuiSolidBorderElement>)
-
-				CLASS_MEMBER_PROPERTY_FAST(Color)
-				CLASS_MEMBER_PROPERTY_FAST(Shape)
-			END_CLASS_MEMBER(GuiSolidBorderElement)
-
-			BEGIN_CLASS_MEMBER(GuiRoundBorderElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiRoundBorderElement>(), NO_PARAMETER, &Element_Constructor<GuiRoundBorderElement>)
-				
-				CLASS_MEMBER_PROPERTY_FAST(Color)
-				CLASS_MEMBER_PROPERTY_FAST(Radius)
-			END_CLASS_MEMBER(GuiRoundBorderElement)
-
-			BEGIN_CLASS_MEMBER(Gui3DBorderElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<Gui3DBorderElement>(), NO_PARAMETER, &Element_Constructor<Gui3DBorderElement>)
-				
-				CLASS_MEMBER_METHOD(SetColors, {L"value1" _ L"value2"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Color1)
-				CLASS_MEMBER_PROPERTY_FAST(Color2)
-			END_CLASS_MEMBER(Gui3DBorderElement)
-
-			BEGIN_CLASS_MEMBER(Gui3DSplitterElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<Gui3DSplitterElement>(), NO_PARAMETER, &Element_Constructor<Gui3DSplitterElement>)
-				
-				CLASS_MEMBER_METHOD(SetColors, {L"value1" _ L"value2"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Color1)
-				CLASS_MEMBER_PROPERTY_FAST(Color2)
-				CLASS_MEMBER_PROPERTY_FAST(Direction)
-			END_CLASS_MEMBER(Gui3DSplitterElement)
-
-			BEGIN_ENUM_ITEM(Gui3DSplitterElement::Direction)
-				ENUM_ITEM_NAMESPACE(Gui3DSplitterElement)
-				ENUM_NAMESPACE_ITEM(Horizontal)
-				ENUM_NAMESPACE_ITEM(Vertical)
-			END_ENUM_ITEM(Gui3DSplitterElement::Direction)
-
-			BEGIN_CLASS_MEMBER(GuiSolidBackgroundElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiSolidBackgroundElement>(), NO_PARAMETER, &Element_Constructor<GuiSolidBackgroundElement>)
-				
-				CLASS_MEMBER_PROPERTY_FAST(Color)
-				CLASS_MEMBER_PROPERTY_FAST(Shape)
-			END_CLASS_MEMBER(GuiSolidBackgroundElement)
-
-			BEGIN_CLASS_MEMBER(GuiGradientBackgroundElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiGradientBackgroundElement>(), NO_PARAMETER, &Element_Constructor<GuiGradientBackgroundElement>)
-				
-				CLASS_MEMBER_METHOD(SetColors, {L"value1" _ L"value2"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Color1)
-				CLASS_MEMBER_PROPERTY_FAST(Color2)
-				CLASS_MEMBER_PROPERTY_FAST(Direction)
-				CLASS_MEMBER_PROPERTY_FAST(Shape)
-			END_CLASS_MEMBER(GuiGradientBackgroundElement)
-
-			BEGIN_ENUM_ITEM(GuiGradientBackgroundElement::Direction)
-				ENUM_ITEM_NAMESPACE(GuiGradientBackgroundElement)
-				ENUM_NAMESPACE_ITEM(Horizontal)
-				ENUM_NAMESPACE_ITEM(Vertical)
-			END_ENUM_ITEM(GuiGradientBackgroundElement::Direction)
-
-			BEGIN_CLASS_MEMBER(GuiSolidLabelElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiSolidLabelElement>(), NO_PARAMETER, &Element_Constructor<GuiSolidLabelElement>)
-				
-				CLASS_MEMBER_METHOD(SetAlignments, {L"horizontal" _ L"vertical"})
-
-				CLASS_MEMBER_PROPERTY_FAST(Color)
-				CLASS_MEMBER_PROPERTY_FAST(Font)
-				CLASS_MEMBER_PROPERTY_FAST(Text)
-				CLASS_MEMBER_PROPERTY_FAST(HorizontalAlignment)
-				CLASS_MEMBER_PROPERTY_FAST(VerticalAlignment)
-				CLASS_MEMBER_PROPERTY_FAST(WrapLine)
-				CLASS_MEMBER_PROPERTY_FAST(Ellipse)
-				CLASS_MEMBER_PROPERTY_FAST(Multiline)
-				CLASS_MEMBER_PROPERTY_FAST(WrapLineHeightCalculation)
-			END_CLASS_MEMBER(GuiSolidLabelElement)
-
-			BEGIN_CLASS_MEMBER(GuiImageFrameElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiImageFrameElement>(), NO_PARAMETER, &Element_Constructor<GuiImageFrameElement>)
-
-				CLASS_MEMBER_METHOD(GetImage, NO_PARAMETER)
-				CLASS_MEMBER_METHOD_OVERLOAD(SetImage, {L"value"}, void(GuiImageFrameElement::*)(Ptr<INativeImage>))
-				CLASS_MEMBER_METHOD_OVERLOAD(SetImage, {L"image" _  L"frameIndex"}, void(GuiImageFrameElement::*)(Ptr<INativeImage> _ vint))
-				CLASS_MEMBER_PROPERTY(Image, GetImage, SetImage)
-
-				CLASS_MEMBER_PROPERTY_FAST(FrameIndex)
-				CLASS_MEMBER_PROPERTY_FAST(HorizontalAlignment)
-				CLASS_MEMBER_PROPERTY_FAST(VerticalAlignment)
-				CLASS_MEMBER_PROPERTY_FAST(Stretch)
-				CLASS_MEMBER_PROPERTY_FAST(Enabled)
-			END_CLASS_MEMBER(GuiImageFrameElement)
-
-			BEGIN_CLASS_MEMBER(GuiPolygonElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiPolygonElement>(), NO_PARAMETER, &Element_Constructor<GuiPolygonElement>)
-
-				CLASS_MEMBER_METHOD_RENAME(GetPoints, GetPointsArray, NO_PARAMETER);
-				CLASS_MEMBER_METHOD_RENAME(SetPoints, SetPointsArray, {L"points"});
-				CLASS_MEMBER_PROPERTY(Points, GetPoints, SetPoints);
-				CLASS_MEMBER_PROPERTY_FAST(Size)
-				CLASS_MEMBER_PROPERTY_FAST(BorderColor)
-				CLASS_MEMBER_PROPERTY_FAST(BackgroundColor)
-			END_CLASS_MEMBER(GuiPolygonElement)
-
-			BEGIN_CLASS_MEMBER(text::TextLines)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Count)
-				CLASS_MEMBER_PROPERTY_FAST(TabSpaceCount)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowHeight)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxWidth)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(MaxHeight)
-				CLASS_MEMBER_PROPERTY_FAST(PasswordChar)
-
-				CLASS_MEMBER_METHOD_OVERLOAD(GetText, NO_PARAMETER, WString(text::TextLines::*)())
-				CLASS_MEMBER_METHOD_OVERLOAD(GetText, {L"start" _ L"end"}, WString(text::TextLines::*)(TextPos _ TextPos))
-				CLASS_MEMBER_METHOD(SetText, {L"value"})
-				CLASS_MEMBER_METHOD(RemoveLines, {L"start" _ L"end"})
-				CLASS_MEMBER_METHOD(IsAvailable, {L"pos"})
-				CLASS_MEMBER_METHOD(Normalize, {L"pos"})
-				CLASS_MEMBER_METHOD_OVERLOAD(Modify, {L"start"_ L"end"_ L"input"}, TextPos(text::TextLines::*)(TextPos _ TextPos _ const WString&))
-				CLASS_MEMBER_METHOD(Clear, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(ClearMeasurement, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(MeasureRow, {L"row"})
-				CLASS_MEMBER_METHOD(GetRowWidth, {L"row"})
-				CLASS_MEMBER_METHOD(GetTextPosFromPoint, {L"point"})
-				CLASS_MEMBER_METHOD(GetPointFromTextPos, {L"pos"})
-				CLASS_MEMBER_METHOD(GetRectFromTextPos, {L"pos"})
-			END_CLASS_MEMBER(text::TextLines)
-
-			BEGIN_STRUCT_MEMBER(text::ColorItem)
-				STRUCT_MEMBER(text)
-				STRUCT_MEMBER(background)
-			END_STRUCT_MEMBER(text::ColorItem)
-
-			BEGIN_STRUCT_MEMBER(text::ColorEntry)
-				STRUCT_MEMBER(normal)
-				STRUCT_MEMBER(selectedFocused)
-				STRUCT_MEMBER(selectedUnfocused)
-			END_STRUCT_MEMBER(text::ColorEntry)
-
-			BEGIN_CLASS_MEMBER(GuiColorizedTextElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiColorizedTextElement>(), NO_PARAMETER, &Element_Constructor<GuiColorizedTextElement>)
-
-				CLASS_MEMBER_PROPERTY_FAST(Font)
-				CLASS_MEMBER_PROPERTY_FAST(PasswordChar)
-				CLASS_MEMBER_PROPERTY_FAST(ViewPosition)
-				CLASS_MEMBER_PROPERTY_FAST(VisuallyEnabled)
-				CLASS_MEMBER_PROPERTY_FAST(Focused)
-				CLASS_MEMBER_PROPERTY_FAST(CaretBegin)
-				CLASS_MEMBER_PROPERTY_FAST(CaretEnd)
-				CLASS_MEMBER_PROPERTY_FAST(CaretVisible)
-				CLASS_MEMBER_PROPERTY_FAST(CaretColor)
-
-				CLASS_MEMBER_EXTERNALMETHOD(GetLines, NO_PARAMETER, text::TextLines*(GuiColorizedTextElement::*)(), &GuiColorizedTextElement_GetLines)
-				CLASS_MEMBER_PROPERTY_READONLY(Lines, GetLines)
-				CLASS_MEMBER_PROPERTY_FAST(Colors)
-			END_CLASS_MEMBER(GuiColorizedTextElement)
-
-			BEGIN_CLASS_MEMBER(GuiDocumentElement)
-				CLASS_MEMBER_BASE(IGuiGraphicsElement)
-				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiDocumentElement>(), NO_PARAMETER, &Element_Constructor<GuiDocumentElement>)
-
-				CLASS_MEMBER_PROPERTY_FAST(Document)
-				CLASS_MEMBER_METHOD(NotifyParagraphUpdated, {L"index"})
-				CLASS_MEMBER_METHOD(GetHyperlinkIdFromPoint, {L"point"})
-				CLASS_MEMBER_METHOD(ActivateHyperlink, {L"hyperlinkId" _ L"active"})
-			END_CLASS_MEMBER(GuiDocumentElement)
-#undef _
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-			class GuiElementTypeLoader : public Object, public ITypeLoader
-			{
-			public:
-				void Load(ITypeManager* manager)
-				{
-					GUIREFLECTIONELEMENT_TYPELIST(ADD_TYPE_INFO)
-				}
-
-				void Unload(ITypeManager* manager)
-				{
-				}
-			};
-
-#endif
-
-			bool LoadGuiElementTypes()
-			{
-#ifndef VCZH_DEBUG_NO_REFLECTION
-				ITypeManager* manager=GetGlobalTypeManager();
-				if(manager)
-				{
-					Ptr<ITypeLoader> loader=new GuiElementTypeLoader;
-					return manager->AddTypeLoader(loader);
-				}
-#endif
-				return false;
-			}
-		}
-	}
-}
-
-/***********************************************************************
-Reflection\GuiReflectionEvents.cpp
-***********************************************************************/
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-			using namespace collections;
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-			GUIREFLECTIONEVENT_TYPELIST(IMPL_TYPE_INFO)
-
-/***********************************************************************
-Type Declaration
-***********************************************************************/
-
-#define _ ,
-
-#define EVENTARGS_CONSTRUCTOR(EVENTARGS)\
-	CLASS_MEMBER_CONSTRUCTOR(Ptr<EVENTARGS>(), NO_PARAMETER)\
-	CLASS_MEMBER_CONSTRUCTOR(Ptr<EVENTARGS>(GuiGraphicsComposition*), {L"composition"})
-
-			BEGIN_CLASS_MEMBER(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiEventArgs)
-
-				CLASS_MEMBER_FIELD(compositionSource)
-				CLASS_MEMBER_FIELD(eventSource)
-				CLASS_MEMBER_FIELD(handled)
-			END_CLASS_MEMBER(GuiEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiRequestEventArgs)
-				CLASS_MEMBER_BASE(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiRequestEventArgs)
-
-				CLASS_MEMBER_FIELD(cancel)
-			END_CLASS_MEMBER(GuiRequestEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiKeyEventArgs)
-				CLASS_MEMBER_BASE(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiKeyEventArgs)
-				
-				CLASS_MEMBER_FIELD(code)
-				CLASS_MEMBER_FIELD(ctrl)
-				CLASS_MEMBER_FIELD(shift)
-				CLASS_MEMBER_FIELD(alt)
-				CLASS_MEMBER_FIELD(capslock)
-			END_CLASS_MEMBER(GuiKeyEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiCharEventArgs)
-				CLASS_MEMBER_BASE(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiCharEventArgs)
-				
-				CLASS_MEMBER_FIELD(code)
-				CLASS_MEMBER_FIELD(ctrl)
-				CLASS_MEMBER_FIELD(shift)
-				CLASS_MEMBER_FIELD(alt)
-				CLASS_MEMBER_FIELD(capslock)
-			END_CLASS_MEMBER(GuiCharEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiMouseEventArgs)
-				CLASS_MEMBER_BASE(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiMouseEventArgs)
-				
-				CLASS_MEMBER_FIELD(ctrl)
-				CLASS_MEMBER_FIELD(shift)
-				CLASS_MEMBER_FIELD(left)
-				CLASS_MEMBER_FIELD(middle)
-				CLASS_MEMBER_FIELD(right)
-				CLASS_MEMBER_FIELD(x)
-				CLASS_MEMBER_FIELD(y)
-				CLASS_MEMBER_FIELD(wheel)
-			END_CLASS_MEMBER(GuiMouseEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiItemEventArgs)
-				CLASS_MEMBER_BASE(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiItemEventArgs)
-
-				CLASS_MEMBER_FIELD(itemIndex)
-			END_CLASS_MEMBER(GuiItemEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiItemMouseEventArgs)
-				CLASS_MEMBER_BASE(GuiMouseEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiItemMouseEventArgs)
-
-				CLASS_MEMBER_FIELD(itemIndex)
-			END_CLASS_MEMBER(GuiItemMouseEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiNodeEventArgs)
-				CLASS_MEMBER_BASE(GuiEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiNodeEventArgs)
-
-				CLASS_MEMBER_FIELD(node)
-			END_CLASS_MEMBER(GuiNodeEventArgs)
-
-			BEGIN_CLASS_MEMBER(GuiNodeMouseEventArgs)
-				CLASS_MEMBER_BASE(GuiMouseEventArgs)
-				EVENTARGS_CONSTRUCTOR(GuiNodeMouseEventArgs)
-
-				CLASS_MEMBER_FIELD(node)
-			END_CLASS_MEMBER(GuiNodeMouseEventArgs)
-
-#undef EVENTARGS_CONSTRUCTOR
-#undef _
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-			class GuiEventTypeLoader : public Object, public ITypeLoader
-			{
-			public:
-				void Load(ITypeManager* manager)
-				{
-					GUIREFLECTIONEVENT_TYPELIST(ADD_TYPE_INFO)
-				}
-
-				void Unload(ITypeManager* manager)
-				{
-				}
-			};
-
-#endif
-
-			bool LoadGuiEventTypes()
-			{
-#ifndef VCZH_DEBUG_NO_REFLECTION
-				ITypeManager* manager=GetGlobalTypeManager();
-				if(manager)
-				{
-					Ptr<ITypeLoader> loader=new GuiEventTypeLoader;
-					return manager->AddTypeLoader(loader);
-				}
-#endif
-				return false;
-			}
-		}
+		};
+		GUI_REGISTER_PLUGIN(GuiResourceTypeResolverPlugin)
 	}
 }

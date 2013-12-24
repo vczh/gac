@@ -21,7 +21,7 @@ Interfaces:
 #endif
 
 /***********************************************************************
-NATIVEWINDOW\GUITYPES.H
+GUITYPES.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -675,7 +675,7 @@ Layout Engine
 			class IGuiGraphicsParagraph;
 			class IGuiGraphicsLayoutProvider;
 
-			class IGuiGraphicsParagraph : public Interface
+			class IGuiGraphicsParagraph : public IDescriptable, public Description<IGuiGraphicsParagraph>
 			{
 			public:
 				static const vint		NullInteractionId = -1;
@@ -693,6 +693,18 @@ Layout Engine
 					StickToPreviousRun,
 					StickToNextRun,
 					Alone,
+				};
+
+				enum CaretRelativePosition
+				{
+					CaretFirst,
+					CaretLast,
+					CaretLineFirst,
+					CaretLineLast,
+					CaretMoveLeft,
+					CaretMoveRight,
+					CaretMoveUp,
+					CaretMoveDown,
 				};
 
 				struct InlineObjectProperties
@@ -713,24 +725,32 @@ Layout Engine
 				virtual void								SetWrapLine(bool value)=0;
 				virtual vint								GetMaxWidth()=0;
 				virtual void								SetMaxWidth(vint value)=0;
-				virtual Alignment						GetParagraphAlignment()=0;
+				virtual Alignment							GetParagraphAlignment()=0;
 				virtual void								SetParagraphAlignment(Alignment value)=0;
 
 				virtual bool								SetFont(vint start, vint length, const WString& value)=0;
 				virtual bool								SetSize(vint start, vint length, vint value)=0;
 				virtual bool								SetStyle(vint start, vint length, TextStyle value)=0;
 				virtual bool								SetColor(vint start, vint length, Color value)=0;
+				virtual bool								SetBackgroundColor(vint start, vint length, Color value)=0;
 				virtual bool								SetInlineObject(vint start, vint length, const InlineObjectProperties& properties, Ptr<IGuiGraphicsElement> value)=0;
 				virtual bool								ResetInlineObject(vint start, vint length)=0;
-				virtual bool								SetInteractionId(vint start, vint length, vint value=NullInteractionId)=0;
-
-				virtual bool								HitTestPoint(Point point, vint& start, vint& length, vint& interactionId)=0;
 
 				virtual vint								GetHeight()=0;
+				virtual bool								OpenCaret(vint caret, Color color, bool frontSide)=0;
+				virtual bool								CloseCaret()=0;
 				virtual void								Render(Rect bounds)=0;
+
+				virtual vint								GetCaret(vint comparingCaret, CaretRelativePosition position, bool& preferFrontSide)=0;
+				virtual Rect								GetCaretBounds(vint caret, bool frontSide)=0;
+				virtual vint								GetCaretFromPoint(Point point)=0;
+				virtual Ptr<IGuiGraphicsElement>			GetInlineObjectFromPoint(Point point, vint& start, vint& length)=0;
+				virtual vint								GetNearestCaretFromTextPos(vint textPos, bool frontSide)=0;
+				virtual bool								IsValidCaret(vint caret)=0;
+				virtual bool								IsValidTextPos(vint textPos)=0;
 			};
 
-			class IGuiGraphicsLayoutProvider : public Interface
+			class IGuiGraphicsLayoutProvider : public IDescriptable, public Description<IGuiGraphicsLayoutProvider>
 			{
 			public:
 				virtual Ptr<IGuiGraphicsParagraph>			CreateParagraph(const WString& text, IGuiGraphicsRenderTarget* renderTarget)=0;
@@ -779,7 +799,7 @@ namespace vl
 System Object
 ***********************************************************************/
 
-		class INativeScreen : public Interface
+		class INativeScreen : public virtual IDescriptable, Description<INativeScreen>
 		{
 		public:
 			virtual Rect				GetBounds()=0;
@@ -861,7 +881,7 @@ Image Object
 			virtual INativeImageFrame*			GetFrame(vint index)=0;
 		};
 		
-		class INativeImageService : public Interface
+		class INativeImageService : public virtual IDescriptable, public Description<INativeImageService>
 		{
 		public:
 			virtual Ptr<INativeImage>			CreateImageFromFile(const WString& path)=0;
@@ -1052,7 +1072,7 @@ Native Window
 Native Window Services
 ***********************************************************************/
 
-		class INativeResourceService : public virtual Interface
+		class INativeResourceService : public virtual IDescriptable, public Description<INativeResourceService>
 		{
 		public:
 			virtual INativeCursor*			GetSystemCursor(INativeCursor::SystemCursorType type)=0;
@@ -1062,7 +1082,7 @@ Native Window Services
 			virtual void					SetDefaultFont(const FontProperties& value)=0;
 		};
 
-		class INativeDelay : public Interface, public Description<INativeDelay>
+		class INativeDelay : public virtual IDescriptable, public Description<INativeDelay>
 		{
 		public:
 			enum ExecuteStatus
@@ -1078,7 +1098,7 @@ Native Window Services
 			virtual bool					Cancel()=0;
 		};
 		
-		class INativeAsyncService : public virtual Interface
+		class INativeAsyncService : public virtual IDescriptable, public Description<INativeAsyncService>
 		{
 		public:
 
@@ -1090,7 +1110,7 @@ Native Window Services
 			virtual Ptr<INativeDelay>		DelayExecuteInMainThread(const Func<void()>& proc, vint milliseconds)=0;
 		};
 		
-		class INativeClipboardService : public virtual Interface
+		class INativeClipboardService : public virtual IDescriptable, public Description<INativeClipboardService>
 		{
 		public:
 			virtual bool					ContainsText()=0;
@@ -1098,10 +1118,10 @@ Native Window Services
 			virtual bool					SetText(const WString& value)=0;
 		};
 		
-		class INativeScreenService : public virtual Interface
+		class INativeScreenService : public virtual IDescriptable, public Description<INativeScreenService>
 		{
 		public:
-			virtual vint						GetScreenCount()=0;
+			virtual vint					GetScreenCount()=0;
 			virtual INativeScreen*			GetScreen(vint index)=0;
 			virtual INativeScreen*			GetScreen(INativeWindow* window)=0;
 		};
@@ -1116,7 +1136,7 @@ Native Window Services
 			virtual void					Run(INativeWindow* window)=0;
 		};
 		
-		class INativeInputService : public virtual Interface
+		class INativeInputService : public virtual IDescriptable, public Description<INativeInputService>
 		{
 		public:
 			virtual void					StartHookMouse()=0;
@@ -1131,6 +1151,7 @@ Native Window Services
 			virtual bool					IsKeyToggled(vint code)=0;
 
 			virtual WString					GetKeyName(vint code)=0;
+			virtual vint					GetKey(const WString& name)=0;
 		};
 		
 		class INativeCallbackService : public virtual Interface
@@ -1232,7 +1253,7 @@ Native Window Services
 Native Window Controller
 ***********************************************************************/
 
-		class INativeController : public virtual Interface
+		class INativeController : public virtual IDescriptable, public Description<INativeController>
 		{
 		public:
 			virtual INativeCallbackService*			CallbackService()=0;
@@ -1751,7 +1772,7 @@ Helpers
 #endif
 
 /***********************************************************************
-NATIVEWINDOW\GUIRESOURCE.H
+RESOURCES\GUIRESOURCE.H
 ***********************************************************************/
 /***********************************************************************
 Vczh Library++ 3.0
@@ -1761,8 +1782,8 @@ GacUI::Resource
 Interfaces:
 ***********************************************************************/
 
-#ifndef VCZH_PRESENTATION_GUIRESOURCE
-#define VCZH_PRESENTATION_GUIRESOURCE
+#ifndef VCZH_PRESENTATION_RESOURCES_GUIRESOURCE
+#define VCZH_PRESENTATION_RESOURCES_GUIRESOURCE
 
 
 namespace vl
@@ -1775,9 +1796,15 @@ namespace vl
 		class GuiResourceFolder;
 		class GuiResource;
 
-		class DocumentTextRun;
-		class DocumentHyperlinkTextRun;
-		class DocumentImageRun;
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+
+		extern WString								GetFolderPath(const WString& filePath);
+		extern WString								GetFileName(const WString& filePath);
+		extern bool									LoadTextFile(const WString& filePath, WString& text);
+		extern bool									LoadTextFromStream(stream::IStream& stream, WString& text);
+		extern bool									IsResourceUrl(const WString& text, WString& protocol, WString& path);
 
 /***********************************************************************
 Resource Image
@@ -1799,189 +1826,20 @@ Resource Image
 		};
 
 /***********************************************************************
-Rich Content Document (model)
+Resource String
 ***********************************************************************/
 
-		class DocumentRun : public Object, public Description<DocumentRun>
+
+		class GuiTextData : public Object, public Description<GuiTextData>
 		{
-		public:
-			static const vint				NullHyperlinkId = -1;
-
-			class IVisitor : public Interface
-			{
-			public:
-				virtual void				Visit(DocumentTextRun* run)=0;
-				virtual void				Visit(DocumentHyperlinkTextRun* run)=0;
-				virtual void				Visit(DocumentImageRun* run)=0;
-			};
-			
-			vint							hyperlinkId;
-
-			DocumentRun():hyperlinkId(NullHyperlinkId){}
-
-			virtual void					Accept(IVisitor* visitor)=0;
-		};
-				
-		class DocumentTextRun : public DocumentRun, public Description<DocumentTextRun>
-		{
-		public:
-			FontProperties					style;
-			Color							color;
+		protected:
 			WString							text;
 
-			DocumentTextRun(){}
-
-			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-		};
-		
-		class DocumentHyperlinkTextRun : public DocumentTextRun, public Description<DocumentHyperlinkTextRun>
-		{
 		public:
-			FontProperties					normalStyle;
-			Color							normalColor;
-			FontProperties					activeStyle;
-			Color							activeColor;
-
-			DocumentHyperlinkTextRun(){}
-
-			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-		};
-				
-		class DocumentInlineObjectRun : public DocumentRun, public Description<DocumentInlineObjectRun>
-		{
-		public:
-			Size							size;
-			vint							baseline;
-
-			DocumentInlineObjectRun():baseline(-1){}
-		};
-				
-		class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
-		{
-		public:
-			Ptr<INativeImage>				image;
-			vint							frameIndex;
-			WString							source;
-
-			DocumentImageRun():frameIndex(0){}
-
-			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
-		};
-
-		//--------------------------------------------------------------------------
-
-		class DocumentLine : public Object, public Description<DocumentLine>
-		{
-			typedef collections::List<Ptr<DocumentRun>>			RunList;
-		public:
-			RunList							runs;
-		};
-
-		class DocumentParagraph : public Object, public Description<DocumentParagraph>
-		{
-			typedef collections::List<Ptr<DocumentLine>>		LineList;
-		public:
-			LineList						lines;
-
-			Alignment					alignment;
-
-			DocumentParagraph():alignment(Alignment::Left){}
-		};
-
-		class DocumentResolver : public Object
-		{
-		private:
-			Ptr<DocumentResolver>			previousResolver;
-
-		protected:
-
-			virtual Ptr<INativeImage>		ResolveImageInternal(const WString& protocol, const WString& path)=0;
-		public:
-			DocumentResolver(Ptr<DocumentResolver> _previousResolver);
-			~DocumentResolver();
-
-			Ptr<INativeImage>				ResolveImage(const WString& protocol, const WString& path);
-		};
-
-		//--------------------------------------------------------------------------
-
-		class DocumentStyle : public Object
-		{
-		public:
-			WString							parentStyleName;
-
-			Nullable<WString>				face;
-			Nullable<vint>					size;
-			Nullable<Color>					color;
-			Nullable<bool>					bold;
-			Nullable<bool>					italic;
-			Nullable<bool>					underline;
-			Nullable<bool>					strikeline;
-			Nullable<bool>					antialias;
-			Nullable<bool>					verticalAntialias;
-		};
-
-		class DocumentModel : public Object, public Description<DocumentModel>
-		{
-		public:
-
-			struct HyperlinkInfo
-			{
-				WString						reference;
-				vint						paragraphIndex;
-
-				HyperlinkInfo()
-					:paragraphIndex(-1)
-				{
-				}
-			};
-		private:
-			typedef collections::List<Ptr<DocumentParagraph>>							ParagraphList;
-			typedef collections::Dictionary<WString, Ptr<DocumentStyle>>				StyleMap;
-			typedef collections::Dictionary<WString, Ptr<parsing::xml::XmlElement>>		TemplateMap;
-			typedef collections::Pair<FontProperties, Color>							RawStylePair;
-			typedef collections::Dictionary<vint, HyperlinkInfo>						HyperlinkMap;
-		public:
-
-			ParagraphList					paragraphs;
-			StyleMap						styles;
-			TemplateMap						templates;
-			HyperlinkMap					hyperlinkInfos;
+			GuiTextData();
+			GuiTextData(const WString& _text);
 			
-			DocumentModel();
-
-			RawStylePair					GetStyle(const WString& styleName, const RawStylePair& context);
-			vint							ActivateHyperlink(vint hyperlinkId, bool active);
-
-			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<DocumentResolver> resolver);
-
-			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory);
-
-			Ptr<parsing::xml::XmlDocument>	SaveToXml();
-		};
-
-/***********************************************************************
-Rich Content Document (resolver)
-***********************************************************************/
-		
-		class DocumentFileProtocolResolver : public DocumentResolver
-		{
-		protected:
-			WString							workingDirectory;
-
-			Ptr<INativeImage>				ResolveImageInternal(const WString& protocol, const WString& path)override;
-		public:
-			DocumentFileProtocolResolver(const WString& _workingDirectory, Ptr<DocumentResolver> previousResolver=0);
-		};
-		
-		class DocumentResProtocolResolver : public DocumentResolver
-		{
-		protected:
-			Ptr<GuiResource>				resource;
-
-			Ptr<INativeImage>				ResolveImageInternal(const WString& protocol, const WString& path)override;
-		public:
-			DocumentResProtocolResolver(Ptr<GuiResource> _resource, Ptr<DocumentResolver> previousResolver=0);
+			WString							GetText();
 		};
 
 /***********************************************************************
@@ -2002,6 +1860,8 @@ Resource Structure
 			GuiResourceFolder*						GetParent();
 			const WString&							GetName();
 		};
+
+		class DocumentModel;
 		
 		class GuiResourceItem : public GuiResourceNodeBase
 		{
@@ -2018,7 +1878,7 @@ Resource Structure
 
 			Ptr<GuiImageData>						AsImage();
 			Ptr<parsing::xml::XmlDocument>			AsXml();
-			Ptr<ObjectBox<WString>>					AsString();
+			Ptr<GuiTextData>						AsString();
 			Ptr<DocumentModel>						AsDocument();
 		};
 		
@@ -2032,13 +1892,17 @@ Resource Structure
 
 			struct DelayLoading
 			{
-				collections::Dictionary<Ptr<GuiResourceItem>, WString>			documentModelFolders;
+				WString								type;
+				WString								workingDirectory;
+				Ptr<GuiResourceItem>				preloadResource;
 			};
+
+			typedef collections::List<DelayLoading>								DelayLoadingList;
 
 			ItemMap									items;
 			FolderMap								folders;
 
-			void									LoadResourceFolderXml(DelayLoading& delayLoading, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, Ptr<parsing::tabling::ParsingTable> xmlParsingTable);
+			void									LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml);
 		public:
 			GuiResourceFolder();
 			~GuiResourceFolder();
@@ -2056,17 +1920,22 @@ Resource Structure
 			void									ClearFolders();
 
 			Ptr<Object>								GetValueByPath(const WString& path);
+			Ptr<GuiResourceFolder>					GetFolderByPath(const WString& path);
 		};
 
 /***********************************************************************
-Resource Loader
+Resource
 ***********************************************************************/
 		
 		class GuiResource : public GuiResourceFolder, public Description<GuiResource>
 		{
+		protected:
+			WString									workingDirectory;
 		public:
 			GuiResource();
 			~GuiResource();
+
+			WString									GetWorkingDirectory();
 
 			static Ptr<GuiResource>					LoadFromXml(const WString& filePath);
 			
@@ -2077,13 +1946,335 @@ Resource Loader
 		};
 
 /***********************************************************************
-Resource Loader
+Resource Path Resolver
 ***********************************************************************/
 
-		extern WString								GetFolderPath(const WString& filePath);
-		extern WString								GetFileName(const WString& filePath);
-		extern bool									LoadTextFile(const WString& filePath, WString& text);
-		extern bool									LoadTextFromStream(stream::IStream& stream, WString& text);
+		class IGuiResourcePathResolver : public IDescriptable, public Description<IGuiResourcePathResolver>
+		{
+		public:
+			virtual Ptr<Object>								ResolveResource(const WString& path)=0;
+		};
+
+		class IGuiResourcePathResolverFactory : public IDescriptable, public Description<IGuiResourcePathResolverFactory>
+		{
+		public:
+			virtual WString									GetProtocol()=0;
+
+			virtual Ptr<IGuiResourcePathResolver>			CreateResolver(Ptr<GuiResource> resource, const WString& workingDirectory)=0;
+		};
+		
+		class GuiResourcePathResolver : public Object, public Description<GuiResourcePathResolver>
+		{
+			typedef collections::Dictionary<WString, Ptr<IGuiResourcePathResolver>>		ResolverMap;
+		protected:
+			ResolverMap										resolvers;
+			Ptr<GuiResource>								resource;
+			WString											workingDirectory;
+
+		public:
+			GuiResourcePathResolver(Ptr<GuiResource> _resource, const WString& _workingDirectory);
+			~GuiResourcePathResolver();
+
+			Ptr<Object>										ResolveResource(const WString& protocol, const WString& path);
+		};
+
+/***********************************************************************
+Resource Type Resolver
+***********************************************************************/
+
+		class IGuiResourceTypeResolver : public IDescriptable, public Description<IGuiResourceTypeResolver>
+		{
+		public:
+			virtual WString									GetType()=0;
+			virtual WString									GetPreloadType()=0;
+			virtual bool									IsDelayLoad()=0;
+
+			virtual Ptr<Object>								ResolveResource(Ptr<parsing::xml::XmlElement> element)=0;
+
+			virtual Ptr<Object>								ResolveResource(const WString& path)=0;
+
+			virtual Ptr<Object>								ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)=0;
+		};
+
+/***********************************************************************
+Resource Resolver Manager
+***********************************************************************/
+
+		class IGuiResourceResolverManager : public IDescriptable, public Description<IGuiResourceResolverManager>
+		{
+		public:
+			virtual IGuiResourcePathResolverFactory*		GetPathResolverFactory(const WString& protocol)=0;
+			virtual bool									SetPathResolverFactory(Ptr<IGuiResourcePathResolverFactory> factory)=0;
+			virtual IGuiResourceTypeResolver*				GetTypeResolver(const WString& type)=0;
+			virtual bool									SetTypeResolver(Ptr<IGuiResourceTypeResolver> resolver)=0;
+		};
+		
+		extern IGuiResourceResolverManager*					GetResourceResolverManager();
+	}
+}
+
+#endif
+
+/***********************************************************************
+RESOURCES\GUIDOCUMENT.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Resource
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_RESOURCES_GUIDOCUMENT
+#define VCZH_PRESENTATION_RESOURCES_GUIDOCUMENT
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace reflection;
+
+		class DocumentTextRun;
+		class DocumentStylePropertiesRun;
+		class DocumentStyleApplicationRun;
+		class DocumentHyperlinkRun;
+		class DocumentImageRun;
+		class DocumentParagraphRun;
+
+/***********************************************************************
+Rich Content Document (style)
+***********************************************************************/
+
+		class DocumentStyleProperties : public Object, public Description<DocumentStyleProperties>
+		{
+		public:
+			Nullable<WString>				face;
+			Nullable<vint>					size;
+			Nullable<Color>					color;
+			Nullable<Color>					backgroundColor;
+			Nullable<bool>					bold;
+			Nullable<bool>					italic;
+			Nullable<bool>					underline;
+			Nullable<bool>					strikeline;
+			Nullable<bool>					antialias;
+			Nullable<bool>					verticalAntialias;
+		};
+
+/***********************************************************************
+Rich Content Document (run)
+***********************************************************************/
+
+		class DocumentRun : public Object, public Description<DocumentRun>
+		{
+		public:
+			class IVisitor : public Interface
+			{
+			public:
+				virtual void				Visit(DocumentTextRun* run)=0;
+				virtual void				Visit(DocumentStylePropertiesRun* run)=0;
+				virtual void				Visit(DocumentStyleApplicationRun* run)=0;
+				virtual void				Visit(DocumentHyperlinkRun* run)=0;
+				virtual void				Visit(DocumentImageRun* run)=0;
+				virtual void				Visit(DocumentParagraphRun* run)=0;
+			};
+
+			DocumentRun(){}
+
+			virtual void					Accept(IVisitor* visitor)=0;
+		};
+		
+		class DocumentContainerRun : public DocumentRun, public Description<DocumentContainerRun>
+		{
+			typedef collections::List<Ptr<DocumentRun>>			RunList;
+		public:
+			RunList							runs;
+		};
+		
+		class DocumentContentRun : public DocumentRun, public Description<DocumentContentRun>
+		{
+		public:
+			virtual WString					GetRepresentationText()=0;
+		};
+
+		//-------------------------------------------------------------------------
+
+		class DocumentTextRun : public DocumentContentRun, public Description<DocumentTextRun>
+		{
+		public:
+			WString							text;
+
+			DocumentTextRun(){}
+
+			WString							GetRepresentationText()override{return text;}
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+				
+		class DocumentInlineObjectRun : public DocumentContentRun, public Description<DocumentInlineObjectRun>
+		{
+		public:
+			Size							size;
+			vint							baseline;
+
+			DocumentInlineObjectRun():baseline(-1){}
+		};
+				
+		class DocumentImageRun : public DocumentInlineObjectRun, public Description<DocumentImageRun>
+		{
+		public:
+			static const wchar_t*			RepresentationText;
+
+			Ptr<INativeImage>				image;
+			vint							frameIndex;
+			WString							source;
+
+			DocumentImageRun():frameIndex(0){}
+			
+			WString							GetRepresentationText()override{return RepresentationText;}
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+
+		//-------------------------------------------------------------------------
+				
+		class DocumentStylePropertiesRun : public DocumentContainerRun, public Description<DocumentStylePropertiesRun>
+		{
+		public:
+			Ptr<DocumentStyleProperties>	style;
+
+			DocumentStylePropertiesRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+				
+		class DocumentStyleApplicationRun : public DocumentContainerRun, public Description<DocumentStyleApplicationRun>
+		{
+		public:
+			WString							styleName;
+
+			DocumentStyleApplicationRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+		
+		class DocumentHyperlinkRun : public DocumentStyleApplicationRun, public Description<DocumentHyperlinkRun>
+		{
+		public:
+			WString							normalStyleName;
+			WString							activeStyleName;
+			WString							reference;
+
+			DocumentHyperlinkRun(){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+		};
+				
+		class DocumentParagraphRun : public DocumentContainerRun, public Description<DocumentParagraphRun>
+		{
+		public:
+			Alignment						alignment;
+
+			DocumentParagraphRun():alignment(Alignment::Left){}
+
+			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
+
+			WString							GetText(bool skipNonTextContent);
+			void							GetText(stream::TextWriter& writer, bool skipNonTextContent);
+		};
+
+/***********************************************************************
+Rich Content Document (model)
+***********************************************************************/
+
+		class DocumentStyle : public Object, public Description<DocumentStyle>
+		{
+		public:
+			WString							parentStyleName;
+
+			Ptr<DocumentStyleProperties>	styles;
+
+			Ptr<DocumentStyleProperties>	resolvedStyles;
+		};
+
+		class DocumentModel : public Object, public Description<DocumentModel>
+		{
+		public:
+			static const wchar_t*			DefaultStyleName;
+			static const wchar_t*			SelectionStyleName;
+			static const wchar_t*			ContextStyleName;
+			static const wchar_t*			NormalLinkStyleName;
+			static const wchar_t*			ActiveLinkStyleName;
+		public:
+			struct ResolvedStyle
+			{
+				FontProperties				style;
+				Color						color;
+				Color						backgroundColor;
+
+				ResolvedStyle()
+				{
+				}
+
+				ResolvedStyle(const FontProperties& _style, Color _color, Color _backgroundColor)
+					:style(_style)
+					,color(_color)
+					,backgroundColor(_backgroundColor)
+				{
+				}
+			};
+
+			struct RunRange
+			{
+				vint			start;
+				vint			end;
+			};
+
+			typedef collections::Dictionary<DocumentRun*, RunRange>						RunRangeMap;
+		private:
+			typedef collections::List<Ptr<DocumentParagraphRun>>						ParagraphList;
+			typedef collections::Dictionary<WString, Ptr<DocumentStyle>>				StyleMap;
+		public:
+			ParagraphList					paragraphs;
+			StyleMap						styles;
+			
+			DocumentModel();
+
+			ResolvedStyle					GetStyle(Ptr<DocumentStyleProperties> sp, const ResolvedStyle& context);
+			ResolvedStyle					GetStyle(const WString& styleName, const ResolvedStyle& context);
+
+			WString							GetText(bool skipNonTextContent);
+			void							GetText(stream::TextWriter& writer, bool skipNonTextContent);
+			
+			bool							CheckEditRange(TextPos begin, TextPos end, RunRangeMap& relatedRanges);
+			Ptr<DocumentModel>				CopyDocument(TextPos begin, TextPos end, bool deepCopy);
+			bool							CutParagraph(TextPos position);
+			bool							CutEditRange(TextPos begin, TextPos end);
+			bool							EditContainer(TextPos begin, TextPos end, const Func<void(DocumentParagraphRun*, RunRangeMap&, vint, vint)>& editor);
+			
+			vint							EditRun(TextPos begin, TextPos end, Ptr<DocumentModel> model);
+			vint							EditRun(TextPos begin, TextPos end, const collections::Array<Ptr<DocumentParagraphRun>>& runs);
+			vint							EditText(TextPos begin, TextPos end, bool frontSide, const collections::Array<WString>& text);
+			bool							EditStyle(TextPos begin, TextPos end, Ptr<DocumentStyleProperties> style);
+			Ptr<DocumentImageRun>			EditImage(TextPos begin, TextPos end, Ptr<GuiImageData> image);
+			bool							EditHyperlink(vint paragraphIndex, vint begin, vint end, const WString& reference, const WString& normalStyleName=NormalLinkStyleName, const WString& activeStyleName=ActiveLinkStyleName);
+			bool							RemoveHyperlink(vint paragraphIndex, vint begin, vint end);
+			Ptr<DocumentHyperlinkRun>		GetHyperlink(vint paragraphIndex, vint begin, vint end);
+			bool							EditStyleName(TextPos begin, TextPos end, const WString& styleName);
+			bool							RemoveStyleName(TextPos begin, TextPos end);
+			bool							RenameStyle(const WString& oldStyleName, const WString& newStyleName);
+			bool							ClearStyle(TextPos begin, TextPos end);
+			Ptr<DocumentStyleProperties>	SummarizeStyle(TextPos begin, TextPos end);
+
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<GuiResourcePathResolver> resolver);
+
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory);
+
+			static Ptr<DocumentModel>		LoadFromXml(const WString& filePath);
+
+			Ptr<parsing::xml::XmlDocument>	SaveToXml();
+			
+			bool							SaveToXml(const WString& filePath);
+		};
 	}
 }
 
@@ -2575,12 +2766,39 @@ Colorized Plain Text (element)
 				Color								GetCaretColor();
 				void								SetCaretColor(Color value);
 			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+GRAPHICSELEMENT\GUIGRAPHICSDOCUMENTELEMENT.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Element System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSDOCUMENTELEMENT
+#define VCZH_PRESENTATION_ELEMENTS_GUIGRAPHICSDOCUMENTELEMENT
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace elements
+		{
 
 /***********************************************************************
 Rich Content Document (element)
 ***********************************************************************/
 
-			class GuiDocumentElement : public Object, public IGuiGraphicsElement, public Description<GuiColorizedTextElement>
+			class GuiDocumentElement : public Object, public IGuiGraphicsElement, public Description<GuiDocumentElement>
 			{
 				DEFINE_GUI_GRAPHICS_ELEMENT(GuiDocumentElement, L"RichDocument");
 			public:
@@ -2590,34 +2808,62 @@ Rich Content Document (element)
 				protected:
 					struct ParagraphCache
 					{
-						WString							fullText;
-						Ptr<IGuiGraphicsParagraph>		graphicsParagraph;
+						WString								fullText;
+						Ptr<IGuiGraphicsParagraph>			graphicsParagraph;
+						vint								selectionBegin;
+						vint								selectionEnd;
+
+						ParagraphCache()
+							:selectionBegin(-1)
+							,selectionEnd(-1)
+						{
+						}
 					};
 
 					typedef collections::Array<Ptr<ParagraphCache>>		ParagraphCacheArray;
+					typedef collections::Array<vint>					ParagraphHeightArray;
 				protected:
 					vint									paragraphDistance;
 					vint									lastMaxWidth;
 					vint									cachedTotalHeight;
 					IGuiGraphicsLayoutProvider*				layoutProvider;
 					ParagraphCacheArray						paragraphCaches;
-					collections::Array<vint>				paragraphHeights;
+					ParagraphHeightArray					paragraphHeights;
+
+					TextPos									lastCaret;
+					Color									lastCaretColor;
+					bool									lastCaretFrontSide;
 
 					void									InitializeInternal();
 					void									FinalizeInternal();
 					void									RenderTargetChangedInternal(IGuiGraphicsRenderTarget* oldRenderTarget, IGuiGraphicsRenderTarget* newRenderTarget);
+					Ptr<ParagraphCache>						EnsureAndGetCache(vint paragraphIndex, bool createParagraph);
+					bool									GetParagraphIndexFromPoint(Point point, vint& top, vint& index);
 				public:
 					GuiDocumentElementRenderer();
 
 					void									Render(Rect bounds)override;
 					void									OnElementStateChanged()override;
+					void									NotifyParagraphUpdated(vint index, vint oldCount, vint newCount, bool updatedText);
+					Ptr<DocumentHyperlinkRun>				GetHyperlinkFromPoint(Point point);
 
-					void									NotifyParagraphUpdated(vint index);
-					vint									GetHyperlinkIdFromPoint(Point point);
+					void									OpenCaret(TextPos caret, Color color, bool frontSide);
+					void									CloseCaret(TextPos caret);
+					void									SetSelection(TextPos begin, TextPos end);
+					TextPos									CalculateCaret(TextPos comparingCaret, IGuiGraphicsParagraph::CaretRelativePosition position, bool& preferFrontSide);
+					TextPos									CalculateCaretFromPoint(Point point);
+					Rect									GetCaretBounds(TextPos caret, bool frontSide);
 				};
 
 			protected:
 				Ptr<DocumentModel>							document;
+				TextPos										caretBegin;
+				TextPos										caretEnd;
+				bool										caretVisible;
+				bool										caretFrontSide;
+				Color										caretColor;
+
+				void										UpdateCaret();
 
 				GuiDocumentElement();
 			public:
@@ -2625,10 +2871,34 @@ Rich Content Document (element)
 				
 				Ptr<DocumentModel>							GetDocument();
 				void										SetDocument(Ptr<DocumentModel> value);
-				void										NotifyParagraphUpdated(vint index);
+				TextPos										GetCaretBegin();
+				TextPos										GetCaretEnd();
+				bool										IsCaretEndPreferFrontSide();
+				void										SetCaret(TextPos begin, TextPos end, bool frontSide);
+				bool										GetCaretVisible();
+				void										SetCaretVisible(bool value);
+				Color										GetCaretColor();
+				void										SetCaretColor(Color value);
 
-				vint										GetHyperlinkIdFromPoint(Point point);
-				void										ActivateHyperlink(vint hyperlinkId, bool active);
+				TextPos										CalculateCaret(TextPos comparingCaret, IGuiGraphicsParagraph::CaretRelativePosition position, bool& preferFrontSide);
+				TextPos										CalculateCaretFromPoint(Point point);
+				Rect										GetCaretBounds(TextPos caret, bool frontSide);
+
+				void										NotifyParagraphUpdated(vint index, vint oldCount, vint newCount, bool updatedText);
+				void										EditRun(TextPos begin, TextPos end, Ptr<DocumentModel> model);
+				void										EditText(TextPos begin, TextPos end, bool frontSide, const collections::Array<WString>& text);
+				void										EditStyle(TextPos begin, TextPos end, Ptr<DocumentStyleProperties> style);
+				void										EditImage(TextPos begin, TextPos end, Ptr<GuiImageData> image);
+				void										EditHyperlink(vint paragraphIndex, vint begin, vint end, const WString& reference, const WString& normalStyleName=DocumentModel::NormalLinkStyleName, const WString& activeStyleName=DocumentModel::ActiveLinkStyleName);
+				void										RemoveHyperlink(vint paragraphIndex, vint begin, vint end);
+				void										EditStyleName(TextPos begin, TextPos end, const WString& styleName);
+				void										RemoveStyleName(TextPos begin, TextPos end);
+				void										RenameStyle(const WString& oldStyleName, const WString& newStyleName);
+				void										ClearStyle(TextPos begin, TextPos end);
+				Ptr<DocumentStyleProperties>				SummarizeStyle(TextPos begin, TextPos end);
+				void										SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments);
+
+				Ptr<DocumentHyperlinkRun>					GetHyperlinkFromPoint(Point point);
 			};
 		}
 	}
@@ -3345,7 +3615,7 @@ Table Compositions
 				Size										previousContentMinSize;
 				Size										tableContentMinSize;
 
-				vint									GetSiteIndex(vint _rows, vint _columns, vint _row, vint _column);
+				vint								GetSiteIndex(vint _rows, vint _columns, vint _row, vint _column);
 				void								SetSitedCell(vint _row, vint _column, GuiCellComposition* cell);
 
 				void								UpdateCellBoundsInternal(
@@ -4087,6 +4357,9 @@ Basic Construction
 			public:
 				GuiComponent();
 				~GuiComponent();
+
+				virtual void							Attach(GuiControlHost* controlHost);
+				virtual void							Detach(GuiControlHost* controlHost);
 			};
 
 			template<typename T>
@@ -4518,47 +4791,47 @@ Control Host
 			class GuiControlHost : public GuiControl, private INativeWindowListener, public Description<GuiControlHost>
 			{
 			protected:
-				compositions::GuiGraphicsHost*			host;
-				collections::List<GuiComponent*>		components;
+				compositions::GuiGraphicsHost*					host;
+				collections::SortedList<GuiComponent*>			components;
 
-				virtual void							OnNativeWindowChanged();
-				virtual void							OnVisualStatusChanged();
+				virtual void									OnNativeWindowChanged();
+				virtual void									OnVisualStatusChanged();
 			private:
-				static const vint						TooltipDelayOpenTime=500;
-				static const vint						TooltipDelayCloseTime=500;
-				static const vint						TooltipDelayLifeTime=5000;
+				static const vint								TooltipDelayOpenTime=500;
+				static const vint								TooltipDelayCloseTime=500;
+				static const vint								TooltipDelayLifeTime=5000;
 
-				Ptr<INativeDelay>						tooltipOpenDelay;
-				Ptr<INativeDelay>						tooltipCloseDelay;
-				Point									tooltipLocation;
+				Ptr<INativeDelay>								tooltipOpenDelay;
+				Ptr<INativeDelay>								tooltipCloseDelay;
+				Point											tooltipLocation;
 				
-				GuiControl*								GetTooltipOwner(Point location);
-				void									MoveIntoTooltipControl(GuiControl* tooltipControl, Point location);
-				void									MouseMoving(const NativeWindowMouseInfo& info)override;
-				void									MouseLeaved()override;
-				void									Moved()override;
-				void									Enabled()override;
-				void									Disabled()override;
-				void									GotFocus()override;
-				void									LostFocus()override;
-				void									Activated()override;
-				void									Deactivated()override;
-				void									Opened()override;
-				void									Closing(bool& cancel)override;
-				void									Closed()override;
-				void									Destroying()override;
+				GuiControl*										GetTooltipOwner(Point location);
+				void											MoveIntoTooltipControl(GuiControl* tooltipControl, Point location);
+				void											MouseMoving(const NativeWindowMouseInfo& info)override;
+				void											MouseLeaved()override;
+				void											Moved()override;
+				void											Enabled()override;
+				void											Disabled()override;
+				void											GotFocus()override;
+				void											LostFocus()override;
+				void											Activated()override;
+				void											Deactivated()override;
+				void											Opened()override;
+				void											Closing(bool& cancel)override;
+				void											Closed()override;
+				void											Destroying()override;
 			public:
 				GuiControlHost(GuiControl::IStyleController* _styleController);
 				~GuiControlHost();
 				
-				compositions::GuiNotifyEvent			WindowGotFocus;
-				compositions::GuiNotifyEvent			WindowLostFocus;
-				compositions::GuiNotifyEvent			WindowActivated;
-				compositions::GuiNotifyEvent			WindowDeactivated;
-				compositions::GuiNotifyEvent			WindowOpened;
-				compositions::GuiRequestEvent			WindowClosing;
-				compositions::GuiNotifyEvent			WindowClosed;
-				compositions::GuiNotifyEvent			WindowDestroying;
+				compositions::GuiNotifyEvent					WindowGotFocus;
+				compositions::GuiNotifyEvent					WindowLostFocus;
+				compositions::GuiNotifyEvent					WindowActivated;
+				compositions::GuiNotifyEvent					WindowDeactivated;
+				compositions::GuiNotifyEvent					WindowOpened;
+				compositions::GuiRequestEvent					WindowClosing;
+				compositions::GuiNotifyEvent					WindowClosed;
+				compositions::GuiNotifyEvent					WindowDestroying;
 
 				compositions::GuiGraphicsHost*					GetGraphicsHost();
 				compositions::GuiGraphicsComposition*			GetMainComposition();
@@ -4747,6 +5020,11 @@ namespace vl
 	{
 		namespace controls
 		{
+
+/***********************************************************************
+Application
+***********************************************************************/
+
 			class GuiApplication : public Object, private INativeControllerListener, public Description<GuiApplication>
 			{
 				friend void GuiApplicationInitialize();
@@ -4822,7 +5100,36 @@ namespace vl
 				}
 			};
 
+/***********************************************************************
+Plugin
+***********************************************************************/
+
+			class IGuiPlugin : public IDescriptable, public Description<IGuiPlugin>
+			{
+			public:
+				virtual void									Load()=0;
+				virtual void									AfterLoad()=0;
+				virtual void									Unload()=0;
+			};
+
+			class IGuiPluginManager : public IDescriptable, public Description<IGuiPluginManager>
+			{
+			public:
+				virtual void									AddPlugin(Ptr<IGuiPlugin> plugin)=0;
+				virtual void									Load()=0;
+				virtual void									Unload()=0;
+				virtual bool									IsLoaded()=0;
+			};
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+
 			extern GuiApplication*								GetApplication();
+
+			extern IGuiPluginManager*							GetPluginManager();
+
+			extern void											DestroyPluginManager();
 		}
 	}
 }
@@ -4831,6 +5138,16 @@ extern void GuiApplicationMain();
 
 #define GUI_VALUE(x) vl::presentation::controls::GetApplication()->RunGuiValue(LAMBDA([&](){return (x);}))
 #define GUI_RUN(x) vl::presentation::controls::GetApplication()->RunGuiTask([=](){x})
+
+#define GUI_REGISTER_PLUGIN(TYPE)\
+	class GuiRegisterPluginClass_##TYPE\
+	{\
+	public:\
+		GuiRegisterPluginClass_##TYPE()\
+		{\
+			vl::presentation::controls::GetPluginManager()->AddPlugin(new TYPE);\
+		}\
+	} instance_GuiRegisterPluginClass_##TYPE;\
 
 #endif
 
@@ -4866,11 +5183,11 @@ Tab Control
 				friend class GuiTab;
 				friend class Ptr<GuiTabPage>;
 			protected:
-				GuiControl*										container;
+				compositions::GuiBoundsComposition*				containerComposition;
 				GuiTab*											owner;
 				WString											text;
 
-				bool											AssociateTab(GuiTab* _owner, GuiControl::IStyleController* _styleController);
+				bool											AssociateTab(GuiTab* _owner);
 				bool											DeassociateTab(GuiTab* _owner);
 			public:
 				GuiTabPage();
@@ -4879,9 +5196,8 @@ Tab Control
 				compositions::GuiNotifyEvent					TextChanged;
 				compositions::GuiNotifyEvent					PageInstalled;
 				compositions::GuiNotifyEvent					PageUninstalled;
-				compositions::GuiNotifyEvent					PageContainerReady;
 
-				GuiControl*										GetContainer();
+				compositions::GuiBoundsComposition*				GetContainerComposition();
 				GuiTab*											GetOwnerTab();
 				const WString&									GetText();
 				void											SetText(const WString& param);
@@ -4907,7 +5223,6 @@ Tab Control
 					virtual void								RemoveTab(vint index)=0;
 					virtual void								MoveTab(vint oldIndex, vint newIndex)=0;
 					virtual void								SetSelectedTab(vint index)=0;
-					virtual GuiControl::IStyleController*		CreateTabPageStyleController()=0;
 				};
 			protected:
 				class CommandExecutor : public Object, public ICommandExecutor
@@ -5876,11 +6191,11 @@ Menu
 MenuButton
 ***********************************************************************/
 
-			class GuiMenuButton : public GuiButton, public Description<GuiMenuButton>
+			class GuiMenuButton : public GuiSelectableButton, public Description<GuiMenuButton>
 			{
 			public:
 				static const wchar_t* const				MenuItemSubComponentMeasuringCategoryName;
-				class IStyleController : public virtual GuiButton::IStyleController, public Description<IStyleController>
+				class IStyleController : public virtual GuiSelectableButton::IStyleController, public Description<IStyleController>
 				{
 				public:
 					virtual GuiMenu::IStyleController*	CreateSubMenuStyleController()=0;
@@ -6170,7 +6485,7 @@ ListView ItemContentProvider
 						elements::GuiSolidLabelElement*					text;
 
 					public:
-						ItemContent(Size iconSize, const FontProperties& font);
+						ItemContent(Size minIconSize, bool fitImage, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
@@ -6179,9 +6494,10 @@ ListView ItemContentProvider
 						void											Uninstall()override;
 					};
 
-					Size												iconSize;
+					Size												minIconSize;
+					bool												fitImage;
 				public:
-					ListViewBigIconContentProvider(Size _iconSize=Size(32, 32));
+					ListViewBigIconContentProvider(Size _minIconSize=Size(32, 32), bool _fitImage=true);
 					~ListViewBigIconContentProvider();
 
 					GuiListControl::IItemCoordinateTransformer*			CreatePreferredCoordinateTransformer()override;
@@ -6202,7 +6518,7 @@ ListView ItemContentProvider
 						elements::GuiSolidLabelElement*					text;
 
 					public:
-						ItemContent(Size iconSize, const FontProperties& font);
+						ItemContent(Size minIconSize, bool fitImage, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
@@ -6211,9 +6527,10 @@ ListView ItemContentProvider
 						void											Uninstall()override;
 					};
 
-					Size												iconSize;
+					Size												minIconSize;
+					bool												fitImage;
 				public:
-					ListViewSmallIconContentProvider(Size _iconSize=Size(16, 16));
+					ListViewSmallIconContentProvider(Size _minIconSize=Size(16, 16), bool _fitImage=true);
 					~ListViewSmallIconContentProvider();
 					
 					GuiListControl::IItemCoordinateTransformer*			CreatePreferredCoordinateTransformer()override;
@@ -6234,7 +6551,7 @@ ListView ItemContentProvider
 						elements::GuiSolidLabelElement*					text;
 
 					public:
-						ItemContent(Size iconSize, const FontProperties& font);
+						ItemContent(Size minIconSize, bool fitImage, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
@@ -6243,9 +6560,10 @@ ListView ItemContentProvider
 						void											Uninstall()override;
 					};
 
-					Size												iconSize;
+					Size												minIconSize;
+					bool												fitImage;
 				public:
-					ListViewListContentProvider(Size _iconSize=Size(16, 16));
+					ListViewListContentProvider(Size _minIconSize=Size(16, 16), bool _fitImage=true);
 					~ListViewListContentProvider();
 					
 					GuiListControl::IItemCoordinateTransformer*			CreatePreferredCoordinateTransformer()override;
@@ -6272,7 +6590,7 @@ ListView ItemContentProvider
 						elements::GuiSolidLabelElement*					CreateTextElement(vint textRow, const FontProperties& font);
 						void											ResetTextTable(vint textRows);
 					public:
-						ItemContent(Size iconSize, const FontProperties& font);
+						ItemContent(Size minIconSize, bool fitImage, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
@@ -6281,9 +6599,10 @@ ListView ItemContentProvider
 						void											Uninstall()override;
 					};
 
-					Size												iconSize;
+					Size												minIconSize;
+					bool												fitImage;
 				public:
-					ListViewTileContentProvider(Size _iconSize=Size(32, 32));
+					ListViewTileContentProvider(Size _minIconSize=Size(32, 32), bool _fitImage=true);
 					~ListViewTileContentProvider();
 					
 					GuiListControl::IItemCoordinateTransformer*			CreatePreferredCoordinateTransformer()override;
@@ -6311,7 +6630,7 @@ ListView ItemContentProvider
 						compositions::GuiBoundsComposition*				bottomLineComposition;
 
 					public:
-						ItemContent(Size iconSize, const FontProperties& font);
+						ItemContent(Size minIconSize, bool fitImage, const FontProperties& font);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
@@ -6320,9 +6639,10 @@ ListView ItemContentProvider
 						void											Uninstall()override;
 					};
 
-					Size												iconSize;
+					Size												minIconSize;
+					bool												fitImage;
 				public:
-					ListViewInformationContentProvider(Size _iconSize=Size(32, 32));
+					ListViewInformationContentProvider(Size _minIconSize=Size(32, 32), bool _fitImage=true);
 					~ListViewInformationContentProvider();
 					
 					GuiListControl::IItemCoordinateTransformer*			CreatePreferredCoordinateTransformer()override;
@@ -6426,7 +6746,7 @@ ListView ItemContentProvider(Detailed)
 						ListViewColumnItemArranger::IColumnItemView*	columnItemView;
 
 					public:
-						ItemContent(Size iconSize, const FontProperties& font, GuiListControl::IItemProvider* _itemProvider);
+						ItemContent(Size minIconSize, bool fitImage, const FontProperties& font, GuiListControl::IItemProvider* _itemProvider);
 						~ItemContent();
 
 						compositions::GuiBoundsComposition*				GetContentComposition()override;
@@ -6436,14 +6756,15 @@ ListView ItemContentProvider(Detailed)
 						void											Uninstall()override;
 					};
 
-					Size												iconSize;
+					Size												minIconSize;
+					bool												fitImage;
 					GuiListControl::IItemProvider*						itemProvider;
 					ListViewColumnItemArranger::IColumnItemView*		columnItemView;
 					ListViewItemStyleProvider*							listViewItemStyleProvider;
 
 					void												OnColumnChanged()override;
 				public:
-					ListViewDetailContentProvider(Size _iconSize=Size(16, 16));
+					ListViewDetailContentProvider(Size _minIconSize=Size(16, 16), bool _fitImage=true);
 					~ListViewDetailContentProvider();
 					
 					GuiListControl::IItemCoordinateTransformer*			CreatePreferredCoordinateTransformer()override;
@@ -7005,7 +7326,7 @@ TreeView
 						void								OnExpandingButtonDoubleClick(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 						void								OnExpandingButtonClicked(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 					public:
-						ItemController(TreeViewNodeItemStyleProvider* _styleProvider);
+						ItemController(TreeViewNodeItemStyleProvider* _styleProvider, Size minIconSize, bool fitImage);
 
 						INodeItemStyleProvider*				GetNodeStyleProvider()override;
 						void								Install(INodeProvider* node);
@@ -7019,6 +7340,8 @@ TreeView
 					GuiVirtualTreeView*						treeControl;
 					GuiListControl::IItemStyleProvider*		bindedItemStyleProvider;
 					ITreeViewItemView*						treeViewItemView;
+					Size									minIconSize;
+					bool									fitImage;
 
 				protected:
 					ItemController*							GetRelatedController(INodeProvider* node);
@@ -7029,7 +7352,7 @@ TreeView
 					void									OnItemExpanded(INodeProvider* node)override;
 					void									OnItemCollapsed(INodeProvider* node)override;
 				public:
-					TreeViewNodeItemStyleProvider();
+					TreeViewNodeItemStyleProvider(Size _minIconSize = Size(16, 16), bool _fitImage = true);
 					~TreeViewNodeItemStyleProvider();
 
 					void									BindItemStyleProvider(GuiListControl::IItemStyleProvider* styleProvider)override;
@@ -7953,6 +8276,10 @@ Undo Redo
 				bool										Redo();
 			};
 
+/***********************************************************************
+Undo Redo (Text)
+***********************************************************************/
+
 			class GuiTextBoxUndoRedoProcessor : public GuiGeneralUndoRedoProcessor, public ICommonTextEditCallback
 			{
 			protected:
@@ -7977,6 +8304,89 @@ Undo Redo
 				void										TextEditNotify(const TextEditNotifyStruct& arguments)override;
 				void										TextCaretChanged(const TextCaretChangedStruct& arguments)override;
 				void										TextEditFinished(vuint editVersion)override;
+			};
+
+/***********************************************************************
+Undo Redo (Document)
+***********************************************************************/
+
+			class GuiDocumentUndoRedoProcessor : public GuiGeneralUndoRedoProcessor
+			{
+			public:
+				struct ReplaceModelStruct
+				{
+					TextPos									originalStart;
+					TextPos									originalEnd;
+					Ptr<DocumentModel>						originalModel;
+					TextPos									inputStart;
+					TextPos									inputEnd;
+					Ptr<DocumentModel>						inputModel;
+
+					ReplaceModelStruct()
+					{
+					}
+				};
+
+				struct RenameStyleStruct
+				{
+					WString									oldStyleName;
+					WString									newStyleName;
+
+					RenameStyleStruct()
+					{
+					}
+				};
+
+				struct SetAlignmentStruct
+				{
+					vint									start;
+					vint									end;
+					collections::Array<Alignment>			originalAlignments;
+					collections::Array<Alignment>			inputAlignments;
+				};
+
+			protected:
+				elements::GuiDocumentElement*				element;
+				compositions::GuiGraphicsComposition*		ownerComposition;
+				
+				class ReplaceModelStep : public Object, public IEditStep
+				{
+				public:
+					GuiDocumentUndoRedoProcessor*			processor;
+					ReplaceModelStruct						arguments;
+					
+					void									Undo();
+					void									Redo();
+				};
+
+				class RenameStyleStep : public Object, public IEditStep
+				{
+				public:
+					GuiDocumentUndoRedoProcessor*			processor;
+					RenameStyleStruct						arguments;
+					
+					void									Undo();
+					void									Redo();
+				};
+
+				class SetAlignmentStep : public Object, public IEditStep
+				{
+				public:
+					GuiDocumentUndoRedoProcessor*			processor;
+					Ptr<SetAlignmentStruct>					arguments;
+					
+					void									Undo();
+					void									Redo();
+				};
+			public:
+
+				GuiDocumentUndoRedoProcessor();
+				~GuiDocumentUndoRedoProcessor();
+
+				void										Setup(elements::GuiDocumentElement* _element, compositions::GuiGraphicsComposition* _ownerComposition);
+				void										OnReplaceModel(const ReplaceModelStruct& arguments);
+				void										OnRenameStyle(const RenameStyleStruct& arguments);
+				void										OnSetAlignment(Ptr<SetAlignmentStruct> arguments);
 			};
 		}
 	}
@@ -8042,24 +8452,6 @@ Common Interface
 					vint											GetPageRows()override;
 					bool											BeforeModify(TextPos start, TextPos end, const WString& originalText, WString& inputText)override;
 				};
-
-			public:
-				class ShortcutCommand
-				{
-				protected:
-					bool											ctrl;
-					bool											shift;
-					vint											key;
-					Func<void()>									action;
-				public:
-					ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<void()> _action);
-					ShortcutCommand(bool _ctrl, bool _shift, vint _key, const Func<bool()> _action);
-					~ShortcutCommand();
-
-					bool											IsTheRightKey(bool _ctrl, bool _shift, vint _key);
-					void											Execute();
-				};
-
 			private:
 				elements::GuiColorizedTextElement*					textElement;
 				compositions::GuiGraphicsComposition*				textComposition;
@@ -8074,7 +8466,7 @@ Common Interface
 
 				SpinLock											elementModifyLock;
 				collections::List<Ptr<ICommonTextEditCallback>>		textEditCallbacks;
-				collections::List<Ptr<ShortcutCommand>>				shortcutCommands;
+				Ptr<compositions::GuiShortcutKeyManager>			internalShortcutKeyManager;
 				bool												preventEnterDueToAutoComplete;
 
 				void												UpdateCaretPoint();
@@ -8099,7 +8491,7 @@ Common Interface
 				void												SetCallback(ICallback* value);
 				bool												AttachTextEditCallback(Ptr<ICommonTextEditCallback> value);
 				bool												DetachTextEditCallback(Ptr<ICommonTextEditCallback> value);
-				void												AddShortcutCommand(Ptr<ShortcutCommand> shortcutCommand);
+				void												AddShortcutCommand(vint key, const Func<void()>& eventHandler);
 				elements::GuiColorizedTextElement*					GetTextElement();
 				void												UnsafeSetText(const WString& value);
 
@@ -8128,7 +8520,8 @@ Common Interface
 				void												SelectAll();
 				void												Select(TextPos begin, TextPos end);
 				WString												GetSelectionText();
-				void												SetSelectionText(const WString& value, bool asKeyInput=false);
+				void												SetSelectionText(const WString& value);
+				void												SetSelectionTextAsKeyInput(const WString& value);
 				
 				WString												GetRowText(vint row);
 				WString												GetFragmentText(TextPos start, TextPos end);
@@ -8373,32 +8766,115 @@ GuiDocumentCommonInterface
 			
 			class GuiDocumentCommonInterface abstract : public Description<GuiDocumentCommonInterface>
 			{
+			public:
+				enum EditMode
+				{
+					ViewOnly,
+					Selectable,
+					Editable,
+				};
 			protected:
+				GuiControl*									documentControl;
 				elements::GuiDocumentElement*				documentElement;
 				compositions::GuiBoundsComposition*			documentComposition;
-				vint										activeHyperlinkId;
-				vint										draggingHyperlinkId;
+				Ptr<DocumentHyperlinkRun>					activeHyperlink;
+				vint										activeHyperlinkParagraph;
 				bool										dragging;
-				GuiControl*									senderControl;
+				EditMode									editMode;
 
+				Ptr<GuiDocumentUndoRedoProcessor>			undoRedoProcessor;
+				Ptr<compositions::GuiShortcutKeyManager>	internalShortcutKeyManager;
+
+				void										UpdateCaretPoint();
+				void										Move(TextPos caret, bool shift, bool frontSide);
+				bool										ProcessKey(vint code, bool shift, bool ctrl);
 				void										InstallDocumentViewer(GuiControl* _sender, compositions::GuiGraphicsComposition* _container);
-				void										SetActiveHyperlinkId(vint value);
+				void										SetActiveHyperlink(Ptr<DocumentHyperlinkRun> hyperlink, vint paragraphIndex=-1);
+				void										ActivateActiveHyperlink(bool activate);
+				void										AddShortcutCommand(vint key, const Func<void()>& eventHandler);
+				void										EditTextInternal(TextPos begin, TextPos end, const Func<void(TextPos, TextPos, vint&, vint&)>& editor);
+				void										EditStyleInternal(TextPos begin, TextPos end, const Func<void(TextPos, TextPos)>& editor);
+
+				void										OnCaretNotify(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void										OnGotFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void										OnLostFocus(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void										OnKeyDown(compositions::GuiGraphicsComposition* sender, compositions::GuiKeyEventArgs& arguments);
+				void										OnCharInput(compositions::GuiGraphicsComposition* sender, compositions::GuiCharEventArgs& arguments);
 				void										OnMouseMove(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 				void										OnMouseDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 				void										OnMouseUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 				void										OnMouseLeave(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+
+				virtual Point								GetDocumentViewPosition();
+				virtual void								EnsureRectVisible(Rect bounds);
 			public:
 				GuiDocumentCommonInterface();
 				~GuiDocumentCommonInterface();
 
 				compositions::GuiNotifyEvent				ActiveHyperlinkChanged;
 				compositions::GuiNotifyEvent				ActiveHyperlinkExecuted;
+
+				compositions::GuiNotifyEvent				SelectionChanged;
 				
 				Ptr<DocumentModel>							GetDocument();
 				void										SetDocument(Ptr<DocumentModel> value);
-				void										NotifyParagraphUpdated(vint index);
-				vint										GetActiveHyperlinkId();
+
+				//================ caret operations
+
+				TextPos										GetCaretBegin();
+				TextPos										GetCaretEnd();
+				void										SetCaret(TextPos begin, TextPos end);
+				TextPos										CalculateCaretFromPoint(Point point);
+				Rect										GetCaretBounds(TextPos caret, bool frontSide);
+
+				//================ editing operations
+
+				void										NotifyParagraphUpdated(vint index, vint oldCount, vint newCount, bool updatedText);
+				void										EditRun(TextPos begin, TextPos end, Ptr<DocumentModel> model);
+				void										EditText(TextPos begin, TextPos end, bool frontSide, const collections::Array<WString>& text);
+				void										EditStyle(TextPos begin, TextPos end, Ptr<DocumentStyleProperties> style);
+				void										EditImage(TextPos begin, TextPos end, Ptr<GuiImageData> image);
+				void										EditHyperlink(vint paragraphIndex, vint begin, vint end, const WString& reference, const WString& normalStyleName=DocumentModel::NormalLinkStyleName, const WString& activeStyleName=DocumentModel::ActiveLinkStyleName);
+				void										RemoveHyperlink(vint paragraphIndex, vint begin, vint end);
+				void										EditStyleName(TextPos begin, TextPos end, const WString& styleName);
+				void										RemoveStyleName(TextPos begin, TextPos end);
+				void										RenameStyle(const WString& oldStyleName, const WString& newStyleName);
+				void										ClearStyle(TextPos begin, TextPos end);
+				Ptr<DocumentStyleProperties>				SummarizeStyle(TextPos begin, TextPos end);
+				void										SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments);
+
+				//================ editing control
+
 				WString										GetActiveHyperlinkReference();
+				EditMode									GetEditMode();
+				void										SetEditMode(EditMode value);
+
+				//================ selection operations
+
+				void										SelectAll();
+				WString										GetSelectionText();
+				void										SetSelectionText(const WString& value);
+				Ptr<DocumentModel>							GetSelectionModel();
+				void										SetSelectionModel(Ptr<DocumentModel> value);
+
+				//================ clipboard operations
+
+				bool										CanCut();
+				bool										CanCopy();
+				bool										CanPaste();
+				bool										Cut();
+				bool										Copy();
+				bool										Paste();
+
+				//================ undo redo control
+
+				bool										CanUndo();
+				bool										CanRedo();
+				void										ClearUndoRedo();
+				bool										GetModified();
+				void										NotifyModificationSaved();
+				bool										Undo();
+				bool										Redo();
 			};
 
 /***********************************************************************
@@ -8407,9 +8883,16 @@ GuiDocumentViewer
 			
 			class GuiDocumentViewer : public GuiScrollContainer, public GuiDocumentCommonInterface, public Description<GuiDocumentViewer>
 			{
+			protected:
+
+				Point										GetDocumentViewPosition()override;
+				void										EnsureRectVisible(Rect bounds)override;
 			public:
 				GuiDocumentViewer(GuiDocumentViewer::IStyleProvider* styleProvider);
 				~GuiDocumentViewer();
+
+				const WString&								GetText()override;
+				void										SetText(const WString& value)override;
 			};
 
 /***********************************************************************
@@ -8421,6 +8904,9 @@ GuiDocumentViewer
 			public:
 				GuiDocumentLabel(GuiDocumentLabel::IStyleController* styleController);
 				~GuiDocumentLabel();
+				
+				const WString&								GetText()override;
+				void										SetText(const WString& value)override;
 			};
 		}
 	}
@@ -9647,18 +10133,36 @@ namespace vl
 		{
 			class GuiToolstripCommand : public GuiComponent, public Description<GuiToolstripCommand>
 			{
+			public:
+				class ShortcutBuilder : public Object
+				{
+				public:
+					WString									text;
+					bool									ctrl;
+					bool									shift;
+					bool									alt;
+					vint									key;
+				};
 			protected:
 				Ptr<GuiImageData>							image;
 				WString										text;
 				compositions::IGuiShortcutKeyItem*			shortcutKeyItem;
 				bool										enabled;
+				bool										selected;
 				Ptr<compositions::GuiNotifyEvent::IHandler>	shortcutKeyItemExecutedHandler;
+				Ptr<ShortcutBuilder>						shortcutBuilder;
+				GuiControlHost*								shortcutOwner;
 
 				void										OnShortcutKeyItemExecuted(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void										InvokeDescriptionChanged();
+				void										ReplaceShortcut(compositions::IGuiShortcutKeyItem* value, Ptr<ShortcutBuilder> builder);
+				void										BuildShortcut(const WString& builderText);
 			public:
 				GuiToolstripCommand();
 				~GuiToolstripCommand();
+
+				void										Attach(GuiControlHost* controlHost)override;
+				void										Detach(GuiControlHost* controlHost)override;
 
 				compositions::GuiNotifyEvent				Executed;
 
@@ -9670,8 +10174,12 @@ namespace vl
 				void										SetText(const WString& value);
 				compositions::IGuiShortcutKeyItem*			GetShortcut();
 				void										SetShortcut(compositions::IGuiShortcutKeyItem* value);
+				WString										GetShortcutBuilder();
+				void										SetShortcutBuilder(const WString& value);
 				bool										GetEnabled();
 				void										SetEnabled(bool value);
+				bool										GetSelected();
+				void										SetSelected(bool value);
 			};
 		}
 	}
@@ -9742,13 +10250,13 @@ Toolstrip Builder Facade
 			{
 				friend class GuiToolstripMenu;
 				friend class GuiToolstripMenuBar;
-				friend class GuiToolstripToolbar;
+				friend class GuiToolstripToolBar;
 			protected:
 				enum Environment
 				{
 					Menu,
 					MenuBar,
-					Toolbar,
+					ToolBar,
 				};
 
 				Environment									environment;
@@ -9809,7 +10317,7 @@ Toolstrip Container
 				GuiToolstripBuilder*						GetBuilder(theme::ITheme* themeObject=0);
 			};
 
-			class GuiToolstripToolbar : public GuiControl, public Description<GuiToolstripToolbar>
+			class GuiToolstripToolBar : public GuiControl, public Description<GuiToolstripToolBar>
 			{
 			protected:
 				compositions::GuiStackComposition*			stackComposition;
@@ -9817,8 +10325,8 @@ Toolstrip Container
 				Ptr<GuiToolstripBuilder>					builder;
 
 			public:
-				GuiToolstripToolbar(IStyleController* _styleController);
-				~GuiToolstripToolbar();
+				GuiToolstripToolBar(IStyleController* _styleController);
+				~GuiToolstripToolBar();
 				
 				GuiToolstripCollection&						GetToolstripItems();
 				GuiToolstripBuilder*						GetBuilder(theme::ITheme* themeObject=0);
@@ -9914,11 +10422,11 @@ namespace vl
 				virtual controls::GuiControl::IStyleController*								CreateMenuSplitterStyle()=0;
 				virtual controls::GuiToolstripButton::IStyleController*						CreateMenuBarButtonStyle()=0;
 				virtual controls::GuiToolstripButton::IStyleController*						CreateMenuItemButtonStyle()=0;
-				virtual controls::GuiToolstripToolbar::IStyleController*					CreateToolbarStyle()=0;
-				virtual controls::GuiToolstripButton::IStyleController*						CreateToolbarButtonStyle()=0;
-				virtual controls::GuiToolstripButton::IStyleController*						CreateToolbarDropdownButtonStyle()=0;
-				virtual controls::GuiToolstripButton::IStyleController*						CreateToolbarSplitButtonStyle()=0;
-				virtual controls::GuiControl::IStyleController*								CreateToolbarSplitterStyle()=0;
+				virtual controls::GuiToolstripToolBar::IStyleController*					CreateToolBarStyle()=0;
+				virtual controls::GuiToolstripButton::IStyleController*						CreateToolBarButtonStyle()=0;
+				virtual controls::GuiToolstripButton::IStyleController*						CreateToolBarDropdownButtonStyle()=0;
+				virtual controls::GuiToolstripButton::IStyleController*						CreateToolBarSplitButtonStyle()=0;
+				virtual controls::GuiControl::IStyleController*								CreateToolBarSplitterStyle()=0;
 				
 				virtual controls::GuiButton::IStyleController*								CreateButtonStyle()=0;
 				virtual controls::GuiSelectableButton::IStyleController*					CreateCheckBoxStyle()=0;
@@ -9968,11 +10476,11 @@ namespace vl
 				extern controls::GuiControl*					NewMenuSplitter();
 				extern controls::GuiToolstripButton*			NewMenuBarButton();
 				extern controls::GuiToolstripButton*			NewMenuItemButton();
-				extern controls::GuiToolstripToolbar*			NewToolbar();
-				extern controls::GuiToolstripButton*			NewToolbarButton();
-				extern controls::GuiToolstripButton*			NewToolbarDropdownButton();
-				extern controls::GuiToolstripButton*			NewToolbarSplitButton();
-				extern controls::GuiControl*					NewToolbarSplitter();
+				extern controls::GuiToolstripToolBar*			NewToolBar();
+				extern controls::GuiToolstripButton*			NewToolBarButton();
+				extern controls::GuiToolstripButton*			NewToolBarDropdownButton();
+				extern controls::GuiToolstripButton*			NewToolBarSplitButton();
+				extern controls::GuiControl*					NewToolBarSplitter();
 
 				extern controls::GuiButton*						NewButton();
 				extern controls::GuiSelectableButton*			NewCheckBox();
@@ -10049,11 +10557,11 @@ Theme
 				controls::GuiControl::IStyleController*								CreateMenuSplitterStyle()override;
 				controls::GuiToolstripButton::IStyleController*						CreateMenuBarButtonStyle()override;
 				controls::GuiToolstripButton::IStyleController*						CreateMenuItemButtonStyle()override;
-				controls::GuiToolstripToolbar::IStyleController*					CreateToolbarStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarDropdownButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarSplitButtonStyle()override;
-				controls::GuiControl::IStyleController*								CreateToolbarSplitterStyle()override;
+				controls::GuiToolstripToolBar::IStyleController*					CreateToolBarStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolBarButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolBarDropdownButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolBarSplitButtonStyle()override;
+				controls::GuiControl::IStyleController*								CreateToolBarSplitterStyle()override;
 
 				controls::GuiButton::IStyleController*								CreateButtonStyle()override;
 				controls::GuiSelectableButton::IStyleController*					CreateCheckBoxStyle()override;
@@ -10132,11 +10640,11 @@ Theme
 				controls::GuiControl::IStyleController*								CreateMenuSplitterStyle()override;
 				controls::GuiToolstripButton::IStyleController*						CreateMenuBarButtonStyle()override;
 				controls::GuiToolstripButton::IStyleController*						CreateMenuItemButtonStyle()override;
-				controls::GuiToolstripToolbar::IStyleController*					CreateToolbarStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarDropdownButtonStyle()override;
-				controls::GuiToolstripButton::IStyleController*						CreateToolbarSplitButtonStyle()override;
-				controls::GuiControl::IStyleController*								CreateToolbarSplitterStyle()override;
+				controls::GuiToolstripToolBar::IStyleController*					CreateToolBarStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolBarButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolBarDropdownButtonStyle()override;
+				controls::GuiToolstripButton::IStyleController*						CreateToolBarSplitButtonStyle()override;
+				controls::GuiControl::IStyleController*								CreateToolBarSplitterStyle()override;
 
 				controls::GuiButton::IStyleController*								CreateButtonStyle()override;
 				controls::GuiSelectableButton::IStyleController*					CreateCheckBoxStyle()override;
@@ -10156,2611 +10664,6 @@ Theme
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateCheckTextListItemStyle()override;
 				controls::list::TextItemStyleProvider::ITextItemStyleProvider*		CreateRadioTextListItemStyle()override;
 			};
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-GACUI.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI Header Files and Common Namespaces
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_GACUI
-#define VCZH_PRESENTATION_GACUI
-
-
-using namespace vl;
-using namespace vl::presentation;
-using namespace vl::presentation::elements;
-using namespace vl::presentation::compositions;
-using namespace vl::presentation::controls;
-using namespace vl::presentation::theme;
-
-extern int SetupWindowsGDIRenderer();
-extern int SetupWindowsDirect2DRenderer();
-
-#endif
-
-/***********************************************************************
-REFLECTION\GUIREFLECTIONBASIC.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI Reflection: Basic
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONBASIC
-#define VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONBASIC
-
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-/***********************************************************************
-Type List
-***********************************************************************/
-
-#define GUIREFLECTIONBASIC_TYPELIST(F)\
-			F(presentation::Color)\
-			F(presentation::Alignment)\
-			F(presentation::TextPos)\
-			F(presentation::GridPos)\
-			F(presentation::Point)\
-			F(presentation::Size)\
-			F(presentation::Rect)\
-			F(presentation::Margin)\
-			F(presentation::FontProperties)\
-			F(presentation::INativeImageFrame)\
-			F(presentation::INativeImage)\
-			F(presentation::INativeImage::FormatType)\
-			F(presentation::INativeCursor)\
-			F(presentation::INativeCursor::SystemCursorType)\
-			F(presentation::INativeWindow)\
-			F(presentation::INativeWindow::WindowSizeState)\
-			F(presentation::INativeDelay)\
-			F(presentation::INativeDelay::ExecuteStatus)\
-			F(presentation::GuiImageData)\
-			F(presentation::DocumentModel)\
-			F(presentation::GuiResource)\
-			F(presentation::elements::IGuiGraphicsElement)\
-			F(presentation::compositions::GuiGraphicsComposition)\
-			F(presentation::compositions::GuiGraphicsComposition::MinSizeLimitation)\
-			F(presentation::INativeWindowListener::HitTestResult)\
-			F(presentation::compositions::GuiGraphicsSite)\
-			F(presentation::compositions::GuiWindowComposition)\
-			F(presentation::compositions::GuiBoundsComposition)\
-			F(presentation::controls::GuiControl)\
-			F(presentation::controls::GuiControl::IStyleController)\
-			F(presentation::controls::GuiControl::IStyleProvider)\
-			F(presentation::controls::GuiComponent)\
-			F(presentation::controls::GuiControlHost)\
-
-			GUIREFLECTIONBASIC_TYPELIST(DECL_TYPE_INFO)
-
-/***********************************************************************
-Type Declaration
-***********************************************************************/
-
-			template<>
-			struct TypedValueSerializerProvider<Color>
-			{
-				static bool Serialize(const Color& input, WString& output);
-				static bool Deserialize(const WString& input, Color& output);
-			};
-
-			template<>
-			struct CustomTypeDescriptorSelector<Color>
-			{
-			public:
-				typedef SerializableTypeDescriptor<TypedValueSerializer<Color>> CustomTypeDescriptorImpl;
-			};
-
-/***********************************************************************
-Interface Proxy
-***********************************************************************/
-
-			namespace interface_proxy
-			{
-				class GuiControl_IStyleController : public ValueInterfaceRoot, public virtual GuiControl::IStyleController
-				{
-				public:
-					GuiControl_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static GuiControl::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiControl_IStyleController(_proxy);
-					}
-
-					compositions::GuiBoundsComposition* GetBoundsComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBoundsComposition);
-					}
-
-					compositions::GuiGraphicsComposition* GetContainerComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetContainerComposition);
-					}
-
-					void SetFocusableComposition(compositions::GuiGraphicsComposition* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetFocusableComposition, value);
-					}
-
-					void SetText(const WString& value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetText, value);
-					}
-
-					void SetFont(const FontProperties& value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetFont, value);
-					}
-
-					void SetVisuallyEnabled(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetVisuallyEnabled, value);
-					}
-				};
-				
-				class GuiControl_IStyleProvider : public ValueInterfaceRoot, public virtual GuiControl::IStyleProvider
-				{
-				public:
-					GuiControl_IStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static GuiControl::IStyleProvider* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiControl_IStyleProvider(_proxy);
-					}
-
-					void AssociateStyleController(GuiControl::IStyleController* controller)override
-					{
-						INVOKE_INTERFACE_PROXY(AssociateStyleController, controller);
-					}
-
-					void SetFocusableComposition(compositions::GuiGraphicsComposition* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetFocusableComposition, value);
-					}
-
-					void SetText(const WString& value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetText, value);
-					}
-
-					void SetFont(const FontProperties& value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetFont, value);
-					}
-
-					void SetVisuallyEnabled(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetVisuallyEnabled, value);
-					}
-				};
-			}
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-#endif
-
-			extern bool						LoadGuiBasicTypes();
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-REFLECTION\GUIREFLECTIONELEMENTS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI Reflection: Elements
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONELEMENTS
-#define VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONELEMENTS
-
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-/***********************************************************************
-Type List
-***********************************************************************/
-
-#define GUIREFLECTIONELEMENT_TYPELIST(F)\
-			F(presentation::elements::ElementShape)\
-			F(presentation::elements::GuiSolidBorderElement)\
-			F(presentation::elements::GuiRoundBorderElement)\
-			F(presentation::elements::Gui3DBorderElement)\
-			F(presentation::elements::Gui3DSplitterElement)\
-			F(presentation::elements::Gui3DSplitterElement::Direction)\
-			F(presentation::elements::GuiSolidBackgroundElement)\
-			F(presentation::elements::GuiGradientBackgroundElement)\
-			F(presentation::elements::GuiGradientBackgroundElement::Direction)\
-			F(presentation::elements::GuiSolidLabelElement)\
-			F(presentation::elements::GuiImageFrameElement)\
-			F(presentation::elements::GuiPolygonElement)\
-			F(presentation::elements::text::TextLines)\
-			F(presentation::elements::text::ColorItem)\
-			F(presentation::elements::text::ColorEntry)\
-			F(presentation::elements::GuiColorizedTextElement)\
-			F(presentation::elements::GuiDocumentElement)\
-
-			GUIREFLECTIONELEMENT_TYPELIST(DECL_TYPE_INFO)
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-#endif
-
-			extern bool						LoadGuiElementTypes();
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-REFLECTION\GUIREFLECTIONCOMPOSITIONS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI Reflection: Compositions
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONCOMPOSITIONS
-#define VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONCOMPOSITIONS
-
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-/***********************************************************************
-Type List
-***********************************************************************/
-
-#define GUIREFLECTIONCOMPOSITION_TYPELIST(F)\
-			F(presentation::compositions::GuiStackComposition)\
-			F(presentation::compositions::GuiStackComposition::Direction)\
-			F(presentation::compositions::GuiStackItemComposition)\
-			F(presentation::compositions::GuiCellOption)\
-			F(presentation::compositions::GuiCellOption::ComposeType)\
-			F(presentation::compositions::GuiTableComposition)\
-			F(presentation::compositions::GuiCellComposition)\
-			F(presentation::compositions::GuiSideAlignedComposition)\
-			F(presentation::compositions::GuiSideAlignedComposition::Direction)\
-			F(presentation::compositions::GuiPartialViewComposition)\
-			F(presentation::compositions::GuiSubComponentMeasurer)\
-			F(presentation::compositions::GuiSubComponentMeasurer::Direction)\
-			F(presentation::compositions::GuiSubComponentMeasurer::IMeasuringSource)\
-			F(presentation::compositions::GuiSubComponentMeasurer::MeasuringSource)\
-			F(presentation::compositions::IGuiGraphicsAnimation)\
-			F(presentation::compositions::GuiGraphicsAnimationManager)\
-			F(presentation::compositions::IGuiShortcutKeyItem)\
-			F(presentation::compositions::IGuiShortcutKeyManager)\
-			F(presentation::compositions::GuiShortcutKeyManager)\
-
-			GUIREFLECTIONCOMPOSITION_TYPELIST(DECL_TYPE_INFO)
-
-/***********************************************************************
-Interface Proxy
-***********************************************************************/
-
-#pragma warning(push)
-#pragma warning(disable:4250)
-			namespace interface_proxy
-			{
-				class GuiSubComponentMeasurer_IMeasuringSource : public ValueInterfaceRoot, public virtual GuiSubComponentMeasurer::IMeasuringSource
-				{
-				public:
-					GuiSubComponentMeasurer_IMeasuringSource(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<GuiSubComponentMeasurer::IMeasuringSource> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiSubComponentMeasurer_IMeasuringSource(proxy);
-					}
-
-					void AttachMeasurer(GuiSubComponentMeasurer* value)override
-					{
-						INVOKE_INTERFACE_PROXY(AttachMeasurer, value);
-					}
-
-					void DetachMeasurer(GuiSubComponentMeasurer* value)override
-					{
-						INVOKE_INTERFACE_PROXY(DetachMeasurer, value);
-					}
-
-					GuiSubComponentMeasurer* GetAttachedMeasurer()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetAttachedMeasurer);
-					}
-
-					WString GetMeasuringCategory()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetMeasuringCategory);
-					}
-
-					vint GetSubComponentCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSubComponentCount);
-					}
-
-					WString GetSubComponentName(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetSubComponentName, index);
-					}
-
-					GuiGraphicsComposition* GetSubComponentComposition(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetSubComponentComposition, index);
-					}
-
-					GuiGraphicsComposition* GetSubComponentComposition(const WString& name)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetSubComponentComposition, name);
-					}
-
-					GuiGraphicsComposition* GetMainComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetMainComposition);
-					}
-
-					void SubComponentPreferredMinSizeUpdated()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(SubComponentPreferredMinSizeUpdated);
-					}
-				};
-
-				class composition_IGuiGraphicsAnimation : public ValueInterfaceRoot, public virtual IGuiGraphicsAnimation
-				{
-				public:
-					composition_IGuiGraphicsAnimation(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<IGuiGraphicsAnimation> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new composition_IGuiGraphicsAnimation(proxy);
-					}
-
-					vint GetTotalLength()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetTotalLength);
-					}
-
-					vint GetCurrentPosition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetCurrentPosition);
-					}
-
-					void Play(vint currentPosition, vint totalLength)override
-					{
-						INVOKE_INTERFACE_PROXY(Play, currentPosition, totalLength);
-					}
-
-					void Stop()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Stop);
-					}
-				};
-			}
-#pragma warning(pop)
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-#endif
-
-			extern bool						LoadGuiCompositionTypes();
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-REFLECTION\GUIREFLECTIONCONTROLS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI Reflection: Basic
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONCONTROLS
-#define VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONCONTROLS
-
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-/***********************************************************************
-Type List
-***********************************************************************/
-
-#define GUIREFLECTIONCONTROLS_TYPELIST(F)\
-			F(presentation::controls::GuiApplication)\
-			F(presentation::theme::ITheme)\
-			F(presentation::controls::GuiLabel)\
-			F(presentation::controls::GuiLabel::IStyleController)\
-			F(presentation::controls::GuiButton)\
-			F(presentation::controls::GuiButton::ControlState)\
-			F(presentation::controls::GuiButton::IStyleController)\
-			F(presentation::controls::GuiSelectableButton)\
-			F(presentation::controls::GuiSelectableButton::IStyleController)\
-			F(presentation::controls::GuiSelectableButton::GroupController)\
-			F(presentation::controls::GuiSelectableButton::MutexGroupController)\
-			F(presentation::controls::GuiScroll)\
-			F(presentation::controls::GuiScroll::ICommandExecutor)\
-			F(presentation::controls::GuiScroll::IStyleController)\
-			F(presentation::controls::GuiTabPage)\
-			F(presentation::controls::GuiTab)\
-			F(presentation::controls::GuiTab::ICommandExecutor)\
-			F(presentation::controls::GuiTab::IStyleController)\
-			F(presentation::controls::GuiScrollView)\
-			F(presentation::controls::GuiScrollView::IStyleProvider)\
-			F(presentation::controls::GuiScrollContainer)\
-			F(presentation::controls::GuiWindow)\
-			F(presentation::controls::GuiWindow::IStyleController)\
-			F(presentation::controls::GuiPopup)\
-			F(presentation::controls::GuiTooltip)\
-			F(presentation::controls::GuiListControl)\
-			F(presentation::controls::GuiListControl::IItemProviderCallback)\
-			F(presentation::controls::GuiListControl::IItemArrangerCallback)\
-			F(presentation::controls::GuiListControl::IItemPrimaryTextView)\
-			F(presentation::controls::GuiListControl::KeyDirection)\
-			F(presentation::controls::GuiListControl::IItemProvider)\
-			F(presentation::controls::GuiListControl::IItemStyleController)\
-			F(presentation::controls::GuiListControl::IItemStyleProvider)\
-			F(presentation::controls::GuiListControl::IItemArranger)\
-			F(presentation::controls::GuiListControl::IItemCoordinateTransformer)\
-			F(presentation::controls::GuiSelectableListControl)\
-			F(presentation::controls::GuiSelectableListControl::IItemStyleProvider)\
-			F(presentation::controls::list::DefaultItemCoordinateTransformer)\
-			F(presentation::controls::list::AxisAlignedItemCoordinateTransformer)\
-			F(presentation::controls::list::AxisAlignedItemCoordinateTransformer::Alignment)\
-			F(presentation::controls::list::RangedItemArrangerBase)\
-			F(presentation::controls::list::FixedHeightItemArranger)\
-			F(presentation::controls::list::FixedSizeMultiColumnItemArranger)\
-			F(presentation::controls::list::FixedHeightMultiColumnItemArranger)\
-			F(presentation::controls::list::ItemStyleControllerBase)\
-			F(presentation::controls::list::ItemProviderBase)\
-			F(presentation::controls::list::TextItemStyleProvider)\
-			F(presentation::controls::list::TextItemStyleProvider::ITextItemStyleProvider)\
-			F(presentation::controls::list::TextItemStyleProvider::ITextItemView)\
-			F(presentation::controls::list::TextItemStyleProvider::TextItemStyleController)\
-			F(presentation::controls::list::TextItem)\
-			F(presentation::controls::list::TextItemProvider)\
-			F(presentation::controls::GuiVirtualTextList)\
-			F(presentation::controls::GuiTextList)\
-			F(presentation::controls::list::ListViewItemStyleProviderBase)\
-			F(presentation::controls::list::ListViewItemStyleProviderBase::ListViewItemStyleController)\
-			F(presentation::controls::GuiListViewColumnHeader)\
-			F(presentation::controls::GuiListViewColumnHeader::ColumnSortingState)\
-			F(presentation::controls::GuiListViewColumnHeader::IStyleController)\
-			F(presentation::controls::GuiListViewBase)\
-			F(presentation::controls::GuiListViewBase::IStyleProvider)\
-			F(presentation::controls::list::ListViewItemStyleProvider)\
-			F(presentation::controls::list::ListViewItemStyleProvider::IListViewItemView)\
-			F(presentation::controls::list::ListViewItemStyleProvider::IListViewItemContent)\
-			F(presentation::controls::list::ListViewItemStyleProvider::IListViewItemContentProvider)\
-			F(presentation::controls::list::ListViewItemStyleProvider::ListViewContentItemStyleController)\
-			F(presentation::controls::list::ListViewBigIconContentProvider)\
-			F(presentation::controls::list::ListViewSmallIconContentProvider)\
-			F(presentation::controls::list::ListViewListContentProvider)\
-			F(presentation::controls::list::ListViewTileContentProvider)\
-			F(presentation::controls::list::ListViewInformationContentProvider)\
-			F(presentation::controls::list::ListViewColumnItemArranger)\
-			F(presentation::controls::list::ListViewColumnItemArranger::IColumnItemViewCallback)\
-			F(presentation::controls::list::ListViewColumnItemArranger::IColumnItemView)\
-			F(presentation::controls::list::ListViewDetailContentProvider)\
-			F(presentation::controls::list::ListViewItem)\
-			F(presentation::controls::list::ListViewColumn)\
-			F(presentation::controls::GuiVirtualListView)\
-			F(presentation::controls::GuiListView)\
-			F(presentation::controls::IGuiMenuService)\
-			F(presentation::controls::IGuiMenuService::Direction)\
-			F(presentation::controls::GuiMenu)\
-			F(presentation::controls::GuiMenuBar)\
-			F(presentation::controls::GuiMenuButton)\
-			F(presentation::controls::GuiMenuButton::IStyleController)\
-			F(presentation::controls::tree::INodeProviderCallback)\
-			F(presentation::controls::tree::INodeProvider)\
-			F(presentation::controls::tree::INodeRootProvider)\
-			F(presentation::controls::tree::INodeItemView)\
-			F(presentation::controls::tree::INodeItemPrimaryTextView)\
-			F(presentation::controls::tree::NodeItemProvider)\
-			F(presentation::controls::tree::INodeItemStyleController)\
-			F(presentation::controls::tree::INodeItemStyleProvider)\
-			F(presentation::controls::tree::NodeItemStyleProvider)\
-			F(presentation::controls::tree::IMemoryNodeData)\
-			F(presentation::controls::tree::MemoryNodeProvider)\
-			F(presentation::controls::tree::NodeRootProviderBase)\
-			F(presentation::controls::tree::MemoryNodeRootProvider)\
-			F(presentation::controls::GuiVirtualTreeListControl)\
-			F(presentation::controls::tree::ITreeViewItemView)\
-			F(presentation::controls::tree::TreeViewItem)\
-			F(presentation::controls::tree::TreeViewItemRootProvider)\
-			F(presentation::controls::GuiVirtualTreeView)\
-			F(presentation::controls::GuiVirtualTreeView::IStyleProvider)\
-			F(presentation::controls::GuiTreeView)\
-			F(presentation::controls::tree::TreeViewNodeItemStyleProvider)\
-			F(presentation::controls::GuiComboBoxBase)\
-			F(presentation::controls::GuiComboBoxBase::ICommandExecutor)\
-			F(presentation::controls::GuiComboBoxBase::IStyleController)\
-			F(presentation::controls::GuiComboBoxListControl)\
-			F(presentation::controls::GuiToolstripCommand)\
-			F(presentation::controls::GuiToolstripMenu)\
-			F(presentation::controls::GuiToolstripMenuBar)\
-			F(presentation::controls::GuiToolstripToolbar)\
-			F(presentation::controls::GuiToolstripButton)\
-			F(presentation::controls::GuiDocumentCommonInterface)\
-			F(presentation::controls::GuiDocumentViewer)\
-			F(presentation::controls::GuiDocumentLabel)\
-			F(presentation::controls::GuiTextBoxCommonInterface)\
-			F(presentation::controls::ILanguageProvider)\
-			F(presentation::controls::RepeatingParsingExecutor)\
-			F(presentation::controls::GuiTextBoxColorizerBase)\
-			F(presentation::controls::GuiTextBoxRegexColorizer)\
-			F(presentation::controls::GuiGrammarColorizer)\
-			F(presentation::controls::GuiTextBoxAutoCompleteBase)\
-			F(presentation::controls::GuiGrammarAutoComplete)\
-			F(presentation::controls::GuiMultilineTextBox)\
-			F(presentation::controls::GuiSinglelineTextBox)\
-			F(presentation::controls::GuiSinglelineTextBox::IStyleProvider)\
-			F(presentation::controls::list::IDataVisualizerFactory)\
-			F(presentation::controls::list::IDataVisualizer)\
-			F(presentation::controls::list::IDataEditorCallback)\
-			F(presentation::controls::list::IDataEditorFactory)\
-			F(presentation::controls::list::IDataEditor)\
-			F(presentation::controls::list::IDataProviderCommandExecutor)\
-			F(presentation::controls::list::IDataProvider)\
-			F(presentation::controls::list::IStructuredDataFilterCommandExecutor)\
-			F(presentation::controls::list::IStructuredDataFilter)\
-			F(presentation::controls::list::IStructuredDataSorter)\
-			F(presentation::controls::list::IStructuredColumnProvider)\
-			F(presentation::controls::list::IStructuredDataProvider)\
-			F(presentation::controls::list::DataGridContentProvider)\
-			F(presentation::controls::GuiVirtualDataGrid)\
-			F(presentation::controls::list::StructuredDataFilterBase)\
-			F(presentation::controls::list::StructuredDataMultipleFilter)\
-			F(presentation::controls::list::StructuredDataAndFilter)\
-			F(presentation::controls::list::StructuredDataOrFilter)\
-			F(presentation::controls::list::StructuredDataNotFilter)\
-			F(presentation::controls::list::StructuredDataMultipleSorter)\
-			F(presentation::controls::list::StructuredDataReverseSorter)\
-			F(presentation::controls::list::StructuredDataProvider)\
-			F(presentation::controls::list::ListViewMainColumnDataVisualizer)\
-			F(presentation::controls::list::ListViewMainColumnDataVisualizer::Factory)\
-			F(presentation::controls::list::ListViewSubColumnDataVisualizer)\
-			F(presentation::controls::list::ListViewSubColumnDataVisualizer::Factory)\
-			F(presentation::controls::list::HyperlinkDataVisualizer)\
-			F(presentation::controls::list::HyperlinkDataVisualizer::Factory)\
-			F(presentation::controls::list::ImageDataVisualizer)\
-			F(presentation::controls::list::ImageDataVisualizer::Factory)\
-			F(presentation::controls::list::CellBorderDataVisualizer)\
-			F(presentation::controls::list::CellBorderDataVisualizer::Factory)\
-			F(presentation::controls::list::NotifyIconDataVisualizer)\
-			F(presentation::controls::list::NotifyIconDataVisualizer::Factory)\
-			F(presentation::controls::list::TextBoxDataEditor)\
-			F(presentation::controls::list::TextBoxDataEditor::Factory)\
-			F(presentation::controls::list::TextComboBoxDataEditor)\
-			F(presentation::controls::list::TextComboBoxDataEditor::Factory)\
-			F(presentation::controls::list::DateComboBoxDataEditor)\
-			F(presentation::controls::list::DateComboBoxDataEditor::Factory)\
-			F(presentation::controls::GuiDatePicker)\
-			F(presentation::controls::GuiDatePicker::IStyleProvider)\
-			F(presentation::controls::GuiDateComboBox)\
-			F(presentation::controls::GuiStringGrid)\
-			F(presentation::controls::list::StringGridProvider)\
-
-			GUIREFLECTIONCONTROLS_TYPELIST(DECL_TYPE_INFO)
-
-/***********************************************************************
-Interface Proxy
-***********************************************************************/
-
-#pragma warning(push)
-#pragma warning(disable:4250)
-			namespace interface_proxy
-			{
-				class GuiLabel_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiLabel::IStyleController
-				{
-				public:
-					GuiLabel_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-					{
-					}
-
-					static GuiLabel::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiLabel_IStyleController(_proxy);
-					}
-
-					Color GetDefaultTextColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetDefaultTextColor);
-					}
-
-					void SetTextColor(Color value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetTextColor, value);
-					}
-				};
-
-				class GuiButton_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiButton::IStyleController
-				{
-				public:
-					GuiButton_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-					{
-					}
-
-					static GuiButton::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiButton_IStyleController(_proxy);
-					}
-
-					void Transfer(GuiButton::ControlState value)override
-					{
-						INVOKE_INTERFACE_PROXY(Transfer, value);
-					}
-				};
-
-				class GuiSelectableButton_IStyleController : public virtual GuiButton_IStyleController, public virtual GuiSelectableButton::IStyleController
-				{
-				public:
-					GuiSelectableButton_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-						,GuiButton_IStyleController(_proxy)
-					{
-					}
-
-					static GuiSelectableButton::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiSelectableButton_IStyleController(_proxy);
-					}
-
-					void SetSelected(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSelected, value);
-					}
-				};
-
-				class GuiScroll_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiScroll::IStyleController
-				{
-				public:
-					GuiScroll_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-					{
-					}
-
-					static GuiScroll::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiScroll_IStyleController(_proxy);
-					}
-
-					void SetCommandExecutor(GuiScroll::ICommandExecutor* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCommandExecutor, value);
-					}
-
-					void SetTotalSize(vint value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetTotalSize, value);
-					}
-
-					void SetPageSize(vint value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetPageSize, value);
-					}
-
-					void SetPosition(vint value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetPosition, value);
-					}
-				};
-
-				class GuiTab_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiTab::IStyleController
-				{
-				public:
-					GuiTab_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-					{
-					}
-
-					static GuiTab::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiTab_IStyleController(_proxy);
-					}
-
-					void SetCommandExecutor(GuiTab::ICommandExecutor* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCommandExecutor, value);
-					}
-
-					void InsertTab(vint index)override
-					{
-						INVOKE_INTERFACE_PROXY(InsertTab, index);
-					}
-
-					void SetTabText(vint index, const WString& value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetTabText, index, value);
-					}
-
-					void RemoveTab(vint index)override
-					{
-						INVOKE_INTERFACE_PROXY(RemoveTab, index);
-					}
-
-					void MoveTab(vint oldIndex, vint newIndex)override
-					{
-						INVOKE_INTERFACE_PROXY(MoveTab, oldIndex, newIndex);
-					}
-
-					void SetSelectedTab(vint index)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSelectedTab, index);
-					}
-
-					GuiControl::IStyleController* CreateTabPageStyleController()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateTabPageStyleController);
-					}
-				};
-
-				class GuiScrollView_IStyleProvider : public virtual GuiControl_IStyleProvider, public virtual GuiScrollView::IStyleProvider
-				{
-				public:
-					GuiScrollView_IStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleProvider(_proxy)
-					{
-					}
-
-					static GuiScrollView::IStyleProvider* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiScrollView_IStyleProvider(_proxy);
-					}
-
-					GuiScroll::IStyleController* CreateHorizontalScrollStyle()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateHorizontalScrollStyle);
-					}
-
-					GuiScroll::IStyleController* CreateVerticalScrollStyle()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateVerticalScrollStyle);
-					}
-
-					vint GetDefaultScrollSize()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetDefaultScrollSize);
-					}
-
-					compositions::GuiGraphicsComposition* InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(InstallBackground, boundsComposition);
-					}
-				};
-
-				class GuiWindow_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiWindow::IStyleController
-				{
-				public:
-					GuiWindow_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-					{
-					}
-
-					static GuiWindow::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiWindow_IStyleController(_proxy);
-					}
-
-					void AttachWindow(GuiWindow* _window)override
-					{
-						INVOKE_INTERFACE_PROXY(ActiveWindow, _window);
-					}
-
-					void InitializeNativeWindowProperties()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(InitializeNativeWindowProperties);
-					}
-
-					bool GetMaximizedBox()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetMaximizedBox);
-					}
-
-					void SetMaximizedBox(bool visible)override
-					{
-						INVOKE_INTERFACE_PROXY(SetMaximizedBox, visible);
-					}
-
-					bool GetMinimizedBox()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetMinimizedBox);
-					}
-
-					void SetMinimizedBox(bool visible)override
-					{
-						INVOKE_INTERFACE_PROXY(SetMinimizedBox, visible);
-					}
-
-					bool GetBorder()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBorder);
-					}
-
-					void SetBorder(bool visible)override
-					{
-						INVOKE_INTERFACE_PROXY(SetBorder, visible);
-					}
-
-					bool GetSizeBox()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSizeBox);
-					}
-
-					void SetSizeBox(bool visible)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSizeBox, visible);
-					}
-
-					bool GetIconVisible()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetIconVisible);
-					}
-
-					void SetIconVisible(bool visible)override
-					{
-						INVOKE_INTERFACE_PROXY(SetIconVisible, visible);
-					}
-
-					bool GetTitleBar()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetTitleBar);
-					}
-
-					void SetTitleBar(bool visible)override
-					{
-						INVOKE_INTERFACE_PROXY(SetTitleBar, visible);
-					}
-				};
-
-				class GuiListControl_IItemProviderCallback : public ValueInterfaceRoot, public virtual GuiListControl::IItemProviderCallback
-				{
-				public:
-					GuiListControl_IItemProviderCallback(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<GuiListControl::IItemProviderCallback> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemProviderCallback(proxy);
-					}
-
-					void OnAttached(GuiListControl::IItemProvider* provider)override
-					{
-						INVOKE_INTERFACE_PROXY(OnAttached, provider);
-					}
-
-					void OnItemModified(vint start, vint count, vint newCount)override
-					{
-						INVOKE_INTERFACE_PROXY(OnItemModified, start, count, newCount);
-					}
-				};
-
-				class GuiListControl_IItemPrimaryTextView : public ValueInterfaceRoot, public virtual GuiListControl::IItemPrimaryTextView
-				{
-				public:
-					GuiListControl_IItemPrimaryTextView(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<GuiListControl::IItemPrimaryTextView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemPrimaryTextView(proxy);
-					}
-
-					WString GetPrimaryTextViewText(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetPrimaryTextViewText, itemIndex);
-					}
-
-					bool ContainsPrimaryText(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(ContainsPrimaryText, itemIndex);
-					}
-				};
-
-				class GuiListControl_IItemProvider : public ValueInterfaceRoot, public virtual GuiListControl::IItemProvider
-				{
-				public:
-					GuiListControl_IItemProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static GuiListControl::IItemProvider* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemProvider(proxy);
-					}
-
-					bool AttachCallback(GuiListControl::IItemProviderCallback* value)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(AttachCallback, value);
-					}
-
-					bool DetachCallback(GuiListControl::IItemProviderCallback* value)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(DetachCallback, value);
-					}
-
-					vint Count()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(Count);
-					}
-
-					IDescriptable* RequestView(const WString& identifier)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RequestView, identifier);
-					}
-
-					void ReleaseView(IDescriptable* view)override
-					{
-						INVOKE_INTERFACE_PROXY(ReleaseView, view);
-					}
-				};
-
-				class GuiListControl_IItemStyleController : public ValueInterfaceRoot, public virtual GuiListControl::IItemStyleController
-				{
-				public:
-					GuiListControl_IItemStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static GuiListControl::IItemStyleController* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemStyleController(proxy);
-					}
-
-					GuiListControl::IItemStyleProvider* GetStyleProvider()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetStyleProvider);
-					}
-
-					vint GetItemStyleId()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetItemStyleId);
-					}
-
-					compositions::GuiBoundsComposition* GetBoundsComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBoundsComposition);
-					}
-
-					bool IsCacheable()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(IsCacheable);
-					}
-
-					bool IsInstalled()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(IsInstalled);
-					}
-
-					void OnInstalled()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(OnInstalled);
-					}
-
-					void OnUninstalled()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(OnUninstalled);
-					}
-				};
-
-				class GuiListControl_IItemStyleProvider : public ValueInterfaceRoot, public virtual GuiListControl::IItemStyleProvider
-				{
-				public:
-					GuiListControl_IItemStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<GuiListControl::IItemStyleProvider> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemStyleProvider(proxy);
-					}
-
-					void AttachListControl(GuiListControl* value)override
-					{
-						INVOKE_INTERFACE_PROXY(AttachListControl, value);
-					}
-
-					void DetachListControl()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(DetachListControl);
-					}
-
-					vint GetItemStyleId(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetItemStyleId, itemIndex);
-					}
-
-					GuiListControl::IItemStyleController* CreateItemStyle(vint styleId)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateItemStyle, styleId);
-					}
-
-					void DestroyItemStyle(GuiListControl::IItemStyleController* style)override
-					{
-						INVOKE_INTERFACE_PROXY(DestroyItemStyle, style);
-					}
-
-					void Install(GuiListControl::IItemStyleController* style, vint itemIndex)override
-					{
-						INVOKE_INTERFACE_PROXY(Install, style, itemIndex);
-					}
-				};
-
-				class GuiListControl_IItemArranger : public virtual GuiListControl_IItemProviderCallback, public virtual GuiListControl::IItemArranger
-				{
-				public:
-					GuiListControl_IItemArranger(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiListControl_IItemProviderCallback(_proxy)
-					{
-					}
-
-					static Ptr<GuiListControl::IItemArranger> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemArranger(proxy);
-					}
-
-					void AttachListControl(GuiListControl* value)override
-					{
-						INVOKE_INTERFACE_PROXY(AttachListControl, value);
-					}
-
-					void DetachListControl()override
-					{
-						INVOKE_INTERFACE_PROXY(DetachListControl);
-					}
-
-					GuiListControl::IItemArrangerCallback* GetCallback()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetCallback);
-					}
-
-					void SetCallback(GuiListControl::IItemArrangerCallback* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCallback, value);
-					}
-
-					Size GetTotalSize()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetTotalSize);
-					}
-
-					GuiListControl::IItemStyleController* GetVisibleStyle(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetVisibleStyle, itemIndex);
-					}
-
-					vint GetVisibleIndex(GuiListControl::IItemStyleController* style)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetVisibleIndex, style);
-					}
-
-					void OnViewChanged(Rect bounds)override
-					{
-						INVOKE_INTERFACE_PROXY(OnViewChanged, bounds);
-					}
-
-					vint FindItem(vint itemIndex, GuiListControl::KeyDirection key)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(FindItem, itemIndex, key);
-					}
-
-					bool EnsureItemVisible(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(EnsureItemVisible, itemIndex);
-					}
-				};
-
-				class GuiListControl_IItemCoordinateTransformer : public ValueInterfaceRoot, public virtual GuiListControl::IItemCoordinateTransformer
-				{
-				public:
-					GuiListControl_IItemCoordinateTransformer(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<GuiListControl::IItemCoordinateTransformer> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListControl_IItemCoordinateTransformer(proxy);
-					}
-
-					Size RealSizeToVirtualSize(Size size)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RealSizeToVirtualSize, size);
-					}
-
-					Size VirtualSizeToRealSize(Size size)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(VirtualSizeToRealSize, size);
-					}
-
-					Point RealPointToVirtualPoint(Size realFullSize, Point point)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RealPointToVirtualPoint, realFullSize, point);
-					}
-
-					Point VirtualPointToRealPoint(Size realFullSize, Point point)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(VirtualPointToRealPoint, realFullSize, point);
-					}
-
-					Rect RealRectToVirtualRect(Size realFullSize, Rect rect)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RealRectToVirtualRect, realFullSize, rect);
-					}
-
-					Rect VirtualRectToRealRect(Size realFullSize, Rect rect)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(VirtualRectToRealRect, realFullSize, rect);
-					}
-
-					Margin RealMarginToVirtualMargin(Margin margin)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RealMarginToVirtualMargin, margin);
-					}
-
-					Margin VirtualMarginToRealMargin(Margin margin)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(VirtualMarginToRealMargin, margin);
-					}
-
-					GuiListControl::KeyDirection RealKeyDirectionToVirtualKeyDirection(GuiListControl::KeyDirection key)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RealKeyDirectionToVirtualKeyDirection, key);
-					}
-				};
-
-				class GuiSelectableListControl_IItemStyleProvider : public virtual GuiListControl_IItemStyleProvider, public virtual GuiSelectableListControl::IItemStyleProvider
-				{
-				public:
-					GuiSelectableListControl_IItemStyleProvider(Ptr<IValueInterfaceProxy> proxy)
-						:GuiListControl_IItemStyleProvider(proxy)
-					{
-					}
-
-					static Ptr<GuiSelectableListControl::IItemStyleProvider> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiSelectableListControl_IItemStyleProvider(proxy);
-					}
-
-					void SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetStyleSelected, style, value);
-					}
-				};
-
-				class TextItemStyleProvider_ITextItemStyleProvider : public ValueInterfaceRoot, public virtual list::TextItemStyleProvider::ITextItemStyleProvider
-				{
-				public:
-					TextItemStyleProvider_ITextItemStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static list::TextItemStyleProvider::ITextItemStyleProvider* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new TextItemStyleProvider_ITextItemStyleProvider(proxy);
-					}
-
-					GuiSelectableButton::IStyleController* CreateBackgroundStyleController()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateBackgroundStyleController);
-					}
-
-					GuiSelectableButton::IStyleController* CreateBulletStyleController()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateBulletStyleController);
-					}
-				};
-
-				class TextItemStyleProvider_ITextItemView : public virtual GuiListControl_IItemPrimaryTextView, public virtual list::TextItemStyleProvider::ITextItemView
-				{
-				public:
-					TextItemStyleProvider_ITextItemView(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiListControl_IItemPrimaryTextView(_proxy)
-					{
-					}
-
-					static Ptr<list::TextItemStyleProvider::ITextItemView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new TextItemStyleProvider_ITextItemView(proxy);
-					}
-
-					WString GetText(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetText, itemIndex);
-					}
-
-					bool GetChecked(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetChecked, itemIndex);
-					}
-
-					void SetCheckedSilently(vint itemIndex, bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCheckedSilently, itemIndex, value);
-					}
-				};
-
-				class GuiListViewBase_IStyleProvider : public virtual GuiScrollView_IStyleProvider, public virtual GuiListViewBase::IStyleProvider
-				{
-				public:
-					GuiListViewBase_IStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleProvider(_proxy)
-						,GuiScrollView_IStyleProvider(_proxy)
-					{
-					}
-
-					static GuiListViewBase::IStyleProvider* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListViewBase_IStyleProvider(proxy);
-					}
-
-					GuiSelectableButton::IStyleController* CreateItemBackground()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateItemBackground);
-					}
-
-					GuiListViewColumnHeader::IStyleController* CreateColumnStyle()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateColumnStyle);
-					}
-
-					Color GetPrimaryTextColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetPrimaryTextColor);
-					}
-
-					Color GetSecondaryTextColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSecondaryTextColor);
-					}
-
-					Color GetItemSeparatorColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetItemSeparatorColor);
-					}
-				};
-
-				class ListViewItemStyleProvider_IListViewItemView : public virtual GuiListControl_IItemPrimaryTextView, public virtual list::ListViewItemStyleProvider::IListViewItemView
-				{
-				public:
-					ListViewItemStyleProvider_IListViewItemView(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiListControl_IItemPrimaryTextView(_proxy)
-					{
-					}
-
-					static Ptr<list::ListViewItemStyleProvider::IListViewItemView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new ListViewItemStyleProvider_IListViewItemView(proxy);
-					}
-
-					Ptr<GuiImageData> GetSmallImage(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetSmallImage, itemIndex);
-					}
-
-					Ptr<GuiImageData> GetLargeImage(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetLargeImage, itemIndex);
-					}
-
-					WString GetText(vint itemIndex)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetText, itemIndex);
-					}
-
-					WString GetSubItem(vint itemIndex, vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetSubItem, itemIndex, index);
-					}
-
-					vint GetDataColumnCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetDataColumnCount);
-					}
-
-					vint GetDataColumn(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetDataColumn, index);
-					}
-
-					vint GetColumnCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnCount);
-					}
-
-					WString GetColumnText(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnText, index);
-					}
-				};
-
-				class ListViewItemStyleProvider_IListViewItemContent : public ValueInterfaceRoot, public virtual list::ListViewItemStyleProvider::IListViewItemContent
-				{
-				public:
-					ListViewItemStyleProvider_IListViewItemContent(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static list::ListViewItemStyleProvider::IListViewItemContent* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new ListViewItemStyleProvider_IListViewItemContent(proxy);
-					}
-
-					compositions::GuiBoundsComposition* GetContentComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetContentComposition);
-					}
-
-					compositions::GuiBoundsComposition* GetBackgroundDecorator()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBackgroundDecorator);
-					}
-
-					void Install(GuiListViewBase::IStyleProvider* styleProvider, list::ListViewItemStyleProvider::IListViewItemView* view, vint itemIndex)override
-					{
-						INVOKE_INTERFACE_PROXY(Install, styleProvider, view, itemIndex);
-					}
-
-					void Uninstall()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Uninstall);
-					}
-				};
-
-				class ListViewItemStyleProvider_IListViewItemContentProvider : public ValueInterfaceRoot, public virtual list::ListViewItemStyleProvider::IListViewItemContentProvider
-				{
-				public:
-					ListViewItemStyleProvider_IListViewItemContentProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::ListViewItemStyleProvider::IListViewItemContentProvider> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new ListViewItemStyleProvider_IListViewItemContentProvider(proxy);
-					}
-
-					GuiListControl::IItemCoordinateTransformer* CreatePreferredCoordinateTransformer()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreatePreferredCoordinateTransformer);
-					}
-
-					GuiListControl::IItemArranger* CreatePreferredArranger()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreatePreferredArranger);
-					}
-
-					list::ListViewItemStyleProvider::IListViewItemContent* CreateItemContent(const FontProperties& font)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateItemContent, font);
-					}
-
-					void AttachListControl(GuiListControl* value)override
-					{
-						INVOKE_INTERFACE_PROXY(AttachListControl, value);
-					}
-
-					void DetachListControl()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(DetachListControl);
-					}
-				};
-
-				class ListViewColumnItemArranger_IColumnItemView : public ValueInterfaceRoot, public virtual list::ListViewColumnItemArranger::IColumnItemView
-				{
-				public:
-					ListViewColumnItemArranger_IColumnItemView(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::ListViewColumnItemArranger::IColumnItemView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new ListViewColumnItemArranger_IColumnItemView(proxy);
-					}
-
-					bool AttachCallback(list::ListViewColumnItemArranger::IColumnItemViewCallback* value)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(AttachCallback, value);
-					}
-
-					bool DetachCallback(list::ListViewColumnItemArranger::IColumnItemViewCallback* value)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(DetachCallback, value);
-					}
-
-					vint GetColumnCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetColumnCount);
-					}
-
-					WString GetColumnText(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnText, index);
-					}
-
-					vint GetColumnSize(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnSize, index);
-					}
-
-					void SetColumnSize(vint index, vint value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetColumnSize, index, value);
-					}
-
-					GuiMenu* GetDropdownPopup(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetDropdownPopup, index);
-					}
-
-					GuiListViewColumnHeader::ColumnSortingState GetSortingState(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetSortingState, index);
-					}
-				};
-
-				class GuiMenuButton_IStyleController : public virtual GuiButton_IStyleController, public virtual GuiMenuButton::IStyleController
-				{
-				public:
-					GuiMenuButton_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-						,GuiButton_IStyleController(_proxy)
-					{
-					}
-
-					static GuiMenuButton::IStyleController* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiMenuButton_IStyleController(proxy);
-					}
-
-					GuiMenu::IStyleController* CreateSubMenuStyleController()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateSubMenuStyleController);
-					}
-
-					void SetSubMenuExisting(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSubMenuExisting, value);
-					}
-
-					void SetSubMenuOpening(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSubMenuOpening, value);
-					}
-
-					GuiButton* GetSubMenuHost()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSubMenuHost);
-					}
-
-					void SetImage(Ptr<GuiImageData> value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetImage, value);
-					}
-
-					void SetShortcutText(const WString& value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetShortcutText, value);
-					}
-
-					compositions::GuiSubComponentMeasurer::IMeasuringSource* GetMeasuringSource()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetMeasuringSource);
-					}
-				};
-
-				class GuiListViewColumnHeader_IStyleController : public virtual GuiMenuButton_IStyleController, public virtual GuiListViewColumnHeader::IStyleController
-				{
-				public:
-					GuiListViewColumnHeader_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-						,GuiButton_IStyleController(_proxy)
-						,GuiMenuButton_IStyleController(_proxy)
-					{
-					}
-
-					static GuiListViewColumnHeader::IStyleController* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiListViewColumnHeader_IStyleController(proxy);
-					}
-
-					void SetColumnSortingState(GuiListViewColumnHeader::ColumnSortingState value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetColumnSortingState, value);
-					}
-				};
-
-				class tree_INodeProvider : public ValueInterfaceRoot, public virtual tree::INodeProvider
-				{
-				public:
-					tree_INodeProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<tree::INodeProvider> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_INodeProvider(proxy);
-					}
-
-					bool GetExpanding()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetExpanding);
-					}
-
-					void SetExpanding(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetExpanding, value);
-					}
-
-					vint CalculateTotalVisibleNodes()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CalculateTotalVisibleNodes);
-					}
-
-					vint GetChildCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetChildCount);
-					}
-
-					INodeProvider* GetParent()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetParent);
-					}
-
-					INodeProvider* GetChild(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetChild, index);
-					}
-
-					void Increase()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Increase);
-					}
-
-					void Release()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Release);
-					}
-				};
-
-				class tree_INodeRootProvider : public ValueInterfaceRoot, public virtual tree::INodeRootProvider
-				{
-				public:
-					tree_INodeRootProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<tree::INodeRootProvider> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_INodeRootProvider(proxy);
-					}
-
-					tree::INodeProvider* GetRootNode()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetRootNode);
-					}
-
-					bool CanGetNodeByVisibleIndex()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CanGetNodeByVisibleIndex);
-					}
-
-					tree::INodeProvider* GetNodeByVisibleIndex(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetNodeByVisibleIndex, index);
-					}
-
-					bool AttachCallback(tree::INodeProviderCallback* value)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(AttachCallback, value);
-					}
-
-					bool DetachCallback(tree::INodeProviderCallback* value)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(DetachCallback, value);
-					}
-
-					IDescriptable* RequestView(const WString& identifier)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RequestView, identifier);
-					}
-
-					void ReleaseView(IDescriptable* view)override
-					{
-						INVOKE_INTERFACE_PROXY(ReleaseView, view);
-					}
-				};
-
-				class tree_INodeItemView : public virtual GuiListControl_IItemPrimaryTextView, public virtual tree::INodeItemView
-				{
-				public:
-					tree_INodeItemView(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiListControl_IItemPrimaryTextView(_proxy)
-					{
-					}
-
-					static Ptr<tree::INodeItemView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_INodeItemView(proxy);
-					}
-
-					tree::INodeProvider* RequestNode(vint index)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(RequestNode, index);
-					}
-
-					void ReleaseNode(tree::INodeProvider* node)override
-					{
-						INVOKE_INTERFACE_PROXY(ReleaseNode, node);
-					}
-
-					vint CalculateNodeVisibilityIndex(tree::INodeProvider* node)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CalculateNodeVisibilityIndex, node);
-					}
-				};
-
-				class tree_INodeItemPrimaryTextView : public ValueInterfaceRoot, public virtual tree::INodeItemPrimaryTextView
-				{
-				public:
-					tree_INodeItemPrimaryTextView(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<tree::INodeItemPrimaryTextView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_INodeItemPrimaryTextView(proxy);
-					}
-
-					WString GetPrimaryTextViewText(tree::INodeProvider* node)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetPrimaryTextViewText, node);
-					}
-				};
-
-				class tree_INodeItemStyleController: public virtual GuiListControl_IItemStyleController, public virtual tree::INodeItemStyleController
-				{
-				public:
-					tree_INodeItemStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiListControl_IItemStyleController(_proxy)
-					{
-					}
-
-					static tree::INodeItemStyleController* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_INodeItemStyleController(proxy);
-					}
-
-					tree::INodeItemStyleProvider* GetNodeStyleProvider()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetNodeStyleProvider);
-					}
-				};
-
-				class tree_INodeItemStyleProvider : public ValueInterfaceRoot, public virtual tree::INodeItemStyleProvider
-				{
-				public:
-					tree_INodeItemStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<tree::INodeItemStyleProvider> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_INodeItemStyleProvider(proxy);
-					}
-
-					void BindItemStyleProvider(GuiListControl::IItemStyleProvider* styleProvider)override
-					{
-						INVOKE_INTERFACE_PROXY(BindItemStyleProvider, styleProvider);
-					}
-
-					GuiListControl::IItemStyleProvider* GetBindedItemStyleProvider()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBindedItemStyleProvider);
-					}
-
-					void AttachListControl(GuiListControl* value)override
-					{
-						INVOKE_INTERFACE_PROXY(AttachListControl, value);
-					}
-
-					void DetachListControl()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(DetachListControl);
-					}
-
-					vint GetItemStyleId(tree::INodeProvider* node)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetItemStyleId, node);
-					}
-
-					tree::INodeItemStyleController* CreateItemStyle(vint styleId)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateItemStyle, styleId);
-					}
-
-					void DestroyItemStyle(tree::INodeItemStyleController* style)override
-					{
-						INVOKE_INTERFACE_PROXY(DestroyItemStyle, style);
-					}
-
-					void Install(tree::INodeItemStyleController* style, tree::INodeProvider* node)override
-					{
-						INVOKE_INTERFACE_PROXY(Install, style, node);
-					}
-
-					void SetStyleSelected(tree::INodeItemStyleController* style, bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetStyleSelected, style, value);
-					}
-				};
-
-				class tree_IMemoryNodeData : public ValueInterfaceRoot, public virtual tree::IMemoryNodeData
-				{
-				public:
-					tree_IMemoryNodeData(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<tree::IMemoryNodeData> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_IMemoryNodeData(proxy);
-					}
-				};
-
-				class tree_ITreeViewItemView : public virtual tree_INodeItemPrimaryTextView, public virtual tree::ITreeViewItemView
-				{
-				public:
-					tree_ITreeViewItemView(Ptr<IValueInterfaceProxy> proxy)
-						:tree_INodeItemPrimaryTextView(proxy)
-					{
-					}
-
-					static Ptr<tree::ITreeViewItemView> Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new tree_ITreeViewItemView(proxy);
-					}
-
-					Ptr<GuiImageData> GetNodeImage(tree::INodeProvider* node)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetNodeImage, node);
-					}
-
-					WString GetNodeText(tree::INodeProvider* node)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetNodeText, node);
-					}
-				};
-
-				class GuiVirtualTreeView_IStyleProvider : public virtual GuiScrollView_IStyleProvider, public virtual GuiVirtualTreeView::IStyleProvider
-				{
-				public:
-					GuiVirtualTreeView_IStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleProvider(_proxy)
-						,GuiScrollView_IStyleProvider(_proxy)
-					{
-					}
-
-					static GuiVirtualTreeView::IStyleProvider* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiVirtualTreeView_IStyleProvider(proxy);
-					}
-
-					GuiSelectableButton::IStyleController* CreateItemBackground()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateItemBackground);
-					}
-
-					GuiSelectableButton::IStyleController* CreateItemExpandingDecorator()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateItemExpandingDecorator);
-					}
-
-					Color GetTextColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetTextColor);
-					}
-				};
-
-				class GuiComboBoxBase_IStyleController : public virtual GuiMenuButton_IStyleController, public virtual GuiComboBoxBase::IStyleController
-				{
-				public:
-					GuiComboBoxBase_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleController(_proxy)
-						,GuiButton_IStyleController(_proxy)
-						,GuiMenuButton_IStyleController(_proxy)
-					{
-					}
-
-					static GuiComboBoxBase::IStyleController* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiComboBoxBase_IStyleController(proxy);
-					}
-
-					void SetCommandExecutor(GuiComboBoxBase::ICommandExecutor* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCommandExecutor, value);
-					}
-
-					void OnItemSelected()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(OnItemSelected);
-					}
-				};
-
-				class GuiSinglelineTextBox_IStyleProvider : public virtual GuiControl_IStyleProvider, public virtual GuiSinglelineTextBox::IStyleProvider
-				{
-				public:
-					GuiSinglelineTextBox_IStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleProvider(_proxy)
-					{
-					}
-
-					static GuiSinglelineTextBox::IStyleProvider* Create(Ptr<IValueInterfaceProxy> proxy)
-					{
-						return new GuiSinglelineTextBox_IStyleProvider(proxy);
-					}
-
-					compositions::GuiGraphicsComposition* InstallBackground(compositions::GuiBoundsComposition* background)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(InstallBackground, background);
-					}
-				};
-
-				class list_IDataVisualizerFactory : public ValueInterfaceRoot, public virtual list::IDataVisualizerFactory
-				{
-				public:
-					list_IDataVisualizerFactory(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IDataVisualizerFactory> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IDataVisualizerFactory(_proxy);
-					}
-
-					Ptr<list::IDataVisualizer> CreateVisualizer(const FontProperties& font, GuiListViewBase::IStyleProvider* styleProvider)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateVisualizer, font, styleProvider);
-					}
-				};
-
-				class list_IDataVisualizer : public ValueInterfaceRoot, public virtual list::IDataVisualizer
-				{
-				public:
-					list_IDataVisualizer(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IDataVisualizer> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IDataVisualizer(_proxy);
-					}
-
-					list::IDataVisualizerFactory* GetFactory()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetFactory);
-					}
-
-					compositions::GuiBoundsComposition* GetBoundsComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBoundsComposition);
-					}
-
-					void BeforeVisualizeCell(list::IDataProvider* dataProvider, vint row, vint column)override
-					{
-						INVOKE_INTERFACE_PROXY(dataProvider, row, column);
-					}
-
-					list::IDataVisualizer* GetDecoratedDataVisualizer()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetDecoratedDataVisualizer);
-					}
-
-					void SetSelected(bool value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSelected, value);
-					}
-				};
-
-				class list_IDataEditorFactory : public ValueInterfaceRoot, public virtual list::IDataEditorFactory
-				{
-				public:
-					list_IDataEditorFactory(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IDataEditorFactory> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IDataEditorFactory(_proxy);
-					}
-
-					Ptr<list::IDataEditor> CreateEditor(list::IDataEditorCallback* callback)
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateEditor, callback);
-					}
-				};
-
-				class list_IDataEditor : public ValueInterfaceRoot, public virtual list::IDataEditor
-				{
-				public:
-					list_IDataEditor(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IDataEditor> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IDataEditor(_proxy);
-					}
-
-					list::IDataEditorFactory* GetFactory()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetFactory);
-					}
-
-					compositions::GuiBoundsComposition* GetBoundsComposition()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBoundsComposition);
-					}
-
-					void BeforeEditCell(list::IDataProvider* dataProvider, vint row, vint column)override
-					{
-						INVOKE_INTERFACE_PROXY(BeforeEditCell, dataProvider, row, column);
-					}
-
-					void ReinstallEditor()override
-					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(ReinstallEditor);
-					}
-				};
-
-				class list_IDataProvider : public ValueInterfaceRoot, public virtual list::IDataProvider
-				{
-				public:
-					list_IDataProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IDataProvider> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IDataProvider(_proxy);
-					}
-
-					void SetCommandExecutor(list::IDataProviderCommandExecutor* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCommandExecutor, value);
-					}
-
-					vint GetColumnCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetColumnCount);
-					}
-
-					WString GetColumnText(vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnText, column);
-					}
-
-					vint GetColumnSize(vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnSize, column);
-					}
-
-					void SetColumnSize(vint column, vint value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetColumnSize, column, value);
-					}
-
-					GuiMenu* GetColumnPopup(vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnPopup, column);
-					}
-
-					bool IsColumnSortable(vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(IsColumnSortable, column);
-					}
-
-					void SortByColumn(vint column, bool ascending)override
-					{
-						INVOKE_INTERFACE_PROXY(SortByColumn, column, ascending);
-					}
-
-					vint GetSortedColumn()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSortedColumn);
-					}
-
-					bool IsSortOrderAscending()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(IsSortOrderAscending);
-					}
-
-					vint GetRowCount()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetRowCount);
-					}
-
-					Ptr<GuiImageData> GetRowLargeImage(vint row)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetRowLargeImage, row);
-					}
-
-					Ptr<GuiImageData> GetRowSmallImage(vint row)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetRowSmallImage, row);
-					}
-
-					vint GetCellSpan(vint row, vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellSpan, row, column);
-					}
-
-					WString GetCellText(vint row, vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellText, row, column);
-					}
-
-					list::IDataVisualizerFactory* GetCellDataVisualizerFactory(vint row, vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellDataVisualizerFactory, row, column);
-					}
-
-					void VisualizeCell(vint row, vint column, list::IDataVisualizer* dataVisualizer)override
-					{
-						INVOKE_INTERFACE_PROXY(VisualizeCell, row, column, dataVisualizer);
-					}
-
-					list::IDataEditorFactory* GetCellDataEditorFactory(vint row, vint column)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellDataEditorFactory, row, column);
-					}
-
-					void BeforeEditCell(vint row, vint column, list::IDataEditor* dataEditor)override
-					{
-						INVOKE_INTERFACE_PROXY(BeforeEditCell, row, column, dataEditor);
-					}
-
-					void SaveCellData(vint row, vint column, list::IDataEditor* dataEditor)override
-					{
-						INVOKE_INTERFACE_PROXY(SaveCellData, row, column, dataEditor);
-					}
-				};
-
-				class list_IStructuredDataFilter : public ValueInterfaceRoot, public virtual list::IStructuredDataFilter
-				{
-				public:
-					list_IStructuredDataFilter(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IStructuredDataFilter> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IStructuredDataFilter(_proxy);
-					}
-
-					void SetCommandExecutor(list::IStructuredDataFilterCommandExecutor* value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetCommandExecutor, value);
-					}
-
-					bool Filter(vint row)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(Filter, row);
-					}
-				};
-
-				class list_IStructuredDataSorter : public ValueInterfaceRoot, public virtual list::IStructuredDataSorter
-				{
-				public:
-					list_IStructuredDataSorter(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IStructuredDataSorter> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IStructuredDataSorter(_proxy);
-					}
-
-					vint Compare(vint row1, vint row2)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(Compare, row1, row2);
-					}
-				};
-
-				class list_IStructuredColumnProvider : public ValueInterfaceRoot, public virtual list::IStructuredColumnProvider
-				{
-				public:
-					list_IStructuredColumnProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IStructuredColumnProvider> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IStructuredColumnProvider(_proxy);
-					}
-
-					WString GetText()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetText);
-					}
-
-					vint GetSize()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSize);
-					}
-
-					void SetSize(vint value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSize, value);
-					}
-
-					GuiListViewColumnHeader::ColumnSortingState GetSortingState()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSortingState);
-					}
-
-					void SetSortingState(GuiListViewColumnHeader::ColumnSortingState value)override
-					{
-						INVOKE_INTERFACE_PROXY(SetSortingState, value);
-					}
-
-					GuiMenu* GetPopup()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetPopup);
-					}
-
-					Ptr<list::IStructuredDataFilter> GetInherentFilter()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetInherentFilter);
-					}
-
-					Ptr<list::IStructuredDataSorter> GetInherentSorter()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetInherentSorter);
-					}
-
-					WString GetCellText(vint row)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellText, row);
-					}
-
-					list::IDataVisualizerFactory* GetCellDataVisualizerFactory(vint row)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellDataVisualizerFactory, row);
-					}
-
-					void VisualizeCell(vint row, list::IDataVisualizer* dataVisualizer)override
-					{
-						INVOKE_INTERFACE_PROXY(VisualizeCell, row, dataVisualizer);
-					}
-
-					list::IDataEditorFactory* GetCellDataEditorFactory(vint row)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetCellDataEditorFactory, row);
-					}
-
-					void BeforeEditCell(vint row, list::IDataEditor* dataEditor)override
-					{
-						INVOKE_INTERFACE_PROXY(BeforeEditCell, row, dataEditor);
-					}
-
-					void SaveCellData(vint row, list::IDataEditor* dataEditor)override
-					{
-						INVOKE_INTERFACE_PROXY(SaveCellData, row, dataEditor);
-					}
-				};
-
-				class list_IStructuredDataProvider : public ValueInterfaceRoot, public virtual list::IStructuredDataProvider
-				{
-				public:
-					list_IStructuredDataProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<list::IStructuredDataProvider> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new list_IStructuredDataProvider(_proxy);
-					}
-
-					void SetCommandExecutor(list::IDataProviderCommandExecutor* value)
-					{
-						INVOKE_INTERFACE_PROXY(SetCommandExecutor, value);
-					}
-
-					vint GetColumnCount()
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetColumnCount);
-					}
-
-					vint GetRowCount()
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetRowCount);
-					}
-
-					list::IStructuredColumnProvider* GetColumn(vint column)
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumn, column);
-					}
-
-					Ptr<GuiImageData> GetRowLargeImage(vint row)
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetRowLargeImage, row);
-					}
-
-					Ptr<GuiImageData> GetRowSmallImage(vint row)
-					{
-						return INVOKEGET_INTERFACE_PROXY(GetRowSmallImage, row);
-					}
-				};
-
-				class GuiDatePicker_IStyleProvider : public GuiControl_IStyleProvider, public virtual GuiDatePicker::IStyleProvider
-				{
-				public:
-					GuiDatePicker_IStyleProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:GuiControl_IStyleProvider(_proxy)
-					{
-					}
-
-					static GuiDatePicker::IStyleProvider* Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new GuiDatePicker_IStyleProvider(_proxy);
-					}
-
-					GuiSelectableButton::IStyleController* CreateDateButtonStyle()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateDateButtonStyle);
-					}
-
-					GuiTextList* CreateTextList()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateTextList);
-					}
-
-					GuiComboBoxListControl::IStyleController* CreateComboBoxStyle()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateComboBoxStyle);
-					}
-
-					Color GetBackgroundColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBackgroundColor);
-					}
-
-					Color GetPrimaryTextColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetPrimaryTextColor);
-					}
-
-					Color GetSecondaryTextColor()override
-					{
-						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetSecondaryTextColor);
-					}
-				};
-
-				class controls_ILanguageProvider : public ValueInterfaceRoot, public virtual ILanguageProvider
-				{
-				public:
-					controls_ILanguageProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<ILanguageProvider> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new controls_ILanguageProvider(_proxy);
-					}
-
-					Ptr<parsing::ParsingScopeSymbol> CreateSymbolFromNode(Ptr<parsing::ParsingTreeObject> obj, RepeatingParsingExecutor* executor, parsing::ParsingScopeFinder* finder)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateSymbolFromNode, obj, executor, finder);
-					}
-
-					collections::LazyList<Ptr<parsing::ParsingScopeSymbol>> FindReferencedSymbols(parsing::ParsingTreeObject* obj, parsing::ParsingScopeFinder* finder)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(FindReferencedSymbols, obj, finder);
-					}
-
-					collections::LazyList<Ptr<parsing::ParsingScopeSymbol>> FindPossibleSymbols(parsing::ParsingTreeObject* obj, const WString& field, parsing::ParsingScopeFinder* finder)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(FindPossibleSymbols, obj, field, finder);
-					}
-				};
-			}
-#pragma warning(pop)
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-#endif
-
-			extern bool						LoadGuiControlsTypes();
-		}
-	}
-}
-
-#endif
-
-/***********************************************************************
-REFLECTION\GUIREFLECTIONEVENTS.H
-***********************************************************************/
-/***********************************************************************
-Vczh Library++ 3.0
-Developer: 陈梓瀚(vczh)
-GacUI Reflection: Events
-
-Interfaces:
-***********************************************************************/
-
-#ifndef VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONEVENTS
-#define VCZH_PRESENTATION_REFLECTION_GUIREFLECTIONEVENTS
-
-
-namespace vl
-{
-	namespace reflection
-	{
-		namespace description
-		{
-
-#ifndef VCZH_DEBUG_NO_REFLECTION
-
-/***********************************************************************
-Type List
-***********************************************************************/
-
-#define GUIREFLECTIONEVENT_TYPELIST(F)\
-			F(presentation::compositions::GuiEventArgs)\
-			F(presentation::compositions::GuiRequestEventArgs)\
-			F(presentation::compositions::GuiKeyEventArgs)\
-			F(presentation::compositions::GuiCharEventArgs)\
-			F(presentation::compositions::GuiMouseEventArgs)\
-			F(presentation::compositions::GuiItemEventArgs)\
-			F(presentation::compositions::GuiItemMouseEventArgs)\
-			F(presentation::compositions::GuiNodeEventArgs)\
-			F(presentation::compositions::GuiNodeMouseEventArgs)\
-
-			GUIREFLECTIONEVENT_TYPELIST(DECL_TYPE_INFO)
-
-/***********************************************************************
-GuiEventInfoImpl
-***********************************************************************/
-
-			template<typename T>
-			class GuiEventInfoImpl : public EventInfoImpl
-			{
-			protected:
-				typedef Func<GuiGraphicsEvent<T>*(DescriptableObject*, bool)>		EventRetriverFunction;
-
-				EventRetriverFunction				eventRetriver;
-
-				void AttachInternal(DescriptableObject* thisObject, IEventHandler* eventHandler)override
-				{
-					if(thisObject)
-					{
-						if(EventHandlerImpl* handlerImpl=dynamic_cast<EventHandlerImpl*>(eventHandler))
-						{
-							GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, true);
-							if(eventObject)
-							{
-								Ptr<GuiGraphicsEvent<T>::IHandler> handler=eventObject->AttachLambda(
-									[=](GuiGraphicsComposition* sender, T& arguments)
-									{
-										Value thisObject=BoxValue<GuiGraphicsComposition*>(sender, Description<GuiGraphicsComposition>::GetAssociatedTypeDescriptor());
-										Value argumentsObject=BoxValue<T*>(&arguments, Description<T>::GetAssociatedTypeDescriptor());
-										eventHandler->Invoke(thisObject, argumentsObject);
-									});
-								handlerImpl->SetTag(handler);
-							}
-						}
-					}
-				}
-
-				void DetachInternal(DescriptableObject* thisObject, IEventHandler* eventHandler)override
-				{
-					if(thisObject)
-					{
-						if(EventHandlerImpl* handlerImpl=dynamic_cast<EventHandlerImpl*>(eventHandler))
-						{
-							GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, false);
-							if(eventObject)
-							{
-								Ptr<GuiGraphicsEvent<T>::IHandler> handler=handlerImpl->GetTag().Cast<GuiGraphicsEvent<T>::IHandler>();
-								if(handler)
-								{
-									eventObject->Detach(handler);
-								}
-							}
-						}
-					}
-				}
-
-				void InvokeInternal(DescriptableObject* thisObject, Value& arguments)override
-				{
-					if(thisObject)
-					{
-						GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, false);
-						if(eventObject)
-						{
-							T* value=UnboxValue<T*>(arguments, Description<T>::GetAssociatedTypeDescriptor());
-							eventObject->Execute(*value);
-						}
-					}
-				}
-
-				Ptr<ITypeInfo> GetHandlerTypeInternal()override
-				{
-					return TypeInfoRetriver<Func<void(GuiGraphicsComposition*, T*)>>::CreateTypeInfo();
-				}
-			public:
-				GuiEventInfoImpl(ITypeDescriptor* _ownerTypeDescriptor, const WString& _name, const EventRetriverFunction& _eventRetriver)
-					:EventInfoImpl(_ownerTypeDescriptor, _name)
-					,eventRetriver(_eventRetriver)
-				{
-				}
-
-				~GuiEventInfoImpl()
-				{
-				}
-			};
-
-			template<typename T>
-			struct GuiEventArgumentTypeRetriver
-			{
-				typedef vint								Type;
-			};
-
-			template<typename TClass, typename TEvent>
-			struct GuiEventArgumentTypeRetriver<TEvent TClass::*>
-			{
-				typedef typename TEvent::ArgumentType		Type;
-			};
-
-/***********************************************************************
-Macros
-***********************************************************************/
-
-#define CLASS_MEMBER_GUIEVENT(EVENTNAME)\
-			AddEvent(\
-				new GuiEventInfoImpl<GuiEventArgumentTypeRetriver<decltype(&ClassType::EVENTNAME)>::Type>(\
-					this,\
-					L#EVENTNAME,\
-					[](DescriptableObject* thisObject, bool addEventHandler){\
-						return &dynamic_cast<ClassType*>(thisObject)->EVENTNAME;\
-					}\
-				)\
-			);\
-
-#define CLASS_MEMBER_GUIEVENT_COMPOSITION(EVENTNAME)\
-			AddEvent(\
-				new GuiEventInfoImpl<GuiEventArgumentTypeRetriver<decltype(&GuiGraphicsEventReceiver::EVENTNAME)>::Type>(\
-					this,\
-					L#EVENTNAME,\
-					[](DescriptableObject* thisObject, bool addEventHandler){\
-						GuiGraphicsComposition* composition=dynamic_cast<GuiGraphicsComposition*>(thisObject);\
-						if(!addEventHandler && !composition->HasEventReceiver())\
-						{\
-							return (GuiGraphicsEvent<GuiEventArgumentTypeRetriver<decltype(&GuiGraphicsEventReceiver::EVENTNAME)>::Type>*)0;\
-						}\
-						return &composition->GetEventReceiver()->EVENTNAME;\
-					}\
-				)\
-			);\
-
-#define CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(PROPERTYNAME)\
-			CLASS_MEMBER_GUIEVENT(PROPERTYNAME##Changed)\
-			CLASS_MEMBER_PROPERTY_EVENT_FAST(PROPERTYNAME, PROPERTYNAME##Changed)\
-
-#define CLASS_MEMBER_PROPERTY_GUIEVENT_READONLY_FAST(PROPERTYNAME)\
-			CLASS_MEMBER_GUIEVENT(PROPERTYNAME##Changed)\
-			CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(PROPERTYNAME, PROPERTYNAME##Changed)\
-
-/***********************************************************************
-Type Loader
-***********************************************************************/
-
-#endif
-
-			extern bool						LoadGuiEventTypes();
 		}
 	}
 }
@@ -13114,6 +11017,7 @@ Button Configuration
 				static Win7ButtonColors						ToolstripButtonNormal();
 				static Win7ButtonColors						ToolstripButtonActive();
 				static Win7ButtonColors						ToolstripButtonPressed();
+				static Win7ButtonColors						ToolstripButtonSelected();
 				static Win7ButtonColors						ToolstripButtonDisabled();
 
 				static Win7ButtonColors						MenuBarButtonNormal();
@@ -13123,6 +11027,8 @@ Button Configuration
 
 				static Win7ButtonColors						MenuItemButtonNormal();
 				static Win7ButtonColors						MenuItemButtonNormalActive();
+				static Win7ButtonColors						MenuItemButtonSelected();
+				static Win7ButtonColors						MenuItemButtonSelectedActive();
 				static Win7ButtonColors						MenuItemButtonDisabled();
 				static Win7ButtonColors						MenuItemButtonDisabledActive();
 
@@ -13567,6 +11473,7 @@ Menu Button
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
@@ -13595,9 +11502,10 @@ Menu Button
 				Ptr<MeasuringSource>						measuringSource;
 				controls::GuiButton::ControlState			controlStyle;
 				bool										isVisuallyEnabled;
+				bool										isSelected;
 				bool										isOpening;
 
-				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool opening);
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected, bool opening);
 			public:
 				Win7MenuItemButtonStyle();
 				~Win7MenuItemButtonStyle();
@@ -13608,6 +11516,7 @@ Menu Button
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
@@ -13728,7 +11637,6 @@ Tab
 				void														RemoveTab(vint index)override;
 				void														MoveTab(vint oldIndex, vint newIndex)override;
 				void														SetSelectedTab(vint index)override;
-				controls::GuiControl::IStyleController*						CreateTabPageStyleController()override;
 			};
 		}
 	}
@@ -13762,11 +11670,11 @@ namespace vl
 Toolstrip Button
 ***********************************************************************/
 
-			class Win7ToolstripToolbarStyle : public Win7EmptyStyle, public Description<Win7ToolstripToolbarStyle>
+			class Win7ToolstripToolBarStyle : public Win7EmptyStyle, public Description<Win7ToolstripToolBarStyle>
 			{
 			public:
-				Win7ToolstripToolbarStyle();
-				~Win7ToolstripToolbarStyle();
+				Win7ToolstripToolBarStyle();
+				~Win7ToolstripToolBarStyle();
 			};
 
 			class Win7ToolstripButtonDropdownStyle : public Object, public virtual controls::GuiButton::IStyleController, public Description<Win7ToolstripButtonDropdownStyle>
@@ -13808,13 +11716,14 @@ Toolstrip Button
 				Ptr<TransferringAnimation>					transferringAnimation;
 				controls::GuiButton::ControlState			controlStyle;
 				bool										isVisuallyEnabled;
+				bool										isSelected;
 				bool										isOpening;
 				elements::GuiImageFrameElement*				imageElement;
 				compositions::GuiBoundsComposition*			imageComposition;
 				ButtonStyle									buttonStyle;
 				controls::GuiButton*						subMenuHost;
 
-				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool menuOpening);
+				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected, bool menuOpening);
 			public:
 				Win7ToolstripButtonStyle(ButtonStyle _buttonStyle);
 				~Win7ToolstripButtonStyle();
@@ -13825,6 +11734,7 @@ Toolstrip Button
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
@@ -14153,6 +12063,7 @@ List Control Buttons
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				void														Transfer(controls::GuiButton::ControlState value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
@@ -14359,6 +12270,7 @@ Button Configuration
 				static Win8ButtonColors						ToolstripButtonNormal();
 				static Win8ButtonColors						ToolstripButtonActive();
 				static Win8ButtonColors						ToolstripButtonPressed();
+				static Win8ButtonColors						ToolstripButtonSelected();
 				static Win8ButtonColors						ToolstripButtonDisabled();
 
 				static Win8ButtonColors						ScrollHandleNormal();
@@ -14377,6 +12289,8 @@ Button Configuration
 
 				static Win8ButtonColors						MenuItemButtonNormal();
 				static Win8ButtonColors						MenuItemButtonNormalActive();
+				static Win8ButtonColors						MenuItemButtonSelected();
+				static Win8ButtonColors						MenuItemButtonSelectedActive();
 				static Win8ButtonColors						MenuItemButtonDisabled();
 				static Win8ButtonColors						MenuItemButtonDisabledActive();
 
@@ -14814,6 +12728,7 @@ Menu Button
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
@@ -14842,9 +12757,10 @@ Menu Button
 				Ptr<MeasuringSource>						measuringSource;
 				controls::GuiButton::ControlState			controlStyle;
 				bool										isVisuallyEnabled;
+				bool										isSelected;
 				bool										isOpening;
 
-				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool opening);
+				void										TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected, bool opening);
 			public:
 				Win8MenuItemButtonStyle();
 				~Win8MenuItemButtonStyle();
@@ -14855,6 +12771,7 @@ Menu Button
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
@@ -14969,14 +12886,14 @@ namespace vl
 Toolstrip Button
 ***********************************************************************/
 
-			class Win8ToolstripToolbarStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8ToolstripToolbarStyle>
+			class Win8ToolstripToolBarStyle : public Object, public virtual controls::GuiControl::IStyleController, public Description<Win8ToolstripToolBarStyle>
 			{
 			protected:
 				compositions::GuiBoundsComposition*			boundsComposition;
 				compositions::GuiBoundsComposition*			containerComposition;
 			public:
-				Win8ToolstripToolbarStyle();
-				~Win8ToolstripToolbarStyle();
+				Win8ToolstripToolBarStyle();
+				~Win8ToolstripToolBarStyle();
 
 				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
 				compositions::GuiGraphicsComposition*		GetContainerComposition()override;
@@ -15025,13 +12942,14 @@ Toolstrip Button
 				Ptr<TransferringAnimation>					transferringAnimation;
 				controls::GuiButton::ControlState			controlStyle;
 				bool										isVisuallyEnabled;
+				bool										isSelected;
 				bool										isOpening;
 				elements::GuiImageFrameElement*				imageElement;
 				compositions::GuiBoundsComposition*			imageComposition;
 				ButtonStyle									buttonStyle;
 				controls::GuiButton*						subMenuHost;
 
-				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool menuOpening);
+				virtual void								TransferInternal(controls::GuiButton::ControlState value, bool enabled, bool selected, bool menuOpening);
 			public:
 				Win8ToolstripButtonStyle(ButtonStyle _buttonStyle);
 				~Win8ToolstripButtonStyle();
@@ -15042,6 +12960,7 @@ Toolstrip Button
 				void														SetText(const WString& value)override;
 				void														SetFont(const FontProperties& value)override;
 				void														SetVisuallyEnabled(bool value)override;
+				void														SetSelected(bool value)override;
 				controls::GuiMenu::IStyleController*						CreateSubMenuStyleController()override;
 				void														SetSubMenuExisting(bool value)override;
 				void														SetSubMenuOpening(bool value)override;
@@ -15406,5 +13325,163 @@ List
 		}
 	}
 }
+
+#endif
+
+/***********************************************************************
+RESOURCES\GUIPARSERMANAGER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Resource
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_RESOURCES_GUIPARSERMANAGER
+#define VCZH_PRESENTATION_RESOURCES_GUIPARSERMANAGER
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace reflection;
+
+/***********************************************************************
+Parser
+***********************************************************************/
+
+		class IGuiGeneralParser : public IDescriptable, public Description<IGuiGeneralParser>
+		{
+		public:
+			virtual Ptr<Object>						Parse(const WString& text)=0;
+		};
+
+		template<typename T>
+		class IGuiParser : public IGuiGeneralParser
+		{
+		public:
+			virtual Ptr<T>							TypedParse(const WString& text)=0;
+
+			Ptr<Object> Parse(const WString& text)override
+			{
+				return TypedParse(text);
+			}
+		};
+
+		class IGuiParserManager;
+
+		extern IGuiParserManager*					GetParserManager();
+
+/***********************************************************************
+Strong Typed Table Parser
+***********************************************************************/
+
+		template<typename T>
+		class GuiStrongTypedTableParser : public Object, public IGuiParser<T>
+		{
+		protected:
+			typedef parsing::tabling::ParsingTable				Table;
+			typedef Ptr<T>(ParserFunction)(const WString&, Ptr<Table>);
+		protected:
+			WString									name;
+			Ptr<Table>								table;
+			Func<ParserFunction>					function;
+		public:
+			GuiStrongTypedTableParser(const WString& _name, ParserFunction* _function)
+				:name(_name)
+				,function(_function)
+			{
+			}
+
+			Ptr<T> TypedParse(const WString& text)override
+			{
+				if(!table)
+				{
+					table=GetParserManager()->GetParsingTable(name);
+				}
+				if(table)
+				{
+					return function(text, table);
+				}
+				return 0;
+			}
+		};
+
+/***********************************************************************
+Parser Manager
+***********************************************************************/
+
+		class IGuiParserManager : public IDescriptable, public Description<IGuiParserManager>
+		{
+		protected:
+			typedef parsing::tabling::ParsingTable			Table;
+
+		public:
+			virtual Ptr<Table>						GetParsingTable(const WString& name)=0;
+			virtual bool							SetParsingTable(const WString& name, Func<Ptr<Table>()> loader)=0;
+			virtual Ptr<IGuiGeneralParser>			GetParser(const WString& name)=0;
+			virtual bool							SetParser(const WString& name, Ptr<IGuiGeneralParser> parser)=0;
+
+			template<typename T>
+			Ptr<IGuiParser<T>> GetParser(const WString& name)
+			{
+				return GetParser(name).Cast<IGuiParser<T>>();
+			}
+
+			template<typename T>
+			bool SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>))
+			{
+				Ptr<IGuiParser<T>> parser=new GuiStrongTypedTableParser<T>(tableName, function);
+				return SetParser(parserName, parser);
+			}
+		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+GACUI.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI Header Files and Common Namespaces
+
+Global Objects:
+	vl::reflection::description::					GetGlobalTypeManager
+	vl::presentation::								GetParserManager
+	vl::presentation::								ResourceResolverManager
+	vl::presentation::								GetCurrentController
+	vl::presentation::								GetInstanceLoaderManager
+	vl::presentation::elements::					GetGuiGraphicsResourceManager
+	vl::presentation::controls::					GetApplication
+	vl::presentation::controls::					GetPluginManager
+	vl::presentation::theme::						GetCurrentTheme
+
+	vl::presentation::windows::						GetDirect2DFactory
+	vl::presentation::windows::						GetDirectWriteFactory
+	vl::presentation::elements_windows_gdi::		GetWindowsGDIResourceManager
+	vl::presentation::elements_windows_gdi::		GetWindowsGDIObjectProvider
+	vl::presentation::elements_windows_d2d::		GetWindowsDirect2DResourceManager
+	vl::presentation::elements_windows_d2d::		GetWindowsDirect2DObjectProvider
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_GACUI
+#define VCZH_PRESENTATION_GACUI
+
+
+using namespace vl;
+using namespace vl::presentation;
+using namespace vl::presentation::elements;
+using namespace vl::presentation::compositions;
+using namespace vl::presentation::controls;
+using namespace vl::presentation::theme;
+
+extern int SetupWindowsGDIRenderer();
+extern int SetupWindowsDirect2DRenderer();
 
 #endif

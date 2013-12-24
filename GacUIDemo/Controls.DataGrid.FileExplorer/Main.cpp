@@ -1,4 +1,5 @@
 #include "..\CommonLibrary\FileSystemInformation.h"
+#include "..\..\Public\Source\GacUIReflection.h"
 
 using namespace vl::regex;
 using namespace vl::collections;
@@ -331,6 +332,8 @@ GuiMain
 
 void GuiMain()
 {
+	description::GetTypeDescriptor<GuiWindow>(); // should be called due to VC++'s static library bug
+
 	GuiWindow* window=new FileExplorerWindow;
 	GetApplication()->Run(window);
 	delete window;

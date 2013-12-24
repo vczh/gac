@@ -932,7 +932,7 @@ namespace vl
 
 		ObjectString<T> Sub(vint index, vint count)const
 		{
-			CHECK_ERROR(index>=0 && index<length, L"ObjectString<T>::Sub(vint, vint)#参数index越界。");
+			CHECK_ERROR(index>=0 && index<=length, L"ObjectString<T>::Sub(vint, vint)#参数index越界。");
 			CHECK_ERROR(index+count>=0 && index+count<=length, L"ObjectString<T>::Sub(vint, vint)#参数count越界。");
 			return ObjectString<T>(*this, index, count);
 		}
@@ -3269,6 +3269,7 @@ namespace vl
 			vint										token;
 			const wchar_t*								reading;
 			vint										codeIndex;
+			bool										completeToken;
 
 			vint										rowStart;
 			vint										columnStart;
@@ -10871,6 +10872,7 @@ Value
 				virtual ITypeDescriptor*		GetOwnerTypeDescriptor()=0;
 				virtual bool					Validate(const WString& text)=0;
 				virtual bool					Parse(const WString& input, Value& output)=0;
+				virtual WString					GetDefaultText() = 0;
 
 				virtual bool					HasCandidate()=0;
 				virtual vint					GetCandidateCount()=0;
@@ -10897,6 +10899,7 @@ ITypeDescriptor (type)
 				{
 					RawPtr,
 					SharedPtr,
+					Nullable,
 					TypeDescriptor,
 					Generic,
 				};
@@ -11057,6 +11060,7 @@ ITypeManager
 			extern bool							ResetGlobalTypeManager();
 			extern IValueSerializer*			GetValueSerializer(const WString& name);
 			extern ITypeDescriptor*				GetTypeDescriptor(const WString& name);
+			extern bool							IsInterfaceType(ITypeDescriptor* typeDescriptor, bool& acceptProxy);
 			extern void							LogTypeManager(stream::TextWriter& writer);
 
 /***********************************************************************
@@ -12802,6 +12806,7 @@ GeneralValueSeriaizer
 			protected:
 				ITypeDescriptor*							ownedTypeDescriptor;
 
+				virtual T									GetDefaultValue() = 0;
 				virtual bool								Serialize(const T& input, WString& output)=0;
 				virtual bool								Deserialize(const WString& input, T& output)=0;
 			public:
@@ -12831,6 +12836,14 @@ GeneralValueSeriaizer
 						return true;
 					}
 					return false;
+				}
+
+				WString GetDefaultText()override
+				{
+					T defaultValue = GetDefaultValue();
+					WString output;
+					Serialize(defaultValue, output);
+					return output;
 				}
 
 				bool HasCandidate()override
@@ -12887,6 +12900,13 @@ TypedValueSerializer
 			class TypedValueSerializer : public GeneralValueSeriaizer<T>
 			{
 			protected:
+				T											defaultValue;
+
+				T GetDefaultValue()
+				{
+					return defaultValue;
+				}
+
 				bool Serialize(const T& input, WString& output)override
 				{
 					return TypedValueSerializerProvider<T>::Serialize(input, output);
@@ -12897,8 +12917,19 @@ TypedValueSerializer
 					return TypedValueSerializerProvider<T>::Deserialize(input, output);
 				}
 			public:
-				TypedValueSerializer(ITypeDescriptor* _ownedTypeDescriptor)
+				TypedValueSerializer(ITypeDescriptor* _ownedTypeDescriptor, const T& _defaultValue)
 					:GeneralValueSeriaizer(_ownedTypeDescriptor)
+					, defaultValue(_defaultValue)
+				{
+				}
+			};
+
+			template<typename T>
+			class TypedDefaultValueSerializer : public TypedValueSerializer<T>
+			{
+			public:
+				TypedDefaultValueSerializer(ITypeDescriptor* _ownedTypeDescriptor)
+					:TypedValueSerializer(_ownedTypeDescriptor, TypedValueSerializerProvider<T>::GetDefaultValue())
 				{
 				}
 			};
@@ -12979,7 +13010,13 @@ EnumValueSeriaizer
 			class EnumValueSeriaizer : public GeneralValueSeriaizer<T>
 			{
 			protected:
+				T											defaultValue;
 				collections::Dictionary<WString, T>			candidates;
+
+				T GetDefaultValue()override
+				{
+					return defaultValue;
+				}
 
 				bool Serialize(const T& input, WString& output)override
 				{
@@ -12991,8 +13028,9 @@ EnumValueSeriaizer
 					return EnumValueSerializerProvider<T, CanMerge>::Deserialize(candidates, input, output);
 				}
 			public:
-				EnumValueSeriaizer(ITypeDescriptor* _ownedTypeDescriptor)
+				EnumValueSeriaizer(ITypeDescriptor* _ownedTypeDescriptor, const T& _defaultValue)
 					:GeneralValueSeriaizer(_ownedTypeDescriptor)
+					, defaultValue(_defaultValue)
 				{
 				}
 
@@ -13111,6 +13149,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<unsigned __int8>
 			{
+				static unsigned __int8 GetDefaultValue();
 				static bool Serialize(const unsigned __int8& input, WString& output);
 				static bool Deserialize(const WString& input, unsigned __int8& output);
 			};
@@ -13118,6 +13157,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<unsigned __int16>
 			{
+				static unsigned __int16 GetDefaultValue();
 				static bool Serialize(const unsigned __int16& input, WString& output);
 				static bool Deserialize(const WString& input, unsigned __int16& output);
 			};
@@ -13125,6 +13165,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<unsigned __int32>
 			{
+				static unsigned __int32 GetDefaultValue();
 				static bool Serialize(const unsigned __int32& input, WString& output);
 				static bool Deserialize(const WString& input, unsigned __int32& output);
 			};
@@ -13132,6 +13173,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<unsigned __int64>
 			{
+				static unsigned __int64 GetDefaultValue();
 				static bool Serialize(const unsigned __int64& input, WString& output);
 				static bool Deserialize(const WString& input, unsigned __int64& output);
 			};
@@ -13139,6 +13181,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<signed __int8>
 			{
+				static signed __int8 GetDefaultValue();
 				static bool Serialize(const signed __int8& input, WString& output);
 				static bool Deserialize(const WString& input, signed __int8& output);
 			};
@@ -13146,6 +13189,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<signed __int16>
 			{
+				static signed __int16 GetDefaultValue();
 				static bool Serialize(const signed __int16& input, WString& output);
 				static bool Deserialize(const WString& input, signed __int16& output);
 			};
@@ -13153,6 +13197,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<signed __int32>
 			{
+				static signed __int32 GetDefaultValue();
 				static bool Serialize(const signed __int32& input, WString& output);
 				static bool Deserialize(const WString& input, signed __int32& output);
 			};
@@ -13160,6 +13205,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<signed __int64>
 			{
+				static signed __int64 GetDefaultValue();
 				static bool Serialize(const signed __int64& input, WString& output);
 				static bool Deserialize(const WString& input, signed __int64& output);
 			};
@@ -13167,6 +13213,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<float>
 			{
+				static float GetDefaultValue();
 				static bool Serialize(const float& input, WString& output);
 				static bool Deserialize(const WString& input, float& output);
 			};
@@ -13174,6 +13221,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<double>
 			{
+				static double GetDefaultValue();
 				static bool Serialize(const double& input, WString& output);
 				static bool Deserialize(const WString& input, double& output);
 			};
@@ -13181,6 +13229,7 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<wchar_t>
 			{
+				static wchar_t GetDefaultValue();
 				static bool Serialize(const wchar_t& input, WString& output);
 				static bool Deserialize(const WString& input, wchar_t& output);
 			};
@@ -13188,8 +13237,17 @@ Predefined Types
 			template<>
 			struct TypedValueSerializerProvider<WString>
 			{
+				static WString GetDefaultValue();
 				static bool Serialize(const WString& input, WString& output);
 				static bool Deserialize(const WString& input, WString& output);
+			};
+
+			template<>
+			struct TypedValueSerializerProvider<Locale>
+			{
+				static Locale GetDefaultValue();
+				static bool Serialize(const Locale& input, WString& output);
+				static bool Deserialize(const WString& input, Locale& output);
 			};
 
 /***********************************************************************
@@ -13792,6 +13850,26 @@ TypeInfoRetriver
 			};
 
 			template<typename T>
+			struct DetailTypeInfoRetriver<Nullable<T>, TypeFlags::NonGenericType>
+			{
+				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
+
+				static const ITypeInfo::Decorator								Decorator=ITypeInfo::Nullable;
+				typedef typename UpLevelRetriver::Type							Type;
+				typedef Nullable<T>												TempValueType;
+				typedef Nullable<T>&											ResultReferenceType;
+				typedef Nullable<T>												ResultNonReferenceType;
+
+				static Ptr<ITypeInfo> CreateTypeInfo()
+				{
+					Ptr<ITypeInfo> elementType=TypeInfoRetriver<T>::CreateTypeInfo();
+					Ptr<TypeInfoImpl> type=new TypeInfoImpl(ITypeInfo::Nullable);
+					type->SetElementType(elementType);
+					return type;
+				}
+			};
+
+			template<typename T>
 			struct DetailTypeInfoRetriver<T&, TypeFlags::NonGenericType>
 			{
 				typedef DetailTypeInfoRetriver<T, TypeFlags::NonGenericType>	UpLevelRetriver;
@@ -14023,6 +14101,27 @@ TypeInfoRetriver Helper Functions (BoxValue, UnboxValue)
 						throw ArgumentTypeMismtatchException(valueName, typeDescriptor, Value::SharedPtr, value);
 					}
 					return result;
+				}
+			};
+
+			template<typename T>
+			struct ValueAccessor<Nullable<T>, ITypeInfo::Nullable>
+			{
+				static Value BoxValue(Nullable<T> object, ITypeDescriptor* typeDescriptor)
+				{
+					return object?ValueAccessor<T, ITypeInfo::TypeDescriptor>::BoxValue(object.Value(), typeDescriptor):Value();
+				}
+
+				static Nullable<T> UnboxValue(const Value& value, ITypeDescriptor* typeDescriptor, const WString& valueName)
+				{
+					if(value.IsNull())
+					{
+						return Nullable<T>();
+					}
+					else
+					{
+						return ValueAccessor<T, ITypeInfo::TypeDescriptor>::UnboxValue(value, typeDescriptor, valueName);
+					}
 				}
 			};
 
@@ -14414,6 +14513,11 @@ StructValueSeriaizer
 						}
 					}
 					return true;
+				}
+
+				T GetDefaultValue()override
+				{
+					return T();
 				}
 
 				bool Serialize(const T& input, WString& output)override
@@ -19765,7 +19869,7 @@ Type
 Enum
 ***********************************************************************/
 
-#define BEGIN_ENUM_ITEM_FLAG(TYPENAME, FLAG)\
+#define BEGIN_ENUM_ITEM_FLAG(TYPENAME, DEFAULTVALUE, FLAG)\
 			template<>\
 			struct CustomTypeDescriptorSelector<TYPENAME>\
 			{\
@@ -19775,11 +19879,12 @@ Enum
 					typedef TYPENAME EnumType;\
 				public:\
 					CustomEnumValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)\
-						:EnumValueSeriaizer(_ownerTypeDescriptor)\
+						:EnumValueSeriaizer(_ownerTypeDescriptor, DEFAULTVALUE)\
 					{
 
-#define BEGIN_ENUM_ITEM(TYPENAME) BEGIN_ENUM_ITEM_FLAG(TYPENAME, false)
-#define BEGIN_ENUM_ITEM_MERGABLE(TYPENAME) BEGIN_ENUM_ITEM_FLAG(TYPENAME, true)
+#define BEGIN_ENUM_ITEM_DEFAULT_VALUE(TYPENAME, DEFAULTVALUE) BEGIN_ENUM_ITEM_FLAG(TYPENAME, TYPENAME::DEFAULTVALUE, false)
+#define BEGIN_ENUM_ITEM(TYPENAME) BEGIN_ENUM_ITEM_FLAG(TYPENAME, (TYPENAME)0, false)
+#define BEGIN_ENUM_ITEM_MERGABLE(TYPENAME) BEGIN_ENUM_ITEM_FLAG(TYPENAME, (TYPENAME)0, true)
 
 #define END_ENUM_ITEM(TYPENAME)\
 					}\
@@ -21233,7 +21338,9 @@ namespace vl
 			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> JsonConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
 			extern vl::Ptr<vl::parsing::tabling::ParsingTable> JsonLoadTable();
 
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors);
 			extern vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors);
 			extern vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
 
 		}
@@ -22017,10 +22124,14 @@ namespace vl
 			extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> XmlConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
 			extern vl::Ptr<vl::parsing::tabling::ParsingTable> XmlLoadTable();
 
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors);
 			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors);
 			extern vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
 
+			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors);
 			extern vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
+			extern vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors);
 			extern vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table);
 
 		}
@@ -22119,6 +22230,7 @@ namespace vl
 			vint				start;
 			vint				length;
 			vint				finalState;
+			vint				terminateState;
 		};
 
 		class PureInterpretor : public Object

@@ -1221,7 +1221,7 @@ L"\r\n"L"}"
 L"\r\n"L""
 L"\r\n"L"class String:Node"
 L"\r\n"L"{"
-L"\r\n"L"\ttoken content(JsonUnescapingString);"
+L"\r\n"L"\ttoken content(JsonUnescapingString)\t\t\t\t@Color(\"String\");"
 L"\r\n"L"}"
 L"\r\n"L""
 L"\r\n"L"class Number:Node"
@@ -1255,7 +1255,7 @@ L"\r\n"L"token ARRCLOSE = \"\\]\"\t\t\t\t\t\t\t\t@Color(\"Boundary\");"
 L"\r\n"L"token COMMA = \",\";"
 L"\r\n"L"token COLON = \":\";"
 L"\r\n"L"token NUMBER = \"[\\-]?\\d+(.\\d+)?([eE][+\\-]?\\d+)?\"\t@Color(\"Number\");"
-L"\r\n"L"token STRING = \"\"\"([^\\\\\"\"]|\\\\[^u]|\\\\u\\d{4})*\"\"\"\t\t@ContextColor(\"String\");"
+L"\r\n"L"token STRING = \"\"\"([^\\\\\"\"]|\\\\[^u]|\\\\u\\d{4})*\"\"\"\t\t@ContextColor();"
 L"\r\n"L""
 L"\r\n"L"discardtoken SPACE = \"\\s+\";"
 L"\r\n"L""
@@ -1501,28 +1501,38 @@ Visitor Pattern Implementation
 Parser Function
 ***********************************************************************/
 
-			vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors)
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"JRoot");
 				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
-				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				return node;
 			}
 
-			vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			vl::Ptr<vl::parsing::ParsingTreeNode> JsonParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				return JsonParseAsParsingTreeNode(input, table, errors);
+			}
+
+			vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors)
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"JRoot");
 				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
-				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
-				if(node)
+				if(node && errors.Count()==0)
 				{
 					return JsonConvertParsingTreeNode(node, state.GetTokens()).Cast<JsonNode>();
 				}
 				return 0;
+			}
+
+			vl::Ptr<JsonNode> JsonParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				return JsonParse(input, table, errors);
 			}
 
 /***********************************************************************
@@ -1588,7 +1598,7 @@ ParsingGeneralParser
 				for(vint i=0;i<state.GetTokens().Count();i++)
 				{
 					const RegexToken* token=&state.GetTokens().Get(i);
-					if(token->token==-1)
+					if(token->token==-1 || !token->completeToken)
 					{
 						errors.Add(new ParsingError(token, L"Unrecognizable token: \""+WString(token->reading, token->length)+L"\"."));
 					}
@@ -11039,8 +11049,8 @@ L"\r\n"L"token ELEMENT_OPEN = \"/<\"\t\t\t\t@Color(\"Boundary\");"
 L"\r\n"L"token ELEMENT_CLOSE = \"/>\"\t\t\t\t@Color(\"Boundary\");"
 L"\r\n"L"token EQUAL = \"/=\";"
 L"\r\n"L""
-L"\r\n"L"token NAME = \"[a-zA-Z0-9:._/-]+\"\t\t\t\t\t\t\t\t@ContextColor(\"Default\");"
-L"\r\n"L"token ATTVALUE = \"\"\"[^<>\"\"]*\"\"|\'[^<>\']*\'\"\t\t\t\t\t\t@ContextColor(\"Default\");"
+L"\r\n"L"token NAME = \"[a-zA-Z0-9:._/-]+\"\t\t\t\t\t\t\t\t@ContextColor();"
+L"\r\n"L"token ATTVALUE = \"\"\"[^<>\"\"]*\"\"|\'[^<>\']*\'\"\t\t\t\t\t\t@ContextColor();"
 L"\r\n"L"token COMMENT = \"/</!--([^/->]|-[^/->]|--[^>])*--/>\"\t\t\t@Color(\"Comment\");"
 L"\r\n"L"token CDATA = \"/</!/[CDATA/[([^/]]|/][^/]]|/]/][^>])*/]/]/>\";"
 L"\r\n"L"token TEXT = \"([^<>=\"\"\' /r/n/ta-zA-Z0-9:._/-])+|\"\"|\'\";"
@@ -11290,52 +11300,72 @@ Visitor Pattern Implementation
 Parser Function
 ***********************************************************************/
 
-			vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors)
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XDocument");
 				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
-				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				return node;
 			}
 
-			vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseDocumentAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				return XmlParseDocumentAsParsingTreeNode(input, table, errors);
+			}
+
+			vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors)
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XDocument");
 				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
-				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
-				if(node)
+				if(node && errors.Count()==0)
 				{
 					return XmlConvertParsingTreeNode(node, state.GetTokens()).Cast<XmlDocument>();
 				}
 				return 0;
 			}
 
-			vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			vl::Ptr<XmlDocument> XmlParseDocument(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				return XmlParseDocument(input, table, errors);
+			}
+
+			vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors)
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XElement");
 				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
-				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
 				return node;
 			}
 
-			vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			vl::Ptr<vl::parsing::ParsingTreeNode> XmlParseElementAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				return XmlParseElementAsParsingTreeNode(input, table, errors);
+			}
+
+			vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors)
 			{
 				vl::parsing::tabling::ParsingState state(input, table);
 				state.Reset(L"XElement");
 				vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
-				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
 				vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
-				if(node)
+				if(node && errors.Count()==0)
 				{
 					return XmlConvertParsingTreeNode(node, state.GetTokens()).Cast<XmlElement>();
 				}
 				return 0;
+			}
+
+			vl::Ptr<XmlElement> XmlParseElement(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table)
+			{
+				vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+				return XmlParseElement(input, table, errors);
 			}
 
 /***********************************************************************
@@ -11587,6 +11617,10 @@ description::Value
 
 			bool Value::CanConvertTo(ITypeInfo* targetType)const
 			{
+				if(valueType==Null && targetType->GetDecorator()==ITypeInfo::Nullable)
+				{
+					return true;
+				}
 				ValueType targetValueType=ValueType::Null;
 				{
 					ITypeInfo* currentType=targetType;
@@ -11603,6 +11637,7 @@ description::Value
 							currentType=0;
 							break;
 						case ITypeInfo::TypeDescriptor:
+						case ITypeInfo::Nullable:
 							targetValueType=Text;
 							currentType=0;
 							break;
@@ -11988,7 +12023,7 @@ LogTypeManager (enum)
 
 			void LogTypeManager_Enum(stream::TextWriter& writer, ITypeDescriptor* type, IValueSerializer* serializer)
 			{
-				writer.WriteLine(L"enum "+type->GetTypeName()+(serializer->CanMergeCandidate()?L" flag":L""));
+				writer.WriteLine((serializer->CanMergeCandidate()?L"flags ":L"enum ")+type->GetTypeName());
 				writer.WriteLine(L"{");
 				for(vint j=0;j<serializer->GetCandidateCount();j++)
 				{
@@ -12025,50 +12060,6 @@ LogTypeManager (data)
 /***********************************************************************
 LogTypeManager (class)
 ***********************************************************************/
-
-			bool LogTypeManager_IsInterface(ITypeDescriptor* type)
-			{
-				bool containsConstructor=false;
-				if(IMethodGroupInfo* group=type->GetConstructorGroup())
-				{
-					containsConstructor=group->GetMethodCount()>0;
-					if(group->GetMethodCount()==1)
-					{
-						if(IMethodInfo* info=group->GetMethod(0))
-						{
-							if(info->GetParameterCount()==1 && info->GetParameter(0)->GetType()->GetTypeDescriptor()->GetTypeName()==TypeInfo<IValueInterfaceProxy>::TypeName)
-							{
-								return true;
-							}
-						}
-					}
-				}
-
-				if(!containsConstructor)
-				{
-					if(type->GetTypeName()==TypeInfo<IDescriptable>::TypeName)
-					{
-						return true;
-					}
-					else
-					{
-						for(vint i=0;i<type->GetBaseTypeDescriptorCount();i++)
-						{
-							if(!LogTypeManager_IsInterface(type->GetBaseTypeDescriptor(i)))
-							{
-								return false;
-							}
-						}
-						const wchar_t* name=type->GetTypeName().Buffer();
-						while(const wchar_t* next=wcschr(name, L':'))
-						{
-							name=next+1;
-						}
-						return name[0]==L'I' && (L'A'<=name[1] && name[1]<=L'Z');
-					}
-				}
-				return false;
-			}
 
 			void LogTypeManager_PrintEvents(stream::TextWriter& writer, ITypeDescriptor* type)
 			{
@@ -12179,7 +12170,8 @@ LogTypeManager (class)
 
 			void LogTypeManager_Class(stream::TextWriter& writer, ITypeDescriptor* type)
 			{
-				bool isInterface=LogTypeManager_IsInterface(type);
+				bool acceptProxy = false;
+				bool isInterface=IsInterfaceType(type, acceptProxy);
 				writer.WriteString((isInterface?L"interface ":L"class ")+type->GetTypeName());
 				for(vint j=0;j<type->GetBaseTypeDescriptorCount();j++)
 				{
@@ -12202,6 +12194,52 @@ LogTypeManager (class)
 /***********************************************************************
 LogTypeManager
 ***********************************************************************/
+
+			bool IsInterfaceType(ITypeDescriptor* typeDescriptor, bool& acceptProxy)
+			{
+				bool containsConstructor=false;
+				if(IMethodGroupInfo* group=typeDescriptor->GetConstructorGroup())
+				{
+					containsConstructor=group->GetMethodCount()>0;
+					if(group->GetMethodCount()==1)
+					{
+						if(IMethodInfo* info=group->GetMethod(0))
+						{
+							if(info->GetParameterCount()==1 && info->GetParameter(0)->GetType()->GetTypeDescriptor()->GetTypeName()==TypeInfo<IValueInterfaceProxy>::TypeName)
+							{
+								acceptProxy = true;
+								return true;
+							}
+						}
+					}
+				}
+
+				if(!containsConstructor)
+				{
+					if(typeDescriptor->GetTypeName()==TypeInfo<IDescriptable>::TypeName)
+					{
+						return true;
+					}
+					else
+					{
+						for(vint i=0;i<typeDescriptor->GetBaseTypeDescriptorCount();i++)
+						{
+							bool _acceptProxy = false;
+							if(!IsInterfaceType(typeDescriptor->GetBaseTypeDescriptor(i), _acceptProxy))
+							{
+								return false;
+							}
+						}
+						const wchar_t* name=typeDescriptor->GetTypeName().Buffer();
+						while(const wchar_t* next=wcschr(name, L':'))
+						{
+							name=next+1;
+						}
+						return name[0]==L'I' && (L'A'<=name[1] && name[1]<=L'Z');
+					}
+				}
+				return false;
+			}
 
 			void LogTypeManager(stream::TextWriter& writer)
 			{
@@ -12356,6 +12394,8 @@ TypeInfoImpl
 					return elementType->GetTypeFriendlyName()+L"*";
 				case SharedPtr:
 					return elementType->GetTypeFriendlyName()+L"^";
+				case Nullable:
+					return elementType->GetTypeFriendlyName()+L"?";
 				case TypeDescriptor:
 					return typeDescriptor->GetTypeName();
 				case Generic:
@@ -13442,6 +13482,11 @@ TypeName
 TypedValueSerializerProvider
 ***********************************************************************/
 
+			unsigned __int8 TypedValueSerializerProvider<unsigned __int8>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<unsigned __int8>::Serialize(const unsigned __int8& input, WString& output)
 			{
 				output=u64tow(input);
@@ -13456,6 +13501,13 @@ TypedValueSerializerProvider
 				if(result>_UI8_MAX) return false;
 				output=(unsigned __int8)result;
 				return true;
+			}
+
+			//---------------------------------------
+
+			unsigned __int16 TypedValueSerializerProvider<unsigned __int16>::GetDefaultValue()
+			{
+				return 0;
 			}
 
 			bool TypedValueSerializerProvider<unsigned __int16>::Serialize(const unsigned __int16& input, WString& output)
@@ -13474,6 +13526,13 @@ TypedValueSerializerProvider
 				return true;
 			}
 
+			//---------------------------------------
+
+			unsigned __int32 TypedValueSerializerProvider<unsigned __int32>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<unsigned __int32>::Serialize(const unsigned __int32& input, WString& output)
 			{
 				output=u64tow(input);
@@ -13490,6 +13549,13 @@ TypedValueSerializerProvider
 				return true;
 			}
 
+			//---------------------------------------
+
+			unsigned __int64 TypedValueSerializerProvider<unsigned __int64>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<unsigned __int64>::Serialize(const unsigned __int64& input, WString& output)
 			{
 				output=u64tow(input);
@@ -13503,6 +13569,13 @@ TypedValueSerializerProvider
 				if(!success) return false;
 				output=result;
 				return true;
+			}
+
+			//---------------------------------------
+
+			signed __int8 TypedValueSerializerProvider<signed __int8>::GetDefaultValue()
+			{
+				return 0;
 			}
 
 			bool TypedValueSerializerProvider<signed __int8>::Serialize(const signed __int8& input, WString& output)
@@ -13521,6 +13594,13 @@ TypedValueSerializerProvider
 				return true;
 			}
 
+			//---------------------------------------
+
+			signed __int16 TypedValueSerializerProvider<signed __int16>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<signed __int16>::Serialize(const signed __int16& input, WString& output)
 			{
 				output=i64tow(input);
@@ -13535,6 +13615,13 @@ TypedValueSerializerProvider
 				if(result<_I16_MIN || result>_I16_MAX) return false;
 				output=(signed __int16)result;
 				return true;
+			}
+
+			//---------------------------------------
+
+			signed __int32 TypedValueSerializerProvider<signed __int32>::GetDefaultValue()
+			{
+				return 0;
 			}
 
 			bool TypedValueSerializerProvider<signed __int32>::Serialize(const signed __int32& input, WString& output)
@@ -13553,6 +13640,13 @@ TypedValueSerializerProvider
 				return true;
 			}
 
+			//---------------------------------------
+
+			signed __int64 TypedValueSerializerProvider<signed __int64>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<signed __int64>::Serialize(const signed __int64& input, WString& output)
 			{
 				output=i64tow(input);
@@ -13566,6 +13660,13 @@ TypedValueSerializerProvider
 				if(!success) return false;
 				output=result;
 				return true;
+			}
+
+			//---------------------------------------
+
+			float TypedValueSerializerProvider<float>::GetDefaultValue()
+			{
+				return 0;
 			}
 
 			bool TypedValueSerializerProvider<float>::Serialize(const float& input, WString& output)
@@ -13584,6 +13685,13 @@ TypedValueSerializerProvider
 				return true;
 			}
 
+			//---------------------------------------
+
+			double TypedValueSerializerProvider<double>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<double>::Serialize(const double& input, WString& output)
 			{
 				output=ftow(input);
@@ -13599,9 +13707,16 @@ TypedValueSerializerProvider
 				return true;
 			}
 
+			//---------------------------------------
+
+			wchar_t TypedValueSerializerProvider<wchar_t>::GetDefaultValue()
+			{
+				return 0;
+			}
+
 			bool TypedValueSerializerProvider<wchar_t>::Serialize(const wchar_t& input, WString& output)
 			{
-				output=input;
+				output=input?WString(input):L"";
 				return true;
 			}
 
@@ -13610,6 +13725,13 @@ TypedValueSerializerProvider
 				if(input.Length()>1) return false;
 				output=input.Length()==0?0:input[0];
 				return true;
+			}
+
+			//---------------------------------------
+
+			WString TypedValueSerializerProvider<WString>::GetDefaultValue()
+			{
+				return L"";
 			}
 
 			bool TypedValueSerializerProvider<WString>::Serialize(const WString& input, WString& output)
@@ -13621,6 +13743,25 @@ TypedValueSerializerProvider
 			bool TypedValueSerializerProvider<WString>::Deserialize(const WString& input, WString& output)
 			{
 				output=input;
+				return true;
+			}
+
+			//---------------------------------------
+
+			Locale TypedValueSerializerProvider<Locale>::GetDefaultValue()
+			{
+				return Locale();
+			}
+
+			bool TypedValueSerializerProvider<Locale>::Serialize(const Locale& input, WString& output)
+			{
+				output=input.GetName();
+				return true;
+			}
+
+			bool TypedValueSerializerProvider<Locale>::Deserialize(const WString& input, Locale& output)
+			{
+				output=Locale(input);
 				return true;
 			}
 
@@ -13645,7 +13786,7 @@ BoolValueSerializer
 			{
 			public:
 				BoolValueSeriaizer(ITypeDescriptor* _ownerTypeDescriptor)
-					:EnumValueSeriaizer(_ownerTypeDescriptor)
+					:EnumValueSeriaizer(_ownerTypeDescriptor, false)
 				{
 					candidates.Add(L"true", true);
 					candidates.Add(L"false", false);
@@ -13660,6 +13801,11 @@ DateTimeValueSerializer
 			{
 			protected:
 				Regex				regexDateTime;
+
+				DateTime GetDefaultValue()override
+				{
+					return DateTime();
+				}
 
 				bool Serialize(const DateTime& input, WString& output)override
 				{
@@ -13693,32 +13839,6 @@ DateTimeValueSerializer
 				DateTimeValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)
 					:GeneralValueSeriaizer(_ownerTypeDescriptor)
 					,regexDateTime(L"(<Y>/d/d/d/d)-(<M>/d/d)-(<D>/d/d) (<h>/d/d):(<m>/d/d):(<s>/d/d).(<ms>/d/d/d)")
-				{
-				}
-			};
-
-/***********************************************************************
-LocaleValueSerializer
-***********************************************************************/
-
-			class LocaleValueSerializer : public GeneralValueSeriaizer<Locale>
-			{
-			protected:
-
-				bool Serialize(const Locale& input, WString& output)override
-				{
-					output=input.GetName();
-					return true;
-				}
-
-				bool Deserialize(const WString& input, Locale& output)override
-				{
-					output=Locale(input);
-					return true;
-				}
-			public:
-				LocaleValueSerializer(ITypeDescriptor* _ownerTypeDescriptor)
-					:GeneralValueSeriaizer(_ownerTypeDescriptor)
 				{
 				}
 			};
@@ -13862,6 +13982,7 @@ Collections
 
 				ENUM_NAMESPACE_ITEM(RawPtr)
 				ENUM_NAMESPACE_ITEM(SharedPtr)
+				ENUM_NAMESPACE_ITEM(Nullable)
 				ENUM_NAMESPACE_ITEM(TypeDescriptor)
 				ENUM_NAMESPACE_ITEM(Generic)
 			END_ENUM_ITEM(ITypeInfo::Decorator)
@@ -13988,21 +14109,21 @@ LoadPredefinedTypes
 				void Load(ITypeManager* manager)override
 				{
 					manager->SetTypeDescriptor(TypeInfo<Value>::TypeName, new ObjectTypeDescriptor);
-					AddSerializableType<TypedValueSerializer<unsigned __int8>>(manager);
-					AddSerializableType<TypedValueSerializer<unsigned __int16>>(manager);
-					AddSerializableType<TypedValueSerializer<unsigned __int32>>(manager);
-					AddSerializableType<TypedValueSerializer<unsigned __int64>>(manager);
-					AddSerializableType<TypedValueSerializer<signed __int8>>(manager);
-					AddSerializableType<TypedValueSerializer<signed __int16>>(manager);
-					AddSerializableType<TypedValueSerializer<signed __int32>>(manager);
-					AddSerializableType<TypedValueSerializer<signed __int64>>(manager);
-					AddSerializableType<TypedValueSerializer<float>>(manager);
-					AddSerializableType<TypedValueSerializer<double>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<unsigned __int8>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<unsigned __int16>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<unsigned __int32>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<unsigned __int64>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<signed __int8>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<signed __int16>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<signed __int32>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<signed __int64>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<float>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<double>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<wchar_t>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<WString>>(manager);
+					AddSerializableType<TypedDefaultValueSerializer<Locale>>(manager);
 					AddSerializableType<BoolValueSeriaizer>(manager);
-					AddSerializableType<TypedValueSerializer<wchar_t>>(manager);
-					AddSerializableType<TypedValueSerializer<WString>>(manager);
 					AddSerializableType<DateTimeValueSerializer>(manager);
-					AddSerializableType<LocaleValueSerializer>(manager);
 					ADD_TYPE_INFO(VoidValue)
 					ADD_TYPE_INFO(IDescriptable)
 
@@ -14487,6 +14608,7 @@ RegexTokens
 					token.start=0;
 					token.length=0;
 					token.token=-2;
+					token.completeToken=true;
 				}
 				token.rowStart=rowStart;
 				token.columnStart=columnStart;
@@ -14498,10 +14620,28 @@ RegexTokens
 				while(*reading)
 				{
 					vint id=-1;
+					bool completeToken=true;
 					if(!pure->MatchHead(reading, start, result))
 					{
 						result.start=reading-start;
-						result.length=1;
+
+						if(id==-1 && result.terminateState!=-1)
+						{
+							vint state=pure->GetRelatedFinalState(result.terminateState);
+							if(state!=-1)
+							{
+								id=stateTokens[state];
+							}
+						}
+
+						if(id==-1)
+						{
+							result.length=1;
+						}
+						else
+						{
+							completeToken=false;
+						}
 					}
 					else
 					{
@@ -14512,6 +14652,7 @@ RegexTokens
 						token.start=result.start;
 						token.length=result.length;
 						token.token=id;
+						token.completeToken=completeToken;
 					}
 					else if(token.token==id && id==-1)
 					{
@@ -14525,6 +14666,7 @@ RegexTokens
 						cacheToken.length=result.length;
 						cacheToken.codeIndex=codeIndex;
 						cacheToken.token=id;
+						cacheToken.completeToken=completeToken;
 					}
 					reading+=result.length;
 					if(cacheAvailable)
@@ -14901,6 +15043,7 @@ RegexLexer
 
 		RegexTokens RegexLexer::Parse(const WString& code, vint codeIndex)const
 		{
+			pure->PrepareForRelatedFinalStateTable();
 			return RegexTokens(pure, stateTokens, code, codeIndex);
 		}
 
@@ -17086,14 +17229,19 @@ PureInterpretor
 			result.start=input-start;
 			result.length=-1;
 			result.finalState=-1;
+			result.terminateState=-1;
 
 			vint currentState=startState;
+			vint terminateState=-1;
+			vint terminateLength=-1;
 			const wchar_t* read=input;
 			while(currentState!=-1)
 			{
+				terminateState=currentState;
+				terminateLength=read-input;
 				if(finalState[currentState])
 				{
-					result.length=read-input;
+					result.length=terminateLength;
 					result.finalState=currentState;
 				}
 				if(!*read)break;
@@ -17101,7 +17249,19 @@ PureInterpretor
 				currentState=transition[currentState][charIndex];
 			}
 
-			return result.finalState!=-1;
+			if(result.finalState==-1)
+			{
+				if(terminateLength>0)
+				{
+					result.terminateState=terminateState;
+				}
+				result.length=terminateLength;
+				return false;
+			}
+			else
+			{
+				return true;
+			}
 		}
 
 		bool PureInterpretor::Match(const wchar_t* input, const wchar_t* start, PureResult& result)
