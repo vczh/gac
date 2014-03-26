@@ -1,6 +1,8 @@
 #include "..\CommonLibrary\FileSystemInformation.h"
+#include "..\..\Public\Source\GacUIReflection.h"
 
 using namespace vl::collections;
+using namespace vl::reflection::description;
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int CmdShow)
 {
@@ -23,13 +25,13 @@ private:
 		{
 			tree::MemoryNodeProvider* child=parent->Children()[0].Obj();
 			Ptr<tree::TreeViewItem> childItem=child->GetData().Cast<tree::TreeViewItem>();
-			if(childItem->text==L"Loading..." && !childItem->tag)
+			if(childItem->text==L"Loading...")
 			{
 				GetApplication()->InvokeAsync([=]()
 				{
 					// get back the full path from the item
 					Ptr<tree::TreeViewItem> item=parent->GetData().Cast<tree::TreeViewItem>();
-					WString path=item->tag.Cast<ObjectBox<WString>>()->Unbox();
+					WString path=UnboxValue<WString>(item->tag);
 					if(path[path.Length()-1]!=L'\\')
 					{
 						path+=L"\\";
@@ -65,7 +67,7 @@ private:
 		// set the image using the file icon
 		item->image=GetFileIcon(path, SHGFI_SMALLICON | SHGFI_ICON);
 		// tag the full path to the item
-		item->tag=new ObjectBox<WString>(path);
+		item->tag = BoxValue<WString>(path);
 
 		int index=parent->Children().Add(new tree::MemoryNodeProvider(item));
 		return index;
@@ -138,6 +140,8 @@ GuiMain
 
 void GuiMain()
 {
+	description::GetTypeDescriptor<GuiWindow>(); // should be called due to VC++'s static library bug
+
 	GuiWindow* window=new FileExplorerWindow;
 	GetApplication()->Run(window);
 	delete window;

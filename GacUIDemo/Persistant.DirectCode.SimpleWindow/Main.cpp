@@ -17,12 +17,12 @@ void GuiMain()
 	// auto windowStyle=currentTheme->CreateWindowStyle();
 	Value windowStyle=currentTheme.Invoke(L"CreateWindowStyle");
 	// auto window=new GuiWindow(windowStyle);
-	Value window=Value::Create(L"presentation::controls::GuiWindow", (Value::xs(), windowStyle));
+	Value window=Value::Create(L"presentation::controls::GuiWindow", (Value_xs(), windowStyle));
 
 	// auto clientSize=Size(320, 240);
 	Value clientSize=Value::From(L"x:320 y:240", GetTypeDescriptor(L"presentation::Size"));
 	// window->SetText(L"Window By Reflection!");
-	window.SetProperty(L"Text", WString(L"Window By Reflection!"));
+	window.SetProperty(L"Text", BoxValue<WString>(L"Window By Reflection!"));
 	// window->SetClientSize(clientSize);
 	window.SetProperty(L"ClientSize", clientSize);
 	// window->GetContainerComposition()->SetPreferredMinSize(clientSize);
@@ -33,11 +33,11 @@ void GuiMain()
 	// auto buttonStyle=currentTheme->CreateButtonStyle();
 	Value buttonStyle=currentTheme.Invoke(L"CreateButtonStyle");
 	// auto button=new GuiButton(buttonStyle);
-	Value button=Value::Create(L"presentation::controls::GuiButton", (Value::xs(), buttonStyle));
+	Value button=Value::Create(L"presentation::controls::GuiButton", (Value_xs(), buttonStyle));
 	// button->GetBoundsComposition()->SetAlignmentToParent(Margin(60, 60, 60, 60));
 	button.GetProperty(L"BoundsComposition").SetProperty(L"AlignmentToParent", Value::From(L"left:60 top:60 right:60 bottom:60", GetTypeDescriptor(L"presentation::Margin")));
 	// button->SetText(L"Click Me!");
-	button.SetProperty(L"Text", WString(L"Click Me!"));
+	button.SetProperty(L"Text", BoxValue<WString>(L"Click Me!"));
 	// FontProperties font;
 	// font.fontFamily=L"Segoe UI";
 	// font.size=16;
@@ -45,7 +45,7 @@ void GuiMain()
 	// button->SetFont(font);
 	button.SetProperty(L"Font", Value::From(L"fontFamily:{Segoe UI} size:16 bold:true", GetTypeDescriptor(L"presentation::FontProperties")));
 	// window->AddChild(button);
-	window.Invoke(L"AddChild", (Value::xs(), button));
+	window.Invoke(L"AddChild", (Value_xs(), button));
 
 	// button->Clicked.AttachLambda([=](GuiGraphicsComposition* sender, GuiEventArgs& arguments)
 	// {
@@ -54,14 +54,14 @@ void GuiMain()
 	Value handler=BoxParameter<Func<Value(Value, Value)>>(
 		LAMBDA([&button](Value sender, Value arguments)
 		{
-			button.SetProperty(L"Text", WString(L"You clicked the button!"));
+			button.SetProperty(L"Text", BoxValue<WString>(L"You clicked the button!"));
 			return Value();
 		}));
 	button.AttachEvent(L"Clicked", handler);
 
 	// GetApplication()->Run(window);
 	Value application=Value::InvokeStatic(L"presentation::controls::GuiApplication", L"GetApplication");
-	application.Invoke(L"Run", (Value::xs(), window));
+	application.Invoke(L"Run", (Value_xs(), window));
 	// delete window;
 	window.DeleteRawPtr();
 }

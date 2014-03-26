@@ -1,4 +1,4 @@
-# Gaclib 0.6.0.0
+# Gaclib 0.7.0.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -16,6 +16,6 @@ Here is a simple description to the code
 
 Improvements to the previous release
 * Add 1 demos
-    * **Persistant.LoadFromXml.Controls**
+    * **Persistant.DirectCode.Scripting**
 * Added new features
-    * **Load From Xml** enables you to load a static window or customized control from an xml resource file. Xml support for data bindings and customized control style will be provided in the next few releases.
+    * **Workflow Script** enables you to access reflectable C++ classes from script.

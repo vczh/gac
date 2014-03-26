@@ -137,10 +137,12 @@ Instance Representation
 				WString								binding;
 				ValueList							values;
 			};
-
+			
 			typedef collections::Dictionary<WString, Ptr<SetterValue>>			SetteValuerMap;
+			typedef collections::Dictionary<WString, WString>					EventHandlerMap;
 		public:
 			SetteValuerMap							setters;					// empty key means default property
+			EventHandlerMap							eventHandlers;
 
 			void									Accept(IVisitor* visitor)override{visitor->Visit(this);}
 		};
@@ -151,7 +153,7 @@ Instance Representation
 		public:
 			WString									typeNamespace;
 			WString									typeName;
-			ReferenceAttrubuteMap					referenceAttributes;
+			Nullable<WString>						instanceName;
 
 			void									Accept(IVisitor* visitor)override{visitor->Visit(this);}
 		};
@@ -160,38 +162,11 @@ Instance Representation
 Instance Namespace
 ***********************************************************************/
 
-		class GuiInstanceResourcePattern;
-		class GuiInstanceNamePattern;
-
-		class GuiInstancePattern : public Object, public Description<GuiInstancePattern>
-		{
-		public:
-			class IVisitor : public IDescriptable, public Description<IVisitor>
-			{
-			public:
-				virtual void						Visit(GuiInstanceResourcePattern* ns)=0;
-				virtual void						Visit(GuiInstanceNamePattern* ns)=0;
-			};
-
-			virtual void							Accept(IVisitor* visitor)=0;
-		};
-
-		class GuiInstanceResourcePattern : public GuiInstancePattern, public Description<GuiInstanceResourcePattern>
-		{
-		public:
-			WString									protocol;
-			WString									path;
-
-			void									Accept(IVisitor* visitor)override{visitor->Visit(this);}
-		};
-
-		class GuiInstanceNamePattern : public GuiInstancePattern, public Description<GuiInstanceNamePattern>
+		class GuiInstanceNamespace : public Object, public Description<GuiInstanceNamespace>
 		{
 		public:
 			WString									prefix;
 			WString									postfix;
-
-			void									Accept(IVisitor* visitor)override{visitor->Visit(this);}
 		};
 
 /***********************************************************************
@@ -201,12 +176,12 @@ Instance Context
 		class GuiInstanceContext : public Object, public Description<GuiInstanceContext>
 		{
 		public:
-			typedef collections::List<Ptr<GuiInstancePattern>>					NamespacePatternList;
+			typedef collections::List<Ptr<GuiInstanceNamespace>>				NamespaceList;
 
 			struct NamespaceInfo
 			{
 				WString								name;
-				NamespacePatternList				patterns;
+				NamespaceList						namespaces;
 			};
 			typedef collections::Dictionary<WString, Ptr<NamespaceInfo>>		NamespaceMap;
 
@@ -219,16 +194,20 @@ Instance Context
 				WString								binding;
 
 				bool IsCtorName(){ return category==L"" && name!=L"" && binding==L""; }
+				bool IsReferenceAttributeName(){ return namespaceName==L"" && category==L"ref" && name!=L"" && binding==L""; }
 				bool IsPropertyAttributeName(){ return namespaceName==L"" && category==L"" && name!=L""; }
 				bool IsPropertyElementName(){ return namespaceName==L"" && category==L"att" && name!=L""; }
-				bool IsReferenceAttributeName(){ return namespaceName==L"" && category==L"ref" && name!=L""; }
+				bool IsEventAttributeName(){ return namespaceName==L"" && category==L"ev" && name!=L"" && binding==L""; }
+				bool IsEventElementName(){ return namespaceName==L"" && category==L"ev" && name!=L"" && binding==L""; }
 			};
 		public:
 			Ptr<GuiConstructorRepr>					instance;
 			NamespaceMap							namespaces;
-			WString									typeName;
+			Nullable<WString>						className;
 
-			static void								CollectValues(collections::Dictionary<WString, Ptr<GuiAttSetterRepr::SetterValue>>& setters, Ptr<parsing::xml::XmlElement> xml);
+			static void								CollectDefaultAttributes(GuiAttSetterRepr::ValueList& values, Ptr<parsing::xml::XmlElement> xml);
+			static void								CollectAttributes(GuiAttSetterRepr::SetteValuerMap& setters, Ptr<parsing::xml::XmlElement> xml);
+			static void								CollectEvents(GuiAttSetterRepr::EventHandlerMap& eventHandlers, Ptr<parsing::xml::XmlElement> xml);
 			static void								FillAttSetter(Ptr<GuiAttSetterRepr> setter, Ptr<parsing::xml::XmlElement> xml);
 			static Ptr<GuiConstructorRepr>			LoadCtor(Ptr<parsing::xml::XmlElement> xml);
 			static Ptr<GuiInstanceContext>			LoadFromXml(Ptr<parsing::xml::XmlDocument> xml);
@@ -281,7 +260,7 @@ Instance Environment
 
 			GuiInstanceEnvironment(Ptr<GuiInstanceContext> _context, Ptr<GuiResourcePathResolver> _resolver)
 				:context(_context)
-				,resolver(_resolver)
+				, resolver(_resolver)
 			{
 				scope = new GuiInstanceContextScope;
 			}
@@ -322,6 +301,26 @@ Instance Loader
 			static Ptr<GuiInstancePropertyInfo>		Array(description::ITypeDescriptor* typeDescriptor = 0);
 		};
 
+		class GuiInstanceEventInfo : public IDescriptable, public Description<GuiInstanceEventInfo>
+		{
+			typedef collections::List<description::ITypeDescriptor*>		TypeDescriptorList;
+		public:
+			enum Support
+			{
+				NotSupport,
+				SupportAssign,
+			};
+
+			Support									support;
+			description::ITypeDescriptor*			argumentType;
+
+			GuiInstanceEventInfo();
+			~GuiInstanceEventInfo();
+
+			static Ptr<GuiInstanceEventInfo>		Unsupported();
+			static Ptr<GuiInstanceEventInfo>		Assign(description::ITypeDescriptor* typeDescriptor);
+		};
+
 		class IGuiInstanceLoader : public IDescriptable, public Description<IGuiInstanceLoader>
 		{
 		public:
@@ -333,7 +332,7 @@ Instance Loader
 				TypeInfo() :typeDescriptor(0){}
 				TypeInfo(const WString& _typeName, description::ITypeDescriptor* _typeDescriptor)
 					:typeName(_typeName)
-					,typeDescriptor(_typeDescriptor)
+					, typeDescriptor(_typeDescriptor)
 				{
 				}
 			};
@@ -346,7 +345,7 @@ Instance Loader
 				PropertyInfo(){}
 				PropertyInfo(const TypeInfo& _typeInfo, const WString& _propertyName)
 					:typeInfo(_typeInfo)
-					,propertyName(_propertyName)
+					, propertyName(_propertyName)
 				{
 				}
 			};
@@ -357,24 +356,32 @@ Instance Loader
 				description::Value					propertyValue;
 
 				PropertyValue(){}
-				PropertyValue(const TypeInfo& _typeInfo, const WString& _propertyName, description::Value _instanceValue, description::Value _propertyValue=description::Value())
+				PropertyValue(const TypeInfo& _typeInfo, const WString& _propertyName, description::Value _instanceValue, description::Value _propertyValue = description::Value())
 					:PropertyInfo(_typeInfo, _propertyName)
-					,instanceValue(_instanceValue)
-					,propertyValue(_propertyValue)
+					, instanceValue(_instanceValue)
+					, propertyValue(_propertyValue)
 				{
 				}
 			};
 
-			virtual WString							GetTypeName()=0;
-			virtual bool							IsDeserializable(const TypeInfo& typeInfo) = 0;
-			virtual description::Value				Deserialize(const TypeInfo& typeInfo, const WString& text) = 0;
-			virtual bool							IsCreatable(const TypeInfo& typeInfo) = 0;
-			virtual description::Value				CreateInstance(const TypeInfo& typeInfo, collections::Group<WString, description::Value>& constructorArguments)=0;
-			virtual void							GetPropertyNames(const TypeInfo& typeInfo, collections::List<WString>& propertyNames) = 0;
-			virtual void							GetConstructorParameters(const TypeInfo& typeInfo, collections::List<WString>& propertyNames) = 0;
-			virtual Ptr<GuiInstancePropertyInfo>	GetPropertyType(const PropertyInfo& propertyInfo)=0;
-			virtual bool							GetPropertyValue(PropertyValue& propertyValue)=0;
-			virtual bool							SetPropertyValue(PropertyValue& propertyValue, vint currentIndex)=0;
+			virtual WString							GetTypeName() = 0;
+
+			virtual bool							IsDeserializable(const TypeInfo& typeInfo);
+			virtual description::Value				Deserialize(const TypeInfo& typeInfo, const WString& text);
+			virtual bool							IsCreatable(const TypeInfo& typeInfo);
+			virtual description::Value				CreateInstance(const TypeInfo& typeInfo, collections::Group<WString, description::Value>& constructorArguments);
+			virtual bool							IsInitializable(const TypeInfo& typeInfo);
+			virtual Ptr<GuiInstanceContextScope>	InitializeInstance(const TypeInfo& typeInfo, description::Value instance);
+
+			virtual void							GetPropertyNames(const TypeInfo& typeInfo, collections::List<WString>& propertyNames);
+			virtual void							GetConstructorParameters(const TypeInfo& typeInfo, collections::List<WString>& propertyNames);
+			virtual Ptr<GuiInstancePropertyInfo>	GetPropertyType(const PropertyInfo& propertyInfo);
+			virtual bool							GetPropertyValue(PropertyValue& propertyValue);
+			virtual bool							SetPropertyValue(PropertyValue& propertyValue);
+
+			virtual void							GetEventNames(const TypeInfo& typeInfo, collections::List<WString>& eventNames);
+			virtual Ptr<GuiInstanceEventInfo>		GetEventType(const PropertyInfo& eventInfo);
+			virtual bool							SetEventValue(PropertyValue& propertyValue);
 		};
 
 /***********************************************************************
@@ -384,9 +391,9 @@ Instance Binder
 		class IGuiInstanceBinder : public IDescriptable, public Description<IGuiInstanceBinder>
 		{
 		public:
-			virtual WString							GetBindingName()=0;
-			virtual void							GetExpectedValueTypes(collections::List<description::ITypeDescriptor*>& expectedTypes)=0;
-			virtual bool							SetPropertyValue(Ptr<GuiInstanceEnvironment> env, IGuiInstanceLoader* loader, IGuiInstanceLoader::PropertyValue& propertyValue, vint currentIndex=-1)=0;
+			virtual WString							GetBindingName() = 0;
+			virtual void							GetExpectedValueTypes(collections::List<description::ITypeDescriptor*>& expectedTypes) = 0;
+			virtual bool							SetPropertyValue(Ptr<GuiInstanceEnvironment> env, IGuiInstanceLoader* loader, IGuiInstanceLoader::PropertyValue& propertyValue) = 0;
 		};
 
 /***********************************************************************
@@ -396,15 +403,17 @@ Instance Loader Manager
 		class IGuiInstanceLoaderManager : public IDescriptable, public Description<IGuiInstanceLoaderManager>
 		{
 		public:
-			virtual bool							AddInstanceBinder(Ptr<IGuiInstanceBinder> binder)=0;
-			virtual IGuiInstanceBinder*				GetInstanceBinder(const WString& bindingName)=0;
-			virtual bool							CreateVirtualType(const WString& parentType, Ptr<IGuiInstanceLoader> loader)=0;
-			virtual bool							SetLoader(Ptr<IGuiInstanceLoader> loader)=0;
-			virtual IGuiInstanceLoader*				GetLoader(const WString& typeName)=0;
-			virtual IGuiInstanceLoader*				GetParentLoader(IGuiInstanceLoader* loader)=0;
-			virtual description::ITypeDescriptor*	GetTypeDescriptorForType(const WString& typeName)=0;
+			virtual bool							AddInstanceBinder(Ptr<IGuiInstanceBinder> binder) = 0;
+			virtual IGuiInstanceBinder*				GetInstanceBinder(const WString& bindingName) = 0;
+			virtual bool							CreateVirtualType(const WString& parentType, Ptr<IGuiInstanceLoader> loader) = 0;
+			virtual bool							SetLoader(Ptr<IGuiInstanceLoader> loader) = 0;
+			virtual IGuiInstanceLoader*				GetLoader(const WString& typeName) = 0;
+			virtual IGuiInstanceLoader*				GetParentLoader(IGuiInstanceLoader* loader) = 0;
+			virtual description::ITypeDescriptor*	GetTypeDescriptorForType(const WString& typeName) = 0;
 			virtual void							GetVirtualTypes(collections::List<WString>& typeNames) = 0;
 			virtual WString							GetParentTypeForVirtualType(const WString& virtualType) = 0;
+			virtual bool							SetResource(const WString& name, Ptr<GuiResource> resource) = 0;
+			virtual Ptr<GuiResource>				GetResource(const WString& name) = 0;
 		};
 
 		struct InstanceLoadingSource
@@ -413,22 +422,41 @@ Instance Loader Manager
 			WString									typeName;
 			Ptr<GuiInstanceContext>					context;
 
-			InstanceLoadingSource():loader(0){}
-			InstanceLoadingSource(IGuiInstanceLoader* _loader, const WString& _typeName):loader(_loader), typeName(_typeName){}
-			InstanceLoadingSource(Ptr<GuiInstanceContext> _context):loader(0), context(_context){}
+			InstanceLoadingSource() :loader(0){}
+			InstanceLoadingSource(IGuiInstanceLoader* _loader, const WString& _typeName) :loader(_loader), typeName(_typeName){}
+			InstanceLoadingSource(Ptr<GuiInstanceContext> _context) :loader(0), context(_context){}
 
 			operator bool()const
 			{
-				return loader!=0 || context;
+				return loader != 0 || context;
 			}
 		};
 
 		extern IGuiInstanceLoaderManager*			GetInstanceLoaderManager();
+		extern InstanceLoadingSource				FindInstanceLoadingSource(
+			Ptr<GuiInstanceEnvironment> env,
+			GuiConstructorRepr* ctor
+			);
+		Ptr<GuiInstanceContextScope>				LoadInstanceFromContext(
+			Ptr<GuiInstanceContext> context,
+			Ptr<GuiResourcePathResolver> resolver,
+			description::ITypeDescriptor* expectedType = 0
+			);
 		extern Ptr<GuiInstanceContextScope>			LoadInstance(
-														Ptr<GuiResource> resource,
-														const WString& instancePath,
-														description::ITypeDescriptor* expectedType=0
-														);
+			Ptr<GuiResource> resource,
+			const WString& instancePath,
+			description::ITypeDescriptor* expectedType = 0
+			);
+		extern Ptr<GuiInstanceContextScope>			InitializeInstanceFromContext(
+			Ptr<GuiInstanceContext> context,
+			Ptr<GuiResourcePathResolver> resolver,
+			description::Value instance
+			);
+		extern Ptr<GuiInstanceContextScope>			InitializeInstance(
+			Ptr<GuiResource> resource,
+			const WString& instancePath,
+			description::Value instance
+			);
 		extern void									LogInstanceLoaderManager(stream::TextWriter& writer);
 
 /***********************************************************************
@@ -436,37 +464,57 @@ Instance Scope Wrapper
 ***********************************************************************/
 
 		template<typename T>
-		class GuiInstance : public Object
+		class GuiInstancePartialClass
 		{
-		private:
-			Ptr<GuiResource>						resource;
-			Ptr<GuiInstanceContextScope>			scope;
-			T*										instance;
+			template<typename T>
+			friend class GuiInstance;
 
-		public:
-			GuiInstance(Ptr<GuiResource> _resource, const WString& path)
-				:resource(_resource)
-				,instance(0)
+			typedef collections::Dictionary<WString, description::Value>	ValueMap;
+		private:
+			WString									className;
+			Ptr<GuiInstanceContextScope>			scope;
+
+		protected:
+			bool InitializeFromResource()
 			{
-				if (scope = LoadInstance(resource, path))
+				if (scope) return false;
+				if (auto loader = GetInstanceLoaderManager()->GetLoader(className))
 				{
-					instance = description::UnboxValue<T*>(scope->rootInstance);
+					IGuiInstanceLoader::TypeInfo typeInfo(className, description::GetTypeDescriptor<T>());
+					if (loader->IsInitializable(typeInfo))
+					{
+						auto value = description::Value::From(dynamic_cast<T*>(this));
+						if (scope = loader->InitializeInstance(typeInfo, value))
+						{
+							return true;
+						}
+					}
 				}
+				return false;
+			}
+		public:
+			GuiInstancePartialClass(const WString& _className)
+				:className(_className)
+			{
 			}
 
-			Ptr<GuiResource> GetResource()
+			virtual ~GuiInstancePartialClass()
 			{
-				return resource;
 			}
 
 			Ptr<GuiInstanceContextScope> GetScope()
 			{
 				return scope;
 			}
+		};
 
-			T* GetInstance()
+		template<typename T>
+		class GuiInstance : public Object, public GuiInstancePartialClass<T>
+		{
+		public:
+			GuiInstance(Ptr<GuiResource> _resource, const WString& path) :GuiInstancePartialClass<T>(_resource)
 			{
-				return instance;
+				LoadFromResource(path);
 			}
 		};
 
@@ -546,6 +594,9 @@ Type List
 			F(presentation::DocumentParagraphRun)\
 			F(presentation::DocumentStyle)\
 			F(presentation::DocumentModel)\
+			F(presentation::GuiResourceNodeBase)\
+			F(presentation::GuiResourceItem)\
+			F(presentation::GuiResourceFolder)\
 			F(presentation::GuiResource)\
 			F(presentation::elements::IGuiGraphicsElement)\
 			F(presentation::compositions::GuiGraphicsComposition)\
@@ -951,6 +1002,8 @@ Type List
 #define GUIREFLECTIONCONTROLS_TYPELIST(F)\
 			F(presentation::controls::GuiApplication)\
 			F(presentation::theme::ITheme)\
+			F(presentation::controls::GuiCustomControl)\
+			F(presentation::controls::GuiCustomControl::IStyleController)\
 			F(presentation::controls::GuiLabel)\
 			F(presentation::controls::GuiLabel::IStyleController)\
 			F(presentation::controls::GuiButton)\
@@ -1135,6 +1188,20 @@ Interface Proxy
 #pragma warning(disable:4250)
 			namespace interface_proxy
 			{
+				class GuiCustomControl_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiCustomControl::IStyleController
+				{
+				public:
+					GuiCustomControl_IStyleController(Ptr<IValueInterfaceProxy> _proxy)
+						:GuiControl_IStyleController(_proxy)
+					{
+					}
+
+					static GuiCustomControl::IStyleController* Create(Ptr<IValueInterfaceProxy> _proxy)
+					{
+						return new GuiCustomControl_IStyleController(_proxy);
+					}
+				};
+
 				class GuiLabel_IStyleController : public virtual GuiControl_IStyleController, public virtual GuiLabel::IStyleController
 				{
 				public:
@@ -2955,11 +3022,15 @@ GuiEventInfoImpl
 								Ptr<GuiGraphicsEvent<T>::IHandler> handler=eventObject->AttachLambda(
 									[=](GuiGraphicsComposition* sender, T& arguments)
 									{
-										Value thisObject=BoxValue<GuiGraphicsComposition*>(sender, Description<GuiGraphicsComposition>::GetAssociatedTypeDescriptor());
-										Value argumentsObject=BoxValue<T*>(&arguments, Description<T>::GetAssociatedTypeDescriptor());
-										eventHandler->Invoke(thisObject, argumentsObject);
+										Value senderObject = BoxValue<GuiGraphicsComposition*>(sender, Description<GuiGraphicsComposition>::GetAssociatedTypeDescriptor());
+										Value argumentsObject = BoxValue<T*>(&arguments, Description<T>::GetAssociatedTypeDescriptor());
+
+										collections::Array<Value> eventArgs(2);
+										eventArgs[0] = senderObject;
+										eventArgs[1] = argumentsObject;
+										eventHandler->Invoke(Value::From(thisObject), eventArgs);
 									});
-								handlerImpl->SetTag(handler);
+								handlerImpl->SetDescriptableTag(handler);
 							}
 						}
 					}
@@ -2974,7 +3045,7 @@ GuiEventInfoImpl
 							GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, false);
 							if(eventObject)
 							{
-								Ptr<GuiGraphicsEvent<T>::IHandler> handler=handlerImpl->GetTag().Cast<GuiGraphicsEvent<T>::IHandler>();
+								Ptr<GuiGraphicsEvent<T>::IHandler> handler=handlerImpl->GetDescriptableTag().Cast<GuiGraphicsEvent<T>::IHandler>();
 								if(handler)
 								{
 									eventObject->Detach(handler);
@@ -2984,14 +3055,14 @@ GuiEventInfoImpl
 					}
 				}
 
-				void InvokeInternal(DescriptableObject* thisObject, Value& arguments)override
+				void InvokeInternal(DescriptableObject* thisObject, collections::Array<Value>& arguments)override
 				{
 					if(thisObject)
 					{
 						GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, false);
 						if(eventObject)
 						{
-							T* value=UnboxValue<T*>(arguments, Description<T>::GetAssociatedTypeDescriptor());
+							T* value=UnboxValue<T*>(arguments[1], Description<T>::GetAssociatedTypeDescriptor());
 							eventObject->Execute(*value);
 						}
 					}
@@ -3063,6 +3134,18 @@ Macros
 #define CLASS_MEMBER_PROPERTY_GUIEVENT_READONLY_FAST(PROPERTYNAME)\
 			CLASS_MEMBER_GUIEVENT(PROPERTYNAME##Changed)\
 			CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(PROPERTYNAME, PROPERTYNAME##Changed)\
+
+#define GUIEVENT_HANDLER_PARAMETERS {L"sender", L"arguments"}
+
+#define CLASS_MEMBER_GUIEVENT_HANDLER(FUNCTIONNAME, ARGUMENTTYPE)\
+			CLASS_MEMBER_EXTERNALMETHOD(\
+				FUNCTIONNAME,\
+				GUIEVENT_HANDLER_PARAMETERS,\
+				void(ClassType::*)(vl::presentation::compositions::GuiGraphicsComposition*, ARGUMENTTYPE*),\
+				[](ClassType* owner, vl::presentation::compositions::GuiGraphicsComposition* sender, ARGUMENTTYPE* arguments)\
+				{\
+					owner->FUNCTIONNAME(sender, *arguments);\
+				})\
 
 /***********************************************************************
 Type Loader

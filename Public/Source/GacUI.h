@@ -414,7 +414,7 @@ Color
 				const wchar_t* code=L"0123456789ABCDEF";
 				if((value.Length()==7 || value.Length()==9) && value[0]==L'#')
 				{
-					int index[8]={15, 15, 15, 15, 15, 15, 15, 15};
+					vint index[8]={15, 15, 15, 15, 15, 15, 15, 15};
 					for(vint i=0;i<value.Length()-1;i++)
 					{
 						index[i]=wcschr(code, value[i+1])-code;
@@ -1846,7 +1846,7 @@ Resource String
 Resource Structure
 ***********************************************************************/
 
-		class GuiResourceNodeBase : public Object
+		class GuiResourceNodeBase : public Object, public Description<GuiResourceNodeBase>
 		{
 			friend class GuiResourceFolder;
 		protected:
@@ -1863,18 +1863,18 @@ Resource Structure
 
 		class DocumentModel;
 		
-		class GuiResourceItem : public GuiResourceNodeBase
+		class GuiResourceItem : public GuiResourceNodeBase, public Description<GuiResourceItem>
 		{
 			friend class GuiResourceFolder;
 		protected:
-			Ptr<Object>								content;
+			Ptr<DescriptableObject>					content;
 			
 		public:
 			GuiResourceItem();
 			~GuiResourceItem();
 			
-			Ptr<Object>								GetContent();
-			void									SetContent(Ptr<Object> value);
+			Ptr<DescriptableObject>					GetContent();
+			void									SetContent(Ptr<DescriptableObject> value);
 
 			Ptr<GuiImageData>						AsImage();
 			Ptr<parsing::xml::XmlDocument>			AsXml();
@@ -1882,7 +1882,7 @@ Resource Structure
 			Ptr<DocumentModel>						AsDocument();
 		};
 		
-		class GuiResourceFolder : public GuiResourceNodeBase
+		class GuiResourceFolder : public GuiResourceNodeBase, public Description<GuiResourceFolder>
 		{
 		protected:
 			typedef collections::Dictionary<WString, Ptr<GuiResourceItem>>		ItemMap;
@@ -1919,7 +1919,7 @@ Resource Structure
 			Ptr<GuiResourceFolder>					RemoveFolder(const WString& name);
 			void									ClearFolders();
 
-			Ptr<Object>								GetValueByPath(const WString& path);
+			Ptr<DescriptableObject>					GetValueByPath(const WString& path);
 			Ptr<GuiResourceFolder>					GetFolderByPath(const WString& path);
 		};
 
@@ -1952,7 +1952,7 @@ Resource Path Resolver
 		class IGuiResourcePathResolver : public IDescriptable, public Description<IGuiResourcePathResolver>
 		{
 		public:
-			virtual Ptr<Object>								ResolveResource(const WString& path)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(const WString& path)=0;
 		};
 
 		class IGuiResourcePathResolverFactory : public IDescriptable, public Description<IGuiResourcePathResolverFactory>
@@ -1975,7 +1975,7 @@ Resource Path Resolver
 			GuiResourcePathResolver(Ptr<GuiResource> _resource, const WString& _workingDirectory);
 			~GuiResourcePathResolver();
 
-			Ptr<Object>										ResolveResource(const WString& protocol, const WString& path);
+			Ptr<DescriptableObject>							ResolveResource(const WString& protocol, const WString& path);
 		};
 
 /***********************************************************************
@@ -1989,11 +1989,11 @@ Resource Type Resolver
 			virtual WString									GetPreloadType()=0;
 			virtual bool									IsDelayLoad()=0;
 
-			virtual Ptr<Object>								ResolveResource(Ptr<parsing::xml::XmlElement> element)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<parsing::xml::XmlElement> element)=0;
 
-			virtual Ptr<Object>								ResolveResource(const WString& path)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(const WString& path)=0;
 
-			virtual Ptr<Object>								ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)=0;
 		};
 
 /***********************************************************************
@@ -2962,11 +2962,17 @@ Event
 				public:
 					virtual void			Execute(GuiGraphicsComposition* sender, T& argument)=0;
 				};
+
+				class HandlerContainer
+				{
+				public:
+					Ptr<IHandler>			handler;
+				};
 				
 				class FunctionHandler : public Object, public IHandler
 				{
 				protected:
-					FunctionType		handler;
+					FunctionType			handler;
 				public:
 					FunctionHandler(const FunctionType& _handler)
 						:handler(_handler)
@@ -3090,6 +3096,12 @@ Event
 					ExecuteWithNewSender(argument, 0);
 				}
 			};
+
+			template<typename T>
+			Ptr<typename GuiGraphicsEvent<T>::HandlerContainer> CreateEventHandlerContainer()
+			{
+				return new typename GuiGraphicsEvent<T>::HandlerContainer;
+			}
 
 /***********************************************************************
 Predefined Events
@@ -3372,7 +3384,7 @@ Basic Construction
 				virtual void								SetAssociatedControl(controls::GuiControl* control);
 				virtual void								SetAssociatedHost(GuiGraphicsHost* host);
 
-				static void									SharedPtrDestructorProc(DescriptableObject* obj);
+				static bool									SharedPtrDestructorProc(DescriptableObject* obj, bool forceDisposing);
 			public:
 				GuiGraphicsComposition();
 				~GuiGraphicsComposition();
@@ -4247,7 +4259,7 @@ Basic Construction
 					virtual void									SetVisuallyEnabled(bool value)=0;
 				};
 
-				class EmptyStyleController : public Object, public IStyleController, public Description<EmptyStyleController>
+				class EmptyStyleController : public Object, public virtual IStyleController, public Description<EmptyStyleController>
 				{
 				protected:
 					compositions::GuiBoundsComposition*				boundsComposition;
@@ -4286,7 +4298,7 @@ Basic Construction
 
 				GuiControl*								parent;
 				ControlList								children;
-				Ptr<Object>								tag;
+				description::Value						tag;
 				GuiControl*								tooltipControl;
 				vint									tooltipWidth;
 
@@ -4299,7 +4311,7 @@ Basic Construction
 				virtual void							UpdateVisuallyEnabled();
 				void									SetFocusableComposition(compositions::GuiGraphicsComposition* value);
 
-				static void								SharedPtrDestructorProc(DescriptableObject* obj);
+				static bool								SharedPtrDestructorProc(DescriptableObject* obj, bool forceDisposing);
 			public:
 				GuiControl(IStyleController* _styleController);
 				~GuiControl();
@@ -4334,8 +4346,8 @@ Basic Construction
 				virtual void							SetFont(const FontProperties& value);
 				virtual void							SetFocus();
 
-				Ptr<Object>								GetTag();
-				void									SetTag(Ptr<Object> value);
+				description::Value						GetTag();
+				void									SetTag(const description::Value& value);
 				GuiControl*								GetTooltipControl();
 				GuiControl*								SetTooltipControl(GuiControl* value);
 				vint									GetTooltipWidth();
@@ -4350,6 +4362,26 @@ Basic Construction
 				{
 					return dynamic_cast<T*>(QueryService(T::Identifier));
 				}
+			};
+
+			class GuiCustomControl : public GuiControl, public Description<GuiCustomControl>
+			{
+			public:
+				class IStyleController : virtual public GuiControl::IStyleController, public Description<IStyleController>
+				{
+				public:
+				};
+
+#pragma warning(push)
+#pragma warning(disable:4250)
+				class EmptyStyleController : public GuiControl::EmptyStyleController, public virtual IStyleController, public Description<EmptyStyleController>
+				{
+				};
+#pragma warning(pop)
+
+			public:
+				GuiCustomControl(IStyleController* _styleController);
+				~GuiCustomControl();
 			};
 
 			class GuiComponent : public Object, public Description<GuiComponent>
@@ -4955,6 +4987,8 @@ Window
 				void									SetIconVisible(bool visible);
 				bool									GetTitleBar();
 				void									SetTitleBar(bool visible);
+				void									ShowModal(GuiWindow* owner, const Func<void()>& callback);
+				void									ShowModalAndDelete(GuiWindow* owner, const Func<void()>& callback);
 			};
 			
 			class GuiPopup : public GuiWindow, public Description<GuiPopup>
@@ -6788,7 +6822,7 @@ ListView
 					Ptr<GuiImageData>								largeImage;
 					WString											text;
 					collections::List<WString>						subItems;
-					Ptr<Object>										tag;
+					description::Value								tag;
 				};
 				
 				class ListViewColumn : public Object, public Description<ListViewColumn>
@@ -7241,7 +7275,7 @@ TreeView
 				public:
 					Ptr<GuiImageData>				image;
 					WString							text;
-					Ptr<Object>						tag;
+					description::Value				tag;
 
 					TreeViewItem();
 					TreeViewItem(const Ptr<GuiImageData>& _image, const WString& _text);
@@ -8044,7 +8078,7 @@ GuiGrammarColorizer
 				void														SetColor(const WString& name, const ColorEntry& entry);
 				void														SetColor(const WString& name, const Color& color);
 				void														EndSetColors();
-				void														ColorizeTokenContextSensitive(int lineIndex, const wchar_t* text, vint start, vint length, vint& token, int& contextState)override;
+				void														ColorizeTokenContextSensitive(vint lineIndex, const wchar_t* text, vint start, vint length, vint& token, vint& contextState)override;
 
 				Ptr<RepeatingParsingExecutor>								GetParsingExecutor();
 			};
@@ -10402,6 +10436,7 @@ namespace vl
 			{
 			public:
 				virtual controls::GuiWindow::IStyleController*								CreateWindowStyle()=0;
+				virtual controls::GuiCustomControl::IStyleController*						CreateCustomControlStyle() = 0;
 				virtual controls::GuiTooltip::IStyleController*								CreateTooltipStyle()=0;
 				virtual controls::GuiLabel::IStyleController*								CreateLabelStyle()=0;
 				virtual controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()=0;
@@ -10453,6 +10488,7 @@ namespace vl
 			namespace g
 			{
 				extern controls::GuiWindow*						NewWindow();
+				extern controls::GuiCustomControl*				NewCustomControl();
 				extern controls::GuiLabel*						NewLabel();
 				extern controls::GuiScrollContainer*			NewScrollContainer();
 				extern controls::GuiControl*					NewGroupBox();
@@ -10537,6 +10573,7 @@ Theme
 				~Win7Theme();
 
 				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiCustomControl::IStyleController*						CreateCustomControlStyle()override;
 				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
@@ -10620,6 +10657,7 @@ Theme
 				~Win8Theme();
 
 				controls::GuiWindow::IStyleController*								CreateWindowStyle()override;
+				controls::GuiCustomControl::IStyleController*						CreateCustomControlStyle()override;
 				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
@@ -13384,7 +13422,7 @@ Strong Typed Table Parser
 		{
 		protected:
 			typedef parsing::tabling::ParsingTable				Table;
-			typedef Ptr<T>(ParserFunction)(const WString&, Ptr<Table>);
+			typedef Ptr<T>(ParserFunction)(const WString&, Ptr<Table>, vint);
 		protected:
 			WString									name;
 			Ptr<Table>								table;
@@ -13404,7 +13442,7 @@ Strong Typed Table Parser
 				}
 				if(table)
 				{
-					return function(text, table);
+					return function(text, table, -1);
 				}
 				return 0;
 			}
@@ -13432,7 +13470,7 @@ Parser Manager
 			}
 
 			template<typename T>
-			bool SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>))
+			bool SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>, vint))
 			{
 				Ptr<IGuiParser<T>> parser=new GuiStrongTypedTableParser<T>(tableName, function);
 				return SetParser(parserName, parser);

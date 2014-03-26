@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorld", "HelloWorld\HelloWorld.vcxproj", "{1201A21A-E577-4AFA-AA48-5847A0771194}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Controls", "Controls", "{4A1755E9-DB6D-4CD2-83FB-D8F2A18E0268}"
@@ -82,9 +84,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GacUIReflectionStaticLibrar
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.Controls", "Persistant.LoadFromXml.Controls\Persistant.LoadFromXml.Controls.vcxproj", "{7470589A-7E7D-4274-835C-0FDAD6992F1D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.DirectCode.Scripting", "Persistant.DirectCode.Scripting\Persistant.DirectCode.Scripting.vcxproj", "{79DA46D0-2F90-46AC-A4FA-5045800EC32C}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 35
+		SccNumberOfProjects = 36
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -221,6 +225,10 @@ Global
 		SccProjectTopLevelParentUniqueName34 = GacUIDemo.sln
 		SccProjectName34 = Persistant.LoadFromXml.Controls
 		SccLocalPath34 = Persistant.LoadFromXml.Controls
+		SccProjectUniqueName35 = Persistant.DirectCode.Scripting\\Persistant.DirectCode.Scripting.vcxproj
+		SccProjectTopLevelParentUniqueName35 = GacUIDemo.sln
+		SccProjectName35 = Persistant.DirectCode.Scripting
+		SccLocalPath35 = Persistant.DirectCode.Scripting
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -363,6 +371,10 @@ Global
 		{7470589A-7E7D-4274-835C-0FDAD6992F1D}.Debug|Win32.Build.0 = Debug|Win32
 		{7470589A-7E7D-4274-835C-0FDAD6992F1D}.Release|Win32.ActiveCfg = Release|Win32
 		{7470589A-7E7D-4274-835C-0FDAD6992F1D}.Release|Win32.Build.0 = Release|Win32
+		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Debug|Win32.Build.0 = Debug|Win32
+		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Release|Win32.ActiveCfg = Release|Win32
+		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -393,6 +405,7 @@ Global
 		{6AB710A6-1530-4D9B-B954-E772B69E7373} = {57FFC37A-0073-4D67-92D4-98FB5C4A309A}
 		{AAC4B8ED-F725-4563-9D41-3857D8B32CB4} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{7470589A-7E7D-4274-835C-0FDAD6992F1D} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{79DA46D0-2F90-46AC-A4FA-5045800EC32C} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}

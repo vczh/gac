@@ -543,13 +543,15 @@ GuiControl
 				}
 			}
 
-			void GuiControl::SharedPtrDestructorProc(DescriptableObject* obj)
+			bool GuiControl::SharedPtrDestructorProc(DescriptableObject* obj, bool forceDisposing)
 			{
 				GuiControl* value=dynamic_cast<GuiControl*>(obj);
-				if(value->GetBoundsComposition()->GetParent()==0)
+				if(value->GetBoundsComposition()->GetParent())
 				{
-					SafeDeleteControl(value);
+					if (!forceDisposing) return false;
 				}
+				SafeDeleteControl(value);
+				return true;
 			}
 
 			GuiControl::GuiControl(IStyleController* _styleController)
@@ -746,12 +748,12 @@ GuiControl
 				}
 			}
 
-			Ptr<Object> GuiControl::GetTag()
+			description::Value GuiControl::GetTag()
 			{
 				return tag;
 			}
 
-			void GuiControl::SetTag(Ptr<Object> value)
+			void GuiControl::SetTag(const description::Value& value)
 			{
 				tag=value;
 			}
@@ -803,6 +805,19 @@ GuiControl
 				{
 					return 0;
 				}
+			}
+
+/***********************************************************************
+GuiCustomControl
+***********************************************************************/
+
+			GuiCustomControl::GuiCustomControl(IStyleController* _styleController)
+				:GuiControl(_styleController)
+			{
+			}
+
+			GuiCustomControl::~GuiCustomControl()
+			{
 			}
 
 /***********************************************************************
@@ -3380,6 +3395,43 @@ GuiWindow
 				styleController->SetTitleBar(visible);
 			}
 
+			void GuiWindow::ShowModal(GuiWindow* owner, const Func<void()>& callback)
+			{
+				owner->SetEnabled(false);
+				GetNativeWindow()->SetParent(owner->GetNativeWindow());
+				auto container = CreateEventHandlerContainer<GuiEventArgs>();
+				container->handler = WindowClosed.AttachLambda([=](GuiGraphicsComposition* sender, GuiEventArgs& arguments)
+				{
+					GetApplication()->InvokeInMainThread([=]()
+					{
+						WindowClosed.Detach(container->handler);
+						GetNativeWindow()->SetParent(0);
+						callback();
+						owner->SetEnabled(true);
+						owner->SetActivated();
+					});
+				});
+				Show();
+			}
+
+			void GuiWindow::ShowModalAndDelete(GuiWindow* owner, const Func<void()>& callback)
+			{
+				owner->SetEnabled(false);
+				GetNativeWindow()->SetParent(owner->GetNativeWindow());
+				WindowClosed.AttachLambda([=](GuiGraphicsComposition* sender, GuiEventArgs& arguments)
+				{
+					GetApplication()->InvokeInMainThread([=]()
+					{
+						GetNativeWindow()->SetParent(0);
+						callback();
+						owner->SetEnabled(true);
+						owner->SetActivated();
+						delete this;
+					});
+				});
+				Show();
+			}
+
 /***********************************************************************
 GuiPopup
 ***********************************************************************/
@@ -5772,7 +5824,7 @@ StructuredDataProvider
 					List<Ptr<IStructuredDataFilter>> selectedFilters;
 					CopyFrom(
 						selectedFilters,
-						Range(0, GetColumnCount())
+						Range<vint>(0, GetColumnCount())
 							.Select([this](vint column){return structuredDataProvider->GetColumn(column)->GetInherentFilter();})
 							.Where([](Ptr<IStructuredDataFilter> filter){return (bool)filter;})
 						);
@@ -12412,6 +12464,11 @@ namespace vl
 					return new controls::GuiWindow(GetCurrentTheme()->CreateWindowStyle());
 				}
 
+				controls::GuiCustomControl* NewCustomControl()
+				{
+					return new controls::GuiCustomControl(GetCurrentTheme()->CreateCustomControlStyle());
+				}
+
 				controls::GuiLabel* NewLabel()
 				{
 					return new controls::GuiLabel(GetCurrentTheme()->CreateLabelStyle());
@@ -12667,6 +12724,11 @@ Win7Theme
 				return new Win7WindowStyle;
 			}
 
+			controls::GuiCustomControl::IStyleController* Win7Theme::CreateCustomControlStyle()
+			{
+				return new GuiCustomControl::EmptyStyleController;
+			}
+
 			controls::GuiTooltip::IStyleController* Win7Theme::CreateTooltipStyle()
 			{
 				return new Win7TooltipStyle;
@@ -12895,6 +12957,11 @@ Win8Theme
 			controls::GuiWindow::IStyleController* Win8Theme::CreateWindowStyle()
 			{
 				return new Win8WindowStyle;
+			}
+
+			controls::GuiCustomControl::IStyleController* Win8Theme::CreateCustomControlStyle()
+			{
+				return new GuiCustomControl::EmptyStyleController;
 			}
 
 			controls::GuiTooltip::IStyleController* Win8Theme::CreateTooltipStyle()
@@ -22191,6 +22258,7 @@ GuiDocumentLabel
 				GetContainerComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
 				SetFocusableComposition(GetBoundsComposition());
 				InstallDocumentViewer(this, GetContainerComposition());
+				SetDocument(new DocumentModel);
 			}
 
 			GuiDocumentLabel::~GuiDocumentLabel()
@@ -24079,7 +24147,7 @@ GuiGrammarColorizer
 				Setup();
 			}
 
-			void GuiGrammarColorizer::ColorizeTokenContextSensitive(int lineIndex, const wchar_t* text, vint start, vint length, vint& token, int& contextState)
+			void GuiGrammarColorizer::ColorizeTokenContextSensitive(vint lineIndex, const wchar_t* text, vint start, vint length, vint& token, vint& contextState)
 			{
 				SPIN_LOCK(contextLock)
 				{
@@ -27851,13 +27919,15 @@ GuiGraphicsComposition
 				}
 			}
 
-			void GuiGraphicsComposition::SharedPtrDestructorProc(DescriptableObject* obj)
+			bool GuiGraphicsComposition::SharedPtrDestructorProc(DescriptableObject* obj, bool forceDisposing)
 			{
 				GuiGraphicsComposition* value=dynamic_cast<GuiGraphicsComposition*>(obj);
-				if(value->parent==0)
+				if(value->parent)
 				{
-					SafeDeleteComposition(value);
+					if (!forceDisposing) return false;
 				}
+				SafeDeleteComposition(value);
+				return true;
 			}
 
 			GuiGraphicsComposition::GuiGraphicsComposition()
@@ -36744,12 +36814,12 @@ GuiResourceItem
 		{
 		}
 
-		Ptr<Object> GuiResourceItem::GetContent()
+		Ptr<DescriptableObject> GuiResourceItem::GetContent()
 		{
 			return content;
 		}
 
-		void GuiResourceItem::SetContent(Ptr<Object> value)
+		void GuiResourceItem::SetContent(Ptr<DescriptableObject> value)
 		{
 			content=value;
 		}
@@ -36854,7 +36924,7 @@ GuiResourceFolder
 
 						if(typeResolver && preloadResolver)
 						{
-							Ptr<Object> resource;
+							Ptr<DescriptableObject> resource;
 							if(filePath==L"")
 							{
 								resource=preloadResolver->ResolveResource(element);
@@ -36965,7 +37035,7 @@ GuiResourceFolder
 			folders.Clear();
 		}
 
-		Ptr<Object> GuiResourceFolder::GetValueByPath(const WString& path)
+		Ptr<DescriptableObject> GuiResourceFolder::GetValueByPath(const WString& path)
 		{
 			const wchar_t* buffer=path.Buffer();
 			const wchar_t* index=wcschr(buffer, L'\\');
@@ -37062,7 +37132,7 @@ GuiResource
 					if(typeResolver && item->GetContent())
 					{
 						Ptr<GuiResourcePathResolver> pathResolver=new GuiResourcePathResolver(resource, folder);
-						Ptr<Object> resource=typeResolver->ResolveResource(item->GetContent(), pathResolver);
+						Ptr<DescriptableObject> resource=typeResolver->ResolveResource(item->GetContent(), pathResolver);
 						if(resource)
 						{
 							item->SetContent(resource);
@@ -37115,7 +37185,7 @@ GuiResourcePathResolver
 		{
 		}
 
-		Ptr<Object> GuiResourcePathResolver::ResolveResource(const WString& protocol, const WString& path)
+		Ptr<DescriptableObject> GuiResourcePathResolver::ResolveResource(const WString& protocol, const WString& path)
 		{
 			Ptr<IGuiResourcePathResolver> resolver;
 			vint index=resolvers.Keys().IndexOf(protocol);
@@ -37158,7 +37228,7 @@ GuiResourcePathFileResolver
 			{
 			}
 
-			Ptr<Object> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path)
 			{
 				WString filename=path;
 				if(filename.Length()>=2 && filename[1]!=L':')
@@ -37199,7 +37269,7 @@ GuiResourcePathResResolver
 			{
 			}
 
-			Ptr<Object> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path)
 			{
 				if(resource)
 				{
@@ -37339,12 +37409,12 @@ Image Type Resolver
 				return false;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
 			{
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path)
 			{
 				Ptr<INativeImage> image=GetCurrentController()->ImageService()->CreateImageFromFile(path);
 				if(image)
@@ -37354,7 +37424,7 @@ Image Type Resolver
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
 			{
 				return 0;
 			}
@@ -37382,12 +37452,12 @@ Text Type Resolver
 				return false;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
 			{
 				return new GuiTextData(XmlGetValue(element));
 			}
 
-			Ptr<Object> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path)
 			{
 				WString text;
 				if(LoadTextFile(path, text))
@@ -37397,7 +37467,7 @@ Text Type Resolver
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
 			{
 				return 0;
 			}
@@ -37425,7 +37495,7 @@ Xml Type Resolver
 				return false;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
 			{
 				Ptr<XmlElement> root=XmlGetElements(element).First(0);
 				if(root)
@@ -37437,7 +37507,7 @@ Xml Type Resolver
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path)
 			{
 				if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
 				{
@@ -37450,7 +37520,7 @@ Xml Type Resolver
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
 			{
 				return 0;
 			}
@@ -37478,17 +37548,17 @@ Doc Type Resolver
 				return true;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
 			{
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path)
 			{
 				return 0;
 			}
 
-			Ptr<Object> ResolveResource(Ptr<Object> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
 			{
 				Ptr<XmlDocument> xml=resource.Cast<XmlDocument>();
 				if(xml)
