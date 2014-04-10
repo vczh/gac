@@ -86,9 +86,16 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.Cont
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.DirectCode.Scripting", "Persistant.DirectCode.Scripting\Persistant.DirectCode.Scripting.vcxproj", "{79DA46D0-2F90-46AC-A4FA-5045800EC32C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.DirectCode.DataBinding", "Persistant.DirectCode.DataBinding\Persistant.DirectCode.DataBinding.vcxproj", "{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.DataBinding", "Persistant.LoadFromXml.DataBinding\Persistant.LoadFromXml.DataBinding.vcxproj", "{5DAC5765-9D6F-406C-B648-F7A879880C96}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8C242464-8009-4A8A-9443-ABE406809C71} = {8C242464-8009-4A8A-9443-ABE406809C71}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 36
+		SccNumberOfProjects = 38
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -229,6 +236,14 @@ Global
 		SccProjectTopLevelParentUniqueName35 = GacUIDemo.sln
 		SccProjectName35 = Persistant.DirectCode.Scripting
 		SccLocalPath35 = Persistant.DirectCode.Scripting
+		SccProjectUniqueName36 = Persistant.DirectCode.DataBinding\\Persistant.DirectCode.DataBinding.vcxproj
+		SccProjectTopLevelParentUniqueName36 = GacUIDemo.sln
+		SccProjectName36 = Persistant.DirectCode.DataBinding
+		SccLocalPath36 = Persistant.DirectCode.DataBinding
+		SccProjectUniqueName37 = Persistant.LoadFromXml.DataBinding\\Persistant.LoadFromXml.DataBinding.vcxproj
+		SccProjectTopLevelParentUniqueName37 = GacUIDemo.sln
+		SccProjectName37 = Persistant.LoadFromXml.DataBinding
+		SccLocalPath37 = Persistant.LoadFromXml.DataBinding
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -375,6 +390,14 @@ Global
 		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Debug|Win32.Build.0 = Debug|Win32
 		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Release|Win32.ActiveCfg = Release|Win32
 		{79DA46D0-2F90-46AC-A4FA-5045800EC32C}.Release|Win32.Build.0 = Release|Win32
+		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA}.Debug|Win32.Build.0 = Debug|Win32
+		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA}.Release|Win32.ActiveCfg = Release|Win32
+		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA}.Release|Win32.Build.0 = Release|Win32
+		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Debug|Win32.Build.0 = Debug|Win32
+		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Release|Win32.ActiveCfg = Release|Win32
+		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -406,6 +429,8 @@ Global
 		{AAC4B8ED-F725-4563-9D41-3857D8B32CB4} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{7470589A-7E7D-4274-835C-0FDAD6992F1D} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{79DA46D0-2F90-46AC-A4FA-5045800EC32C} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{5DAC5765-9D6F-406C-B648-F7A879880C96} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}

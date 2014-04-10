@@ -310,16 +310,19 @@ namespace vl
 		ObjectBox<T>& operator=(const T& _object)
 		{
 			object=_object;
+			return *this;
 		}
 
 		ObjectBox<T>& operator=(const ObjectBox<T>& value)
 		{
 			object=value.object;
+			return *this;
 		}
 
 		ObjectBox<T>& operator=(ObjectBox<T>&& value)
 		{
 			object=MoveValue(value.object);
+			return *this;
 		}
 
 		const T& Unbox()
@@ -6483,7 +6486,7 @@ Interface Implementation Proxy
 				virtual Value					Invoke(Ptr<IValueList> arguments)=0;
 			};
 
-			class IValueListener : public virtual IDescriptable, public Description<IValueSubscription>
+			class IValueListener : public virtual IDescriptable, public Description<IValueListener>
 			{
 			public:
 				virtual IValueSubscription*		GetSubscription() = 0;
@@ -6495,6 +6498,7 @@ Interface Implementation Proxy
 			{
 			public:
 				virtual Ptr<IValueListener>		Subscribe(const Func<void(Value)>& callback) = 0;
+				virtual bool					Update() = 0;
 				virtual bool					Close() = 0;
 			};
 
@@ -8847,36 +8851,6 @@ TypeInfoRetriver Helper Functions (BoxValue, UnboxValue)
 				return ValueAccessor<T, TypeInfoRetriver<T>::Decorator>::UnboxValue(value, typeDescriptor, valueName);
 			}
 
-			class Value_xs
-			{
-			protected:
-				collections::Array<Value>	arguments;
-			public:
-				Value_xs()
-				{
-				}
-
-				template<typename T>
-				Value_xs& operator,(const T& value)
-				{
-					arguments.Resize(arguments.Count()+1);
-					arguments[arguments.Count()-1]=BoxValue<T>(value);
-					return *this;
-				}
-
-				Value_xs& operator,(const Value& value)
-				{
-					arguments.Resize(arguments.Count()+1);
-					arguments[arguments.Count()-1]=value;
-					return *this;
-				}
-
-				operator collections::Array<Value>&()
-				{
-					return arguments;
-				}
-			};
-
 /***********************************************************************
 TypeInfoRetriver Helper Functions (UnboxParameter)
 ***********************************************************************/
@@ -8897,6 +8871,48 @@ TypeInfoRetriver Helper Functions (UnboxParameter)
 			{
 				ParameterAccessor<T, TypeInfoRetriver<T>::TypeFlag>::UnboxParameter(value, result, typeDescriptor, valueName);
 			}
+
+/***********************************************************************
+Value_xs
+***********************************************************************/
+
+			class Value_xs
+			{
+			protected:
+				collections::Array<Value>	arguments;
+			public:
+				Value_xs()
+				{
+				}
+
+				template<typename T>
+				Value_xs& operator,(T& value)
+				{
+					arguments.Resize(arguments.Count()+1);
+					arguments[arguments.Count()-1]=BoxParameter<T>(value);
+					return *this;
+				}
+
+				template<typename T>
+				Value_xs& operator,(const T& value)
+				{
+					arguments.Resize(arguments.Count()+1);
+					arguments[arguments.Count()-1]=BoxParameter<const T>(value);
+					return *this;
+				}
+
+				Value_xs& operator,(const Value& value)
+				{
+					arguments.Resize(arguments.Count()+1);
+					arguments[arguments.Count()-1]=value;
+					return *this;
+				}
+
+				operator collections::Array<Value>&()
+				{
+					return arguments;
+				}
+			};
 
 /***********************************************************************
 CustomFieldInfoImpl
@@ -9588,6 +9604,12 @@ DetailTypeInfoRetriver<Func<R(TArgs...)>>
 					type->SetElementType(genericType);
 					return type;
 				}
+			};
+
+			template<typename R, typename ...TArgs>
+			struct DetailTypeInfoRetriver<const Func<R(TArgs...)>, TypeFlags::FunctionType>
+				: DetailTypeInfoRetriver<Func<R(TArgs...)>, TypeFlags::FunctionType>
+			{
 			};
  
 /***********************************************************************

@@ -821,6 +821,7 @@ GuiInstanceLoaderManager
 		{
 		protected:
 			typedef Dictionary<WString, Ptr<IGuiInstanceBinder>>				BinderMap;
+			typedef Dictionary<WString, Ptr<IGuiInstanceBindingContextFactory>>	BindingContextFactoryMap;
 
 			struct VirtualTypeInfo
 			{
@@ -842,6 +843,7 @@ GuiInstanceLoaderManager
 
 			Ptr<IGuiInstanceLoader>					rootLoader;
 			BinderMap								binders;
+			BindingContextFactoryMap				bindingContextFactories;
 			VirtualTypeInfoMap						typeInfos;
 			ResourceMap								resources;
 
@@ -967,6 +969,19 @@ GuiInstanceLoaderManager
 			void Unload()override
 			{
 				instanceLoaderManager = 0;
+			}
+
+			bool AddInstanceBindingContextFactory(Ptr<IGuiInstanceBindingContextFactory> factory)override
+			{
+				if (bindingContextFactories.Keys().Contains(factory->GetContextName())) return false;
+				bindingContextFactories.Add(factory->GetContextName(), factory);
+				return true;
+			}
+
+			IGuiInstanceBindingContextFactory* GetInstanceBindingContextFactory(const WString& contextName)override
+			{
+				vint index = bindingContextFactories.Keys().IndexOf(contextName);
+				return index == -1 ? 0 : bindingContextFactories.Values()[index].Obj();
 			}
 
 			bool AddInstanceBinder(Ptr<IGuiInstanceBinder> binder)override
@@ -1103,14 +1118,18 @@ GuiInstanceLoaderManager
 
 					Ptr<GuiInstanceEnvironment> env = new GuiInstanceEnvironment(context, resolver);
 					auto loadingSource = FindInstanceLoadingSource(env, context->instance.Obj());
-					if (!loadingSource.loader) return false;
-					parentTypes.Add(context->className.Value(), loadingSource.typeName);
+					if (loadingSource.loader)
+					{
+						parentTypes.Add(context->className.Value(), loadingSource.typeName);
+					}
 				}
 				
 				FOREACH(WString, className, classes.Keys())
 				{
 					auto context = classes[className];
-					auto parentType = parentTypes[className];
+					vint index = parentTypes.Keys().IndexOf(className);
+					if (index == -1) continue;
+					auto parentType = parentTypes.Values()[index];
 
 					Ptr<IGuiInstanceLoader> loader = new GuiResourceInstanceLoader(resource, context);
 					if (GetGlobalTypeManager()->GetTypeDescriptor(context->className.Value()))
@@ -1262,7 +1281,7 @@ LoadValueVisitor
 				{
 					FOREACH(ITypeDescriptor*, typeDescriptor, acceptableTypes)
 					{
-						if(IValueSerializer* serializer=typeDescriptor->GetValueSerializer())
+						if (IValueSerializer* serializer = typeDescriptor->GetValueSerializer())
 						{
 							if (serializer->Parse(repr->text, loadedValue))
 							{
@@ -1270,6 +1289,16 @@ LoadValueVisitor
 								return;
 							}
 						}
+					}
+					
+					FOREACH(ITypeDescriptor*, typeDescriptor, acceptableTypes)
+					{
+						env->scope->errors.Add(
+							L"Failed to deserialize object of type \"" +
+							typeDescriptor->GetTypeName() +
+							L"\" from string \"" +
+							repr->text +
+							L"\".");
 					}
 				}
 
@@ -1279,12 +1308,20 @@ LoadValueVisitor
 
 				void Visit(GuiConstructorRepr* repr)override
 				{
+					vint errorCount = env->scope->errors.Count();
 					FOREACH(ITypeDescriptor*, typeDescriptor, acceptableTypes)
 					{
 						WString _typeName;
-						loadedValue=CreateInstance(env, repr, typeDescriptor, _typeName, bindingSetters, eventSetters);
+						loadedValue = CreateInstance(env, repr, typeDescriptor, _typeName, bindingSetters, eventSetters);
 						if (!loadedValue.IsNull())
 						{
+							for (vint i = env->scope->errors.Count() - 1; i >= errorCount; i--)
+							{
+								if (wcsstr(env->scope->errors[i].Buffer(), L"because the expected type is"))
+								{
+									env->scope->errors.RemoveAt(i);
+								}
+							}
 							result = true;
 							return;
 						}
@@ -1348,13 +1385,9 @@ LoadInstancePropertyValue
 			List<FillInstanceEventSetter>& eventSetters
 			)
 		{
-			if (propertyValue.propertyName == L"Tag")
-			{
-				int a = 0;
-			}
 			vint loadedValueCount = 0;
 			// try to look for a loader to handle this property
-			while(propertyLoader && loadedValueCount<input.Count())
+			while (propertyLoader && loadedValueCount < input.Count())
 			{
 				if (auto propertyInfo = propertyLoader->GetPropertyType(propertyValue))
 				{
@@ -1364,15 +1397,39 @@ LoadInstancePropertyValue
 					}
 					if (propertyInfo->support == GuiInstancePropertyInfo::NotSupport)
 					{
-						break;
+						env->scope->errors.Add(
+							L"Property \"" +
+							propertyValue.propertyName +
+							L"\" of type \"" +
+							propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+							L"\" is not supported.");
+						return false;
 					}
 
 					switch (propertyInfo->support)
 					{
 					case GuiInstancePropertyInfo::SupportSet:
-						if (input.Count() != 1) return false;
+						if (input.Count() != 1)
+						{
+							env->scope->errors.Add(
+								L"Collection property \"" +
+								propertyValue.propertyName +
+								L"\" of type \"" +
+								propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+								L"\" can only be assigned with a single value.");
+							return false;
+						}
 						if (constructorArgument) return false;
-						if (binding != L"set") return false;
+						if (binding != L"set")
+						{
+							env->scope->errors.Add(
+								L"Collection property \"" +
+								propertyValue.propertyName +
+								L"\" of type \"" +
+								propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+								L"\" can only be retrived using binding \"set\".");
+							return false;
+						}
 						{
 							// set binding: get the property value and apply another property list on it
 							if(Ptr<GuiAttSetterRepr> propertyAttSetter=input[0].Cast<GuiAttSetterRepr>())
@@ -1393,27 +1450,59 @@ LoadInstancePropertyValue
 						}
 						break;
 					case GuiInstancePropertyInfo::SupportCollection:
-						if (binding != L"") return false;
+						if (binding != L"")
+						{
+							env->scope->errors.Add(
+								L"Collection property \"" +
+								propertyValue.propertyName +
+								L"\" of type \"" +
+								propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+								L"\" cannot be assigned using binding.");
+							return false;
+						}
 						{
 							FOREACH_INDEXER(Ptr<GuiValueRepr>, valueRepr, index, input)
 							{
 								if (valueRepr)
 								{
 									// default binding: set the value directly
+									vint errorCount = env->scope->errors.Count();
 									if (LoadValueVisitor::LoadValue(valueRepr, env, propertyInfo->acceptableTypes, bindingSetters, eventSetters, propertyValue.propertyValue))
 									{
 										input[index] = 0;
 										loadedValueCount++;
 										output.Add(Pair<Value, IGuiInstanceLoader*>(propertyValue.propertyValue, propertyLoader));
 									}
+									else if (propertyInfo->tryParent)
+									{
+										env->scope->errors.RemoveRange(errorCount, env->scope->errors.Count() - errorCount);
+									}
 								}
 							}
 						}
 						break;
 					case GuiInstancePropertyInfo::SupportAssign:
-						if (input.Count() != 1) return false;
+						if (input.Count() != 1)
+						{
+							env->scope->errors.Add(
+								L"Assignable property \"" +
+								propertyValue.propertyName +
+								L"\" of type \"" +
+								propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+								L"\" cannot be assigned using multiple values.");
+							return false;
+						}
 						if (constructorArgument && binding != L"") return false;
-						if (binding == L"set") return false;
+						if (binding == L"set")
+						{
+							env->scope->errors.Add(
+								L"Collection property \"" +
+								propertyValue.propertyName +
+								L"\" of type \"" +
+								propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+								L"\" cannot be retrived using binding \"set\".");
+							return false;
+						}
 						{
 							FOREACH_INDEXER(Ptr<GuiValueRepr>, valueRepr, index, input)
 							{
@@ -1444,6 +1533,17 @@ LoadInstancePropertyValue
 											bindingSetters.Add(bindingSetter);
 										}
 									}
+									else
+									{
+										env->scope->errors.Add(
+											L"Collection property \"" +
+											propertyValue.propertyName +
+											L"\" of type \"" +
+											propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+											L"\" cannot be assigned using binding \"" +
+											binding +
+											L"\" because the appropriate IGuiInstanceBinder for this binding cannot be found.");
+									}
 
 									if (canRemoveLoadedValue)
 									{
@@ -1455,7 +1555,16 @@ LoadInstancePropertyValue
 						}
 						break;
 					case GuiInstancePropertyInfo::SupportArray:
-						if (binding != L"") return false;
+						if (binding != L"")
+						{
+							env->scope->errors.Add(
+								L"Array property \"" +
+								propertyValue.propertyName +
+								L"\" of type \"" +
+								propertyValue.instanceValue.GetTypeDescriptor()->GetTypeName() +
+								L"\" cannot be assigned using binding.");
+							return false;
+						}
 						{
 							auto list = IValueList::Create();
 							FOREACH_INDEXER(Ptr<GuiValueRepr>, valueRepr, index, input)
@@ -1486,9 +1595,10 @@ LoadInstancePropertyValue
 				}
 				else
 				{
-					propertyLoader=GetInstanceLoaderManager()->GetParentLoader(propertyLoader);
+					propertyLoader = GetInstanceLoaderManager()->GetParentLoader(propertyLoader);
 				}
 			}
+
 			return true;
 		}
 
@@ -1587,6 +1697,17 @@ FillInstance
 					eventSetter.handlerName = handlerName;
 					eventSetters.Add(eventSetter);
 				}
+				else
+				{
+					env->scope->errors.Add(
+						L"Failed to attach event \"" +
+						eventName +
+						L"\" of type \"" +
+						typeName +
+						L"\" with the handler \"" +
+						handlerName +
+						L"\" because no IGuiInstanceLoader supports this event.");
+				}
 			}
 		}
 
@@ -1614,8 +1735,8 @@ CreateInstance
 				// found the correct loader, prepare a TypeInfo
 				IGuiInstanceLoader* loader=source.loader;
 				instanceLoader = source.loader;
-				typeName=source.typeName;
-				ITypeDescriptor* typeDescriptor=GetInstanceLoaderManager()->GetTypeDescriptorForType(source.typeName);
+				typeName = source.typeName;
+				ITypeDescriptor* typeDescriptor = GetInstanceLoaderManager()->GetTypeDescriptorForType(source.typeName);
 				
 				// see if the constructor contains only a single text value
 				Ptr<GuiTextRepr> singleTextValue;
@@ -1654,6 +1775,15 @@ CreateInstance
 							{
 								deserialized = true;
 							}
+							else
+							{
+								env->scope->errors.Add(
+									L"Failed to deserialize object of type \"" +
+									source.typeName +
+									L"\" from string \"" +
+									singleTextValue->text +
+									L"\".");
+							}
 						}
 						else if (loader->IsCreatable(typeInfo))
 						{
@@ -1678,6 +1808,12 @@ CreateInstance
 										if (index == -1)
 										{
 											// if a required parameter doesn't exist, fail
+											env->scope->errors.Add(
+												L"Failed to create object of type \"" +
+												source.typeName +
+												L"\" because the required constructor parameter \"" +
+												propertyName +
+												L"\" is missing.");
 											goto SKIP_CREATE_INSTANCE;
 										}
 										requiredParameters.Add(propertyName);
@@ -1689,6 +1825,12 @@ CreateInstance
 										if (setterValue->binding != L"")
 										{
 											// if the constructor argument uses binding, fail
+											env->scope->errors.Add(
+												L"Failed to create object of type \"" +
+												source.typeName +
+												L"\" because the required constructor parameter \"" +
+												propertyName +
+												L"\" is not allowed to use binding.");
 											goto SKIP_CREATE_INSTANCE;
 										}
 
@@ -1713,12 +1855,18 @@ CreateInstance
 							{
 								if (!constructorArguments.Contains(propertyName))
 								{
+									env->scope->errors.Add(
+										L"Failed to create object of type \"" +
+										source.typeName +
+										L"\" because the required constructor parameter \"" +
+										propertyName +
+										L"\" is missing.");
 									goto SKIP_CREATE_INSTANCE;
 								}
 							}
 
 							// create the instance
-							instance=loader->CreateInstance(typeInfo, constructorArguments);
+							instance = loader->CreateInstance(typeInfo, constructorArguments);
 						SKIP_CREATE_INSTANCE:
 							// delete all arguments if the constructing fails
 							if (instance.IsNull())
@@ -1732,8 +1880,25 @@ CreateInstance
 								}
 							}
 						}
-						loader=GetInstanceLoaderManager()->GetParentLoader(loader);
+						loader = GetInstanceLoaderManager()->GetParentLoader(loader);
 					}
+
+					if (instance.IsNull())
+					{
+						env->scope->errors.Add(
+							L"Failed to create object of type \"" +
+							source.typeName +
+							L"\".");
+					}
+				}
+				else
+				{
+					env->scope->errors.Add(
+						L"Failed to create object of type \"" +
+						source.typeName +
+						L"\" because the expected type is \"" +
+						expectedType->GetTypeName() +
+						L"\".");
 				}
 			}
 			else if(source.context)
@@ -1743,8 +1908,29 @@ CreateInstance
 				{
 					typeName = scope->typeName;
 					instance = scope->rootInstance;
-					instanceLoader=GetInstanceLoaderManager()->GetLoader(typeName);
+					instanceLoader = GetInstanceLoaderManager()->GetLoader(typeName);
 				}
+				else
+				{
+					auto contextCtor = source.context->instance;
+					env->scope->errors.Add(
+						L"Failed to find type \"" +
+						(contextCtor->typeNamespace == L"" 
+							? contextCtor->typeName
+							: contextCtor->typeNamespace + L":" + contextCtor->typeName
+							) +
+						L"\".");
+				}
+			}
+			else
+			{
+				env->scope->errors.Add(
+					L"Failed to find type \"" +
+					(ctor->typeNamespace == L"" 
+						? ctor->typeName
+						: ctor->typeNamespace + L":" + ctor->typeName
+						) +
+					L"\".");
 			}
 
 			if(instance.GetRawPtr() && instanceLoader)
@@ -1763,13 +1949,59 @@ ExecuteBindingSetters
 			List<FillInstanceBindingSetter>& bindingSetters
 			)
 		{
-			// set all -bind attributes
+			// set all binding attributes
 			FOREACH(FillInstanceBindingSetter, bindingSetter, bindingSetters)
 			{
-				if (!bindingSetter.binder->SetPropertyValue(env, bindingSetter.loader, bindingSetter.propertyValue))
+				List<WString> contextNames;
+				bindingSetter.binder->GetRequiredContexts(contextNames);
+				bool failed = false;
+				FOREACH(WString, contextName, contextNames)
 				{
+					if (!env->scope->bindingContexts.Keys().Contains(contextName))
+					{
+						auto factory = GetInstanceLoaderManager()->GetInstanceBindingContextFactory(contextName);
+						if (factory)
+						{
+							env->scope->bindingContexts.Add(contextName, factory->CreateContext());
+						}
+						else
+						{
+							env->scope->errors.Add(
+								L"Failed to create binding context \"" +
+								contextName +
+								L"\" which is required by binding \"" +
+								bindingSetter.binder->GetBindingName() +
+								L"\".");
+							failed = true;
+						}
+					}
+				}
+
+				if (failed || !bindingSetter.binder->SetPropertyValue(env, bindingSetter.loader, bindingSetter.propertyValue))
+				{
+					auto value = bindingSetter.propertyValue.propertyValue;
+					env->scope->errors.Add(
+						L"Failed to set property \"" +
+						 bindingSetter.propertyValue.propertyName +
+						L"\" of \"" +
+						env->context->instance->typeName +
+						L"\" using binding \"" +
+						bindingSetter.binder->GetBindingName() +
+						L"\" and value \"" +
+						(
+							value.GetValueType() == Value::Null ? WString(L"null") :
+							value.GetValueType() == Value::Text ? value.GetText() :
+							(L"<" + value.GetTypeDescriptor()->GetTypeName() + L">")
+						) +
+						L"\".");
 					bindingSetter.propertyValue.propertyValue.DeleteRawPtr();
 				}
+			}
+
+			// initialize all binding context
+			FOREACH(Ptr<IGuiInstanceBindingContext>, context, env->scope->bindingContexts.Values())
+			{
+				context->Initialize(env);
 			}
 		}
 
@@ -1831,6 +2063,28 @@ ExecuteBindingSetters
 							eventSetter.loader->SetEventValue(propertyValue);
 						}
 					}
+					else
+					{
+						env->scope->errors.Add(
+							L"Event handler \"" +
+							eventSetter.handlerName +
+							L"\" exists but the type does not match the event \"" +
+							eventSetter.propertyValue.propertyName +
+							L"\" of \"" +
+							env->context->instance->typeName +
+							L"\".");
+					}
+				}
+				else
+				{
+					env->scope->errors.Add(
+						L"Failed to find event handler \"" +
+						eventSetter.handlerName +
+						L"\" when setting event \"" +
+						eventSetter.propertyValue.propertyName +
+						L"\" of \"" +
+						env->context->instance->typeName +
+						L"\".");
 				}
 			}
 #endif
@@ -1913,13 +2167,14 @@ InitializeInstance
 			// search for a correct loader
 			GuiConstructorRepr* ctor = context->instance.Obj();
 			Ptr<GuiInstanceEnvironment> env = new GuiInstanceEnvironment(context, resolver);
-			InstanceLoadingSource source=FindInstanceLoadingSource(env, ctor);
+			InstanceLoadingSource source = FindInstanceLoadingSource(env, ctor);
 
 			// initialize the instance
 			if(source.loader)
 			{
 				if (auto scope = InitializeInstanceFromConstructor(env, ctor, source.loader, source.typeName, instance, false, bindingSetters, eventSetters))
 				{
+					scope->rootInstance = instance;
 					ExecuteBindingSetters(env, bindingSetters);
 					ExecuteEventSetters(instance, env, eventSetters);
 					return scope;
@@ -2516,6 +2771,9 @@ namespace vl
 	{
 		using namespace collections;
 		using namespace reflection::description;
+		using namespace workflow;
+		using namespace workflow::analyzer;
+		using namespace workflow::runtime;
 
 /***********************************************************************
 GuiTextInstanceBinderBase
@@ -2528,6 +2786,10 @@ GuiTextInstanceBinderBase
 		public:
 			GuiTextInstanceBinderBase()
 				:stringTypeDescriptor(description::GetTypeDescriptor<WString>())
+			{
+			}
+
+			void GetRequiredContexts(collections::List<WString>& contextNames)override
 			{
 			}
 
@@ -2614,6 +2876,424 @@ GuiReferenceInstanceBinder
 		};
 
 /***********************************************************************
+GuiWorkflowGlobalContext
+***********************************************************************/
+
+		struct WorkflowDataBinding
+		{
+			Value						instance;
+			IPropertyInfo*				propertyInfo;
+			Ptr<WfBindExpression>		bindExpression;
+		};
+
+		class GuiWorkflowGlobalContext : public Object, public IGuiInstanceBindingContext
+		{
+		public:
+			List<WorkflowDataBinding>		dataBindings;
+			Ptr<WfRuntimeGlobalContext>		globalContext;
+
+			WString GetContextName()override
+			{
+				return L"WORKFLOW-GLOBAL-CONTEXT";
+			}
+
+			void Initialize(Ptr<GuiInstanceEnvironment> env)override
+			{
+				auto module = MakePtr<WfModule>();
+				CreateVariablesForReferenceValues(module, env);
+				CreateVariable(module, L"<this>", env->scope->rootInstance);
+				{
+					auto func = MakePtr<WfFunctionDeclaration>();
+					func->anonymity = WfFunctionAnonymity::Named;
+					func->name.value = L"<initialize-data-binding>";
+					func->returnType = GetTypeFromTypeInfo(TypeInfoRetriver<void>::CreateTypeInfo().Obj());
+
+					auto block = MakePtr<WfBlockStatement>();
+					func->statement = block;
+					module->declarations.Add(func);
+
+					Dictionary<DescriptableObject*, WString> valueNames;
+					FOREACH_INDEXER(WString, name, index, env->scope->referenceValues.Keys())
+					{
+						auto value = env->scope->referenceValues.Values()[index];
+						valueNames.Add(value.GetRawPtr(), name);
+					}
+					FOREACH(WorkflowDataBinding, dataBinding, dataBindings)
+					{
+						WString subscribee = valueNames[dataBinding.instance.GetRawPtr()];
+						auto subBlock = MakePtr<WfBlockStatement>();
+						block->statements.Add(subBlock);
+						{
+							auto refThis = MakePtr<WfReferenceExpression>();
+							refThis->name.value = L"<this>";
+
+							auto member = MakePtr<WfMemberExpression>();
+							member->parent = refThis;
+							member->name.value = L"AddSubscription";
+
+							auto call = MakePtr<WfCallExpression>();
+							call->function = member;
+							call->arguments.Add(dataBinding.bindExpression);
+
+							auto var = MakePtr<WfVariableDeclaration>();
+							var->name.value = L"<subscription>";
+							var->expression = call;
+
+							auto stat = MakePtr<WfVariableStatement>();
+							stat->variable = var;
+							subBlock->statements.Add(stat);
+						}
+						{
+							auto callback = MakePtr<WfFunctionDeclaration>();
+							callback->anonymity = WfFunctionAnonymity::Anonymous;
+							callback->returnType = GetTypeFromTypeInfo(TypeInfoRetriver<void>::CreateTypeInfo().Obj());;
+							{
+								auto arg = MakePtr<WfFunctionArgument>();
+								arg->name.value = L"<value>";
+								arg->type = GetTypeFromTypeInfo(TypeInfoRetriver<Value>::CreateTypeInfo().Obj());
+								callback->arguments.Add(arg);
+							}
+							auto callbackBlock = MakePtr<WfBlockStatement>();
+							callback->statement = callbackBlock;
+							{
+								auto refSubscribee = MakePtr<WfReferenceExpression>();
+								refSubscribee->name.value = subscribee;
+
+								auto member = MakePtr<WfMemberExpression>();
+								member->parent = refSubscribee;
+								member->name.value = dataBinding.propertyInfo->GetName();
+
+								auto var = MakePtr<WfVariableDeclaration>();
+								var->name.value = L"<old>";
+								var->expression = member;
+
+								auto stat = MakePtr<WfVariableStatement>();
+								stat->variable = var;
+								callbackBlock->statements.Add(stat);
+							}
+							{
+								ITypeInfo* propertyType = dataBinding.propertyInfo->GetReturn();
+								if (dataBinding.propertyInfo->GetSetter() && dataBinding.propertyInfo->GetSetter()->GetParameterCount() == 1)
+								{
+									propertyType = dataBinding.propertyInfo->GetSetter()->GetParameter(0)->GetType();
+								}
+
+								auto refValue = MakePtr<WfReferenceExpression>();
+								refValue->name.value = L"<value>";
+
+								auto cast = MakePtr<WfTypeCastingExpression>();
+								cast->strategy = WfTypeCastingStrategy::Strong;
+								cast->expression = refValue;
+								cast->type = GetTypeFromTypeInfo(propertyType);
+
+								auto var = MakePtr<WfVariableDeclaration>();
+								var->name.value = L"<new>";
+								var->expression = cast;
+
+								auto stat = MakePtr<WfVariableStatement>();
+								stat->variable = var;
+								callbackBlock->statements.Add(stat);
+							}
+							{
+								auto refOld = MakePtr<WfReferenceExpression>();
+								refOld->name.value = L"<old>";
+
+								auto refNew = MakePtr<WfReferenceExpression>();
+								refNew->name.value = L"<new>";
+
+								auto compare = MakePtr<WfBinaryExpression>();
+								compare->op = WfBinaryOperator::EQ;
+								compare->first = refOld;
+								compare->second = refNew;
+
+								auto ifStat = MakePtr<WfIfStatement>();
+								ifStat->expression = compare;
+								callbackBlock->statements.Add(ifStat);
+
+								auto ifBlock = MakePtr<WfBlockStatement>();
+								ifStat->trueBranch = ifBlock;
+
+								auto returnStat = MakePtr<WfReturnStatement>();
+								ifBlock->statements.Add(returnStat);
+							}
+							{
+								auto refSubscribee = MakePtr<WfReferenceExpression>();
+								refSubscribee->name.value = subscribee;
+
+								auto member = MakePtr<WfMemberExpression>();
+								member->parent = refSubscribee;
+								member->name.value = dataBinding.propertyInfo->GetName();
+
+								auto refNew = MakePtr<WfReferenceExpression>();
+								refNew->name.value = L"<new>";
+
+								auto assign = MakePtr<WfBinaryExpression>();
+								assign->op = WfBinaryOperator::Assign;
+								assign->first = member;
+								assign->second = refNew;
+
+								auto stat = MakePtr<WfExpressionStatement>();
+								stat->expression = assign;
+								callbackBlock->statements.Add(stat);
+							}
+
+							auto funcExpr = MakePtr<WfFunctionExpression>();
+							funcExpr->function = callback;
+
+							auto refThis = MakePtr<WfReferenceExpression>();
+							refThis->name.value = L"<subscription>";
+
+							auto member = MakePtr<WfMemberExpression>();
+							member->parent = refThis;
+							member->name.value = L"Subscribe";
+
+							auto call = MakePtr<WfCallExpression>();
+							call->function = member;
+							call->arguments.Add(funcExpr);
+
+							auto stat = MakePtr<WfExpressionStatement>();
+							stat->expression = call;
+							subBlock->statements.Add(stat);
+						}
+						{
+							auto refThis = MakePtr<WfReferenceExpression>();
+							refThis->name.value = L"<subscription>";
+
+							auto member = MakePtr<WfMemberExpression>();
+							member->parent = refThis;
+							member->name.value = L"Update";
+
+							auto call = MakePtr<WfCallExpression>();
+							call->function = member;
+
+							auto stat = MakePtr<WfExpressionStatement>();
+							stat->expression = call;
+							subBlock->statements.Add(stat);
+						}
+					}
+				}
+
+				WString moduleCode;
+				{
+					stream::MemoryStream stream;
+					{
+						stream::StreamWriter writer(stream);
+						WfPrint(module, L"", writer);
+					}
+					stream.SeekFromBegin(0);
+					stream::StreamReader reader(stream);
+					moduleCode = reader.ReadToEnd();
+				}
+				
+				WfLexicalScopeManager manager(0);
+				manager.modules.Add(module);
+				manager.Rebuild(false);
+
+				if (manager.errors.Count() > 0)
+				{
+					env->scope->errors.Add(L"Unexpected errors are encountered when initializing data binding.");
+					FOREACH(Ptr<parsing::ParsingError>, error, manager.errors)
+					{
+						env->scope->errors.Add(error->errorMessage);
+					}
+					env->scope->errors.Add(L"Print code for reference:");
+					env->scope->errors.Add(moduleCode);
+					return;
+				}
+
+				auto assembly = GenerateAssembly(&manager);
+				globalContext = new WfRuntimeGlobalContext(assembly);
+				
+				LoadFunction<void()>(globalContext, L"<initialize>")();
+				FOREACH(WString, name, env->scope->referenceValues.Keys())
+				{
+					vint index = assembly->variableNames.IndexOf(name);
+					globalContext->globalVariables->variables[index] = env->scope->referenceValues.Values()[index];
+				}
+				{
+					vint index = assembly->variableNames.IndexOf(L"<this>");
+					globalContext->globalVariables->variables[index] = env->scope->rootInstance;
+				}
+				LoadFunction<void()>(globalContext, L"<initialize-data-binding>")();
+			}
+
+			static void CreateVariable(Ptr<WfModule> module, const WString& name, const Value& value)
+			{
+				auto var = MakePtr<WfVariableDeclaration>();
+				var->name.value = name;
+				{
+					Ptr<TypeInfoImpl> elementType = new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+					elementType->SetTypeDescriptor(value.GetTypeDescriptor());
+
+					Ptr<TypeInfoImpl> pointerType = new TypeInfoImpl(ITypeInfo::RawPtr);
+					pointerType->SetElementType(elementType);
+
+					var->type = GetTypeFromTypeInfo(pointerType.Obj());
+				}
+
+				auto literal = MakePtr<WfLiteralExpression>();
+				literal->value = WfLiteralValue::Null;
+				var->expression = literal;
+
+				module->declarations.Add(var);
+			}
+
+			static void CreateVariablesForReferenceValues(Ptr<WfModule> module, Ptr<GuiInstanceEnvironment> env)
+			{
+				FOREACH_INDEXER(WString, name, index, env->scope->referenceValues.Keys())
+				{
+					auto value = env->scope->referenceValues.Values()[index];
+					CreateVariable(module, name, value);
+				}
+			}
+		};
+
+/***********************************************************************
+GuiScriptInstanceBinder
+***********************************************************************/
+
+		class GuiScriptInstanceBinder : public GuiTextInstanceBinderBase
+		{
+		public:
+			virtual WString TranslateExpression(const WString& input) = 0;
+
+			void GetRequiredContexts(collections::List<WString>& contextNames)override
+			{
+				contextNames.Add(L"WORKFLOW-GLOBAL-CONTEXT");
+			}
+
+			bool SetPropertyValue(Ptr<GuiInstanceEnvironment> env, IGuiInstanceLoader* loader, IGuiInstanceLoader::PropertyValue& propertyValue)override
+			{
+				if (propertyValue.propertyValue.GetValueType() == Value::Text)
+				{
+					WString expressionCode = TranslateExpression(propertyValue.propertyValue.GetText());
+					auto parser = GetParserManager()->GetParser<WfExpression>(L"WORKFLOW-EXPRESSION");
+					auto expression = parser->TypedParse(expressionCode).Cast<WfBindExpression>();
+					if (!expression)
+					{
+						env->scope->errors.Add(L"Failed to parse the workflow expression \"" + expressionCode + L"\".");
+						return false;
+					}
+
+					bool failed = false;
+					auto td = propertyValue.instanceValue.GetTypeDescriptor();
+					auto propertyInfo = td->GetPropertyByName(propertyValue.propertyName, true);
+					if (!propertyInfo)
+					{
+						env->scope->errors.Add(L"Property \"" + propertyValue.propertyName + L"\" does not exist in type \"" + td->GetTypeName() + L"\".");
+						failed = true;
+					}
+					else if (!propertyInfo->IsReadable() || !propertyInfo->IsWritable())
+					{
+						env->scope->errors.Add(L"Property \"" + propertyValue.propertyName + L"\" of type \"" + td->GetTypeName() + L"\" should be both readable and writable.");
+						failed = true;
+					}
+
+					{
+						auto module = MakePtr<WfModule>();
+						GuiWorkflowGlobalContext::CreateVariablesForReferenceValues(module, env);
+						{
+							auto func = MakePtr<WfFunctionDeclaration>();
+							func->anonymity = WfFunctionAnonymity::Named;
+							func->name.value = L"<initialize-data-binding>";
+							func->returnType = GetTypeFromTypeInfo(TypeInfoRetriver<void>::CreateTypeInfo().Obj());
+
+							auto stat = MakePtr<WfExpressionStatement>();
+							stat->expression = expression;
+							func->statement = stat;
+
+							module->declarations.Add(func);
+						}
+
+						WfLexicalScopeManager manager(0);
+						manager.modules.Add(module);
+						manager.Rebuild(false);
+						if (manager.errors.Count() > 0)
+						{
+							env->scope->errors.Add(L"Failed to analyze the workflow expression \"" + expressionCode + L"\".");
+							FOREACH(Ptr<parsing::ParsingError>, error, manager.errors)
+							{
+								env->scope->errors.Add(error->errorMessage);
+							}
+							failed = true;
+						}
+						else if (propertyInfo)
+						{
+							auto result = manager.expressionResolvings[expression->expression.Obj()];
+							if (result.type)
+							{
+								ITypeInfo* propertyType = propertyInfo->GetReturn();
+								if (propertyInfo->GetSetter() && propertyInfo->GetSetter()->GetParameterCount() == 1)
+								{
+									propertyType = propertyInfo->GetSetter()->GetParameter(0)->GetType();
+								}
+								if (!CanConvertToType(result.type.Obj(), propertyType, false))
+								{
+									env->scope->errors.Add(L"Failed to analyze the workflow expression \"" + expressionCode + L"\".");
+									env->scope->errors.Add(
+										WfErrors::ExpressionCannotImplicitlyConvertToType(expression->expression.Obj(), result.type.Obj(), propertyType)
+										->errorMessage);
+									failed = true;
+								}
+							}
+						}
+					}
+
+					if (!failed)
+					{
+						expression->expandedExpression = 0;
+
+						WorkflowDataBinding dataBinding;
+						dataBinding.instance = propertyValue.instanceValue;
+						dataBinding.propertyInfo = propertyInfo;
+						dataBinding.bindExpression = expression;
+
+						auto context = env->scope->bindingContexts[L"WORKFLOW-GLOBAL-CONTEXT"].Cast<GuiWorkflowGlobalContext>();
+						context->dataBindings.Add(dataBinding);
+					}
+					return !failed;
+				}
+				return false;
+			}
+		};
+
+/***********************************************************************
+GuiBindInstanceBinder
+***********************************************************************/
+
+		class GuiBindInstanceBinder : public GuiScriptInstanceBinder
+		{
+		public:
+			WString GetBindingName()override
+			{
+				return L"bind";
+			}
+
+			WString TranslateExpression(const WString& input)override
+			{
+				return L"bind(" + input + L")";
+			}
+		};
+
+/***********************************************************************
+GuiFormatInstanceBinder
+***********************************************************************/
+
+		class GuiFormatInstanceBinder : public GuiScriptInstanceBinder
+		{
+		public:
+			WString GetBindingName()override
+			{
+				return L"format";
+			}
+
+			WString TranslateExpression(const WString& input)override
+			{
+				return L"bind($\"" + input + L"\")";
+			}
+		};
+
+/***********************************************************************
 GuiPredefinedInstanceBindersPlugin
 ***********************************************************************/
 
@@ -2622,14 +3302,27 @@ GuiPredefinedInstanceBindersPlugin
 		public:
 			void Load()override
 			{
+				WfLoadTypes();
 			}
 
 			void AfterLoad()override
 			{
-				IGuiInstanceLoaderManager* manager=GetInstanceLoaderManager();
+				{
+					IGuiParserManager* manager = GetParserManager();
+					manager->SetParsingTable(L"WORKFLOW", &WfLoadTable);
+					manager->SetTableParser(L"WORKFLOW", L"WORKFLOW-EXPRESSION", &WfParseExpression);
+					manager->SetTableParser(L"WORKFLOW", L"WORKFLOW-MODULE", &WfParseModule);
+				}
+				{
+					IGuiInstanceLoaderManager* manager=GetInstanceLoaderManager();
 
-				manager->AddInstanceBinder(new GuiResourceInstanceBinder);
-				manager->AddInstanceBinder(new GuiReferenceInstanceBinder);
+					manager->AddInstanceBindingContextFactory(new GuiInstanceBindingContextFactory<GuiWorkflowGlobalContext>(L"WORKFLOW-GLOBAL-CONTEXT"));
+
+					manager->AddInstanceBinder(new GuiResourceInstanceBinder);
+					manager->AddInstanceBinder(new GuiReferenceInstanceBinder);
+					manager->AddInstanceBinder(new GuiBindInstanceBinder);
+					manager->AddInstanceBinder(new GuiFormatInstanceBinder);
+				}
 			}
 
 			void Unload()override
@@ -4800,6 +5493,9 @@ Type Declaration
 				CLASS_MEMBER_METHOD(AddComponent, {L"component"})
 				CLASS_MEMBER_METHOD(RemoveComponent, {L"component"})
 				CLASS_MEMBER_METHOD(ContainsComponent, {L"component"})
+				CLASS_MEMBER_METHOD(AddSubscription, {L"subscription"})
+				CLASS_MEMBER_METHOD(RemoveSubscription, {L"subscription"})
+				CLASS_MEMBER_METHOD(ContainsSubscription, {L"subscription"})
 				CLASS_MEMBER_METHOD(Show, NO_PARAMETER)
 				CLASS_MEMBER_METHOD(ShowDeactivated, NO_PARAMETER)
 				CLASS_MEMBER_METHOD(ShowRestored, NO_PARAMETER)
@@ -5279,6 +5975,10 @@ Type Declaration
 				CLASS_MEMBER_BASE(GuiControl)
 				CONTROL_CONSTRUCTOR_CONTROLLER(GuiCustomControl)
 				CONTROL_CONSTRUCTOR_DEFAULT(GuiCustomControl, &g::NewCustomControl)
+
+				CLASS_MEMBER_METHOD(AddSubscription, {L"subscription"})
+				CLASS_MEMBER_METHOD(RemoveSubscription, {L"subscription"})
+				CLASS_MEMBER_METHOD(ContainsSubscription, {L"subscription"})
 			END_CLASS_MEMBER(GuiCustomControl)
 
 			BEGIN_CLASS_MEMBER(GuiCustomControl::IStyleController)

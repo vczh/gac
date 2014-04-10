@@ -1,4 +1,4 @@
-# Gaclib 0.7.0.0
+# Gaclib 0.7.1.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -16,6 +16,6 @@ Here is a simple description to the code
 
 Improvements to the previous release
 * Add 1 demos
-    * **Persistant.DirectCode.Scripting**
+    * **Persistant.LoadFromXml.DataBinding** shows how to do data binding in the XML window resource with GacGen.exe to generate C++ codes from XML.
 * Added new features
-    * **Workflow Script** enables you to access reflectable C++ classes from script.
+    * **Workflow Script** adds exception handling, anonymous interface implementation and data binding.

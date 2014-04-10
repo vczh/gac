@@ -14741,7 +14741,236 @@ Interface Implementation Proxy (Implement)
 
 			namespace interface_proxy
 			{
-				class description_IValueListener : public ValueInterfaceRoot, public IValueListener
+#pragma warning(push)
+#pragma warning(disable:4250)
+				class description_IValueEnumerator : public ValueInterfaceRoot, public virtual IValueEnumerator
+				{
+				public:
+					description_IValueEnumerator(Ptr<IValueInterfaceProxy> proxy)
+						:ValueInterfaceRoot(proxy)
+					{
+					}
+
+					static Ptr<IValueEnumerator> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueEnumerator(proxy);
+					}
+					
+					Value GetCurrent()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetCurrent);
+					}
+
+					vint GetIndex()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetIndex);
+					}
+
+					bool Next()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(Next);
+					}
+				};
+				
+				class description_IValueEnumerable : public ValueInterfaceRoot, public virtual IValueEnumerable
+				{
+				public:
+					description_IValueEnumerable(Ptr<IValueInterfaceProxy> proxy)
+						:ValueInterfaceRoot(proxy)
+					{
+					}
+
+					static Ptr<IValueEnumerable> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueEnumerable(proxy);
+					}
+
+					Ptr<IValueEnumerator> CreateEnumerator()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(CreateEnumerator);
+					}
+				};
+				
+				class description_IValueReadonlyList : public description_IValueEnumerable, public virtual IValueReadonlyList
+				{
+				public:
+					description_IValueReadonlyList(Ptr<IValueInterfaceProxy> proxy)
+						:description_IValueEnumerable(proxy)
+					{
+					}
+
+					static Ptr<IValueReadonlyList> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueReadonlyList(proxy);
+					}
+					
+					vint GetCount()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetCount);
+					}
+
+					Value Get(vint index)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Get, index);
+					}
+
+					bool Contains(const Value& value)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Contains, value);
+					}
+
+					vint IndexOf(const Value& value)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(IndexOf, value);
+					}
+				};
+				
+				class description_IValueList : public description_IValueReadonlyList, public virtual IValueList
+				{
+				public:
+					description_IValueList(Ptr<IValueInterfaceProxy> proxy)
+						:description_IValueReadonlyList(proxy)
+					{
+					}
+
+					static Ptr<IValueList> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueList(proxy);
+					}
+
+					void Set(vint index, const Value& value)override
+					{
+						INVOKE_INTERFACE_PROXY(Set, index, value);
+					}
+
+					vint Add(const Value& value)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Add, value);
+					}
+
+					vint Insert(vint index, const Value& value)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Insert, index, value);
+					}
+
+					bool Remove(const Value& value)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Remove, value);
+					}
+
+					bool RemoveAt(vint index)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(RemoveAt, index);
+					}
+
+					void Clear()override
+					{
+						INVOKE_INTERFACE_PROXY_NOPARAM(Clear);
+					}
+				};
+				
+				class description_IValueReadonlyDictionary : public ValueInterfaceRoot, public virtual IValueReadonlyDictionary
+				{
+				public:
+					description_IValueReadonlyDictionary(Ptr<IValueInterfaceProxy> proxy)
+						:ValueInterfaceRoot(proxy)
+					{
+					}
+
+					static Ptr<IValueReadonlyDictionary> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueReadonlyDictionary(proxy);
+					}
+
+					IValueReadonlyList* GetKeys()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetKeys);
+					}
+
+					IValueReadonlyList* GetValues()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetValues);
+					}
+
+					vint GetCount()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetCount);
+					}
+
+					Value Get(const Value& key)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Get, key);
+					}
+				};
+				
+				class description_IValueDictionary : public description_IValueReadonlyDictionary, public virtual IValueDictionary
+				{
+				public:
+					description_IValueDictionary(Ptr<IValueInterfaceProxy> proxy)
+						:description_IValueReadonlyDictionary(proxy)
+					{
+					}
+
+					static Ptr<IValueDictionary> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueDictionary(proxy);
+					}
+
+					void Set(const Value& key, const Value& value)override
+					{
+						INVOKE_INTERFACE_PROXY(Set, key, value);
+					}
+
+					bool Remove(const Value& key)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Remove, key);
+					}
+
+					void Clear()override
+					{
+						INVOKE_INTERFACE_PROXY_NOPARAM(Clear);
+					}
+				};
+				
+				class description_IValueInterfaceProxy : public ValueInterfaceRoot, public virtual IValueInterfaceProxy
+				{
+				public:
+					description_IValueInterfaceProxy(Ptr<IValueInterfaceProxy> proxy)
+						:ValueInterfaceRoot(proxy)
+					{
+					}
+
+					static Ptr<IValueInterfaceProxy> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueInterfaceProxy(proxy);
+					}
+
+					Value Invoke(const WString& methodName, Ptr<IValueList> arguments)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Invoke, methodName, arguments);
+					}
+				};
+				
+				class description_IValueFunctionProxy : public ValueInterfaceRoot, public virtual IValueFunctionProxy
+				{
+				public:
+					description_IValueFunctionProxy(Ptr<IValueInterfaceProxy> proxy)
+						:ValueInterfaceRoot(proxy)
+					{
+					}
+
+					static Ptr<IValueFunctionProxy> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueFunctionProxy(proxy);
+					}
+
+					Value Invoke(Ptr<IValueList> arguments)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(Invoke, arguments);
+					}
+				};
+
+				class description_IValueListener : public ValueInterfaceRoot, public virtual IValueListener
 				{
 				public:
 					description_IValueListener(Ptr<IValueInterfaceProxy> proxy)
@@ -14770,7 +14999,7 @@ Interface Implementation Proxy (Implement)
 					}
 				};
 
-				class description_IValueSubscription: public ValueInterfaceRoot, public IValueSubscription
+				class description_IValueSubscription: public ValueInterfaceRoot, public virtual IValueSubscription
 				{
 				public:
 					description_IValueSubscription(Ptr<IValueInterfaceProxy> proxy)
@@ -14788,11 +15017,17 @@ Interface Implementation Proxy (Implement)
 						return INVOKEGET_INTERFACE_PROXY(Subscribe, callback);
 					}
 
+					bool Update()override
+					{
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(Update);
+					}
+
 					bool Close()override
 					{
 						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(Close);
 					}
 				};
+#pragma warning(pop)
 			}
 
 /***********************************************************************
@@ -14832,6 +15067,7 @@ Collections
 
 			BEGIN_CLASS_MEMBER(IValueEnumerator)
 				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueEnumerator>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueEnumerator::Create)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Current)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Index)
 				CLASS_MEMBER_METHOD(Next, NO_PARAMETER)
@@ -14839,11 +15075,13 @@ Collections
 
 			BEGIN_CLASS_MEMBER(IValueEnumerable)
 				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueEnumerable>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueEnumerable::Create)
 				CLASS_MEMBER_METHOD(CreateEnumerator, NO_PARAMETER)
 			END_CLASS_MEMBER(IValueEnumerable)
 
 			BEGIN_CLASS_MEMBER(IValueReadonlyList)
 				CLASS_MEMBER_BASE(IValueEnumerable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueReadonlyList>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueReadonlyList::Create)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Count)
 				CLASS_MEMBER_METHOD(Get, {L"index"})
 				CLASS_MEMBER_METHOD(Contains, {L"value"})
@@ -14854,6 +15092,7 @@ Collections
 				CLASS_MEMBER_BASE(IValueReadonlyList)
 				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueList>(), NO_PARAMETER, (Ptr<IValueList>(*)())&IValueList::Create)
 				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueList>(Ptr<IValueReadonlyList>), {L"values"}, (Ptr<IValueList>(*)(Ptr<IValueReadonlyList>))&IValueList::Create)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueList>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueList::Create)
 
 				CLASS_MEMBER_METHOD(Set, {L"index" _ L"value"})
 				CLASS_MEMBER_METHOD(Add, {L"value"})
@@ -14865,6 +15104,7 @@ Collections
 
 			BEGIN_CLASS_MEMBER(IValueReadonlyDictionary)
 				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueReadonlyDictionary>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueReadonlyDictionary::Create)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Keys)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Values)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Count)
@@ -14875,6 +15115,7 @@ Collections
 				CLASS_MEMBER_BASE(IValueReadonlyDictionary)
 				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueDictionary>(), NO_PARAMETER, (Ptr<IValueDictionary>(*)())&IValueDictionary::Create)
 				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueDictionary>(Ptr<IValueReadonlyDictionary>), {L"values"}, (Ptr<IValueDictionary>(*)(Ptr<IValueReadonlyDictionary>))&IValueDictionary::Create)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueDictionary>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueDictionary::Create)
 				CLASS_MEMBER_METHOD(Set, {L"key" _ L"value"})
 				CLASS_MEMBER_METHOD(Remove, {L"key"})
 				CLASS_MEMBER_METHOD(Clear, NO_PARAMETER)
@@ -14882,11 +15123,13 @@ Collections
 
 			BEGIN_CLASS_MEMBER(IValueInterfaceProxy)
 				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueInterfaceProxy>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueInterfaceProxy::Create)
 				CLASS_MEMBER_METHOD(Invoke, {L"name" _ L"arguments"})
 			END_CLASS_MEMBER(IValueInterfaceProxy)
 
 			BEGIN_CLASS_MEMBER(IValueFunctionProxy)
 				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueFunctionProxy>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueFunctionProxy::Create)
 				CLASS_MEMBER_METHOD(Invoke, {L"arguments"})
 			END_CLASS_MEMBER(IValueFunctionProxy)
 
@@ -14902,6 +15145,7 @@ Collections
 				CLASS_MEMBER_BASE(IDescriptable)
 				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueSubscription>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueSubscription::Create)
 				CLASS_MEMBER_METHOD(Subscribe, { L"callback" })
+				CLASS_MEMBER_METHOD(Update, NO_PARAMETER)
 				CLASS_MEMBER_METHOD(Close, NO_PARAMETER)
 			END_CLASS_MEMBER(IValueSubscription)
 

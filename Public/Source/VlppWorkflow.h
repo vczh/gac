@@ -748,6 +748,7 @@ namespace vl
 		{
 		public:
 			vl::Ptr<WfExpression> expression;
+			vl::Ptr<WfExpression> expandedExpression;
 
 			void Accept(WfExpression::IVisitor* visitor)override;
 
@@ -1640,6 +1641,11 @@ namespace vl
 {
 	namespace workflow
 	{
+		extern void			WfPrint(Ptr<WfType> node, const WString& indent, stream::TextWriter& writer);
+		extern void			WfPrint(Ptr<WfExpression> node, const WString& indent, stream::TextWriter& writer);
+		extern void			WfPrint(Ptr<WfStatement> node, const WString& indent, stream::TextWriter& writer);
+		extern void			WfPrint(Ptr<WfDeclaration> node, const WString& indent, stream::TextWriter& writer);
+		extern void			WfPrint(Ptr<WfModule> node, const WString& indent, stream::TextWriter& writer);
 	}
 }
 #endif
@@ -1687,6 +1693,7 @@ Instruction
 				Return,				// 						: Value -> Value								; (exit function)
 				CreateArray,		// count				: Value-count, ..., Value-1 -> <array>			; {1 2 3} -> <3 2 1>
 				CreateMap,			// count				: Value-count, ..., Value-1 -> <map>			; {1:2 3:4} -> <3 4 1 2>
+				CreateInterface,	// count				: Value-count, ..., Value-1 -> <map>			; {"Get":a "Set":b} -> InterfaceProxy^
 				CreateRange,		// I1248/U1248			: Value-begin, Value-end -> <enumerable>		;
 				ReverseEnumerable,	//						: Value -> Value								;
 				DeleteRawPtr,		//						: Value -> ()									;
@@ -1703,7 +1710,7 @@ Instruction
 				AttachEvent,		// IEventInfo*			: Value-this, <function> -> <Listener>			;
 				DetachEvent,		// 						: <Listener> -> bool							;
 				InstallTry,			// label				: () -> ()										;
-				UninstallTry,		// label				: () -> ()										;
+				UninstallTry,		// count				: () -> ()										;
 				RaiseException,		// 						: Value -> ()									; (trap)
 				TestElementInSet,	//						: Value-element, Value-set -> bool				;
 				CompareLiteral,		// I48/U48/F48/S		: Value, Value -> <int>							;
@@ -1745,6 +1752,7 @@ Instruction
 			APPLY(Return)\
 			APPLY_COUNT(CreateArray)\
 			APPLY_COUNT(CreateMap)\
+			APPLY_COUNT(CreateInterface)\
 			APPLY_TYPE(CreateRange)\
 			APPLY(ReverseEnumerable)\
 			APPLY(DeleteRawPtr)\
@@ -1761,7 +1769,7 @@ Instruction
 			APPLY_EVENT(AttachEvent)\
 			APPLY(DetachEvent)\
 			APPLY_LABEL(InstallTry)\
-			APPLY_LABEL(UninstallTry)\
+			APPLY_COUNT(UninstallTry)\
 			APPLY(RaiseException)\
 			APPLY(TestElementInSet)\
 			APPLY_TYPE(CompareLiteral)\
@@ -1881,7 +1889,7 @@ Instruction
 			{
 			public:
 				collections::List<WString>							variableNames;
-				collections::Dictionary<WString, vint>				functionByName;
+				collections::Group<WString, vint>					functionByName;
 				collections::List<Ptr<WfAssemblyFunction>>			functions;
 				collections::List<WfInstruction>					instructions;
 			};
@@ -1921,6 +1929,7 @@ Runtime
 			{
 				vint							stackFrameIndex = -1;
 				vint							instructionIndex = -1;
+				vint							stackPatternCount = -1;
 			};
 
 			enum class WfRuntimeExecutionStatus
@@ -1963,7 +1972,7 @@ Runtime
 				typedef collections::List<WfRuntimeTrapFrame>					TrapFrameList;
 
 				Ptr<WfRuntimeGlobalContext>		globalContext;
-				reflection::description::Value	exceptionValue;
+				WString							exceptionValue;
 				VariableList					stack;
 				StackFrameList					stackFrames;
 				TrapFrameList					trapFrames;
@@ -1975,11 +1984,12 @@ Runtime
 				WfRuntimeStackFrame&			GetCurrentStackFrame();
 				WfRuntimeThreadContextError		PushStackFrame(vint functionIndex, vint argumentCount, Ptr<WfRuntimeVariableContext> capturedVariables = 0);
 				WfRuntimeThreadContextError		PopStackFrame();
+				WfRuntimeTrapFrame&				GetCurrentTrapFrame();
 				WfRuntimeThreadContextError		PushTrapFrame(vint instructionIndex);
-				WfRuntimeThreadContextError		PopTrapFrame();
+				WfRuntimeThreadContextError		PopTrapFrame(vint saveStackPatternCount);
 				WfRuntimeThreadContextError		PushValue(const reflection::description::Value& value);
 				WfRuntimeThreadContextError		PopValue(reflection::description::Value& value);
-				WfRuntimeThreadContextError		RaiseException(const reflection::description::Value& exception, bool fatalError);
+				WfRuntimeThreadContextError		RaiseException(const WString& exception, bool fatalError);
 
 				WfRuntimeThreadContextError		LoadStackValue(vint stackItemIndex, reflection::description::Value& value);
 				WfRuntimeThreadContextError		LoadGlobalVariable(vint variableIndex, reflection::description::Value& value);
@@ -2130,11 +2140,14 @@ Scope Manager
 				typedef collections::List<Ptr<WfModule>>													ModuleList;
 				typedef collections::List<Ptr<parsing::ParsingError>>										ParsingErrorList;
 				typedef collections::Dictionary<Ptr<WfNamespaceDeclaration>, Ptr<WfLexicalScopeName>>		NamespaceNameMap;
+				typedef collections::SortedList<Ptr<WfLexicalScope>>										ScopeSortedList;
 				typedef collections::Dictionary<Ptr<WfModule>, Ptr<WfLexicalScope>>							ModuleScopeMap;
 				typedef collections::Dictionary<Ptr<WfDeclaration>, Ptr<WfLexicalScope>>					DeclarationScopeMap;
 				typedef collections::Dictionary<Ptr<WfStatement>, Ptr<WfLexicalScope>>						StatementScopeMap;
 				typedef collections::Dictionary<Ptr<WfExpression>, Ptr<WfLexicalScope>>						ExpressionScopeMap;
 				typedef collections::Dictionary<Ptr<WfExpression>, ResolveExpressionResult>					ExpressionResolvingMap;
+				typedef collections::Group<WfFunctionDeclaration*, Ptr<WfLexicalSymbol>>					FunctionLambdaCaptureGroup;
+				typedef collections::Group<WfOrderedLambdaExpression*, Ptr<WfLexicalSymbol>>				OrderedLambdaCaptureGroup;
 			protected:
 
 				void										BuildGlobalNameFromTypeDescriptors();
@@ -2148,18 +2161,22 @@ Scope Manager
 
 				Ptr<WfLexicalScopeName>						globalName;
 				NamespaceNameMap							namespaceNames;
+				ScopeSortedList								analyzedScopes;
 
-				ModuleScopeMap								moduleScopes;			// the nearest scope for the module
-				DeclarationScopeMap							declarationScopes;		// the nearest scope for the declaration
-				StatementScopeMap							statementScopes;		// the nearest scope for the statement
-				ExpressionScopeMap							expressionScopes;		// the nearest scope for the expression
-				ExpressionResolvingMap						expressionResolvings;	// the resolving result for the expression
+				ModuleScopeMap								moduleScopes;				// the nearest scope for the module
+				DeclarationScopeMap							declarationScopes;			// the nearest scope for the declaration
+				StatementScopeMap							statementScopes;			// the nearest scope for the statement
+				ExpressionScopeMap							expressionScopes;			// the nearest scope for the expression
+				ExpressionResolvingMap						expressionResolvings;		// the resolving result for the expression
+				FunctionLambdaCaptureGroup					functionLambdaCaptures;		// all captured symbol in an lambda expression
+				OrderedLambdaCaptureGroup					orderedLambdaCaptures;		// all captured symbol in an lambda expression
 
 				WfLexicalScopeManager(Ptr<parsing::tabling::ParsingTable> _parsingTable);
 				~WfLexicalScopeManager();
 				
 				Ptr<WfModule>								AddModule(const WString& moduleCode, vint codeIndex = -1);
 				void										Clear(bool keepTypeDescriptorNames, bool deleteModules);
+				bool										CheckScopes();
 				void										Rebuild(bool keepTypeDescriptorNames);
 				void										ResolveSymbol(WfLexicalScope* scope, const WString& symbolName, collections::List<Ptr<WfLexicalSymbol>>& symbols);
 				void										ResolveScopeName(WfLexicalScope* scope, const WString& symbolName, collections::List<Ptr<WfLexicalScopeName>>& names);
@@ -2203,6 +2220,7 @@ Type Analyzing
 			extern Ptr<WfLexicalScopeName>					GetScopeNameFromReferenceType(WfLexicalScope* scope, Ptr<WfType> type);
 			extern Ptr<reflection::description::ITypeInfo>	CreateTypeInfoFromType(WfLexicalScope* scope, Ptr<WfType> type);
 
+			extern Ptr<WfType>								CopyType(Ptr<WfType> type);
 			extern Ptr<reflection::description::ITypeInfo>	CopyTypeInfo(reflection::description::ITypeInfo* typeInfo);
 			extern bool										CanConvertToType(reflection::description::ITypeInfo* fromType, reflection::description::ITypeInfo* toType, bool explicitly);
 			extern bool										IsSameType(reflection::description::ITypeInfo* fromType, reflection::description::ITypeInfo* toType);
@@ -2211,11 +2229,11 @@ Type Analyzing
 
 			extern Ptr<reflection::description::ITypeInfo>	CreateTypeInfoFromMethodInfo(reflection::description::IMethodInfo* info);
 
-			extern bool										IsExpressionDependOnExpectedType(Ptr<WfExpression> expression);
+			extern bool										IsExpressionDependOnExpectedType(WfLexicalScopeManager* manager, Ptr<WfExpression> expression);
 			extern WString									GetExpressionName(Ptr<WfExpression> expression);
-			extern void										SearchOrderedName(Ptr<WfDeclaration> declaration, collections::SortedList<vint>& names);
-			extern void										SearchOrderedName(Ptr<WfStatement> statement, collections::SortedList<vint>& names);
-			extern void										SearchOrderedName(Ptr<WfExpression> expression, collections::SortedList<vint>& names);
+			extern void										SearchOrderedName(WfLexicalScope* scope, Ptr<WfDeclaration> declaration, collections::SortedList<vint>& names);
+			extern void										SearchOrderedName(WfLexicalScope* scope, Ptr<WfStatement> statement, collections::SortedList<vint>& names);
+			extern void										SearchOrderedName(WfLexicalScope* scope, Ptr<WfExpression> expression, collections::SortedList<vint>& names);
 
 /***********************************************************************
 Structure Analyzing
@@ -2224,6 +2242,7 @@ Structure Analyzing
 			struct ValidateStructureContext
 			{
 				WfBindExpression*							currentBindExpression;
+				WfObserveExpression*						currentObserveExpression;
 				WfStatement*								currentLoopStatement;
 				WfStatement*								currentCatchStatement;
 
@@ -2248,10 +2267,36 @@ Scope Analyzing
 Semantic Analyzing
 ***********************************************************************/
 
+			class WfObservingDependency : public Object
+			{
+				typedef collections::Group<WfExpression*, WfExpression*>			DependencyGroup;
+				typedef collections::List<WfExpression*>							ObserveList;
+			public:
+				ObserveList							inputObserves;
+				ObserveList							outputObserves;
+				DependencyGroup&					dependencies;
+				
+				WfObservingDependency(WfObservingDependency& dependency);
+				WfObservingDependency(DependencyGroup& _dependencies);
+				WfObservingDependency(DependencyGroup& _dependencies, ObserveList& _inputObserves);
+				
+				void								Prepare(WfExpression* observe);
+				void								AddInternal(WfExpression* observe, WfExpression* dependedObserve);
+				void								Add(WfExpression* observe);
+				void								Add(WfExpression* observe, WfObservingDependency& dependency);
+				void								TurnToInput();
+				void								Cleanup();
+			};
+
 			extern void										ValidateModuleSemantic(WfLexicalScopeManager* manager, Ptr<WfModule> module);
 			extern void										ValidateDeclarationSemantic(WfLexicalScopeManager* manager, Ptr<WfDeclaration> declaration);
 			extern void										ValidateStatementSemantic(WfLexicalScopeManager* manager, Ptr<WfStatement> statement);
 			extern void										ValidateExpressionSemantic(WfLexicalScopeManager* manager, Ptr<WfExpression> expression, Ptr<reflection::description::ITypeInfo> expectedType, collections::List<ResolveExpressionResult>& results);
+			extern void										GetObservingDependency(WfLexicalScopeManager* manager, Ptr<WfExpression> expression, WfObservingDependency& dependency);
+			extern Ptr<WfExpression>						ExpandObserveExpression(WfExpression* expression, collections::Dictionary<WfExpression*, WString>& cacheNames, collections::Dictionary<WString, WString>& referenceReplacement, bool useCache = true);
+			extern Ptr<WfExpression>						CopyExpression(Ptr<WfExpression> expression);
+			extern Ptr<WfStatement>							CopyStatement(Ptr<WfStatement> statement);
+			extern void										ExpandBindExpression(WfLexicalScopeManager* manager, WfBindExpression* node);
 
 			extern Ptr<WfLexicalScopeName>					GetExpressionScopeName(WfLexicalScopeManager* manager, Ptr<WfExpression> expression);
 			extern reflection::description::IEventInfo*		GetExpressionEventInfo(WfLexicalScopeManager* manager, Ptr<WfExpression> expression);
@@ -2266,33 +2311,53 @@ Code Generation
 
 			struct WfCodegenLambdaContext
 			{
+				WfFunctionDeclaration*				functionDeclaration = 0;
 				WfFunctionExpression*				functionExpression = 0;
 				WfOrderedLambdaExpression*			orderedLambdaExpression = 0;
 				WfMemberExpression*					methodReferenceExpression = 0;
 				WfExpression*						staticMethodReferenceExpression = 0;
 			};
 
-			class WfCodegenLoopContext : public Object
+			enum class WfCodegenScopeType
 			{
+				Function,	// contains the whole function
+				Switch,		// contains all switchs
+				Loop,		// contains all loops
+				TryCatch,	// contains try and catch, not finally
+			};
+
+			class WfCodegenScopeContext : public Object
+			{
+				typedef collections::List<vint>										InstructionIndexList;
+				typedef collections::List<runtime::WfInstruction>					InstructionList;
 			public:
-				collections::List<vint>				continueInstructions;
-				collections::List<vint>				breakInstructions;
+				WfCodegenScopeType					type = WfCodegenScopeType::Function;
+				InstructionIndexList				continueInstructions;
+				InstructionIndexList				breakInstructions;
+				
+				InstructionList						exitInstructions;
+				Ptr<WfStatement>					exitStatement;
 			};
 
 			class WfCodegenFunctionContext : public Object
 			{
 				typedef collections::Dictionary<WfLexicalSymbol*, vint>				VariableIndexMap;
 				typedef collections::Dictionary<vint, WfCodegenLambdaContext>		ClosureIndexMap;
-				typedef collections::List<Ptr<WfCodegenLoopContext>>				LoopContextList;
+				typedef collections::List<Ptr<WfCodegenScopeContext>>				ScopeContextList;
 			public:
 				Ptr<runtime::WfAssemblyFunction>	function;
 				VariableIndexMap					capturedVariables;
 				VariableIndexMap					arguments;
 				VariableIndexMap					localVariables;
 				ClosureIndexMap						closuresToCodegen;
-				LoopContextList						loopContextStack;
+				ScopeContextList					scopeContextStack;
 
-				Ptr<WfCodegenLoopContext>			GetCurrentLoopContext();
+				WfCodegenFunctionContext();
+				
+				Ptr<WfCodegenScopeContext>			GetCurrentScopeContext();
+				Ptr<WfCodegenScopeContext>			GetCurrentScopeContext(WfCodegenScopeType type);
+				Ptr<WfCodegenScopeContext>			PushScopeContext(WfCodegenScopeType type);
+				void								PopScopeContext();
 			};
 
 			class WfCodegenContext : public Object
@@ -2332,9 +2397,12 @@ Error Messages
 				static Ptr<parsing::ParsingError>			WrongFormatStringSyntax(WfExpression* node);
 				static Ptr<parsing::ParsingError>			WrongSimpleObserveExpression(WfExpression* node);
 				static Ptr<parsing::ParsingError>			WrongSimpleObserveEvent(WfExpression* node);
-				static Ptr<parsing::ParsingError>			EmptyExtendedObserveEvent(WfExpression* node);
+				static Ptr<parsing::ParsingError>			EmptyObserveEvent(WfExpression* node);
 				static Ptr<parsing::ParsingError>			ObserveNotInBind(WfExpression* node);
+				static Ptr<parsing::ParsingError>			ObserveInObserveEvent(WfExpression* node);
 				static Ptr<parsing::ParsingError>			BindInBind(WfExpression* node);
+				static Ptr<parsing::ParsingError>			AttachInBind(WfExpression* node);
+				static Ptr<parsing::ParsingError>			DetachInBind(WfExpression* node);
 				static Ptr<parsing::ParsingError>			ConstructorMixMapAndList(WfExpression* node);
 				static Ptr<parsing::ParsingError>			ConstructorMixClassAndInterface(WfExpression* node);
 				static Ptr<parsing::ParsingError>			ScopeNameIsNotExpression(WfExpression* node, Ptr<WfLexicalScopeName> scopeName);
