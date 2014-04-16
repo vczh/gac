@@ -1902,7 +1902,7 @@ Resource Structure
 			ItemMap									items;
 			FolderMap								folders;
 
-			void									LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml);
+			void									LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, collections::List<WString>& errors);
 		public:
 			GuiResourceFolder();
 			~GuiResourceFolder();
@@ -1937,7 +1937,9 @@ Resource
 
 			WString									GetWorkingDirectory();
 
-			static Ptr<GuiResource>					LoadFromXml(const WString& filePath);
+			static Ptr<GuiResource>					LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory, collections::List<WString>& errors);
+
+			static Ptr<GuiResource>					LoadFromXml(const WString& filePath, collections::List<WString>& errors);
 			
 			Ptr<DocumentModel>						GetDocumentByPath(const WString& path);
 			Ptr<GuiImageData>						GetImageByPath(const WString& path);
@@ -1989,11 +1991,11 @@ Resource Type Resolver
 			virtual WString									GetPreloadType()=0;
 			virtual bool									IsDelayLoad()=0;
 
-			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<parsing::xml::XmlElement> element)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)=0;
 
-			virtual Ptr<DescriptableObject>					ResolveResource(const WString& path)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(const WString& path, collections::List<WString>& errors)=0;
 
-			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)=0;
+			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)=0;
 		};
 
 /***********************************************************************
@@ -2265,11 +2267,11 @@ Rich Content Document (model)
 			bool							ClearStyle(TextPos begin, TextPos end);
 			Ptr<DocumentStyleProperties>	SummarizeStyle(TextPos begin, TextPos end);
 
-			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<GuiResourcePathResolver> resolver);
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors);
 
-			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory);
+			static Ptr<DocumentModel>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory, collections::List<WString>& errors);
 
-			static Ptr<DocumentModel>		LoadFromXml(const WString& filePath);
+			static Ptr<DocumentModel>		LoadFromXml(const WString& filePath, collections::List<WString>& errors);
 
 			Ptr<parsing::xml::XmlDocument>	SaveToXml();
 			
@@ -4363,12 +4365,22 @@ Basic Construction
 					return dynamic_cast<T*>(QueryService(T::Identifier));
 				}
 			};
-
-			class GuiCustomControl : public GuiControl, public Description<GuiCustomControl>
+			
+			class GuiInstanceRootObject abstract : public Description<GuiInstanceRootObject>
 			{
 				typedef collections::List<Ptr<description::IValueSubscription>>		SubscriptionList;
 			protected:
 				SubscriptionList								subscriptions;
+
+				void											ClearSubscriptions();
+			public:
+				Ptr<description::IValueSubscription>			AddSubscription(Ptr<description::IValueSubscription> subscription);
+				bool											RemoveSubscription(Ptr<description::IValueSubscription> subscription);
+				bool											ContainsSubscription(Ptr<description::IValueSubscription> subscription);
+			};
+
+			class GuiCustomControl : public GuiControl, public GuiInstanceRootObject, public Description<GuiCustomControl>
+			{
 
 			public:
 				class IStyleController : virtual public GuiControl::IStyleController, public Description<IStyleController>
@@ -4386,10 +4398,6 @@ Basic Construction
 			public:
 				GuiCustomControl(IStyleController* _styleController);
 				~GuiCustomControl();
-
-				Ptr<description::IValueSubscription>			AddSubscription(Ptr<description::IValueSubscription> subscription);
-				bool											RemoveSubscription(Ptr<description::IValueSubscription> subscription);
-				bool											ContainsSubscription(Ptr<description::IValueSubscription> subscription);
 			};
 
 			class GuiComponent : public Object, public Description<GuiComponent>
@@ -4828,13 +4836,11 @@ namespace vl
 Control Host
 ***********************************************************************/
 
-			class GuiControlHost : public GuiControl, private INativeWindowListener, public Description<GuiControlHost>
+			class GuiControlHost : public GuiControl, public GuiInstanceRootObject, private INativeWindowListener, public Description<GuiControlHost>
 			{
-				typedef collections::List<Ptr<description::IValueSubscription>>		SubscriptionList;
 			protected:
 				compositions::GuiGraphicsHost*					host;
 				collections::SortedList<GuiComponent*>			components;
-				SubscriptionList								subscriptions;
 
 				virtual void									OnNativeWindowChanged();
 				virtual void									OnVisualStatusChanged();
@@ -4898,10 +4904,6 @@ Control Host
 				bool											AddComponent(GuiComponent* component);
 				bool											RemoveComponent(GuiComponent* component);
 				bool											ContainsComponent(GuiComponent* component);
-
-				Ptr<description::IValueSubscription>			AddSubscription(Ptr<description::IValueSubscription> subscription);
-				bool											RemoveSubscription(Ptr<description::IValueSubscription> subscription);
-				bool											ContainsSubscription(Ptr<description::IValueSubscription> subscription);
 
 				compositions::IGuiShortcutKeyManager*			GetShortcutKeyManager();
 				void											SetShortcutKeyManager(compositions::IGuiShortcutKeyManager* value);
@@ -13409,18 +13411,18 @@ Parser
 		class IGuiGeneralParser : public IDescriptable, public Description<IGuiGeneralParser>
 		{
 		public:
-			virtual Ptr<Object>						Parse(const WString& text)=0;
+			virtual Ptr<Object>						Parse(const WString& text, collections::List<WString>& errors)=0;
 		};
 
 		template<typename T>
 		class IGuiParser : public IGuiGeneralParser
 		{
 		public:
-			virtual Ptr<T>							TypedParse(const WString& text)=0;
+			virtual Ptr<T>							TypedParse(const WString& text, collections::List<WString>& errors)=0;
 
-			Ptr<Object> Parse(const WString& text)override
+			Ptr<Object> Parse(const WString& text, collections::List<WString>& errors)override
 			{
-				return TypedParse(text);
+				return TypedParse(text, errors);
 			}
 		};
 
@@ -13437,7 +13439,7 @@ Strong Typed Table Parser
 		{
 		protected:
 			typedef parsing::tabling::ParsingTable				Table;
-			typedef Ptr<T>(ParserFunction)(const WString&, Ptr<Table>, vint);
+			typedef Ptr<T>(ParserFunction)(const WString&, Ptr<Table>, collections::List<Ptr<parsing::ParsingError>>&, vint);
 		protected:
 			WString									name;
 			Ptr<Table>								table;
@@ -13449,15 +13451,26 @@ Strong Typed Table Parser
 			{
 			}
 
-			Ptr<T> TypedParse(const WString& text)override
+			Ptr<T> TypedParse(const WString& text, collections::List<WString>& errors)override
 			{
 				if(!table)
 				{
-					table=GetParserManager()->GetParsingTable(name);
+					table = GetParserManager()->GetParsingTable(name);
 				}
 				if(table)
 				{
-					return function(text, table, -1);
+					collections::List<Ptr<parsing::ParsingError>> parsingErrors;
+					auto result = function(text, table, parsingErrors, -1);
+					for (vint i = 0; i < parsingErrors.Count(); i++)
+					{
+						auto error = parsingErrors[i];
+						errors.Add(
+							L"Format: " + name +
+							L", Row: " + itow(error->codeRange.start.row + 1) +
+							L", Column: " + itow(error->codeRange.start.column + 1) +
+							L", Message: " + error->errorMessage);
+					}
+					return result;
 				}
 				return 0;
 			}
@@ -13485,7 +13498,7 @@ Parser Manager
 			}
 
 			template<typename T>
-			bool SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>, vint))
+			bool SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>, collections::List<Ptr<parsing::ParsingError>>&, vint))
 			{
 				Ptr<IGuiParser<T>> parser=new GuiStrongTypedTableParser<T>(tableName, function);
 				return SetParser(parserName, parser);

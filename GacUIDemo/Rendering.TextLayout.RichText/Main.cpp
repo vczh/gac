@@ -149,7 +149,8 @@ public:
 				}
 				auto table=XmlLoadTable();
 				Ptr<XmlDocument> xml=XmlParseDocument(text, table);
-				document=DocumentModel::LoadFromXml(xml, L"..\\Resources\\");
+				List<WString> errors;
+				document = DocumentModel::LoadFromXml(xml, L"..\\Resources\\", errors);
 			}
 			GetApplication()->InvokeInMainThreadAndWait([=]()
 			{

@@ -164,5 +164,11 @@
     <Xml Include="..\Resources\XmlWindowResourceDataBinding.xml">
       <Filter>Resource Files</Filter>
     </Xml>
+    <Xml Include="..\Resources\HelloWorld.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
+    <Xml Include="..\Resources\XmlWindowResourceViewModel.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
   </ItemGroup>
 </Project>

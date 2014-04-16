@@ -93,9 +93,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.Data
 		{8C242464-8009-4A8A-9443-ABE406809C71} = {8C242464-8009-4A8A-9443-ABE406809C71}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldXml", "HelloWorldXml\HelloWorldXml.vcxproj", "{EDF96C40-B3CB-4F91-AB01-38424ACDA256}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.ViewModel", "Persistant.LoadFromXml.ViewModel\Persistant.LoadFromXml.ViewModel.vcxproj", "{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 38
+		SccNumberOfProjects = 40
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -244,6 +248,13 @@ Global
 		SccProjectTopLevelParentUniqueName37 = GacUIDemo.sln
 		SccProjectName37 = Persistant.LoadFromXml.DataBinding
 		SccLocalPath37 = Persistant.LoadFromXml.DataBinding
+		SccProjectUniqueName38 = HelloWorldXml\\HelloWorldXml.vcxproj
+		SccProjectName38 = HelloWorldXml
+		SccLocalPath38 = HelloWorldXml
+		SccProjectUniqueName39 = Persistant.LoadFromXml.ViewModel\\Persistant.LoadFromXml.ViewModel.vcxproj
+		SccProjectTopLevelParentUniqueName39 = GacUIDemo.sln
+		SccProjectName39 = Persistant.LoadFromXml.ViewModel
+		SccLocalPath39 = Persistant.LoadFromXml.ViewModel
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -398,6 +409,14 @@ Global
 		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Debug|Win32.Build.0 = Debug|Win32
 		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Release|Win32.ActiveCfg = Release|Win32
 		{5DAC5765-9D6F-406C-B648-F7A879880C96}.Release|Win32.Build.0 = Release|Win32
+		{EDF96C40-B3CB-4F91-AB01-38424ACDA256}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EDF96C40-B3CB-4F91-AB01-38424ACDA256}.Debug|Win32.Build.0 = Debug|Win32
+		{EDF96C40-B3CB-4F91-AB01-38424ACDA256}.Release|Win32.ActiveCfg = Release|Win32
+		{EDF96C40-B3CB-4F91-AB01-38424ACDA256}.Release|Win32.Build.0 = Release|Win32
+		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Debug|Win32.Build.0 = Debug|Win32
+		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Release|Win32.ActiveCfg = Release|Win32
+		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -431,6 +450,7 @@ Global
 		{79DA46D0-2F90-46AC-A4FA-5045800EC32C} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{5DAC5765-9D6F-406C-B648-F7A879880C96} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}

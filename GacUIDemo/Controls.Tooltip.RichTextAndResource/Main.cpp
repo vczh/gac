@@ -3,6 +3,7 @@
 
 using namespace vl::parsing::xml;
 using namespace vl::stream;
+using namespace vl::collections;
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int CmdShow)
 {
@@ -40,7 +41,8 @@ public:
 		SetClientSize(Size(440, 280));
 		GetContainerComposition()->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
 		MoveToScreenCenter();
-		Ptr<GuiResource> resource=GuiResource::LoadFromXml(L"..\\Resources\\XmlResource.xml");
+		List<WString> errors;
+		Ptr<GuiResource> resource = GuiResource::LoadFromXml(L"..\\Resources\\XmlResource.xml", errors);
 
 		{
 			GuiButton* tooltipButton=g::NewButton();

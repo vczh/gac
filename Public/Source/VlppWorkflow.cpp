@@ -2117,7 +2117,11 @@ GetObservingDependency
 						if (memberResult.propertyInfo)
 						{
 							auto td = memberResult.propertyInfo->GetOwnerTypeDescriptor();
-							auto ev = td->GetEventByName(memberResult.propertyInfo->GetName() + L"Changed", true);
+							auto ev = memberResult.propertyInfo->GetValueChangedEvent();
+							if (!ev)
+							{
+								ev = td->GetEventByName(memberResult.propertyInfo->GetName() + L"Changed", true);
+							}
 							if (ev)
 							{
 								dependency.Add(node, parent);
@@ -2829,7 +2833,11 @@ DecodeObserveExpression
 					parent = memberExpr->parent.Obj();
 					auto result = manager->expressionResolvings[memberExpr];
 					auto td = result.propertyInfo->GetOwnerTypeDescriptor();
-					auto ev = td->GetEventByName(result.propertyInfo->GetName() + L"Changed", true);
+					auto ev = result.propertyInfo->GetValueChangedEvent();
+					if (!ev)
+					{
+						ev = td->GetEventByName(result.propertyInfo->GetName() + L"Changed", true);
+					}
 					events.Add(ev);
 				}
 			}
@@ -3146,7 +3154,13 @@ ExpandObserveEvent
 				{
 					auto memberExpr = dynamic_cast<WfMemberExpression*>(observe);
 					auto result = manager->expressionResolvings[memberExpr];
-					auto eventName = result.propertyInfo->GetName() + L"Changed";
+					auto td = result.propertyInfo->GetOwnerTypeDescriptor();
+					auto ev = result.propertyInfo->GetValueChangedEvent();
+					if (!ev)
+					{
+						ev = td->GetEventByName(result.propertyInfo->GetName() + L"Changed", true);
+					}
+					auto eventName = ev->GetName();
 
 					auto expr = MakePtr<WfMemberExpression>();
 					expr->parent = CreateBindVariableReference(cacheName);
@@ -7651,13 +7665,14 @@ ValidateSemantic(Expression)
 								return aId - bId;
 							})
 						);
+					Ptr<ITypeInfo> resultType = expectedType;
 
 					if (!expectedType && parameterSymbols.Count() > 0)
 					{
 						manager->errors.Add(WfErrors::OrderedLambdaCannotResolveType(node));
 						return;
 					}
-					else
+					else if (expectedType)
 					{
 						ITypeInfo* type = expectedType.Obj();
 						if (type->GetDecorator() != ITypeInfo::SharedPtr)
@@ -7694,12 +7709,32 @@ ValidateSemantic(Expression)
 						}
 						GetExpressionType(manager, node->body, resultType);
 					}
+					else
+					{
+						auto bodyType = GetExpressionType(manager, node->body, 0);
+						if (bodyType)
+						{
+							Ptr<TypeInfoImpl> funcType = new TypeInfoImpl(ITypeInfo::TypeDescriptor);
+							funcType->SetTypeDescriptor(description::GetTypeDescriptor<IValueFunctionProxy>());
+
+							Ptr<TypeInfoImpl> genericType = new TypeInfoImpl(ITypeInfo::Generic);
+							genericType->SetElementType(funcType);
+							genericType->AddGenericArgument(bodyType);
+
+							Ptr<TypeInfoImpl> pointerType = new TypeInfoImpl(ITypeInfo::SharedPtr);
+							pointerType->SetElementType(genericType);
+							resultType = pointerType;
+						}
+					}
 
 					goto ORDERED_FINISHED;
 				ORDERED_FAILED:
 					manager->errors.Add(WfErrors::OrderedLambdaCannotImplicitlyConvertToType(node, expectedType.Obj()));
 				ORDERED_FINISHED:
-					results.Add(ResolveExpressionResult(expectedType));
+					if (resultType)
+					{
+						results.Add(ResolveExpressionResult(resultType));
+					}
 				}
 
 				void Visit(WfMemberExpression* node)override
@@ -8580,12 +8615,13 @@ ValidateSemantic(Expression)
 						if (node->observeType == WfObserveType::SimpleObserve)
 						{
 							ITypeDescriptor* td = parentType->GetTypeDescriptor();
+							IPropertyInfo* propertyInfo = 0;
 							{
 								auto ref = node->expression.Cast<WfReferenceExpression>();
-								IPropertyInfo* info = td->GetPropertyByName(ref->name.value, true);
-								if (info)
+								propertyInfo = td->GetPropertyByName(ref->name.value, true);
+								if (propertyInfo)
 								{
-									observeeType = CopyTypeInfo(info->GetReturn());
+									observeeType = CopyTypeInfo(propertyInfo->GetReturn());
 								}
 								else
 								{
@@ -8595,11 +8631,17 @@ ValidateSemantic(Expression)
 
 							if (node->events.Count() == 0)
 							{
-								auto ref = node->expression.Cast<WfReferenceExpression>();
-								IEventInfo* info = td->GetEventByName(ref->name.value + L"Changed", true);
-								if (!info)
+								if (propertyInfo)
 								{
-									manager->errors.Add(WfErrors::MemberNotExists(ref.Obj(), td, ref->name.value + L"Changed"));
+									IEventInfo* eventInfo = propertyInfo->GetValueChangedEvent();
+									if (!eventInfo)
+									{
+										eventInfo = td->GetEventByName(propertyInfo->GetName() + L"Changed", true);
+									}
+									if (!eventInfo)
+									{
+										manager->errors.Add(WfErrors::MemberNotExists(node->expression.Obj(), td, propertyInfo->GetName() + L"Changed"));
+									}
 								}
 							}
 							else

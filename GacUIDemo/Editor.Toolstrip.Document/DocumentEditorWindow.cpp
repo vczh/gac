@@ -44,7 +44,8 @@ bool DocumentEditorWindow::TryOpen()
 			))
 		{
 			fileName=selectionFileNames[0];
-			Ptr<DocumentModel> model=DocumentModel::LoadFromXml(fileName);
+			List<WString> errors;
+			Ptr<DocumentModel> model = DocumentModel::LoadFromXml(fileName, errors);
 			textBox->SetDocument(model);
 			textBox->SetCaret(TextPos(0, 0), TextPos(0, 0));
 			return true;

@@ -1,5 +1,7 @@
 #include "DocumentEditorWindow.h"
 
+using namespace vl::collections;
+
 void SetImage(GuiToolstripCommand* command, const WString& imagePath)
 {
 	command->SetImage(new GuiImageData(GetCurrentController()->ImageService()->CreateImageFromFile(imagePath), 0));
@@ -287,7 +289,8 @@ void DocumentEditorWindow::InitializeComponents()
 		textBox->GetBoundsComposition()->SetAlignmentToParent(Margin(0, 0, 0, 0));
 		cell->AddChild(textBox->GetBoundsComposition());
 
-		Ptr<DocumentModel> model=DocumentModel::LoadFromXml(GetResourceFolder()+L"XmlDocDemo.xml");
+		List<WString> errors;
+		Ptr<DocumentModel> model = DocumentModel::LoadFromXml(GetResourceFolder() + L"XmlDocDemo.xml", errors);
 		textBox->SetDocument(model);
 	}
 

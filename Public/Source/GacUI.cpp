@@ -432,6 +432,8 @@ namespace vl
 		{
 			using namespace elements;
 			using namespace compositions;
+			using namespace collections;
+			using namespace reflection::description;
 
 /***********************************************************************
 GuiControl::EmptyStyleController
@@ -808,19 +810,19 @@ GuiControl
 			}
 
 /***********************************************************************
-GuiCustomControl
+GuiInstanceRootObject
 ***********************************************************************/
 
-			GuiCustomControl::GuiCustomControl(IStyleController* _styleController)
-				:GuiControl(_styleController)
+			void GuiInstanceRootObject::ClearSubscriptions()
 			{
+				FOREACH(Ptr<IValueSubscription>, subscription, subscriptions)
+				{
+					subscription->Close();
+				}
+				subscriptions.Clear();
 			}
 
-			GuiCustomControl::~GuiCustomControl()
-			{
-			}
-
-			Ptr<description::IValueSubscription> GuiCustomControl::AddSubscription(Ptr<description::IValueSubscription> subscription)
+			Ptr<description::IValueSubscription> GuiInstanceRootObject::AddSubscription(Ptr<description::IValueSubscription> subscription)
 			{
 				if (subscriptions.Contains(subscription.Obj()))
 				{
@@ -833,14 +835,28 @@ GuiCustomControl
 				}
 			}
 
-			bool GuiCustomControl::RemoveSubscription(Ptr<description::IValueSubscription> subscription)
+			bool GuiInstanceRootObject::RemoveSubscription(Ptr<description::IValueSubscription> subscription)
 			{
 				return subscriptions.Remove(subscription.Obj());
 			}
 
-			bool GuiCustomControl::ContainsSubscription(Ptr<description::IValueSubscription> subscription)
+			bool GuiInstanceRootObject::ContainsSubscription(Ptr<description::IValueSubscription> subscription)
 			{
 				return subscriptions.Contains(subscription.Obj());
+			}
+
+/***********************************************************************
+GuiCustomControl
+***********************************************************************/
+
+			GuiCustomControl::GuiCustomControl(IStyleController* _styleController)
+				:GuiControl(_styleController)
+			{
+			}
+
+			GuiCustomControl::~GuiCustomControl()
+			{
+				ClearSubscriptions();
 			}
 
 /***********************************************************************
@@ -2567,7 +2583,6 @@ namespace vl
 		{
 			using namespace elements;
 			using namespace compositions;
-			using namespace reflection::description;
 			using namespace collections;
 
 /***********************************************************************
@@ -2735,11 +2750,7 @@ GuiControlHost
 
 			void GuiControlHost::Closed()
 			{
-				FOREACH(Ptr<IValueSubscription>, subscription, subscriptions)
-				{
-					subscription->Close();
-				}
-				subscriptions.Clear();
+				ClearSubscriptions();
 				WindowClosed.Execute(GetNotifyEventArguments());
 			}
 
@@ -2991,29 +3002,6 @@ GuiControlHost
 			bool GuiControlHost::ContainsComponent(GuiComponent* component)
 			{
 				return components.Contains(component);
-			}
-
-			Ptr<description::IValueSubscription> GuiControlHost::AddSubscription(Ptr<description::IValueSubscription> subscription)
-			{
-				if (subscriptions.Contains(subscription.Obj()))
-				{
-					return 0;
-				}
-				else
-				{
-					subscriptions.Add(subscription);
-					return subscription;
-				}
-			}
-
-			bool GuiControlHost::RemoveSubscription(Ptr<description::IValueSubscription> subscription)
-			{
-				return subscriptions.Remove(subscription.Obj());
-			}
-
-			bool GuiControlHost::ContainsSubscription(Ptr<description::IValueSubscription> subscription)
-			{
-				return subscriptions.Contains(subscription.Obj());
 			}
 
 			compositions::IGuiShortcutKeyManager* GuiControlHost::GetShortcutKeyManager()
@@ -26820,6 +26808,7 @@ namespace vl
 	{
 		namespace controls
 		{
+			using namespace collections;
 			using namespace compositions;
 			using namespace regex;
 
@@ -26868,8 +26857,9 @@ GuiToolstripCommand
 
 			void GuiToolstripCommand::BuildShortcut(const WString& builderText)
 			{
+				List<WString> errors;
 				if (auto parser = GetParserManager()->GetParser<ShortcutBuilder>(L"SHORTCUT"))
-				if (Ptr<ShortcutBuilder> builder = parser->TypedParse(builderText))
+				if (Ptr<ShortcutBuilder> builder = parser->TypedParse(builderText, errors))
 				{
 					if (shortcutOwner)
 					{
@@ -27015,10 +27005,14 @@ GuiToolstripCommand::ShortcutBuilder Parser
 				{
 				}
 
-				Ptr<ShortcutBuilder> TypedParse(const WString& text)override
+				Ptr<ShortcutBuilder> TypedParse(const WString& text, collections::List<WString>& errors)override
 				{
 					Ptr<RegexMatch> match=regexShortcut.MatchHead(text);
-					if(match && match->Result().Length()!=text.Length()) return 0;
+					if (match && match->Result().Length() != text.Length())
+					{
+						errors.Add(L"Failed to parse a shortcut \"" + text + L"\".");
+						return 0;
+					}
 
 					Ptr<ShortcutBuilder> builder = new ShortcutBuilder;
 					builder->text = text;
@@ -35906,13 +35900,15 @@ document_operation_visitors::DeserializeNodeVisitor
 				vint								paragraphIndex;
 				Ptr<GuiResourcePathResolver>		resolver;
 				Regex								regexAttributeApply;
+				List<WString>&						errors;
 
-				DeserializeNodeVisitor(Ptr<DocumentModel> _model, Ptr<DocumentParagraphRun> _paragraph, vint _paragraphIndex, Ptr<GuiResourcePathResolver> _resolver)
+				DeserializeNodeVisitor(Ptr<DocumentModel> _model, Ptr<DocumentParagraphRun> _paragraph, vint _paragraphIndex, Ptr<GuiResourcePathResolver> _resolver, List<WString>& _errors)
 					:model(_model)
-					,container(_paragraph)
-					,paragraphIndex(_paragraphIndex)
-					,resolver(_resolver)
-					,regexAttributeApply(L"/{@(<value>[^{}]+)/}")
+					, container(_paragraph)
+					, paragraphIndex(_paragraphIndex)
+					, resolver(_resolver)
+					, regexAttributeApply(L"/{@(<value>[^{}]+)/}")
+					, errors(_errors)
 				{
 				}
 
@@ -35999,6 +35995,10 @@ document_operation_visitors::DeserializeNodeVisitor
 								{
 									run->frameIndex=wtoi(att->value.value);
 								}
+								else
+								{
+									errors.Add(L"Unknown attribute in <img> \"" + att->name.value + L"\".");
+								}
 							}
 							container->runs.Add(run);
 						}
@@ -36026,6 +36026,10 @@ document_operation_visitors::DeserializeNodeVisitor
 							else if(att->name.value==L"bkcolor")
 							{
 								sp->backgroundColor=Color::Parse(att->value.value);
+							}
+							else
+							{
+								errors.Add(L"Unknown attribute in <font> \"" + att->name.value + L"\".");
 							}
 						}
 						container->runs.Add(run);
@@ -36136,6 +36140,7 @@ document_operation_visitors::DeserializeNodeVisitor
 					}
 					else
 					{
+						errors.Add(L"Unknown tag in document resource \"" + node->name.value + L"\".");
 						FOREACH(Ptr<XmlNode>, sub, node->subNodes)
 						{
 							sub->Accept(this);
@@ -36169,7 +36174,7 @@ document_operation_visitors::DeserializeNodeVisitor
 DocumentModel
 ***********************************************************************/
 
-		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<GuiResourcePathResolver> resolver)
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)
 		{
 			Ptr<DocumentModel> model=new DocumentModel;
 			if(xml->rootElement->name.value==L"Doc")
@@ -36268,7 +36273,7 @@ DocumentModel
 							}
 						}
 						model->paragraphs.Add(paragraph);
-						DeserializeNodeVisitor visitor(model, paragraph, i, resolver);
+						DeserializeNodeVisitor visitor(model, paragraph, i, resolver, errors);
 						p->Accept(&visitor);
 					}
 				}
@@ -36276,13 +36281,13 @@ DocumentModel
 			return model;
 		}
 
-		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory)
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory, collections::List<WString>& errors)
 		{
 			Ptr<GuiResourcePathResolver> resolver=new GuiResourcePathResolver(0, workingDirectory);
-			return LoadFromXml(xml, resolver);
+			return LoadFromXml(xml, resolver, errors);
 		}
 
-		Ptr<DocumentModel> DocumentModel::LoadFromXml(const WString& filePath)
+		Ptr<DocumentModel> DocumentModel::LoadFromXml(const WString& filePath, collections::List<WString>& errors)
 		{
 			Ptr<XmlDocument> xml;
 			Ptr<DocumentModel> document;
@@ -36291,12 +36296,16 @@ DocumentModel
 				WString text;
 				if(LoadTextFile(filePath, text))
 				{
-					xml=parser->TypedParse(text);
+					xml = parser->TypedParse(text, errors);
+				}
+				else
+				{
+					errors.Add(L"Failed to load file \"" + filePath + L"\".");
 				}
 			}
 			if(xml)
 			{
-				document=DocumentModel::LoadFromXml(xml, GetFolderPath(filePath));
+				document = DocumentModel::LoadFromXml(xml, GetFolderPath(filePath), errors);
 			}
 			return document;
 		}
@@ -36901,7 +36910,7 @@ GuiResourceItem
 GuiResourceFolder
 ***********************************************************************/
 
-		void GuiResourceFolder::LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml)
+		void GuiResourceFolder::LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, collections::List<WString>& errors)
 		{
 			ClearItems();
 			ClearFolders();
@@ -36914,7 +36923,15 @@ GuiResourceFolder
 				}
 				if(element->name.value==L"Folder")
 				{
-					if(name!=L"")
+					if (name == L"")
+					{
+						errors.Add(L"A resource folder should have a name.");
+						errors.Add(
+							L"Format: RESOURCE, Row: " + itow(element->codeRange.start.row + 1) +
+							L", Column: " + itow(element->codeRange.start.column + 1) +
+							L", Message: A resource folder should have a name.");
+					}
+					else
 					{
 						Ptr<GuiResourceFolder> folder=new GuiResourceFolder;
 						if(AddFolder(name, folder))
@@ -36931,16 +36948,24 @@ GuiResourceFolder
 									{
 										if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
 										{
-											if(auto xml=parser->TypedParse(text))
+											if(auto xml=parser->TypedParse(text, errors))
 											{
 												newContainingFolder=GetFolderPath(filePath);
 												newFolderXml=xml->rootElement;
 											}
 										}
 									}
+									else
+									{
+										errors.Add(L"Failed to load file \"" + filePath + L"\".");
+									}
 								}
 							}
-							folder->LoadResourceFolderXml(delayLoadings, newContainingFolder, newFolderXml);
+							folder->LoadResourceFolderXml(delayLoadings, newContainingFolder, newFolderXml, errors);
+						}
+						else
+						{
+							errors.Add(L"Duplicated resource folder name \"" + name + L"\".");
 						}
 					}
 				}
@@ -36968,26 +36993,34 @@ GuiResourceFolder
 
 						if(typeResolver)
 						{
-							WString preloadType=typeResolver->GetPreloadType();
-							if(preloadType!=L"")
+							WString preloadType = typeResolver->GetPreloadType();
+							if (preloadType != L"")
 							{
-								preloadResolver=GetResourceResolverManager()->GetTypeResolver(preloadType);
+								preloadResolver = GetResourceResolverManager()->GetTypeResolver(preloadType);
+								if (!preloadResolver)
+								{
+									errors.Add(L"Unknown resource resolver \"" + preloadType + L"\" of resource type \"" + type + L"\".");
+								}
 							}
+						}
+						else
+						{
+							errors.Add(L"Unknown resource type \"" + type + L"\".");
 						}
 
 						if(typeResolver && preloadResolver)
 						{
 							Ptr<DescriptableObject> resource;
-							if(filePath==L"")
+							if (filePath == L"")
 							{
-								resource=preloadResolver->ResolveResource(element);
+								resource = preloadResolver->ResolveResource(element, errors);
 							}
 							else
 							{
-								resource=preloadResolver->ResolveResource(filePath);
+								resource = preloadResolver->ResolveResource(filePath, errors);
 							}
 
-							if(typeResolver!=preloadResolver)
+							if (typeResolver != preloadResolver)
 							{
 								if(typeResolver->IsDelayLoad())
 								{
@@ -36999,7 +37032,7 @@ GuiResourceFolder
 								}
 								else if(resource)
 								{
-									resource=typeResolver->ResolveResource(resource, 0);
+									resource = typeResolver->ResolveResource(resource, 0, errors);
 								}
 							}
 							item->SetContent(resource);
@@ -37009,6 +37042,10 @@ GuiResourceFolder
 						{
 							RemoveItem(name);
 						}
+					}
+					else
+					{
+						errors.Add(L"Duplicated resource item name \"" + name + L"\".");
 					}
 				}
 			}
@@ -37156,44 +37193,57 @@ GuiResource
 			return workingDirectory;
 		}
 
-		Ptr<GuiResource> GuiResource::LoadFromXml(const WString& filePath)
+		Ptr<GuiResource> GuiResource::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, const WString& workingDirectory, collections::List<WString>& errors)
+		{
+			Ptr<GuiResource> resource = new GuiResource;
+			resource->workingDirectory = workingDirectory;
+			DelayLoadingList delayLoadings;
+			resource->LoadResourceFolderXml(delayLoadings, resource->workingDirectory, xml->rootElement, errors);
+
+			FOREACH(DelayLoading, delay, delayLoadings)
+			{
+				WString type = delay.type;
+				WString folder = delay.workingDirectory;
+				Ptr<GuiResourceItem> item = delay.preloadResource;
+
+				IGuiResourceTypeResolver* typeResolver = GetResourceResolverManager()->GetTypeResolver(type);
+				if (!typeResolver)
+				{
+					errors.Add(L"Unknown resource type \"" + type + L"\".");
+				}
+				else if (item->GetContent())
+				{
+					Ptr<GuiResourcePathResolver> pathResolver = new GuiResourcePathResolver(resource, folder);
+					Ptr<DescriptableObject> resource = typeResolver->ResolveResource(item->GetContent(), pathResolver, errors);
+					if(resource)
+					{
+						item->SetContent(resource);
+					}
+				}
+			}
+			return resource;
+		}
+
+		Ptr<GuiResource> GuiResource::LoadFromXml(const WString& filePath, collections::List<WString>& errors)
 		{
 			Ptr<XmlDocument> xml;
-			Ptr<GuiResource> resource;
 			if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
 			{
 				WString text;
 				if(LoadTextFile(filePath, text))
 				{
-					xml=parser->TypedParse(text);
+					xml = parser->TypedParse(text, errors);
+				}
+				else
+				{
+					errors.Add(L"Failed to load file \"" + filePath + L"\".");
 				}
 			}
 			if(xml)
 			{
-				resource=new GuiResource;
-				resource->workingDirectory=GetFolderPath(filePath);
-				DelayLoadingList delayLoadings;
-				resource->LoadResourceFolderXml(delayLoadings, resource->workingDirectory, xml->rootElement);
-
-				FOREACH(DelayLoading, delay, delayLoadings)
-				{
-					WString type=delay.type;
-					WString folder=delay.workingDirectory;
-					Ptr<GuiResourceItem> item=delay.preloadResource;
-
-					IGuiResourceTypeResolver* typeResolver=GetResourceResolverManager()->GetTypeResolver(type);
-					if(typeResolver && item->GetContent())
-					{
-						Ptr<GuiResourcePathResolver> pathResolver=new GuiResourcePathResolver(resource, folder);
-						Ptr<DescriptableObject> resource=typeResolver->ResolveResource(item->GetContent(), pathResolver);
-						if(resource)
-						{
-							item->SetContent(resource);
-						}
-					}
-				}
+				return LoadFromXml(xml, GetFolderPath(filePath), errors);
 			}
-			return resource;
+			return 0;
 		}
 
 		Ptr<DocumentModel> GuiResource::GetDocumentByPath(const WString& path)
@@ -37462,23 +37512,29 @@ Image Type Resolver
 				return false;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)
 			{
+				errors.Add(L"Image resource should be an image file.");
 				return 0;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path, collections::List<WString>& errors)
 			{
-				Ptr<INativeImage> image=GetCurrentController()->ImageService()->CreateImageFromFile(path);
+				Ptr<INativeImage> image = GetCurrentController()->ImageService()->CreateImageFromFile(path);
 				if(image)
 				{
 					return new GuiImageData(image, 0);
 				}
-				return 0;
+				else
+				{
+					errors.Add(L"Failed to load file \"" + path + L"\".");
+					return 0;
+				}
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)
 			{
+				errors.Add(L"Internal error: Image resource doesn't need resource preloading.");
 				return 0;
 			}
 		};
@@ -37505,23 +37561,28 @@ Text Type Resolver
 				return false;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)
 			{
 				return new GuiTextData(XmlGetValue(element));
 			}
 
-			Ptr<DescriptableObject> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path, collections::List<WString>& errors)
 			{
 				WString text;
 				if(LoadTextFile(path, text))
 				{
 					return new GuiTextData(text);
 				}
-				return 0;
+				else
+				{
+					errors.Add(L"Failed to load file \"" + path + L"\".");
+					return 0;
+				}
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)
 			{
+				errors.Add(L"Internal error: Text resource doesn't need resource preloading.");
 				return 0;
 			}
 		};
@@ -37548,7 +37609,7 @@ Xml Type Resolver
 				return false;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)
 			{
 				Ptr<XmlElement> root=XmlGetElements(element).First(0);
 				if(root)
@@ -37560,21 +37621,26 @@ Xml Type Resolver
 				return 0;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path, collections::List<WString>& errors)
 			{
 				if(auto parser=GetParserManager()->GetParser<XmlDocument>(L"XML"))
 				{
 					WString text;
 					if(LoadTextFile(path, text))
 					{
-						return parser->TypedParse(text);
+						return parser->TypedParse(text, errors);
+					}
+					else
+					{
+						errors.Add(L"Failed to load file \"" + path + L"\".");
 					}
 				}
 				return 0;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)
 			{
+				errors.Add(L"Internal error: Xml resource doesn't need resource preloading.");
 				return 0;
 			}
 		};
@@ -37601,22 +37667,24 @@ Doc Type Resolver
 				return true;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element)
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)
 			{
+				errors.Add(L"Internal error: Doc resource needs resource preloading.");
 				return 0;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(const WString& path)
+			Ptr<DescriptableObject> ResolveResource(const WString& path, collections::List<WString>& errors)
 			{
+				errors.Add(L"Internal error: Doc resource needs resource preloading.");
 				return 0;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver)
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)
 			{
-				Ptr<XmlDocument> xml=resource.Cast<XmlDocument>();
+				Ptr<XmlDocument> xml = resource.Cast<XmlDocument>();
 				if(xml)
 				{
-					Ptr<DocumentModel> model=DocumentModel::LoadFromXml(xml, resolver);
+					Ptr<DocumentModel> model=DocumentModel::LoadFromXml(xml, resolver, errors);
 					return model;
 				}
 				return 0;

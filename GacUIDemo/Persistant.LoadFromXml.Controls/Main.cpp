@@ -1,6 +1,7 @@
 #include "..\..\Public\Source\GacUIReflection.h"
 #include <Windows.h>
 
+using namespace vl::collections;
 using namespace vl::reflection::description;
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int CmdShow)
@@ -90,7 +91,8 @@ public:
 
 void GuiMain()
 {
-	GetInstanceLoaderManager()->SetResource(L"Resource", GuiResource::LoadFromXml(L"..\\Resources\\XmlWindowResource.xml"));
+	List<WString> errors;
+	GetInstanceLoaderManager()->SetResource(L"Resource", GuiResource::LoadFromXml(L"..\\Resources\\XmlWindowResource.xml", errors));
 	MainWindow window;
 	window.ForceCalculateSizeImmediately();
 	window.MoveToScreenCenter();
