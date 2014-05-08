@@ -20,10 +20,10 @@ namespace demos
 	public:
 
 		virtual vint GetFirst() = 0;
-		virtual void SetFirst(const vint& value) = 0;
+		virtual void SetFirst(vint value) = 0;
 
 		virtual vint GetSecond() = 0;
-		virtual void SetSecond(const vint& value) = 0;
+		virtual void SetSecond(vint value) = 0;
 
 		virtual vint GetSum() = 0;
 		vl::Event<void()> SumChanged;
@@ -41,7 +41,7 @@ namespace demos
 	{
 	public:
 
-		virtual Ptr<IControlViewModel> GetControlViewModel() = 0;
+		virtual Ptr<demos::IControlViewModel> GetControlViewModel() = 0;
 	};
 }
 

@@ -97,9 +97,15 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldXml", "HelloWorld
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.ViewModel", "Persistant.LoadFromXml.ViewModel\Persistant.LoadFromXml.ViewModel.vcxproj", "{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloWorldViewModel", "HelloWorldViewModel\HelloWorldViewModel.vcxproj", "{52034B63-5ADD-4F23-86AD-45494779B825}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.ListViewModel", "Persistant.LoadFromXml.ListViewModel\Persistant.LoadFromXml.ListViewModel.vcxproj", "{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.ItemTemplate", "Persistant.LoadFromXml.ItemTemplate\Persistant.LoadFromXml.ItemTemplate.vcxproj", "{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 40
+		SccNumberOfProjects = 43
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -255,6 +261,17 @@ Global
 		SccProjectTopLevelParentUniqueName39 = GacUIDemo.sln
 		SccProjectName39 = Persistant.LoadFromXml.ViewModel
 		SccLocalPath39 = Persistant.LoadFromXml.ViewModel
+		SccProjectUniqueName40 = HelloWorldViewModel\\HelloWorldViewModel.vcxproj
+		SccProjectName40 = HelloWorldViewModel
+		SccLocalPath40 = HelloWorldViewModel
+		SccProjectUniqueName41 = Persistant.LoadFromXml.ListViewModel\\Persistant.LoadFromXml.ListViewModel.vcxproj
+		SccProjectTopLevelParentUniqueName41 = GacUIDemo.sln
+		SccProjectName41 = Persistant.LoadFromXml.ListViewModel
+		SccLocalPath41 = Persistant.LoadFromXml.ListViewModel
+		SccProjectUniqueName42 = Persistant.LoadFromXml.ItemTemplate\\Persistant.LoadFromXml.ItemTemplate.vcxproj
+		SccProjectTopLevelParentUniqueName42 = GacUIDemo.sln
+		SccProjectName42 = Persistant.LoadFromXml.ItemTemplate
+		SccLocalPath42 = Persistant.LoadFromXml.ItemTemplate
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -417,6 +434,18 @@ Global
 		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Debug|Win32.Build.0 = Debug|Win32
 		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Release|Win32.ActiveCfg = Release|Win32
 		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5}.Release|Win32.Build.0 = Release|Win32
+		{52034B63-5ADD-4F23-86AD-45494779B825}.Debug|Win32.ActiveCfg = Debug|Win32
+		{52034B63-5ADD-4F23-86AD-45494779B825}.Debug|Win32.Build.0 = Debug|Win32
+		{52034B63-5ADD-4F23-86AD-45494779B825}.Release|Win32.ActiveCfg = Release|Win32
+		{52034B63-5ADD-4F23-86AD-45494779B825}.Release|Win32.Build.0 = Release|Win32
+		{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2}.Debug|Win32.Build.0 = Debug|Win32
+		{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2}.Release|Win32.ActiveCfg = Release|Win32
+		{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2}.Release|Win32.Build.0 = Release|Win32
+		{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F}.Debug|Win32.Build.0 = Debug|Win32
+		{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F}.Release|Win32.ActiveCfg = Release|Win32
+		{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -451,6 +480,8 @@ Global
 		{E561AECB-5EE5-4C4B-9D13-66DA799A8CEA} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{5DAC5765-9D6F-406C-B648-F7A879880C96} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{CA0D3C94-22D7-4322-AF0B-5F00EE1104A5} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}

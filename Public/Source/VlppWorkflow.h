@@ -15,8 +15,8 @@ Koncept Language Vczh Library++ 3.0 References
 Interfaces:
 ***********************************************************************/
 
-#ifndef VCZH_SCRIPTING_KONCEPT_KONCEPTVLPPREFERENCES
-#define VCZH_SCRIPTING_KONCEPT_KONCEPTVLPPREFERENCES
+#ifndef VCZH_SCRIPTING_WORKFLOW_WORKFLOWVLPPREFERENCES
+#define VCZH_SCRIPTING_WORKFLOW_WORKFLOWVLPPREFERENCES
 
 
 #endif
@@ -47,91 +47,92 @@ namespace vl
 			SUB = 2,
 			MUL = 3,
 			DIV = 4,
-			CONCAT = 5,
-			LE = 6,
-			GE = 7,
-			LT = 8,
-			GT = 9,
-			EQ = 10,
-			NE = 11,
-			ASSIGN = 12,
-			FAILED_THEN = 13,
-			QUESTION_MARK = 14,
-			SCOPE_DELIMITER = 15,
-			COLON = 16,
-			SEMICOLON = 17,
-			COMMA = 18,
-			DOT = 19,
-			OPEN_ARRAY = 20,
-			CLOSE_ARRAY = 21,
-			OPEN_BRACE = 22,
-			CLOSE_BRACE = 23,
-			OPEN_BRACKET = 24,
-			CLOSE_BRACKET = 25,
-			TYPE_VOID = 26,
-			TYPE_OBJECT = 27,
-			TYPE_INTERFACE = 28,
-			TYPE_INT = 29,
-			TYPE_UINT = 30,
-			TYPE_FLOAT = 31,
-			TYPE_DOUBLE = 32,
-			TYPE_STRING = 33,
-			TYPE_CHAR = 34,
-			TYPE_BOOL = 35,
-			KEYWORD_CONST = 36,
-			KEYWORD_SHL = 37,
-			KEYWORD_SHR = 38,
-			KEYWORD_XOR = 39,
-			KEYWORD_AND = 40,
-			KEYWORD_OR = 41,
-			KEYWORD_NOT = 42,
-			KEYWORD_NULL = 43,
-			KEYWORD_TRUE = 44,
-			KEYWORD_FALSE = 45,
-			KEYWORD_LET = 46,
-			KEYWORD_IN = 47,
-			KEYWORD_RANGE = 48,
-			KEYWORD_NEW = 49,
-			KEYWORD_OF = 50,
-			KEYWORD_AS = 51,
-			KEYWORD_IS = 52,
-			KEYWORD_CAST = 53,
-			KEYWORD_FUNC = 54,
-			KEYWORD_TYPEOF = 55,
-			KEYWORD_TYPE = 56,
-			KEYWORD_BIND = 57,
-			KEYWORD_OBSERVE = 58,
-			KEYWORD_ON = 59,
-			KEYWORD_ATTACH = 60,
-			KEYWORD_DETACH = 61,
-			KEYWORD_VAR = 62,
-			KEYWORD_BREAK = 63,
-			KEYWORD_CONTINUE = 64,
-			KEYWORD_RETURN = 65,
-			KEYWORD_DELETE = 66,
-			KEYWORD_RAISE = 67,
-			KEYWORD_IF = 68,
-			KEYWORD_ELSE = 69,
-			KEYWORD_SWITCH = 70,
-			KEYWORD_CASE = 71,
-			KEYWORD_DEFAULT = 72,
-			KEYWORD_WHILE = 73,
-			KEYWORD_FOR = 74,
-			KEYWORD_REVERSED = 75,
-			KEYWORD_TRY = 76,
-			KEYWORD_CATCH = 77,
-			KEYWORD_FINALLY = 78,
-			KEYWORD_USING = 79,
-			KEYWORD_NAMESPACE = 80,
-			KEYWORD_MODULE = 81,
-			KEYWORD_UNIT = 82,
-			NAME = 83,
-			ORDERED_NAME = 84,
-			FLOAT = 85,
-			INTEGER = 86,
-			STRING = 87,
-			FORMATSTRING = 88,
-			SPACE = 89,
+			MOD = 5,
+			CONCAT = 6,
+			LE = 7,
+			GE = 8,
+			LT = 9,
+			GT = 10,
+			EQ = 11,
+			NE = 12,
+			ASSIGN = 13,
+			FAILED_THEN = 14,
+			QUESTION_MARK = 15,
+			SCOPE_DELIMITER = 16,
+			COLON = 17,
+			SEMICOLON = 18,
+			COMMA = 19,
+			DOT = 20,
+			OPEN_ARRAY = 21,
+			CLOSE_ARRAY = 22,
+			OPEN_BRACE = 23,
+			CLOSE_BRACE = 24,
+			OPEN_BRACKET = 25,
+			CLOSE_BRACKET = 26,
+			TYPE_VOID = 27,
+			TYPE_OBJECT = 28,
+			TYPE_INTERFACE = 29,
+			TYPE_INT = 30,
+			TYPE_UINT = 31,
+			TYPE_FLOAT = 32,
+			TYPE_DOUBLE = 33,
+			TYPE_STRING = 34,
+			TYPE_CHAR = 35,
+			TYPE_BOOL = 36,
+			KEYWORD_CONST = 37,
+			KEYWORD_SHL = 38,
+			KEYWORD_SHR = 39,
+			KEYWORD_XOR = 40,
+			KEYWORD_AND = 41,
+			KEYWORD_OR = 42,
+			KEYWORD_NOT = 43,
+			KEYWORD_NULL = 44,
+			KEYWORD_TRUE = 45,
+			KEYWORD_FALSE = 46,
+			KEYWORD_LET = 47,
+			KEYWORD_IN = 48,
+			KEYWORD_RANGE = 49,
+			KEYWORD_NEW = 50,
+			KEYWORD_OF = 51,
+			KEYWORD_AS = 52,
+			KEYWORD_IS = 53,
+			KEYWORD_CAST = 54,
+			KEYWORD_FUNC = 55,
+			KEYWORD_TYPEOF = 56,
+			KEYWORD_TYPE = 57,
+			KEYWORD_BIND = 58,
+			KEYWORD_OBSERVE = 59,
+			KEYWORD_ON = 60,
+			KEYWORD_ATTACH = 61,
+			KEYWORD_DETACH = 62,
+			KEYWORD_VAR = 63,
+			KEYWORD_BREAK = 64,
+			KEYWORD_CONTINUE = 65,
+			KEYWORD_RETURN = 66,
+			KEYWORD_DELETE = 67,
+			KEYWORD_RAISE = 68,
+			KEYWORD_IF = 69,
+			KEYWORD_ELSE = 70,
+			KEYWORD_SWITCH = 71,
+			KEYWORD_CASE = 72,
+			KEYWORD_DEFAULT = 73,
+			KEYWORD_WHILE = 74,
+			KEYWORD_FOR = 75,
+			KEYWORD_REVERSED = 76,
+			KEYWORD_TRY = 77,
+			KEYWORD_CATCH = 78,
+			KEYWORD_FINALLY = 79,
+			KEYWORD_USING = 80,
+			KEYWORD_NAMESPACE = 81,
+			KEYWORD_MODULE = 82,
+			KEYWORD_UNIT = 83,
+			NAME = 84,
+			ORDERED_NAME = 85,
+			FLOAT = 86,
+			INTEGER = 87,
+			STRING = 88,
+			FORMATSTRING = 89,
+			SPACE = 90,
 		};
 		class WfType;
 		class WfPredefinedType;
@@ -541,6 +542,7 @@ namespace vl
 			Sub,
 			Mul,
 			Div,
+			Mod,
 			Shl,
 			Shr,
 			LT,
@@ -1714,6 +1716,7 @@ Instruction
 				RaiseException,		// 						: Value -> ()									; (trap)
 				TestElementInSet,	//						: Value-element, Value-set -> bool				;
 				CompareLiteral,		// I48/U48/F48/S		: Value, Value -> <int>							;
+				CompareStruct,		// 						: Value, Value -> <bool>						;
 				CompareReference,	// 						: Value, Value -> <bool>						;
 				OpNot,				// B/I1248/U1248		: Value -> Value								;
 				OpPositive,			// I1248/U1248			: Value -> Value								;
@@ -1724,6 +1727,7 @@ Instruction
 				OpSub,				// I48/U48/F48			: Value, Value -> Value							;
 				OpMul,				// I48/U48/F48			: Value, Value -> Value							;
 				OpDiv,				// I48/U48/F48			: Value, Value -> Value							;
+				OpMod,				// I48/U48				: Value, Value -> Value							;
 				OpShl,				// I48/U48				: Value, Value -> Value							;
 				OpShr,				// I48/U48				: Value, Value -> Value							;
 				OpXor,				// B/I1248/U1248		: <bool>, <bool> -> <bool>						;
@@ -1773,6 +1777,7 @@ Instruction
 			APPLY(RaiseException)\
 			APPLY(TestElementInSet)\
 			APPLY_TYPE(CompareLiteral)\
+			APPLY(CompareStruct)\
 			APPLY(CompareReference)\
 			APPLY_TYPE(OpNot)\
 			APPLY_TYPE(OpPositive)\
@@ -1783,6 +1788,7 @@ Instruction
 			APPLY_TYPE(OpSub)\
 			APPLY_TYPE(OpMul)\
 			APPLY_TYPE(OpDiv)\
+			APPLY_TYPE(OpMod)\
 			APPLY_TYPE(OpShl)\
 			APPLY_TYPE(OpShr)\
 			APPLY_TYPE(OpXor)\

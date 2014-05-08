@@ -79,6 +79,187 @@ Type List
 #endif
 
 /***********************************************************************
+INSTANCEQUERY\GUIINSTANCEQUERY_PARSER.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+Parser::GuiInstanceQuery_Parser
+
+本文件使用Vczh Parsing Generator工具自动生成
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_REFLECTION_INSTANCEQUERY_GUIINSTANCEQUERY_PARSER
+#define VCZH_PRESENTATION_REFLECTION_INSTANCEQUERY_GUIINSTANCEQUERY_PARSER
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		enum class GuiIqParserTokenIndex
+		{
+			INDIRECT = 0,
+			DIRECT = 1,
+			NAME = 2,
+			WILDCARD = 3,
+			OPEN = 4,
+			CLOSE = 5,
+			XOR = 6,
+			INTERSECT = 7,
+			UNION = 8,
+			SUBSTRACT = 9,
+			ATTRIBUTE = 10,
+			COLON = 11,
+			DOT = 12,
+			SPACE = 13,
+		};
+		class GuiIqQuery;
+		class GuiIqPrimaryQuery;
+		class GuiIqCascadeQuery;
+		class GuiIqSetQuery;
+
+		class GuiIqQuery abstract : public vl::parsing::ParsingTreeCustomBase, vl::reflection::Description<GuiIqQuery>
+		{
+		public:
+			class IVisitor : public vl::reflection::IDescriptable, vl::reflection::Description<IVisitor>
+			{
+			public:
+				virtual void Visit(GuiIqPrimaryQuery* node)=0;
+				virtual void Visit(GuiIqCascadeQuery* node)=0;
+				virtual void Visit(GuiIqSetQuery* node)=0;
+			};
+
+			virtual void Accept(GuiIqQuery::IVisitor* visitor)=0;
+
+		};
+
+		enum class GuiIqNameOption
+		{
+			Specified,
+			Any,
+		};
+
+		enum class GuiIqChildOption
+		{
+			Direct,
+			Indirect,
+		};
+
+		class GuiIqPrimaryQuery : public GuiIqQuery, vl::reflection::Description<GuiIqPrimaryQuery>
+		{
+		public:
+			GuiIqChildOption childOption;
+			GuiIqNameOption attributeNameOption;
+			vl::parsing::ParsingToken attributeName;
+			GuiIqNameOption typeNameOption;
+			vl::parsing::ParsingToken typeName;
+			vl::parsing::ParsingToken referenceName;
+
+			void Accept(GuiIqQuery::IVisitor* visitor)override;
+
+			static vl::Ptr<GuiIqPrimaryQuery> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+		};
+
+		class GuiIqCascadeQuery : public GuiIqQuery, vl::reflection::Description<GuiIqCascadeQuery>
+		{
+		public:
+			vl::Ptr<GuiIqQuery> parent;
+			vl::Ptr<GuiIqQuery> child;
+
+			void Accept(GuiIqQuery::IVisitor* visitor)override;
+
+			static vl::Ptr<GuiIqCascadeQuery> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+		};
+
+		enum class GuiIqBinaryOperator
+		{
+			ExclusiveOr,
+			Intersect,
+			Union,
+			Substract,
+		};
+
+		class GuiIqSetQuery : public GuiIqQuery, vl::reflection::Description<GuiIqSetQuery>
+		{
+		public:
+			vl::Ptr<GuiIqQuery> first;
+			vl::Ptr<GuiIqQuery> second;
+			GuiIqBinaryOperator op;
+
+			void Accept(GuiIqQuery::IVisitor* visitor)override;
+
+			static vl::Ptr<GuiIqSetQuery> Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+		};
+
+		extern vl::WString GuiIqGetParserTextBuffer();
+		extern vl::Ptr<vl::parsing::ParsingTreeCustomBase> GuiIqConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens);
+		extern vl::Ptr<vl::parsing::tabling::ParsingTable> GuiIqLoadTable();
+
+		extern vl::Ptr<vl::parsing::ParsingTreeNode> GuiIqParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors, vl::vint codeIndex = -1);
+		extern vl::Ptr<vl::parsing::ParsingTreeNode> GuiIqParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::vint codeIndex = -1);
+		extern vl::Ptr<GuiIqQuery> GuiIqParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors, vl::vint codeIndex = -1);
+		extern vl::Ptr<GuiIqQuery> GuiIqParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::vint codeIndex = -1);
+	}
+}
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+#ifndef VCZH_DEBUG_NO_REFLECTION
+			DECL_TYPE_INFO(vl::presentation::GuiIqQuery)
+			DECL_TYPE_INFO(vl::presentation::GuiIqNameOption)
+			DECL_TYPE_INFO(vl::presentation::GuiIqChildOption)
+			DECL_TYPE_INFO(vl::presentation::GuiIqPrimaryQuery)
+			DECL_TYPE_INFO(vl::presentation::GuiIqCascadeQuery)
+			DECL_TYPE_INFO(vl::presentation::GuiIqBinaryOperator)
+			DECL_TYPE_INFO(vl::presentation::GuiIqSetQuery)
+			DECL_TYPE_INFO(vl::presentation::GuiIqQuery::IVisitor)
+
+			namespace interface_proxy
+			{
+				class GuiIqQuery_IVisitor : public ValueInterfaceRoot, public virtual vl::presentation::GuiIqQuery::IVisitor
+				{
+				public:
+					GuiIqQuery_IVisitor(Ptr<IValueInterfaceProxy> proxy)
+						:ValueInterfaceRoot(proxy)
+					{
+					}
+
+					static Ptr<vl::presentation::GuiIqQuery::IVisitor> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new GuiIqQuery_IVisitor(proxy);
+					}
+
+					void Visit(vl::presentation::GuiIqPrimaryQuery* node)override
+					{
+						INVOKE_INTERFACE_PROXY(Visit, node);
+					}
+
+					void Visit(vl::presentation::GuiIqCascadeQuery* node)override
+					{
+						INVOKE_INTERFACE_PROXY(Visit, node);
+					}
+
+					void Visit(vl::presentation::GuiIqSetQuery* node)override
+					{
+						INVOKE_INTERFACE_PROXY(Visit, node);
+					}
+
+				};
+
+				}
+#endif
+
+			extern bool GuiIqLoadTypes();
+		}
+	}
+}
+#endif
+
+/***********************************************************************
 GUIINSTANCEREPRESENTATION.H
 ***********************************************************************/
 /***********************************************************************
@@ -117,6 +298,8 @@ Instance Representation
 				virtual void						Visit(GuiConstructorRepr* repr)=0;
 			};
 
+			bool									fromStyle = false;
+
 			virtual void							Accept(IVisitor* visitor)=0;
 		};
 
@@ -143,6 +326,7 @@ Instance Representation
 			{
 				WString								binding;
 				WString								value;
+				bool								fromStyle = false;
 			};
 			
 			typedef collections::Dictionary<WString, Ptr<SetterValue>>			SetteValuerMap;
@@ -187,6 +371,8 @@ Instance Namespace
 Instance Context
 ***********************************************************************/
 
+		class GuiInstanceStyleContext;
+
 		class GuiInstanceContext : public Object, public Description<GuiInstanceContext>
 		{
 		public:
@@ -199,6 +385,7 @@ Instance Context
 			};
 			typedef collections::Dictionary<WString, Ptr<NamespaceInfo>>		NamespaceMap;
 			typedef collections::List<Ptr<GuiInstanceParameter>>				ParameterList;
+			typedef collections::List<Ptr<GuiInstanceStyleContext>>				StyleContextList;
 
 			class ElementName : public Object
 			{
@@ -221,6 +408,9 @@ Instance Context
 			Nullable<WString>						className;
 			ParameterList							parameters;
 
+			collections::List<WString>				stylePaths;
+			StyleContextList						styles;
+
 			static void								CollectDefaultAttributes(GuiAttSetterRepr::ValueList& values, Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors);
 			static void								CollectAttributes(GuiAttSetterRepr::SetteValuerMap& setters, Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors);
 			static void								CollectEvents(GuiAttSetterRepr::EventHandlerMap& eventHandlers, Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors);
@@ -228,6 +418,34 @@ Instance Context
 			static Ptr<GuiConstructorRepr>			LoadCtor(Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors);
 			static Ptr<GuiInstanceContext>			LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, collections::List<WString>& errors);
 		};
+
+/***********************************************************************
+Instance Style Context
+***********************************************************************/
+
+		class GuiInstanceStyle : public Object, public Description<GuiInstanceStyle>
+		{
+		public:
+			Ptr<GuiIqQuery>							query;
+			Ptr<GuiAttSetterRepr>					setter;
+
+			static Ptr<GuiInstanceStyle>			LoadFromXml(Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors);
+		};
+
+		class GuiInstanceStyleContext : public Object, public Description<GuiInstanceStyleContext>
+		{
+			typedef collections::List<Ptr<GuiInstanceStyle>>		StyleList;
+		public:
+			StyleList								styles;
+
+			static Ptr<GuiInstanceStyleContext>		LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, collections::List<WString>& errors);
+		};
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+
+		extern void									SplitBySemicolon(const WString& input, collections::List<WString>& fragments);
 	}
 }
 
@@ -1119,6 +1337,7 @@ Type List
 			F(presentation::controls::GuiListControl::IItemProviderCallback)\
 			F(presentation::controls::GuiListControl::IItemArrangerCallback)\
 			F(presentation::controls::GuiListControl::IItemPrimaryTextView)\
+			F(presentation::controls::GuiListControl::IItemBindingView)\
 			F(presentation::controls::GuiListControl::KeyDirection)\
 			F(presentation::controls::GuiListControl::IItemProvider)\
 			F(presentation::controls::GuiListControl::IItemStyleController)\
@@ -1180,6 +1399,7 @@ Type List
 			F(presentation::controls::tree::INodeRootProvider)\
 			F(presentation::controls::tree::INodeItemView)\
 			F(presentation::controls::tree::INodeItemPrimaryTextView)\
+			F(presentation::controls::tree::INodeItemBindingView)\
 			F(presentation::controls::tree::NodeItemProvider)\
 			F(presentation::controls::tree::INodeItemStyleController)\
 			F(presentation::controls::tree::INodeItemStyleProvider)\
@@ -1265,6 +1485,10 @@ Type List
 			F(presentation::controls::GuiDateComboBox)\
 			F(presentation::controls::GuiStringGrid)\
 			F(presentation::controls::list::StringGridProvider)\
+			F(presentation::controls::GuiBindableTextList)\
+			F(presentation::controls::GuiBindableListView)\
+			F(presentation::controls::GuiBindableTreeView)\
+			F(presentation::controls::GuiBindableDataGrid)\
 
 			GUIREFLECTIONCONTROLS_TYPELIST(DECL_TYPE_INFO)
 
@@ -1597,6 +1821,25 @@ Interface Proxy
 					}
 				};
 
+				class GuiListControl_IItemBindingView : public ValueInterfaceRoot, public virtual GuiListControl::IItemBindingView
+				{
+				public:
+					GuiListControl_IItemBindingView(Ptr<IValueInterfaceProxy> _proxy)
+						:ValueInterfaceRoot(_proxy)
+					{
+					}
+
+					static Ptr<GuiListControl::IItemBindingView> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new GuiListControl_IItemBindingView(proxy);
+					}
+
+					description::Value GetBindingValue(vint itemIndex)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(GetBindingValue, itemIndex);
+					}
+				};
+
 				class GuiListControl_IItemProvider : public ValueInterfaceRoot, public virtual GuiListControl::IItemProvider
 				{
 				public:
@@ -1726,6 +1969,11 @@ Interface Proxy
 					void Install(GuiListControl::IItemStyleController* style, vint itemIndex)override
 					{
 						INVOKE_INTERFACE_PROXY(Install, style, itemIndex);
+					}
+
+					void SetStyleIndex(GuiListControl::IItemStyleController* style, vint value)override
+					{
+						INVOKE_INTERFACE_PROXY(SetStyleIndex, style, value);
 					}
 				};
 
@@ -2366,6 +2614,25 @@ Interface Proxy
 					WString GetPrimaryTextViewText(tree::INodeProvider* node)override
 					{
 						return INVOKEGET_INTERFACE_PROXY(GetPrimaryTextViewText, node);
+					}
+				};
+
+				class tree_INodeItemBindingView: public ValueInterfaceRoot, public virtual tree::INodeItemBindingView
+				{
+				public:
+					tree_INodeItemBindingView(Ptr<IValueInterfaceProxy> _proxy)
+						:ValueInterfaceRoot(_proxy)
+					{
+					}
+
+					static Ptr<tree::INodeItemBindingView> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new tree_INodeItemBindingView(proxy);
+					}
+
+					description::Value GetBindingValue(tree::INodeProvider* node)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(GetBindingValue, node);
 					}
 				};
 
@@ -3038,7 +3305,7 @@ Type Loader
 
 #endif
 
-			extern bool						LoadGuiControlsTypes();
+			extern bool						LoadGuiControlTypes();
 		}
 	}
 }
@@ -3249,6 +3516,33 @@ Type Loader
 #endif
 
 /***********************************************************************
+INSTANCEQUERY\GUIINSTANCEQUERY.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI Reflection: Instance Query
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_REFLECTION_INSTANCEQUERY_GUIINSTANCEQUERY
+#define VCZH_PRESENTATION_REFLECTION_INSTANCEQUERY_GUIINSTANCEQUERY
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		extern void ExecuteQuery(Ptr<GuiIqQuery> query, Ptr<GuiInstanceContext> context, collections::List<Ptr<GuiConstructorRepr>>& input, collections::List<Ptr<GuiConstructorRepr>>& output);
+		extern void ExecuteQuery(Ptr<GuiIqQuery> query, Ptr<GuiInstanceContext> context, collections::List<Ptr<GuiConstructorRepr>>& output);
+		extern void ApplyStyle(Ptr<GuiInstanceStyle> style, Ptr<GuiConstructorRepr> ctor);
+	}
+}
+
+#endif
+
+/***********************************************************************
 GUIINSTANCESCHEMAREPRESENTATION.H
 ***********************************************************************/
 /***********************************************************************
@@ -3337,6 +3631,83 @@ Instance Schema Representation
 
 			static Ptr<GuiInstanceSchema>				LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, collections::List<WString>& errors);
 		};
+	}
+}
+
+#endif
+
+/***********************************************************************
+TYPEDESCRIPTORS\GUIREFLECTIONTEMPLATES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI Reflection: Basic
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_REFLECTION_GUIREFLECTIOTEMPLATES
+#define VCZH_PRESENTATION_REFLECTION_GUIREFLECTIOTEMPLATES
+
+
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+
+#ifndef VCZH_DEBUG_NO_REFLECTION
+
+/***********************************************************************
+Type List
+***********************************************************************/
+
+#define GUIREFLECTIONTEMPLATES_TYPELIST(F)\
+			F(presentation::templates::GuiTemplate)\
+			F(presentation::templates::GuiTemplate::IFactory)\
+			F(presentation::templates::GuiListItemTemplate)\
+
+			GUIREFLECTIONTEMPLATES_TYPELIST(DECL_TYPE_INFO)
+
+/***********************************************************************
+Interface Proxy
+***********************************************************************/
+
+#pragma warning(push)
+#pragma warning(disable:4250)
+			namespace interface_proxy
+			{
+				class GuiTemplate_IFactory : public ValueInterfaceRoot, public virtual GuiTemplate::IFactory
+				{
+				public:
+					GuiTemplate_IFactory(Ptr<IValueInterfaceProxy> _proxy)
+						:ValueInterfaceRoot(_proxy)
+					{
+					}
+
+					static Ptr<GuiTemplate::IFactory> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new GuiTemplate_IFactory(proxy);
+					}
+
+					GuiTemplate* CreateTemplate(const Value& viewModel)override
+					{
+						return INVOKEGET_INTERFACE_PROXY(CreateTemplate, viewModel);
+					}
+				};
+			}
+#pragma warning(pop)
+
+/***********************************************************************
+Type Loader
+***********************************************************************/
+
+#endif
+
+			extern bool						LoadGuiTemplateTypes();
+		}
 	}
 }
 

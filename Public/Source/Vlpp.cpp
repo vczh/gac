@@ -12258,14 +12258,14 @@ description::Value
 		namespace description
 		{
 			Value::Value(DescriptableObject* value)
-				:valueType(RawPtr)
+				:valueType(value ? RawPtr :Null)
 				,rawPtr(value)
 				,typeDescriptor(0)
 			{
 			}
 
 			Value::Value(Ptr<DescriptableObject> value)
-				:valueType(SharedPtr)
+				:valueType(value ? SharedPtr : Null)
 				,rawPtr(value.Obj())
 				,sharedPtr(value)
 				,typeDescriptor(0)
@@ -14304,6 +14304,7 @@ TypeName
 			const wchar_t* TypeInfo<IValueEnumerable>::TypeName			= L"system::Enumerable";
 			const wchar_t* TypeInfo<IValueReadonlyList>::TypeName		= L"system::ReadonlyList";
 			const wchar_t* TypeInfo<IValueList>::TypeName				= L"system::List";
+			const wchar_t* TypeInfo<IValueObservableList>::TypeName		= L"system::ObservableList";
 			const wchar_t* TypeInfo<IValueReadonlyDictionary>::TypeName	= L"system::ReadonlyDictionary";
 			const wchar_t* TypeInfo<IValueDictionary>::TypeName			= L"system::Dictionary";
 			const wchar_t* TypeInfo<IValueInterfaceProxy>::TypeName		= L"system::InterfaceProxy";
@@ -14868,6 +14869,20 @@ Interface Implementation Proxy (Implement)
 						INVOKE_INTERFACE_PROXY_NOPARAM(Clear);
 					}
 				};
+
+				class description_IValueObservableList :public description_IValueReadonlyList, public virtual IValueObservableList
+				{
+				public:
+					description_IValueObservableList(Ptr<IValueInterfaceProxy> proxy)
+						:description_IValueReadonlyList(proxy)
+					{
+					}
+
+					static Ptr<IValueObservableList> Create(Ptr<IValueInterfaceProxy> proxy)
+					{
+						return new description_IValueObservableList(proxy);
+					}
+				};
 				
 				class description_IValueReadonlyDictionary : public ValueInterfaceRoot, public virtual IValueReadonlyDictionary
 				{
@@ -15102,6 +15117,13 @@ Collections
 				CLASS_MEMBER_METHOD(Clear, NO_PARAMETER)
 			END_CLASS_MEMBER(IValueList)
 
+			BEGIN_CLASS_MEMBER(IValueObservableList)
+				CLASS_MEMBER_BASE(IValueReadonlyList)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueObservableList>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueObservableList::Create)
+
+				CLASS_MEMBER_EVENT(ItemChanged)
+			END_CLASS_MEMBER(IValueObservableList)
+
 			BEGIN_CLASS_MEMBER(IValueReadonlyDictionary)
 				CLASS_MEMBER_BASE(IDescriptable)
 				CLASS_MEMBER_EXTERNALCTOR(Ptr<IValueReadonlyDictionary>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::description_IValueReadonlyDictionary::Create)
@@ -15329,6 +15351,7 @@ LoadPredefinedTypes
 					ADD_TYPE_INFO(IValueEnumerable)
 					ADD_TYPE_INFO(IValueReadonlyList)
 					ADD_TYPE_INFO(IValueList)
+					ADD_TYPE_INFO(IValueObservableList)
 					ADD_TYPE_INFO(IValueReadonlyDictionary)
 					ADD_TYPE_INFO(IValueDictionary)
 					ADD_TYPE_INFO(IValueInterfaceProxy)

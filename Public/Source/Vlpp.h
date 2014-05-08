@@ -5918,12 +5918,12 @@ LazyList
 
 			LazyList<T> Intersect(const IEnumerable<T>& remains)const
 			{
-				return new IntersectExceptEnumerator<T, true>(xs(), remains);
+				return LazyList<T>(new IntersectExceptEnumerator<T, true>(xs(), remains)).Distinct();
 			}
 
 			LazyList<T> Except(const IEnumerable<T>& remains)const
 			{
-				return new IntersectExceptEnumerator<T, false>(xs(), remains);
+				return LazyList<T>(new IntersectExceptEnumerator<T, false>(xs(), remains)).Distinct();
 			}
 
 			LazyList<T> Union(const IEnumerable<T>& remains)const
@@ -6447,6 +6447,13 @@ Collections
 				static Ptr<IValueList>			Create();
 				static Ptr<IValueList>			Create(Ptr<IValueReadonlyList> values);
 				static Ptr<IValueList>			Create(collections::LazyList<Value> values);
+			};
+
+			class IValueObservableList : public virtual IValueReadonlyList, public Description<IValueObservableList>
+			{
+				typedef void ItemChangedProc(vint index, vint oldCount, vint newCount);
+			public:
+				Event<ItemChangedProc>			ItemChanged;
 			};
 
 			class IValueReadonlyDictionary : public virtual IDescriptable, public Description<IValueReadonlyDictionary>
@@ -7899,9 +7906,12 @@ GeneralValueSerializer
 
 				bool Parse(const WString& input, Value& output)
 				{
-					if(Validate(input))
+					T value;
+					if(Deserialize(input, value))
 					{
-						output=Value::From(input, ownedTypeDescriptor);
+						WString text;
+						Serialize(value, text);
+						output = Value::From(text, ownedTypeDescriptor);
 						return true;
 					}
 					return false;
@@ -8199,6 +8209,7 @@ Predefined Types
 			template<>struct TypeInfo<IValueEnumerable>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueReadonlyList>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueList>{static const wchar_t* TypeName;};
+			template<>struct TypeInfo<IValueObservableList>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueReadonlyDictionary>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueDictionary>{static const wchar_t* TypeName;};
 			template<>struct TypeInfo<IValueInterfaceProxy>{static const wchar_t* TypeName;};
@@ -10362,6 +10373,16 @@ Collection Wrappers
 				{
 					ElementKeyType item=UnboxValue<ElementKeyType>(value);
 					return WRAPPER_POINTER->IndexOf(item);
+				}
+			};
+
+			template<typename T>
+			class ValueObservableListWrapper : public ValueReadonlyListWrapper<T>, public virtual IValueObservableList
+			{
+			public:
+				ValueObservableListWrapper(const T& _wrapperPointer)
+					:ValueReadonlyListWrapper<T>(_wrapperPointer)
+				{
 				}
 			};
 

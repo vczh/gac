@@ -21,7 +21,7 @@ public:
 		return first;
 	}
 
-	void SetFirst(const vint& value)override
+	void SetFirst(vint value)override
 	{
 		if (first != value)
 		{
@@ -35,7 +35,7 @@ public:
 		return second;
 	}
 
-	void SetSecond(const vint& value)override
+	void SetSecond(vint value)override
 	{
 		if (second != value)
 		{

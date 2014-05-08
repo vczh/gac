@@ -1,4 +1,4 @@
-# Gaclib 0.7.2.0
+# Gaclib 0.7.3.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -15,5 +15,6 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 Improvements to the previous release
-* Add 1 demos
-    * **Persistant.LoadFromXml.ViewModel** shows how to apply MVVM pattern to the XML window resource with GacGen.exe to generate C++ codes from XML.
+* Add 2 demos
+    * **Persistant.LoadFromXml.ListViewModel** shows how to do item source binding to list/list view/tree view controls.
+    * **Persistant.LoadFromXml.ItemTemplate** shows how to apply a customized item template (skin) to a list control using XML.

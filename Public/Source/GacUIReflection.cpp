@@ -378,6 +378,52 @@ Instance Type Resolver
 		};
 
 /***********************************************************************
+Instance Style Resolver
+***********************************************************************/
+
+		class GuiResourceInstanceStyleResolver : public Object, public IGuiResourceTypeResolver
+		{
+		public:
+			WString GetType()
+			{
+				return L"InstanceStyle";
+			}
+
+			WString GetPreloadType()
+			{
+				return L"Xml";
+			}
+
+			bool IsDelayLoad()
+			{
+				return false;
+			}
+
+			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)
+			{
+				errors.Add(L"Internal error: Instance style resource needs resource preloading.");
+				return 0;
+			}
+
+			Ptr<DescriptableObject> ResolveResource(const WString& path, collections::List<WString>& errors)
+			{
+				errors.Add(L"Internal error: Instance style resource needs resource preloading.");
+				return 0;
+			}
+
+			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)
+			{
+				Ptr<XmlDocument> xml = resource.Cast<XmlDocument>();
+				if (xml)
+				{
+					Ptr<GuiInstanceStyleContext> context = GuiInstanceStyleContext::LoadFromXml(xml, errors);
+					return context;
+				}
+				return 0;
+			}
+		};
+
+/***********************************************************************
 Instance Schema Type Resolver
 ***********************************************************************/
 
@@ -805,6 +851,44 @@ GuiResourceInstanceLoader
 		protected:
 			Ptr<GuiResource>						resource;
 			Ptr<GuiInstanceContext>					context;
+
+			void InitializeContext(Ptr<GuiResourcePathResolver> resolver, List<WString>& errors)
+			{
+				if (context->stylePaths.Count() > 0)
+				{
+					List<Ptr<GuiInstanceStyle>> styles;
+					FOREACH(WString, uri, context->stylePaths)
+					{
+						WString protocol, path;
+						if (IsResourceUrl(uri, protocol, path))
+						{
+							if (auto styleContext = resolver->ResolveResource(protocol, path).Cast<GuiInstanceStyleContext>())
+							{
+								CopyFrom(styles, styleContext->styles, true);
+							}
+							else
+							{
+								errors.Add(L"Failed to find the style referred in attribute \"ref.Styles\": \"" + uri + L"\".");
+							}
+						}
+						else
+						{
+							errors.Add(L"Invalid path in attribute \"ref.Styles\": \"" + uri + L"\".");
+						}
+					}
+					context->stylePaths.Clear();
+
+					FOREACH(Ptr<GuiInstanceStyle>, style, styles)
+					{
+						List<Ptr<GuiConstructorRepr>> output;
+						ExecuteQuery(style->query, context, output);
+						FOREACH(Ptr<GuiConstructorRepr>, ctor, output)
+						{
+							ApplyStyle(style, ctor);
+						}
+					}
+				}
+			}
 		public:
 			GuiResourceInstanceLoader(Ptr<GuiResource> _resource, Ptr<GuiInstanceContext> _context)
 				:resource(_resource)
@@ -828,6 +912,7 @@ GuiResourceInstanceLoader
 				{
 					if (auto typeDescriptor = GetGlobalTypeManager()->GetTypeDescriptor(typeInfo.typeName))
 					{
+						InitializeContext(env->resolver, env->scope->errors);
 						SortedList<WString> argumentNames;
 						{
 							List<WString> names;
@@ -888,10 +973,20 @@ GuiResourceInstanceLoader
 				if (typeInfo.typeName == context->className.Value())
 				{
 					Ptr<GuiResourcePathResolver> resolver = new GuiResourcePathResolver(resource, resource->GetWorkingDirectory());
+					List<WString> errors;
+					InitializeContext(resolver, errors);
+
 					auto scope = InitializeInstanceFromContext(context, resolver, instance);
+					if (scope)
+					{
+						for (vint i = 0; i < errors.Count(); i++)
+						{
+							scope->errors.Insert(i, errors[i]);
+						}
+					}
 					return scope;
 				}
-				return false;
+				return 0;
 			}
 
 			void GetConstructorParameters(const TypeInfo& typeInfo, collections::List<WString>& propertyNames)
@@ -1085,6 +1180,7 @@ GuiInstanceLoaderManager
 				{
 					IGuiResourceResolverManager* manager = GetResourceResolverManager();
 					manager->SetTypeResolver(new GuiResourceInstanceTypeResolver);
+					manager->SetTypeResolver(new GuiResourceInstanceStyleResolver);
 					manager->SetTypeResolver(new GuiResourceInstanceSchemaTypeResolver);
 				}
 				{
@@ -3418,10 +3514,10 @@ GuiWorkflowGlobalContext
 					}
 				}
 
-				WString moduleCode = WorkflowModuleToString(module);
 				WfLexicalScopeManager manager(0);
 				manager.modules.Add(module);
 				manager.Rebuild(false);
+				WString moduleCode = WorkflowModuleToString(module);
 
 				if (manager.errors.Count() > 0)
 				{
@@ -3434,14 +3530,14 @@ GuiWorkflowGlobalContext
 					env->scope->errors.Add(moduleCode);
 					return;
 				}
-#ifdef _DEBUG
-				else
-				{
-					// for debug only, always show code in error
-					env->scope->errors.Add(ERROR_CODE_PREFIX L"Print code for reference (debug mode only):");
-					env->scope->errors.Add(moduleCode);
-				}
-#endif
+//#ifdef _DEBUG
+//				else
+//				{
+//					// for debug only, always show code in error
+//					env->scope->errors.Add(ERROR_CODE_PREFIX L"Print code for reference (debug mode only):");
+//					env->scope->errors.Add(moduleCode);
+//				}
+//#endif
 
 				auto assembly = GenerateAssembly(&manager);
 				globalContext = new WfRuntimeGlobalContext(assembly);
@@ -3518,7 +3614,7 @@ GuiScriptInstanceBinder
 					auto expression = parser->TypedParse(expressionCode, env->scope->errors);
 					if (!expression)
 					{
-						env->scope->errors.Add(ERROR_CODE_PREFIX L"Failed to parse the workflow expression \"" + expressionCode + L"\".");
+						env->scope->errors.Add(ERROR_CODE_PREFIX L"Failed to parse the workflow expression.");
 						return false;
 					}
 
@@ -3672,14 +3768,14 @@ GuiEvalInstanceBinder
 						}
 						return Value();
 					}
-#ifdef _DEBUG
-					else
-					{
-						// for debug only, always show code in error
-						env->scope->errors.Add(ERROR_CODE_PREFIX L"Print code for reference (debug mode only):");
-						env->scope->errors.Add(moduleCode);
-					}
-#endif
+//#ifdef _DEBUG
+//					else
+//					{
+//						// for debug only, always show code in error
+//						env->scope->errors.Add(ERROR_CODE_PREFIX L"Print code for reference (debug mode only):");
+//						env->scope->errors.Add(moduleCode);
+//					}
+//#endif
 
 					auto assembly = GenerateAssembly(&manager);
 					auto globalContext = MakePtr<WfRuntimeGlobalContext>(assembly);
@@ -3727,7 +3823,7 @@ GuiEvalInstanceEventBinder
 					auto statement = parser->TypedParse(statementCode, env->scope->errors);
 					if (!statement)
 					{
-						env->scope->errors.Add(ERROR_CODE_PREFIX L"Failed to parse the workflow statement \"" + statementCode + L"\".");
+						env->scope->errors.Add(ERROR_CODE_PREFIX L"Failed to parse the workflow statement.");
 						return false;
 					}
 
@@ -3774,14 +3870,14 @@ GuiEvalInstanceEventBinder
 						}
 						return false;
 					}
-#ifdef _DEBUG
-					else
-					{
-						// for debug only, always show code in error
-						env->scope->errors.Add(ERROR_CODE_PREFIX L"Print code for reference (debug mode only):");
-						env->scope->errors.Add(moduleCode);
-					}
-#endif
+//#ifdef _DEBUG
+//					else
+//					{
+//						// for debug only, always show code in error
+//						env->scope->errors.Add(ERROR_CODE_PREFIX L"Print code for reference (debug mode only):");
+//						env->scope->errors.Add(moduleCode);
+//					}
+//#endif
 
 					auto assembly = GenerateAssembly(&manager);
 					auto globalContext = MakePtr<WfRuntimeGlobalContext>(assembly);
@@ -3856,6 +3952,8 @@ GuiPredefinedInstanceBindersPlugin
 					manager->SetTableParser(L"WORKFLOW", L"WORKFLOW-EXPRESSION", &WfParseExpression);
 					manager->SetTableParser(L"WORKFLOW", L"WORKFLOW-STATEMENT", &WfParseStatement);
 					manager->SetTableParser(L"WORKFLOW", L"WORKFLOW-MODULE", &WfParseModule);
+					manager->SetParsingTable(L"INSTANCE-QUERY", &GuiIqLoadTable);
+					manager->SetTableParser(L"INSTANCE-QUERY", L"INSTANCE-QUERY", &GuiIqParse);
 				}
 				{
 					IGuiInstanceLoaderManager* manager=GetInstanceLoaderManager();
@@ -4308,15 +4406,211 @@ GuiToolstripButtonInstanceLoader
 		};
 
 /***********************************************************************
+GuiSelectableListControlInstanceLoader
+***********************************************************************/
+
+		class GuiSelectableListControlInstanceLoader : public Object, public IGuiInstanceLoader
+		{
+		public:
+			GuiSelectableListControlInstanceLoader()
+			{
+			}
+
+			WString GetTypeName()override
+			{
+				return description::GetTypeDescriptor<GuiSelectableListControl>()->GetTypeName();
+			}
+
+			bool IsCreatable(const TypeInfo& typeInfo)override
+			{
+				return false;
+			}
+
+			description::Value CreateInstance(Ptr<GuiInstanceEnvironment> env, const TypeInfo& typeInfo, collections::Group<WString, description::Value>& constructorArguments)override
+			{
+				return Value();
+			}
+
+			void GetPropertyNames(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+				propertyNames.Add(L"ItemTemplate");
+			}
+
+			void GetConstructorParameters(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+			}
+
+			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
+			{
+				if (propertyInfo.propertyName == L"ItemTemplate")
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
+					return info;
+				}
+				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+
+			bool SetPropertyValue(PropertyValue& propertyValue)override
+			{
+				if (GuiSelectableListControl* container = dynamic_cast<GuiSelectableListControl*>(propertyValue.instanceValue.GetRawPtr()))
+				{
+					if (propertyValue.propertyName == L"ItemTemplate")
+					{
+						List<ITypeDescriptor*> types;
+						List<WString> typeNames;
+						SplitBySemicolon(propertyValue.propertyValue.GetText(), typeNames);
+						CopyFrom(
+							types,
+							From(typeNames)
+								.Select(&description::GetTypeDescriptor)
+								.Where([](ITypeDescriptor* type){return type != 0; })
+							);
+
+						auto factory = GuiTemplate::IFactory::CreateTemplateFactory(types);
+						auto styleProvider = new GuiListItemTemplate_ItemStyleProvider(factory);
+						container->SetStyleProvider(styleProvider);
+						return true;
+					}
+				}
+				return false;
+			}
+		};
+
+/***********************************************************************
+GuiVirtualTreeViewInstanceLoader
+***********************************************************************/
+
+		class GuiVirtualTreeViewInstanceLoader : public Object, public IGuiInstanceLoader
+		{
+		public:
+			GuiVirtualTreeViewInstanceLoader()
+			{
+			}
+
+			WString GetTypeName()override
+			{
+				return description::GetTypeDescriptor<GuiVirtualTreeView>()->GetTypeName();
+			}
+
+			bool IsCreatable(const TypeInfo& typeInfo)override
+			{
+				return false;
+			}
+
+			description::Value CreateInstance(Ptr<GuiInstanceEnvironment> env, const TypeInfo& typeInfo, collections::Group<WString, description::Value>& constructorArguments)override
+			{
+				return Value();
+			}
+
+			void GetPropertyNames(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+				propertyNames.Add(L"ItemTemplate");
+			}
+
+			void GetConstructorParameters(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+			}
+
+			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
+			{
+				if (propertyInfo.propertyName == L"ItemTemplate")
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
+					return info;
+				}
+				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+
+			bool SetPropertyValue(PropertyValue& propertyValue)override
+			{
+				if (propertyValue.propertyName == L"ItemTemplate")
+				{
+					return true;
+				}
+				return false;
+			}
+		};
+
+/***********************************************************************
+GuiVirtualDataGridInstanceLoader
+***********************************************************************/
+
+		class GuiVirtualDataGridInstanceLoader : public Object, public IGuiInstanceLoader
+		{
+		public:
+			GuiVirtualDataGridInstanceLoader()
+			{
+			}
+
+			WString GetTypeName()override
+			{
+				return description::GetTypeDescriptor<GuiVirtualDataGrid>()->GetTypeName();
+			}
+
+			bool IsCreatable(const TypeInfo& typeInfo)override
+			{
+				return false;
+			}
+
+			description::Value CreateInstance(Ptr<GuiInstanceEnvironment> env, const TypeInfo& typeInfo, collections::Group<WString, description::Value>& constructorArguments)override
+			{
+				return Value();
+			}
+
+			void GetPropertyNames(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+				propertyNames.Add(L"ItemTemplate");
+			}
+
+			void GetConstructorParameters(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+			}
+
+			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
+			{
+				if (propertyInfo.propertyName == L"ItemTemplate")
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
+					return info;
+				}
+				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+
+			bool SetPropertyValue(PropertyValue& propertyValue)override
+			{
+				if (propertyValue.propertyName == L"ItemTemplate")
+				{
+					return true;
+				}
+				return false;
+			}
+		};
+
+/***********************************************************************
 GuiListViewInstanceLoader
 ***********************************************************************/
 
 		class GuiListViewInstanceLoader : public Object, public IGuiInstanceLoader
 		{
+		protected:
+			bool				bindable;
+
 		public:
+			GuiListViewInstanceLoader(bool _bindable)
+				:bindable(_bindable)
+			{
+			}
+
 			WString GetTypeName()override
 			{
-				return description::GetTypeDescriptor<GuiListView>()->GetTypeName();
+				if (bindable)
+				{
+					return description::GetTypeDescriptor<GuiBindableListView>()->GetTypeName();
+				}
+				else
+				{
+					return description::GetTypeDescriptor<GuiListView>()->GetTypeName();
+				}
 			}
 
 			bool IsCreatable(const TypeInfo& typeInfo)override
@@ -4328,9 +4622,20 @@ GuiListViewInstanceLoader
 			{
 				if (typeInfo.typeName == GetTypeName())
 				{
+					Ptr<IValueEnumerable> itemSource;
 					ListViewViewType viewType = ListViewViewType::Detail;
 					Size iconSize;
 					{
+						vint itemSourceIndex = constructorArguments.Keys().IndexOf(L"ItemSource");
+						if (itemSourceIndex != -1)
+						{
+							itemSource = UnboxValue<Ptr<IValueEnumerable>>(constructorArguments.GetByIndex(itemSourceIndex)[0]);
+						}
+						else if (bindable)
+						{
+							return Value();
+						}
+
 						vint indexView = constructorArguments.Keys().IndexOf(L"View");
 						if (indexView != -1)
 						{
@@ -4344,7 +4649,15 @@ GuiListViewInstanceLoader
 						}
 					}
 
-					auto listView = new GuiListView(GetCurrentTheme()->CreateListViewStyle());
+					GuiVirtualListView* listView = 0;
+					if (bindable)
+					{
+						listView = new GuiBindableListView(GetCurrentTheme()->CreateListViewStyle(), itemSource);
+					}
+					else
+					{
+						listView = new GuiListView(GetCurrentTheme()->CreateListViewStyle());
+					}
 					switch (viewType)
 					{
 #define VIEW_TYPE_CASE(NAME)\
@@ -4380,10 +4693,11 @@ GuiListViewInstanceLoader
 				{
 					propertyNames.Add(L"View");
 					propertyNames.Add(L"IconSize");
+					if (bindable)
+					{
+						propertyNames.Add(L"ItemSource");
+					}
 				}
-				propertyNames.Add(L"Items");
-				propertyNames.Add(L"Columns");
-				propertyNames.Add(L"DataColumns");
 			}
 
 			void GetConstructorParameters(const TypeInfo& typeInfo, List<WString>& propertyNames)override
@@ -4392,6 +4706,10 @@ GuiListViewInstanceLoader
 				{
 					propertyNames.Add(L"View");
 					propertyNames.Add(L"IconSize");
+					if (bindable)
+					{
+						propertyNames.Add(L"ItemSource");
+					}
 				}
 			}
 
@@ -4409,44 +4727,21 @@ GuiListViewInstanceLoader
 					info->constructorParameter = true;
 					return info;
 				}
-				else if (propertyInfo.propertyName == L"Items")
+				else if (propertyInfo.propertyName == L"ItemSource")
 				{
-					return GuiInstancePropertyInfo::Collection(description::GetTypeDescriptor<list::ListViewItem>());
-				}
-				else if (propertyInfo.propertyName == L"Columns")
-				{
-					return GuiInstancePropertyInfo::Collection(description::GetTypeDescriptor<list::ListViewColumn>());
-				}
-				else if (propertyInfo.propertyName == L"DataColumns")
-				{
-					return GuiInstancePropertyInfo::Collection(description::GetTypeDescriptor<vint>());
+					if (bindable)
+					{
+						auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<IValueEnumerable>());
+						info->constructorParameter = true;
+						info->required = true;
+						return info;
+					}
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
 			}
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiListView* container = dynamic_cast<GuiListView*>(propertyValue.instanceValue.GetRawPtr()))
-				{
-					if (propertyValue.propertyName == L"Items")
-					{
-						auto item = UnboxValue<Ptr<list::ListViewItem>>(propertyValue.propertyValue);
-						container->GetItems().Add(item);
-						return true;
-					}
-					else if (propertyValue.propertyName == L"Columns")
-					{
-						auto item = UnboxValue<Ptr<list::ListViewColumn>>(propertyValue.propertyValue);
-						container->GetItems().GetColumns().Add(item);
-						return true;
-					}
-					else if (propertyValue.propertyName == L"DataColumns")
-					{
-						auto item = UnboxValue<vint>(propertyValue.propertyValue);
-						container->GetItems().GetDataColumns().Add(item);
-						return true;
-					}
-				}
 				return false;
 			}
 		};
@@ -4457,10 +4752,25 @@ GuiTreeViewInstanceLoader
 
 		class GuiTreeViewInstanceLoader : public Object, public IGuiInstanceLoader
 		{
+		protected:
+			bool				bindable;
+
 		public:
+			GuiTreeViewInstanceLoader(bool _bindable)
+				:bindable(_bindable)
+			{
+			}
+
 			WString GetTypeName()override
 			{
-				return description::GetTypeDescriptor<GuiTreeView>()->GetTypeName();
+				if (bindable)
+				{
+					return description::GetTypeDescriptor<GuiBindableTreeView>()->GetTypeName();
+				}
+				else
+				{
+					return description::GetTypeDescriptor<GuiTreeView>()->GetTypeName();
+				}
 			}
 
 			bool IsCreatable(const TypeInfo& typeInfo)override
@@ -4472,7 +4782,23 @@ GuiTreeViewInstanceLoader
 			{
 				if (typeInfo.typeName == GetTypeName())
 				{
-					GuiTreeView* treeView = new GuiTreeView(GetCurrentTheme()->CreateTreeViewStyle());
+					vint indexItemSource = constructorArguments.Keys().IndexOf(L"ItemSource");
+
+					GuiVirtualTreeView* treeView = 0;
+					if (bindable)
+					{
+						if (indexItemSource == -1)
+						{
+							return Value();
+						}
+
+						auto itemSource = constructorArguments.GetByIndex(indexItemSource)[0];
+						treeView = new GuiBindableTreeView(GetCurrentTheme()->CreateTreeViewStyle(), itemSource);
+					}
+					else
+					{
+						treeView = new GuiTreeView(GetCurrentTheme()->CreateTreeViewStyle());
+					}
 
 					vint indexIconSize = constructorArguments.Keys().IndexOf(L"IconSize");
 					if (indexIconSize != -1)
@@ -4491,8 +4817,15 @@ GuiTreeViewInstanceLoader
 				if (typeInfo.typeName == GetTypeName())
 				{
 					propertyNames.Add(L"IconSize");
+					if (bindable)
+					{
+						propertyNames.Add(L"ItemSource");
+					}
 				}
-				propertyNames.Add(L"Nodes");
+				if (!bindable)
+				{
+					propertyNames.Add(L"Nodes");
+				}
 			}
 
 			void GetConstructorParameters(const TypeInfo& typeInfo, List<WString>& propertyNames)override
@@ -4500,6 +4833,10 @@ GuiTreeViewInstanceLoader
 				if (typeInfo.typeName == GetTypeName())
 				{
 					propertyNames.Add(L"IconSize");
+					if (bindable)
+					{
+						propertyNames.Add(L"ItemSource");
+					}
 				}
 			}
 
@@ -4507,7 +4844,20 @@ GuiTreeViewInstanceLoader
 			{
 				if (propertyInfo.propertyName == L"Nodes")
 				{
-					return GuiInstancePropertyInfo::Collection(description::GetTypeDescriptor<tree::MemoryNodeProvider>());
+					if (!bindable)
+					{
+						return GuiInstancePropertyInfo::Collection(description::GetTypeDescriptor<tree::MemoryNodeProvider>());
+					}
+				}
+				else if (propertyInfo.propertyName == L"ItemSource")
+				{
+					if (bindable)
+					{
+						auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<Value>());
+						info->constructorParameter = true;
+						info->required = true;
+						return info;
+					}
 				}
 				else if (propertyInfo.propertyName == L"IconSize")
 				{
@@ -4593,6 +4943,74 @@ GuiComboBoxInstanceLoader
 				 if (propertyInfo.propertyName == L"ListControl")
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<GuiSelectableListControl>());
+					info->constructorParameter = true;
+					info->required = true;
+					return info;
+				}
+				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+		};
+
+/***********************************************************************
+GuiBindableTextListInstanceLoader
+***********************************************************************/
+
+		class GuiBindableTextListInstanceLoader : public Object, public IGuiInstanceLoader
+		{
+			typedef Func<list::TextItemStyleProvider::ITextItemStyleProvider*()>		ItemStyleProviderFactory;
+		protected:
+			WString							typeName;
+			ItemStyleProviderFactory		itemStyleProviderFactory;
+
+		public:
+			GuiBindableTextListInstanceLoader(const WString& type, const ItemStyleProviderFactory& factory)
+				:typeName(L"presentation::controls::GuiBindable" + type + L"TextList")
+				, itemStyleProviderFactory(factory)
+			{
+			}
+
+			WString GetTypeName()override
+			{
+				return typeName;
+			}
+
+			bool IsCreatable(const TypeInfo& typeInfo)override
+			{
+				return typeInfo.typeName == GetTypeName();
+			}
+
+			description::Value CreateInstance(Ptr<GuiInstanceEnvironment> env, const TypeInfo& typeInfo, collections::Group<WString, description::Value>& constructorArguments)override
+			{
+				if (typeInfo.typeName == GetTypeName())
+				{
+					vint indexItemSource = constructorArguments.Keys().IndexOf(L"ItemSource");
+					if (indexItemSource != -1)
+					{
+						auto itemSource = UnboxValue<Ptr<IValueEnumerable>>(constructorArguments.GetByIndex(indexItemSource)[0]);
+						auto control = new GuiBindableTextList(GetCurrentTheme()->CreateTextListStyle(), itemStyleProviderFactory(), itemSource);
+						return Value::From(control);
+					}
+				}
+				return Value();
+			}
+
+			void GetPropertyNames(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+			}
+
+			void GetConstructorParameters(const TypeInfo& typeInfo, List<WString>& propertyNames)override
+			{
+				if (typeInfo.typeName == GetTypeName())
+				{
+					propertyNames.Add(L"ItemSource");
+				}
+			}
+
+			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
+			{
+				 if (propertyInfo.propertyName == L"ItemSource")
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<IValueEnumerable>());
 					info->constructorParameter = true;
 					info->required = true;
 					return info;
@@ -4976,8 +5394,14 @@ GuiPredefinedInstanceLoadersPlugin
 				manager->SetLoader(new GuiToolstripMenuBarInstanceLoader);
 				manager->SetLoader(new GuiToolstripToolBarInstanceLoader);
 				manager->SetLoader(new GuiToolstripButtonInstanceLoader);
-				manager->SetLoader(new GuiListViewInstanceLoader);
-				manager->SetLoader(new GuiTreeViewInstanceLoader);
+				manager->SetLoader(new GuiSelectableListControlInstanceLoader);
+				manager->SetLoader(new GuiVirtualTreeViewInstanceLoader);
+				manager->SetLoader(new GuiVirtualDataGridInstanceLoader);
+				manager->SetLoader(new GuiListViewInstanceLoader(false));
+				manager->SetLoader(new GuiTreeViewInstanceLoader(false));
+				manager->SetLoader(new GuiBindableTextListInstanceLoader(L"", [](){return GetCurrentTheme()->CreateTextListItemStyle(); }));
+				manager->SetLoader(new GuiListViewInstanceLoader(true));
+				manager->SetLoader(new GuiTreeViewInstanceLoader(true));
 
 				manager->SetLoader(new GuiCompositionInstanceLoader);
 				manager->SetLoader(new GuiTableCompositionInstanceLoader);
@@ -5004,6 +5428,10 @@ GuiPredefinedInstanceLoadersPlugin
 				ADD_VIRTUAL_TYPE(ProgressBar,				GuiScroll,				g::NewProgressBar);
 				ADD_VIRTUAL_TYPE(CheckTextList,				GuiTextList,			g::NewCheckTextList);
 				ADD_VIRTUAL_TYPE(RadioTextList,				GuiTextList,			g::NewRadioTextList);
+
+				auto bindableTextListName = description::GetTypeDescriptor<GuiBindableTextList>()->GetTypeName();
+				manager->CreateVirtualType(bindableTextListName, new GuiBindableTextListInstanceLoader(L"Check", [](){return GetCurrentTheme()->CreateCheckTextListItemStyle(); }));
+				manager->CreateVirtualType(bindableTextListName, new GuiBindableTextListInstanceLoader(L"Radio", [](){return GetCurrentTheme()->CreateRadioTextListItemStyle(); }));
 
 #undef ADD_VIRTUAL_TYPE
 #undef ADD_VIRTUAL_TYPE_LOADER
@@ -5254,9 +5682,15 @@ GuiInstanceContext
 			if(xml->rootElement->name.value==L"Instance")
 			{
 				// load type name
-				if(Ptr<XmlAttribute> att=XmlGetAttribute(xml->rootElement, L"ref.Class"))
+				if (auto classAttr = XmlGetAttribute(xml->rootElement, L"ref.Class"))
 				{
-					context->className=att->value.value;
+					context->className = classAttr->value.value;
+				}
+
+				// load style names
+				if (auto styleAttr = XmlGetAttribute(xml->rootElement, L"ref.Styles"))
+				{
+					SplitBySemicolon(styleAttr->value.value, context->stylePaths);
 				}
 
 				// load namespaces
@@ -5271,6 +5705,7 @@ GuiInstanceContext
 						L"presentation::elements::Gui*Element;"
 						L"presentation::compositions::Gui*Composition;"
 						L"presentation::compositions::Gui*;"
+						L"presentation::templates::Gui*;"
 						L"system::*;"
 						L"system::reflection::*;"
 						L"presentation::*;"
@@ -5281,7 +5716,8 @@ GuiInstanceContext
 						L"presentation::elements::*;"
 						L"presentation::elements::Gui*;"
 						L"presentation::elements::text*;"
-						L"presentation::compositions::*";
+						L"presentation::compositions::*"
+						L"presentation::templates::*";
 					namespaceAttributes.Add(att);
 				}
 				FOREACH(Ptr<XmlAttribute>, att, namespaceAttributes)
@@ -5317,25 +5753,11 @@ GuiInstanceContext
 							info=context->namespaces.Values()[index];
 						}
 
-						// extract all patterns in the namespace
-						const wchar_t* attValue=att->value.value.Buffer();
-						while(*attValue)
+						// extract all patterns in the namespace, split the value by ';'
+						List<WString> patterns;
+						SplitBySemicolon(att->value.value, patterns);
+						FOREACH(WString, pattern, patterns)
 						{
-							// split the value by ';'
-							const wchar_t* attSemicolon=wcschr(attValue, L';');
-							WString pattern;
-							if(attSemicolon)
-							{
-								pattern=WString(attValue, attSemicolon-attValue);
-								attValue=attSemicolon+1;
-							}
-							else
-							{
-								vint len=wcslen(attValue);
-								pattern=WString(attValue, len);
-								attValue+=len;
-							}
-
 							// add the pattern to the namespace
 							Ptr<GuiInstanceNamespace> ns=new GuiInstanceNamespace;
 							Pair<vint, vint> star=INVLOC.FindFirst(pattern, L"*", Locale::None);
@@ -5376,6 +5798,123 @@ GuiInstanceContext
 			}
 
 			return context->instance?context:0;
+		}
+
+/***********************************************************************
+GuiInstanceStyle
+***********************************************************************/
+
+		namespace visitors
+		{
+			class SetStyleMarkVisitor : public Object, public GuiValueRepr::IVisitor
+			{
+			public:
+				void Visit(GuiTextRepr* repr)override
+				{
+					repr->fromStyle = true;
+				}
+
+				void Visit(GuiAttSetterRepr* repr)override
+				{
+					repr->fromStyle = true;
+					FOREACH(Ptr<GuiAttSetterRepr::SetterValue>, value, repr->setters.Values())
+					{
+						FOREACH(Ptr<GuiValueRepr>, subValue, value->values)
+						{
+							subValue->Accept(this);
+						}
+					}
+					FOREACH(Ptr<GuiAttSetterRepr::EventValue>, value, repr->eventHandlers.Values())
+					{
+						value->fromStyle = true;
+					}
+				}
+
+				void Visit(GuiConstructorRepr* repr)override
+				{
+					Visit((GuiAttSetterRepr*)repr);
+				}
+			};
+		}
+		using namespace visitors;
+
+		Ptr<GuiInstanceStyle> GuiInstanceStyle::LoadFromXml(Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors)
+		{
+			auto style = MakePtr<GuiInstanceStyle>();
+			if (auto pathAttr = XmlGetAttribute(xml, L"ref.Path"))
+			{
+				auto parser = GetParserManager()->GetParser<GuiIqQuery>(L"INSTANCE-QUERY");
+				if (auto query = parser->TypedParse(pathAttr->value.value, errors))
+				{
+					style->query = query;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+			else
+			{
+				errors.Add(L"Missing attribute \"ref.Path\" in <Style>.");
+			}
+			style->setter = MakePtr<GuiAttSetterRepr>();
+			GuiInstanceContext::FillAttSetter(style->setter, xml, errors);
+
+			SetStyleMarkVisitor visitor;
+			style->setter->Accept(&visitor);
+			return style;
+		}
+
+/***********************************************************************
+GuiInstanceStyleContext
+***********************************************************************/
+
+		Ptr<GuiInstanceStyleContext> GuiInstanceStyleContext::LoadFromXml(Ptr<parsing::xml::XmlDocument> xml, collections::List<WString>& errors)
+		{
+			auto context = MakePtr<GuiInstanceStyleContext>();
+			FOREACH(Ptr<XmlElement>, styleElement, XmlGetElements(xml->rootElement))
+			{
+				if (styleElement->name.value == L"Style")
+				{
+					if (auto style = GuiInstanceStyle::LoadFromXml(styleElement, errors))
+					{
+						context->styles.Add(style);
+					}
+				}
+				else
+				{
+					errors.Add(L"Unknown style type \"" + styleElement->name.value + L"\".");
+				}
+			}
+			return context;
+		}
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
+
+		void SplitBySemicolon(const WString& input, collections::List<WString>& fragments)
+		{
+			const wchar_t* attValue = input.Buffer();
+			while(*attValue)
+			{
+				// split the value by ';'
+				const wchar_t* attSemicolon = wcschr(attValue, L';');
+				WString pattern;
+				if(attSemicolon)
+				{
+					pattern = WString(attValue, attSemicolon - attValue);
+					attValue = attSemicolon + 1;
+				}
+				else
+				{
+					vint len = wcslen(attValue);
+					pattern = WString(attValue, len);
+					attValue += len;
+				}
+
+				fragments.Add(pattern);
+			}
 		}
 	}
 }
@@ -5563,6 +6102,665 @@ GuiInstanceSchema
 				}
 			}
 			return schema;
+		}
+	}
+}
+
+/***********************************************************************
+InstanceQuery\GuiInstanceQuery.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+		using namespace collections;
+
+/***********************************************************************
+ExecuteQueryVisitor
+***********************************************************************/
+
+		class ExecuteQueryVisitor : public Object, public GuiIqQuery::IVisitor
+		{
+		public:
+			Ptr<GuiInstanceContext>				context;
+			List<Ptr<GuiConstructorRepr>>&		input;
+			List<Ptr<GuiConstructorRepr>>&		output;
+
+			ExecuteQueryVisitor(Ptr<GuiInstanceContext> _context, List<Ptr<GuiConstructorRepr>>& _input, List<Ptr<GuiConstructorRepr>>& _output)
+				:context(_context), input(_input), output(_output)
+			{
+			}
+
+			static bool TestCtor(GuiIqPrimaryQuery* node, const WString& attribute, Ptr<GuiConstructorRepr> ctor)
+			{
+				if (node->attributeNameOption == GuiIqNameOption::Specified && node->attributeName.value != attribute)
+				{
+					return false;
+				}
+				if (node->typeNameOption == GuiIqNameOption::Specified && node->typeName.value != ctor->typeName)
+				{
+					return false;
+				}
+				if (node->referenceName.value != L"" && (!ctor->instanceName || node->referenceName.value != ctor->instanceName.Value()))
+				{
+					return false;
+				}
+				return true;
+			}
+
+			void Traverse(GuiIqPrimaryQuery* node, Ptr<GuiAttSetterRepr> setter)
+			{
+				if (setter)
+				{
+					FOREACH_INDEXER(WString, attribute, index, setter->setters.Keys())
+					{
+						auto setterValue = setter->setters.Values()[index];
+						FOREACH(Ptr<GuiValueRepr>, value, setterValue->values)
+						{
+							if (auto ctor = value.Cast<GuiConstructorRepr>())
+							{
+								if (TestCtor(node, attribute, ctor))
+								{
+									output.Add(ctor);
+								}
+							}
+						}
+					}
+				}
+				else
+				{
+					if (TestCtor(node, L"", context->instance))
+					{
+						output.Add(context->instance);
+					}
+					setter = context->instance;
+				}
+
+				if (node->childOption == GuiIqChildOption::Indirect)
+				{
+					FOREACH(Ptr<GuiAttSetterRepr::SetterValue>, setterValue, setter->setters.Values())
+					{
+						FOREACH(Ptr<GuiValueRepr>, value, setterValue->values)
+						{
+							if (auto setter = value.Cast<GuiAttSetterRepr>())
+							{
+								Traverse(node, setter);
+							}
+						}
+					}
+				}
+			}
+
+			void Visit(GuiIqPrimaryQuery* node)override
+			{
+				if (&input)
+				{
+					FOREACH(Ptr<GuiConstructorRepr>, setter, input)
+					{
+						Traverse(node, setter);
+					}
+				}
+				else
+				{
+					Traverse(node, 0);
+				}
+			}
+
+			void Visit(GuiIqCascadeQuery* node)override
+			{
+				List<Ptr<GuiConstructorRepr>> temp;
+				ExecuteQuery(node->parent, context, input, temp);
+				ExecuteQuery(node->child, context, temp, output);
+			}
+
+			void Visit(GuiIqSetQuery* node)override
+			{
+				List<Ptr<GuiConstructorRepr>> first, second;
+				ExecuteQuery(node->first, context, input, first);
+				ExecuteQuery(node->second, context, input, second);
+
+				switch (node->op)
+				{
+				case GuiIqBinaryOperator::ExclusiveOr:
+					CopyFrom(output, From(first).Except(second).Union(From(second).Except(second)));
+					break;
+				case GuiIqBinaryOperator::Intersect:
+					CopyFrom(output, From(first).Intersect(second));
+					break;
+				case GuiIqBinaryOperator::Union:
+					CopyFrom(output, From(first).Union(second));
+					break;
+				case GuiIqBinaryOperator::Substract:
+					CopyFrom(output, From(first).Except(second));
+					break;
+				}
+			}
+		};
+
+/***********************************************************************
+ExecuteQuery
+***********************************************************************/
+
+		void ExecuteQuery(Ptr<GuiIqQuery> query, Ptr<GuiInstanceContext> context, collections::List<Ptr<GuiConstructorRepr>>& input, collections::List<Ptr<GuiConstructorRepr>>& output)
+		{
+			ExecuteQueryVisitor visitor(context, input, output);
+			query->Accept(&visitor);
+		}
+
+		void ExecuteQuery(Ptr<GuiIqQuery> query, Ptr<GuiInstanceContext> context, collections::List<Ptr<GuiConstructorRepr>>& output)
+		{
+			ExecuteQuery(query, context, *(List<Ptr<GuiConstructorRepr>>*)0, output);
+		}
+
+/***********************************************************************
+ApplyStyle
+***********************************************************************/
+
+		void ApplyStyleInternal(Ptr<GuiAttSetterRepr> src, Ptr<GuiAttSetterRepr> dst)
+		{
+			FOREACH_INDEXER(WString, attribute, srcIndex, src->setters.Keys())
+			{
+				auto srcValue = src->setters.Values()[srcIndex];
+				vint dstIndex = dst->setters.Keys().IndexOf(attribute);
+				if (dstIndex == -1)
+				{
+					dst->setters.Add(attribute, srcValue);
+				}
+				else
+				{
+					auto dstValue = dst->setters.Values()[dstIndex];
+					if (srcValue->binding == dstValue->binding)
+					{
+						if (srcValue->binding == L"set")
+						{
+							ApplyStyleInternal(srcValue->values[0].Cast<GuiAttSetterRepr>(), dstValue->values[0].Cast<GuiAttSetterRepr>());
+						}
+						else
+						{
+							CopyFrom(dstValue->values, srcValue->values, true);
+						}
+					}
+				}
+			}
+
+			FOREACH_INDEXER(WString, eventName, srcIndex, src->eventHandlers.Keys())
+			{
+				if (!dst->eventHandlers.Keys().Contains(eventName))
+				{
+					auto srcValue = src->eventHandlers.Values()[srcIndex];
+					dst->eventHandlers.Add(eventName, srcValue);
+				}
+			}
+		}
+
+		void ApplyStyle(Ptr<GuiInstanceStyle> style, Ptr<GuiConstructorRepr> ctor)
+		{
+			ApplyStyleInternal(style->setter, ctor);
+		}
+	}
+}
+
+/***********************************************************************
+InstanceQuery\GuiInstanceQuery_Parser.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace presentation
+	{
+/***********************************************************************
+ParserText
+***********************************************************************/
+
+const wchar_t parserTextBuffer[] = 
+L"\r\n" L""
+L"\r\n" L"class Query"
+L"\r\n" L"{"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"enum NameOption"
+L"\r\n" L"{"
+L"\r\n" L"\tSpecified,"
+L"\r\n" L"\tAny,"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"enum ChildOption"
+L"\r\n" L"{"
+L"\r\n" L"\tDirect,"
+L"\r\n" L"\tIndirect,"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"class PrimaryQuery : Query"
+L"\r\n" L"{"
+L"\r\n" L"\tChildOption\t\tchildOption;"
+L"\r\n" L"\tNameOption\t\tattributeNameOption;"
+L"\r\n" L"\ttoken\t\t\tattributeName;"
+L"\r\n" L"\tNameOption\t\ttypeNameOption;"
+L"\r\n" L"\ttoken\t\t\ttypeName;"
+L"\r\n" L"\ttoken\t\t\treferenceName;"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"class CascadeQuery : Query"
+L"\r\n" L"{"
+L"\r\n" L"\tQuery\t\t\tparent;"
+L"\r\n" L"\tQuery\t\t\tchild;"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"enum BinaryOperator"
+L"\r\n" L"{"
+L"\r\n" L"\tExclusiveOr,"
+L"\r\n" L"\tIntersect,"
+L"\r\n" L"\tUnion,"
+L"\r\n" L"\tSubstract,"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"class SetQuery : Query"
+L"\r\n" L"{"
+L"\r\n" L"\tQuery\t\t\tfirst;"
+L"\r\n" L"\tQuery\t\t\tsecond;"
+L"\r\n" L"\tBinaryOperator\top;"
+L"\r\n" L"}"
+L"\r\n" L""
+L"\r\n" L"token INDIRECT = \"////\";"
+L"\r\n" L"token DIRECT = \"//\";"
+L"\r\n" L"token NAME = \"[a-zA-Z_][a-zA-Z0-9]*\";"
+L"\r\n" L"token WILDCARD = \"/*\";"
+L"\r\n" L"token OPEN = \"/(\";"
+L"\r\n" L"token CLOSE = \"/)\";"
+L"\r\n" L"token XOR = \"/^\";"
+L"\r\n" L"token INTERSECT = \"/*\";"
+L"\r\n" L"token UNION = \"/+\";"
+L"\r\n" L"token SUBSTRACT = \"-\";"
+L"\r\n" L"token ATTRIBUTE = \"@\";"
+L"\r\n" L"token COLON = \":\";"
+L"\r\n" L"token DOT = \".\";"
+L"\r\n" L""
+L"\r\n" L"discardtoken SPACE = \"/s+\";"
+L"\r\n" L""
+L"\r\n" L"rule PrimaryQuery QPrimaryFragment"
+L"\r\n" L"\t=\t("
+L"\r\n" L"\t\t\t(NAME : typeName with {typeNameOption=\"Specified\"})"
+L"\r\n" L"\t\t\t| (\"*\" with {typeNameOption=\"Any\"})"
+L"\r\n" L"\t\t)"
+L"\r\n" L"\t\t[\".\" NAME : referenceName] as PrimaryQuery"
+L"\r\n" L"\t;"
+L"\r\n" L""
+L"\r\n" L"rule PrimaryQuery QPrimaryAttributed"
+L"\r\n" L"\t= !QPrimaryFragment with {attributeNameOption=\"Any\"}"
+L"\r\n" L"\t= \"@\" [NAME : attributeName] \":\" !QPrimaryFragment with {attributeNameOption=\"Specified\"}"
+L"\r\n" L"\t;"
+L"\r\n" L""
+L"\r\n" L"rule PrimaryQuery QPrimary"
+L"\r\n" L"\t= (\"/\" with {childOption=\"Direct\"}) !QPrimaryAttributed"
+L"\r\n" L"\t= (\"//\" with {childOption=\"Indirect\"}) !QPrimaryAttributed"
+L"\r\n" L"\t= \"(\" !QueryRoot \")\""
+L"\r\n" L"\t;"
+L"\r\n" L""
+L"\r\n" L"rule Query Query0"
+L"\r\n" L"\t= !QPrimary"
+L"\r\n" L"\t= Query0 : parent QPrimary : child as CascadeQuery;"
+L"\r\n" L""
+L"\r\n" L"rule Query Query1"
+L"\r\n" L"\t= !Query0"
+L"\r\n" L"\t= Query1 : first \"^\" Query0 : second as SetQuery with {op=\"ExclusiveOr\"}"
+L"\r\n" L"\t= Query1 : first \"*\" Query0 : second as SetQuery with {op=\"Intersect\"}"
+L"\r\n" L"\t;"
+L"\r\n" L"\t"
+L"\r\n" L"rule Query Query2"
+L"\r\n" L"\t= !Query1"
+L"\r\n" L"\t= Query2 : first \"+\" Query1 : second as SetQuery with {op=\"Union\"}"
+L"\r\n" L"\t= Query2 : first \"-\" Query1 : second as SetQuery with {op=\"Substract\"}"
+L"\r\n" L"\t;"
+L"\r\n" L""
+L"\r\n" L"rule Query QueryRoot"
+L"\r\n" L"\t= !Query2"
+L"\r\n" L"\t;"
+;
+
+		vl::WString GuiIqGetParserTextBuffer()
+		{
+			return parserTextBuffer;
+		}
+
+/***********************************************************************
+Unescaping Function Foward Declarations
+***********************************************************************/
+
+/***********************************************************************
+Parsing Tree Conversion Driver Implementation
+***********************************************************************/
+
+		class GuiIqTreeConverter : public vl::parsing::ParsingTreeConverter
+		{
+		public:
+			using vl::parsing::ParsingTreeConverter::SetMember;
+
+			bool SetMember(GuiIqNameOption& member, vl::Ptr<vl::parsing::ParsingTreeNode> node, const TokenList& tokens)
+			{
+				vl::Ptr<vl::parsing::ParsingTreeToken> token=node.Cast<vl::parsing::ParsingTreeToken>();
+				if(token)
+				{
+					if(token->GetValue()==L"Specified") { member=GuiIqNameOption::Specified; return true; }
+					else if(token->GetValue()==L"Any") { member=GuiIqNameOption::Any; return true; }
+					else { member=GuiIqNameOption::Specified; return false; }
+				}
+				member=GuiIqNameOption::Specified;
+				return false;
+			}
+
+			bool SetMember(GuiIqChildOption& member, vl::Ptr<vl::parsing::ParsingTreeNode> node, const TokenList& tokens)
+			{
+				vl::Ptr<vl::parsing::ParsingTreeToken> token=node.Cast<vl::parsing::ParsingTreeToken>();
+				if(token)
+				{
+					if(token->GetValue()==L"Direct") { member=GuiIqChildOption::Direct; return true; }
+					else if(token->GetValue()==L"Indirect") { member=GuiIqChildOption::Indirect; return true; }
+					else { member=GuiIqChildOption::Direct; return false; }
+				}
+				member=GuiIqChildOption::Direct;
+				return false;
+			}
+
+			bool SetMember(GuiIqBinaryOperator& member, vl::Ptr<vl::parsing::ParsingTreeNode> node, const TokenList& tokens)
+			{
+				vl::Ptr<vl::parsing::ParsingTreeToken> token=node.Cast<vl::parsing::ParsingTreeToken>();
+				if(token)
+				{
+					if(token->GetValue()==L"ExclusiveOr") { member=GuiIqBinaryOperator::ExclusiveOr; return true; }
+					else if(token->GetValue()==L"Intersect") { member=GuiIqBinaryOperator::Intersect; return true; }
+					else if(token->GetValue()==L"Union") { member=GuiIqBinaryOperator::Union; return true; }
+					else if(token->GetValue()==L"Substract") { member=GuiIqBinaryOperator::Substract; return true; }
+					else { member=GuiIqBinaryOperator::ExclusiveOr; return false; }
+				}
+				member=GuiIqBinaryOperator::ExclusiveOr;
+				return false;
+			}
+
+			void Fill(vl::Ptr<GuiIqQuery> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+			{
+			}
+
+			void Fill(vl::Ptr<GuiIqPrimaryQuery> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+			{
+				SetMember(tree->childOption, obj->GetMember(L"childOption"), tokens);
+				SetMember(tree->attributeNameOption, obj->GetMember(L"attributeNameOption"), tokens);
+				SetMember(tree->attributeName, obj->GetMember(L"attributeName"), tokens);
+				SetMember(tree->typeNameOption, obj->GetMember(L"typeNameOption"), tokens);
+				SetMember(tree->typeName, obj->GetMember(L"typeName"), tokens);
+				SetMember(tree->referenceName, obj->GetMember(L"referenceName"), tokens);
+			}
+
+			void Fill(vl::Ptr<GuiIqCascadeQuery> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+			{
+				SetMember(tree->parent, obj->GetMember(L"parent"), tokens);
+				SetMember(tree->child, obj->GetMember(L"child"), tokens);
+			}
+
+			void Fill(vl::Ptr<GuiIqSetQuery> tree, vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)
+			{
+				SetMember(tree->first, obj->GetMember(L"first"), tokens);
+				SetMember(tree->second, obj->GetMember(L"second"), tokens);
+				SetMember(tree->op, obj->GetMember(L"op"), tokens);
+			}
+
+			vl::Ptr<vl::parsing::ParsingTreeCustomBase> ConvertClass(vl::Ptr<vl::parsing::ParsingTreeObject> obj, const TokenList& tokens)override
+			{
+				if(obj->GetType()==L"PrimaryQuery")
+				{
+					vl::Ptr<GuiIqPrimaryQuery> tree = new GuiIqPrimaryQuery;
+					vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
+					Fill(tree, obj, tokens);
+					Fill(tree.Cast<GuiIqQuery>(), obj, tokens);
+					return tree;
+				}
+				else if(obj->GetType()==L"CascadeQuery")
+				{
+					vl::Ptr<GuiIqCascadeQuery> tree = new GuiIqCascadeQuery;
+					vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
+					Fill(tree, obj, tokens);
+					Fill(tree.Cast<GuiIqQuery>(), obj, tokens);
+					return tree;
+				}
+				else if(obj->GetType()==L"SetQuery")
+				{
+					vl::Ptr<GuiIqSetQuery> tree = new GuiIqSetQuery;
+					vl::collections::CopyFrom(tree->creatorRules, obj->GetCreatorRules());
+					Fill(tree, obj, tokens);
+					Fill(tree.Cast<GuiIqQuery>(), obj, tokens);
+					return tree;
+				}
+				else 
+					return 0;
+			}
+		};
+
+		vl::Ptr<vl::parsing::ParsingTreeCustomBase> GuiIqConvertParsingTreeNode(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+		{
+			GuiIqTreeConverter converter;
+			vl::Ptr<vl::parsing::ParsingTreeCustomBase> tree;
+			converter.SetMember(tree, node, tokens);
+			return tree;
+		}
+
+/***********************************************************************
+Parsing Tree Conversion Implementation
+***********************************************************************/
+
+		vl::Ptr<GuiIqPrimaryQuery> GuiIqPrimaryQuery::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+		{
+			return GuiIqConvertParsingTreeNode(node, tokens).Cast<GuiIqPrimaryQuery>();
+		}
+
+		vl::Ptr<GuiIqCascadeQuery> GuiIqCascadeQuery::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+		{
+			return GuiIqConvertParsingTreeNode(node, tokens).Cast<GuiIqCascadeQuery>();
+		}
+
+		vl::Ptr<GuiIqSetQuery> GuiIqSetQuery::Convert(vl::Ptr<vl::parsing::ParsingTreeNode> node, const vl::collections::List<vl::regex::RegexToken>& tokens)
+		{
+			return GuiIqConvertParsingTreeNode(node, tokens).Cast<GuiIqSetQuery>();
+		}
+
+/***********************************************************************
+Visitor Pattern Implementation
+***********************************************************************/
+
+		void GuiIqPrimaryQuery::Accept(GuiIqQuery::IVisitor* visitor)
+		{
+			visitor->Visit(this);
+		}
+
+		void GuiIqCascadeQuery::Accept(GuiIqQuery::IVisitor* visitor)
+		{
+			visitor->Visit(this);
+		}
+
+		void GuiIqSetQuery::Accept(GuiIqQuery::IVisitor* visitor)
+		{
+			visitor->Visit(this);
+		}
+
+/***********************************************************************
+Parser Function
+***********************************************************************/
+
+		vl::Ptr<vl::parsing::ParsingTreeNode> GuiIqParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors, vl::vint codeIndex)
+		{
+			vl::parsing::tabling::ParsingState state(input, table, codeIndex);
+			state.Reset(L"QueryRoot");
+			vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
+			vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
+			return node;
+		}
+
+		vl::Ptr<vl::parsing::ParsingTreeNode> GuiIqParseAsParsingTreeNode(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::vint codeIndex)
+		{
+			vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+			return GuiIqParseAsParsingTreeNode(input, table, errors, codeIndex);
+		}
+
+		vl::Ptr<GuiIqQuery> GuiIqParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::collections::List<vl::Ptr<vl::parsing::ParsingError>>& errors, vl::vint codeIndex)
+		{
+			vl::parsing::tabling::ParsingState state(input, table, codeIndex);
+			state.Reset(L"QueryRoot");
+			vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateStrictParser(table);
+			vl::Ptr<vl::parsing::ParsingTreeNode> node=parser->Parse(state, errors);
+			if(node && errors.Count()==0)
+			{
+				return GuiIqConvertParsingTreeNode(node, state.GetTokens()).Cast<GuiIqQuery>();
+			}
+			return 0;
+		}
+
+		vl::Ptr<GuiIqQuery> GuiIqParse(const vl::WString& input, vl::Ptr<vl::parsing::tabling::ParsingTable> table, vl::vint codeIndex)
+		{
+			vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+			return GuiIqParse(input, table, errors, codeIndex);
+		}
+
+/***********************************************************************
+Table Generation
+***********************************************************************/
+
+		vl::Ptr<vl::parsing::tabling::ParsingTable> GuiIqLoadTable()
+		{
+		    vl::Ptr<vl::parsing::tabling::ParsingGeneralParser> parser=vl::parsing::tabling::CreateBootstrapStrictParser();
+		    vl::collections::List<vl::Ptr<vl::parsing::ParsingError>> errors;
+		    vl::Ptr<vl::parsing::ParsingTreeNode> definitionNode=parser->Parse(parserTextBuffer, L"ParserDecl", errors);
+		    vl::Ptr<vl::parsing::definitions::ParsingDefinition> definition=vl::parsing::definitions::DeserializeDefinition(definitionNode);
+		    vl::Ptr<vl::parsing::tabling::ParsingTable> table=vl::parsing::analyzing::GenerateTable(definition, false, errors);
+		    return table;
+		}
+
+	}
+}
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+#ifndef VCZH_DEBUG_NO_REFLECTION
+			using namespace vl::presentation;
+
+			IMPL_TYPE_INFO_RENAME(GuiIqQuery, presentation::GuiIqQuery)
+			IMPL_TYPE_INFO_RENAME(GuiIqNameOption, presentation::GuiIqNameOption)
+			IMPL_TYPE_INFO_RENAME(GuiIqChildOption, presentation::GuiIqChildOption)
+			IMPL_TYPE_INFO_RENAME(GuiIqPrimaryQuery, presentation::GuiIqPrimaryQuery)
+			IMPL_TYPE_INFO_RENAME(GuiIqCascadeQuery, presentation::GuiIqCascadeQuery)
+			IMPL_TYPE_INFO_RENAME(GuiIqBinaryOperator, presentation::GuiIqBinaryOperator)
+			IMPL_TYPE_INFO_RENAME(GuiIqSetQuery, presentation::GuiIqSetQuery)
+			IMPL_TYPE_INFO_RENAME(GuiIqQuery::IVisitor, presentation::GuiIqQuery::IVisitor)
+
+			BEGIN_CLASS_MEMBER(GuiIqQuery)
+				CLASS_MEMBER_METHOD(Accept, {L"visitor"})
+
+			END_CLASS_MEMBER(GuiIqQuery)
+
+			BEGIN_ENUM_ITEM(GuiIqNameOption)
+				ENUM_ITEM_NAMESPACE(GuiIqNameOption)
+				ENUM_NAMESPACE_ITEM(Specified)
+				ENUM_NAMESPACE_ITEM(Any)
+			END_ENUM_ITEM(GuiIqNameOption)
+
+			BEGIN_ENUM_ITEM(GuiIqChildOption)
+				ENUM_ITEM_NAMESPACE(GuiIqChildOption)
+				ENUM_NAMESPACE_ITEM(Direct)
+				ENUM_NAMESPACE_ITEM(Indirect)
+			END_ENUM_ITEM(GuiIqChildOption)
+
+			BEGIN_CLASS_MEMBER(GuiIqPrimaryQuery)
+				CLASS_MEMBER_BASE(GuiIqQuery)
+
+				CLASS_MEMBER_CONSTRUCTOR(vl::Ptr<GuiIqPrimaryQuery>(), NO_PARAMETER)
+
+				CLASS_MEMBER_EXTERNALMETHOD(get_attributeName, NO_PARAMETER, vl::WString(GuiIqPrimaryQuery::*)(), [](GuiIqPrimaryQuery* node){ return node->attributeName.value; })
+				CLASS_MEMBER_EXTERNALMETHOD(set_attributeName, {L"value"}, void(GuiIqPrimaryQuery::*)(const vl::WString&), [](GuiIqPrimaryQuery* node, const vl::WString& value){ node->attributeName.value = value; })
+				CLASS_MEMBER_EXTERNALMETHOD(get_typeName, NO_PARAMETER, vl::WString(GuiIqPrimaryQuery::*)(), [](GuiIqPrimaryQuery* node){ return node->typeName.value; })
+				CLASS_MEMBER_EXTERNALMETHOD(set_typeName, {L"value"}, void(GuiIqPrimaryQuery::*)(const vl::WString&), [](GuiIqPrimaryQuery* node, const vl::WString& value){ node->typeName.value = value; })
+				CLASS_MEMBER_EXTERNALMETHOD(get_referenceName, NO_PARAMETER, vl::WString(GuiIqPrimaryQuery::*)(), [](GuiIqPrimaryQuery* node){ return node->referenceName.value; })
+				CLASS_MEMBER_EXTERNALMETHOD(set_referenceName, {L"value"}, void(GuiIqPrimaryQuery::*)(const vl::WString&), [](GuiIqPrimaryQuery* node, const vl::WString& value){ node->referenceName.value = value; })
+
+				CLASS_MEMBER_FIELD(childOption)
+				CLASS_MEMBER_FIELD(attributeNameOption)
+				CLASS_MEMBER_PROPERTY(attributeName, get_attributeName, set_attributeName)
+				CLASS_MEMBER_FIELD(typeNameOption)
+				CLASS_MEMBER_PROPERTY(typeName, get_typeName, set_typeName)
+				CLASS_MEMBER_PROPERTY(referenceName, get_referenceName, set_referenceName)
+			END_CLASS_MEMBER(GuiIqPrimaryQuery)
+
+			BEGIN_CLASS_MEMBER(GuiIqCascadeQuery)
+				CLASS_MEMBER_BASE(GuiIqQuery)
+
+				CLASS_MEMBER_CONSTRUCTOR(vl::Ptr<GuiIqCascadeQuery>(), NO_PARAMETER)
+
+
+				CLASS_MEMBER_FIELD(parent)
+				CLASS_MEMBER_FIELD(child)
+			END_CLASS_MEMBER(GuiIqCascadeQuery)
+
+			BEGIN_ENUM_ITEM(GuiIqBinaryOperator)
+				ENUM_ITEM_NAMESPACE(GuiIqBinaryOperator)
+				ENUM_NAMESPACE_ITEM(ExclusiveOr)
+				ENUM_NAMESPACE_ITEM(Intersect)
+				ENUM_NAMESPACE_ITEM(Union)
+				ENUM_NAMESPACE_ITEM(Substract)
+			END_ENUM_ITEM(GuiIqBinaryOperator)
+
+			BEGIN_CLASS_MEMBER(GuiIqSetQuery)
+				CLASS_MEMBER_BASE(GuiIqQuery)
+
+				CLASS_MEMBER_CONSTRUCTOR(vl::Ptr<GuiIqSetQuery>(), NO_PARAMETER)
+
+
+				CLASS_MEMBER_FIELD(first)
+				CLASS_MEMBER_FIELD(second)
+				CLASS_MEMBER_FIELD(op)
+			END_CLASS_MEMBER(GuiIqSetQuery)
+
+			BEGIN_CLASS_MEMBER(GuiIqQuery::IVisitor)
+				CLASS_MEMBER_BASE(vl::reflection::IDescriptable)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiIqQuery::IVisitor>(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::GuiIqQuery_IVisitor::Create)
+
+				CLASS_MEMBER_METHOD_OVERLOAD(Visit, {L"node"}, void(GuiIqQuery::IVisitor::*)(GuiIqPrimaryQuery* node))
+				CLASS_MEMBER_METHOD_OVERLOAD(Visit, {L"node"}, void(GuiIqQuery::IVisitor::*)(GuiIqCascadeQuery* node))
+				CLASS_MEMBER_METHOD_OVERLOAD(Visit, {L"node"}, void(GuiIqQuery::IVisitor::*)(GuiIqSetQuery* node))
+			END_CLASS_MEMBER(GuiIqQuery)
+
+			class GuiIqTypeLoader : public vl::Object, public ITypeLoader
+			{
+			public:
+				void Load(ITypeManager* manager)
+				{
+					ADD_TYPE_INFO(vl::presentation::GuiIqQuery)
+					ADD_TYPE_INFO(vl::presentation::GuiIqNameOption)
+					ADD_TYPE_INFO(vl::presentation::GuiIqChildOption)
+					ADD_TYPE_INFO(vl::presentation::GuiIqPrimaryQuery)
+					ADD_TYPE_INFO(vl::presentation::GuiIqCascadeQuery)
+					ADD_TYPE_INFO(vl::presentation::GuiIqBinaryOperator)
+					ADD_TYPE_INFO(vl::presentation::GuiIqSetQuery)
+					ADD_TYPE_INFO(vl::presentation::GuiIqQuery::IVisitor)
+				}
+
+				void Unload(ITypeManager* manager)
+				{
+				}
+			};
+#endif
+
+			bool GuiIqLoadTypes()
+			{
+#ifndef VCZH_DEBUG_NO_REFLECTION
+				ITypeManager* manager=GetGlobalTypeManager();
+				if(manager)
+				{
+					Ptr<ITypeLoader> loader=new GuiIqTypeLoader;
+					return manager->AddTypeLoader(loader);
+				}
+#endif
+				return false;
+			}
 		}
 	}
 }
@@ -6629,16 +7827,6 @@ External Functions
 				return thisObject->GetItemContent<ListViewItemStyleProvider::IListViewItemContent>(itemStyleController);
 			}
 
-			ListViewDataColumns& GuiListView_GetDataColumns(GuiListView* thisObject)
-			{
-				return thisObject->GetItems().GetDataColumns();
-			}
-
-			ListViewColumns& GuiListView_GetColumns(GuiListView* thisObject)
-			{
-				return thisObject->GetItems().GetColumns();
-			}
-
 			Ptr<RepeatingParsingExecutor> CreateRepeatingParsingExecutor(const WString& grammar, bool enableAmbiguity, const WString& rule, Ptr<ILanguageProvider> provider)
 			{
 			    Ptr<ParsingGeneralParser> parser=CreateBootstrapStrictParser();
@@ -7038,6 +8226,14 @@ Type Declaration
 				CLASS_MEMBER_METHOD(ContainsPrimaryText, {L"itemIndex"})
 			END_CLASS_MEMBER(GuiListControl::IItemPrimaryTextView)
 
+			BEGIN_CLASS_MEMBER(GuiListControl::IItemBindingView)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(GuiListControl, IItemBindingView)
+				INTERFACE_IDENTIFIER(GuiListControl::IItemBindingView)
+
+				CLASS_MEMBER_METHOD(GetBindingValue, {L"itemIndex"})
+			END_CLASS_MEMBER(GuiListControl::IItemBindingView)
+
 			BEGIN_ENUM_ITEM(GuiListControl::KeyDirection)
 				ENUM_ITEM_NAMESPACE(GuiListControl)
 				ENUM_NAMESPACE_ITEM(Up)
@@ -7128,6 +8324,8 @@ Type Declaration
 
 				CLASS_MEMBER_PROPERTY_FAST(MultiSelect)
 				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItems, SelectionChanged)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItemIndex, SelectionChanged)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItemText, SelectionChanged)
 
 				CLASS_MEMBER_METHOD(GetSelected, {L"itemIndex"})
 				CLASS_MEMBER_METHOD(SetSelected, {L"itemIndex" _ L"value"})
@@ -7256,6 +8454,7 @@ Type Declaration
 				CONTROL_CONSTRUCTOR_DEFAULT(GuiTextList, &g::NewTextList)
 
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Items)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
 			END_CLASS_MEMBER(GuiTextList)
 
 			BEGIN_CLASS_MEMBER(ListViewItemStyleProviderBase)
@@ -7446,6 +8645,7 @@ Type Declaration
 				CLASS_MEMBER_CONSTRUCTOR(Ptr<ListViewColumn>(const WString&, vint), {L"text" _ L"size"})
 
 				CLASS_MEMBER_FIELD(text)
+				CLASS_MEMBER_FIELD(textProperty)
 				CLASS_MEMBER_FIELD(size)
 				CLASS_MEMBER_FIELD(dropdownPopup)
 				CLASS_MEMBER_FIELD(sortingState)
@@ -7462,12 +8662,10 @@ Type Declaration
 				CLASS_MEMBER_BASE(GuiVirtualListView)
 				CONTROL_CONSTRUCTOR_PROVIDER(GuiListView)
 
-				CLASS_MEMBER_EXTERNALMETHOD(GetDataColumns, NO_PARAMETER, ListViewDataColumns&(GuiListView::*)(), &GuiListView_GetDataColumns)
-				CLASS_MEMBER_EXTERNALMETHOD(GetColumns, NO_PARAMETER, ListViewColumns&(GuiListView::*)(), &GuiListView_GetColumns)
-
-				CLASS_MEMBER_PROPERTY_READONLY(DataColumns, GetDataColumns)
-				CLASS_MEMBER_PROPERTY_READONLY(Columns, GetColumns)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(DataColumns)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Columns)
 				CLASS_MEMBER_PROPERTY_READONLY_FAST(Items)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
 			END_CLASS_MEMBER(GuiListView)
 
 			BEGIN_CLASS_MEMBER(IGuiMenuService)
@@ -7587,6 +8785,14 @@ Type Declaration
 
 				CLASS_MEMBER_METHOD(GetPrimaryTextViewText, {L"node"})
 			END_CLASS_MEMBER(INodeItemPrimaryTextView)
+
+			BEGIN_CLASS_MEMBER(INodeItemBindingView)
+				CLASS_MEMBER_BASE(IDescriptable)
+				INTERFACE_EXTERNALCTOR(tree, INodeItemBindingView)
+				INTERFACE_IDENTIFIER(INodeItemBindingView)
+
+				CLASS_MEMBER_METHOD(GetBindingValue, {L"node"})
+			END_CLASS_MEMBER(INodeItemBindingView)
 
 			BEGIN_CLASS_MEMBER(NodeItemProvider)
 				CLASS_MEMBER_BASE(ItemProviderBase)
@@ -7730,6 +8936,7 @@ Type Declaration
 
 				CLASS_MEMBER_METHOD_RENAME(GetNodes, Nodes, NO_PARAMETER)
 				CLASS_MEMBER_PROPERTY_READONLY(Nodes, GetNodes)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
 			END_CLASS_MEMBER(GuiTreeView)
 
 			BEGIN_CLASS_MEMBER(TreeViewNodeItemStyleProvider)
@@ -8378,6 +9585,41 @@ Type Declaration
 				CLASS_MEMBER_METHOD(SetColumnText, {L"column" _ L"value"})
 			END_CLASS_MEMBER(StringGridProvider)
 
+			BEGIN_CLASS_MEMBER(GuiBindableTextList)
+				CLASS_MEMBER_BASE(GuiVirtualTextList)
+				CLASS_MEMBER_CONSTRUCTOR(GuiBindableTextList*(GuiBindableTextList::IStyleProvider*, list::TextItemStyleProvider::ITextItemStyleProvider*, Ptr<IValueEnumerable>), {L"styleProvider" _ L"itemStyleProvider" _ L"itemSource"})
+
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(TextProperty)
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(CheckedProperty)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
+			END_CLASS_MEMBER(GuiBindableTextList)
+
+			BEGIN_CLASS_MEMBER(GuiBindableListView)
+				CLASS_MEMBER_BASE(GuiVirtualListView)
+				CLASS_MEMBER_CONSTRUCTOR(GuiBindableListView*(GuiBindableListView::IStyleProvider*, Ptr<IValueEnumerable>), {L"styleProvider" _ L"itemSource"})
+
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(DataColumns)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Columns)
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(LargeImageProperty)
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(SmallImageProperty)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
+			END_CLASS_MEMBER(GuiBindableListView)
+
+			BEGIN_CLASS_MEMBER(GuiBindableTreeView)
+				CLASS_MEMBER_BASE(GuiVirtualTreeView)
+				CLASS_MEMBER_CONSTRUCTOR(GuiBindableTreeView*(GuiBindableTreeView::IStyleProvider*, const Value&), {L"styleProvider" _ L"itemSource"})
+				
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(TextProperty)
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(ImageProperty)
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(ChildrenProperty)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
+			END_CLASS_MEMBER(GuiBindableTreeView)
+
+			BEGIN_CLASS_MEMBER(GuiBindableDataGrid)
+				CLASS_MEMBER_BASE(GuiVirtualDataGrid)
+				CLASS_MEMBER_CONSTRUCTOR(GuiBindableDataGrid*(GuiBindableDataGrid::IStyleProvider*, Ptr<IValueEnumerable>), {L"styleProvider" _ L"itemSource"})
+			END_CLASS_MEMBER(GuiBindableDataGrid)
+
 #undef INTERFACE_IDENTIFIER
 #undef CONTROL_CONSTRUCTOR_CONTROLLER
 #undef INTERFACE_EXTERNALCTOR
@@ -8402,7 +9644,7 @@ Type Loader
 
 #endif
 
-			bool LoadGuiControlsTypes()
+			bool LoadGuiControlTypes()
 			{
 #ifndef VCZH_DEBUG_NO_REFLECTION
 				ITypeManager* manager=GetGlobalTypeManager();
@@ -8876,7 +10118,8 @@ namespace vl
 					LoadGuiBasicTypes();
 					LoadGuiElementTypes();
 					LoadGuiCompositionTypes();
-					LoadGuiControlsTypes();
+					LoadGuiControlTypes();
+					LoadGuiTemplateTypes();
 					LoadGuiEventTypes();
 				}
 				
@@ -8889,6 +10132,96 @@ namespace vl
 				}
 			};
 			GUI_REGISTER_PLUGIN(GuiReflectionPlugin)
+		}
+	}
+}
+
+/***********************************************************************
+TypeDescriptors\GuiReflectionTemplates.cpp
+***********************************************************************/
+
+namespace vl
+{
+	namespace reflection
+	{
+		namespace description
+		{
+			using namespace collections;
+			using namespace parsing;
+			using namespace parsing::tabling;
+			using namespace parsing::xml;
+			using namespace stream;
+
+#ifndef VCZH_DEBUG_NO_REFLECTION
+
+			GUIREFLECTIONTEMPLATES_TYPELIST(IMPL_TYPE_INFO)
+
+/***********************************************************************
+Type Declaration
+***********************************************************************/
+
+#define _ ,
+
+#define INTERFACE_EXTERNALCTOR(CONTROL, INTERFACE)\
+	CLASS_MEMBER_EXTERNALCTOR(decltype(interface_proxy::CONTROL##_##INTERFACE::Create(0))(Ptr<IValueInterfaceProxy>), {L"proxy"}, &interface_proxy::CONTROL##_##INTERFACE::Create)
+
+#define GUI_TEMPLATE_PROPERTY_REFLECTION(CLASS, TYPE, NAME)\
+	CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(NAME)
+
+			BEGIN_CLASS_MEMBER(GuiTemplate)
+				CLASS_MEMBER_BASE(GuiBoundsComposition)
+				CLASS_MEMBER_BASE(GuiInstanceRootObject)
+				CLASS_MEMBER_CONSTRUCTOR(GuiTemplate*(), NO_PARAMETER)
+			END_CLASS_MEMBER(GuiTemplate)
+			
+			BEGIN_CLASS_MEMBER(GuiTemplate::IFactory)
+				INTERFACE_EXTERNALCTOR(GuiTemplate, IFactory)
+				CLASS_MEMBER_EXTERNALCTOR(Ptr<GuiTemplate::IFactory>(const List<ITypeDescriptor*>&), { L"types" }, &GuiTemplate::IFactory::CreateTemplateFactory)
+
+				CLASS_MEMBER_METHOD(CreateTemplate, NO_PARAMETER)
+			END_CLASS_MEMBER(GuiTemplate::IFactory)
+
+			BEGIN_CLASS_MEMBER(GuiListItemTemplate)
+				CLASS_MEMBER_BASE(GuiTemplate)
+				CLASS_MEMBER_CONSTRUCTOR(GuiListItemTemplate*(), NO_PARAMETER)
+
+				GuiListItemTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_REFLECTION)
+			END_CLASS_MEMBER(GuiListItemTemplate)
+
+#undef INTERFACE_EXTERNALCTOR
+#undef _
+
+/***********************************************************************
+Type Loader
+***********************************************************************/
+
+			class GuiTemplateTypeLoader : public Object, public ITypeLoader
+			{
+			public:
+				void Load(ITypeManager* manager)
+				{
+					GUIREFLECTIONTEMPLATES_TYPELIST(ADD_TYPE_INFO)
+				}
+
+				void Unload(ITypeManager* manager)
+				{
+				}
+			};
+
+#endif
+
+			bool LoadGuiTemplateTypes()
+			{
+#ifndef VCZH_DEBUG_NO_REFLECTION
+				ITypeManager* manager=GetGlobalTypeManager();
+				if(manager)
+				{
+					Ptr<ITypeLoader> loader=new GuiTemplateTypeLoader;
+					return manager->AddTypeLoader(loader);
+				}
+#endif
+				return false;
+			}
 		}
 	}
 }

@@ -4645,16 +4645,30 @@ List interface common implementation
 					{
 					}
 
-					virtual bool InsertInternal(vint index, const T& value)
+					virtual bool QueryInsert(vint index, const T& value)
 					{
-						items.Insert(index, value);
 						return true;
 					}
 
-					virtual bool RemoveAtInternal(vint index, const T& value)
+					virtual void BeforeInsert(vint index, const T& value)
 					{
-						items.RemoveAt(index);
+					}
+
+					virtual void AfterInsert(vint index, const T& value)
+					{
+					}
+
+					virtual bool QueryRemove(vint index, const T& value)
+					{
 						return true;
+					}
+
+					virtual void BeforeRemove(vint index, const T& value)
+					{
+					}
+
+					virtual void AfterRemove(vint index, vint count)
+					{
 					}
 					
 				public:
@@ -4728,47 +4742,63 @@ List interface common implementation
 
 					bool RemoveAt(vint index)
 					{
-						if(RemoveAtInternal(index, items[index]))
+						if (0 <= index && index < items.Count() && QueryRemove(index, items[index]))
 						{
+							BeforeRemove(index, items[index]);
+							T item = items[index];
+							items.RemoveAt(index);
+							AfterRemove(index, 1);
 							NotifyUpdateInternal(index, 1, 0);
 							return true;
 						}
-						else
-						{
-							return false;
-						}
+						return false;
 					}
 
 					bool RemoveRange(vint index, vint count)
 					{
 						if(count<=0) return false;
-						if(0<=index && index<items.Count() && index+count<=items.Count())
+						if (0 <= index && index<items.Count() && index + count <= items.Count())
 						{
-							while(count-->0)
+							for (vint i = 0; i < count; i++)
 							{
-								RemoveAt(index+count);
+								if (!QueryRemove(index + 1, items[index + i])) return false;
 							}
+							for (vint i = 0; i < count; i++)
+							{
+								BeforeRemove(index + i, items[index + i]);
+							}
+							items.RemoveRange(index, count);
+							AfterRemove(index, count);
+							NotifyUpdateInternal(index, count, 0);
 							return true;
 						}
-						else
-						{
-							return false;
-						}
+						return false;
 					}
 
 					bool Clear()
 					{
-						while(items.Count()>0)
+						vint count = items.Count();
+						for (vint i = 0; i < count; i++)
 						{
-							RemoveAt(items.Count()-1);
+							if (!QueryRemove(i, items[i])) return false;
 						}
+						for (vint i = 0; i < count; i++)
+						{
+							BeforeRemove(i, items[i]);
+						}
+						items.Clear();
+						AfterRemove(0, count);
+						NotifyUpdateInternal(0, count, 0);
 						return true;
 					}
 
 					vint Insert(vint index, const T& item)
 					{
-						if(InsertInternal(index, item))
+						if (0 <= index && index <= items.Count() && QueryInsert(index, item))
 						{
+							BeforeInsert(index, item);
+							items.Insert(index, item);
+							AfterInsert(index, item);
 							NotifyUpdateInternal(index, 0, 1);
 							return index;
 						}
@@ -4780,14 +4810,48 @@ List interface common implementation
 
 					bool Set(vint index, const T& item)
 					{
-						if(Insert(index, item))
+						if (0 <= index && index < items.Count())
 						{
-							return RemoveAt(index+1);
+							if (QueryRemove(index, items[index]) && QueryInsert(index, item))
+							{
+								BeforeRemove(index, items[index]);
+								items.RemoveAt(index);
+								AfterRemove(index, 1);
+
+								BeforeInsert(index, item);
+								items.Insert(index, item);
+								AfterInsert(index, item);
+
+								NotifyUpdateInternal(index, 1, 1);
+								return true;
+							}
 						}
-						else
+						return false;
+					}
+				};
+
+				template<typename T>
+				class ObservableList : public ItemsBase<T>
+				{
+				protected:
+					Ptr<description::IValueObservableList>		observableList;
+
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override
+					{
+						if (observableList)
 						{
-							return false;
+							observableList->ItemChanged(start, count, newCount);
 						}
+					}
+				public:
+
+					Ptr<description::IValueObservableList> GetWrapper()
+					{
+						if (!observableList)
+						{
+							observableList = new description::ValueObservableListWrapper<ObservableList<T>*>(this);
+						}
+						return observableList;
 					}
 				};
 			}
@@ -5503,6 +5567,14 @@ List Control
 					virtual bool								ContainsPrimaryText(vint itemIndex)=0;
 				};
 
+				class IItemBindingView : public virtual IDescriptable, public Description<IItemPrimaryTextView>
+				{
+				public:
+					static const wchar_t* const					Identifier;
+
+					virtual description::Value					GetBindingValue(vint itemIndex)=0;
+				};
+
 				//-----------------------------------------------------------
 				// Provider Interfaces
 				//-----------------------------------------------------------
@@ -5552,6 +5624,7 @@ List Control
 					virtual IItemStyleController*				CreateItemStyle(vint styleId)=0;
 					virtual void								DestroyItemStyle(IItemStyleController* style)=0;
 					virtual void								Install(IItemStyleController* style, vint itemIndex)=0;
+					virtual void								SetStyleIndex(IItemStyleController* style, vint value)=0;
 				};
 				
 				class IItemArranger : public virtual IItemProviderCallback, public Description<IItemArranger>
@@ -5742,6 +5815,9 @@ Selectable List Control
 				void											SetMultiSelect(bool value);
 				
 				const collections::SortedList<vint>&			GetSelectedItems();
+				vint											GetSelectedItemIndex();
+				WString											GetSelectedItemText();
+
 				bool											GetSelected(vint itemIndex);
 				void											SetSelected(vint itemIndex, bool value);
 				bool											SelectItemsByClick(vint itemIndex, bool ctrl, bool shift, bool leftButton);
@@ -5816,6 +5892,7 @@ Predefined ItemArranger
 				{
 					typedef collections::List<GuiListControl::IItemStyleController*>		StyleList;
 				protected:
+					GuiListControl*								listControl;
 					GuiListControl::IItemArrangerCallback*		callback;
 					GuiListControl::IItemProvider*				itemProvider;
 					Rect										viewBounds;
@@ -6062,6 +6139,7 @@ TextList Style Provider
 					GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
 					void										DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
 					void										Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
+					void										SetStyleIndex(GuiListControl::IItemStyleController* style, vint value)override;
 					void										SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 
@@ -6087,7 +6165,11 @@ TextList Data Source
 					bool										GetChecked();
 				};
 
-				class TextItemProvider : public ListProvider<Ptr<TextItem>>, protected TextItemStyleProvider::ITextItemView, public Description<TextItemProvider>
+				class TextItemProvider
+					: public ListProvider<Ptr<TextItem>>
+					, protected TextItemStyleProvider::ITextItemView
+					, protected GuiListControl::IItemBindingView
+					, public Description<TextItemProvider>
 				{
 					friend class GuiTextList;
 				protected:
@@ -6098,6 +6180,7 @@ TextList Data Source
 					WString										GetText(vint itemIndex)override;
 					bool										GetChecked(vint itemIndex)override;
 					void										SetCheckedSilently(vint itemIndex, bool value)override;
+					description::Value							GetBindingValue(vint itemIndex)override;
 				public:
 					TextItemProvider();
 					~TextItemProvider();
@@ -6122,7 +6205,6 @@ TextList Control
 
 				compositions::GuiItemNotifyEvent				ItemChecked;
 				
-				Ptr<GuiListControl::IItemStyleProvider>			SetStyleProvider(Ptr<GuiListControl::IItemStyleProvider> value)override;
 				Ptr<GuiListControl::IItemStyleProvider>			ChangeItemStyle(list::TextItemStyleProvider::ITextItemStyleProvider* itemStyleProvider);
 			};
 			
@@ -6135,6 +6217,8 @@ TextList Control
 				~GuiTextList();
 
 				list::TextItemProvider&							GetItems();
+
+				Ptr<list::TextItem>								GetSelectedItem();
 			};
 		}
 	}
@@ -6502,6 +6586,7 @@ ListView ItemStyleProvider
 					GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
 					void										DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
 					void										Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
+					void										SetStyleIndex(GuiListControl::IItemStyleController* style, vint value)override;
 
 					IListViewItemContentProvider*				GetItemContentProvider();
 
@@ -6846,6 +6931,7 @@ ListView
 				{
 				public:
 					WString											text;
+					WString											textProperty;
 					vint											size;
 					GuiMenu*										dropdownPopup;
 					GuiListViewColumnHeader::ColumnSortingState		sortingState;
@@ -6881,6 +6967,7 @@ ListView
 					: public ListProvider<Ptr<ListViewItem>>
 					, protected virtual ListViewItemStyleProvider::IListViewItemView
 					, protected virtual ListViewColumnItemArranger::IColumnItemView
+					, protected GuiListControl::IItemBindingView
 					, public Description<ListViewItemProvider>
 				{
 					friend class ListViewColumns;
@@ -6908,6 +6995,8 @@ ListView
 					void												SetColumnSize(vint index, vint value)override;
 					GuiMenu*											GetDropdownPopup(vint index)override;
 					GuiListViewColumnHeader::ColumnSortingState			GetSortingState(vint index)override;
+
+					description::Value									GetBindingValue(vint itemIndex)override;
 				public:
 					ListViewItemProvider();
 					~ListViewItemProvider();
@@ -6938,6 +7027,10 @@ ListView
 				~GuiListView();
 				
 				list::ListViewItemProvider&								GetItems();
+				list::ListViewDataColumns&								GetDataColumns();
+				list::ListViewColumns&									GetColumns();
+
+				Ptr<list::ListViewItem>									GetSelectedItem();
 			};
 		}
 	}
@@ -7045,6 +7138,14 @@ GuiVirtualTreeListControl NodeProvider
 					virtual WString					GetPrimaryTextViewText(INodeProvider* node)=0;
 				};
 
+				class INodeItemBindingView : public virtual IDescriptable, public Description<INodeItemPrimaryTextView>
+				{
+				public:
+					static const wchar_t* const		Identifier;
+					
+					virtual description::Value		GetBindingValue(INodeProvider* node)=0;
+				};
+
 				class NodeItemProvider
 					: public list::ItemProviderBase
 					, protected virtual INodeProviderCallback
@@ -7121,6 +7222,7 @@ GuiVirtualTreeListControl NodeProvider
 					GuiListControl::IItemStyleController*			CreateItemStyle(vint styleId)override;
 					void											DestroyItemStyle(GuiListControl::IItemStyleController* style)override;
 					void											Install(GuiListControl::IItemStyleController* style, vint itemIndex)override;
+					void											SetStyleIndex(GuiListControl::IItemStyleController* style, vint value)override;
 					void											SetStyleSelected(GuiListControl::IItemStyleController* style, bool value)override;
 				};
 			}
@@ -7152,8 +7254,12 @@ GuiVirtualTreeListControl Predefined NodeProvider
 
 						void						OnBeforeChildModified(vint start, vint count, vint newCount);
 						void						OnAfterChildModified(vint start, vint count, vint newCount);
-						bool						InsertInternal(vint index, Ptr<MemoryNodeProvider> const& child)override;
-						bool						RemoveAtInternal(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						bool						QueryInsert(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						bool						QueryRemove(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						void						BeforeInsert(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						void						BeforeRemove(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						void						AfterInsert(vint index, Ptr<MemoryNodeProvider> const& child)override;
+						void						AfterRemove(vint index, vint count)override;
 
 						NodeCollection();
 					public:
@@ -7301,6 +7407,7 @@ TreeView
 				class TreeViewItemRootProvider
 					: public MemoryNodeRootProvider
 					, protected virtual ITreeViewItemView
+					, protected virtual INodeItemBindingView
 					, public Description<TreeViewItemRootProvider>
 				{
 				protected:
@@ -7308,6 +7415,7 @@ TreeView
 					WString							GetPrimaryTextViewText(INodeProvider* node)override;
 					Ptr<GuiImageData>				GetNodeImage(INodeProvider* node)override;
 					WString							GetNodeText(INodeProvider* node)override;
+					description::Value				GetBindingValue(INodeProvider* node)override;
 				public:
 					TreeViewItemRootProvider();
 					~TreeViewItemRootProvider();
@@ -7349,6 +7457,8 @@ TreeView
 				~GuiTreeView();
 
 				Ptr<tree::TreeViewItemRootProvider>						Nodes();
+
+				Ptr<tree::TreeViewItem>									GetSelectedItem();
 			};
 
 			namespace tree
@@ -10162,6 +10272,380 @@ StringGrid Control
 #endif
 
 /***********************************************************************
+CONTROLS\LISTCONTROLPACKAGE\GUIBINDABLELISTCONTROL.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Control System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_GUIBINDABLELISTCONTROLS
+#define VCZH_PRESENTATION_CONTROLS_GUIBINDABLELISTCONTROLS
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace controls
+		{
+
+/***********************************************************************
+GuiBindableTextList
+***********************************************************************/
+
+			class GuiBindableTextList : public GuiVirtualTextList, public Description<GuiBindableTextList>
+			{
+			protected:
+				class ItemSource
+					: public list::ItemProviderBase
+					, protected GuiListControl::IItemBindingView
+					, protected list::TextItemStyleProvider::ITextItemView
+				{
+				protected:
+					Ptr<EventHandler>								itemChangedEventHandler;
+					Ptr<description::IValueReadonlyList>			itemSource;
+
+				public:
+					WString											textProperty;
+					WString											checkedProperty;
+
+				public:
+					ItemSource(Ptr<description::IValueEnumerable> _itemSource);
+					~ItemSource();
+
+					description::Value								Get(vint index);
+					void											UpdateBindingProperties();
+					
+					// ===================== GuiListControl::IItemProvider =====================
+
+					vint											Count()override;
+					IDescriptable*									RequestView(const WString& identifier)override;
+					void											ReleaseView(IDescriptable* view)override;
+					
+					// ===================== GuiListControl::IItemBindingView =====================
+
+					description::Value								GetBindingValue(vint itemIndex)override;
+					
+					// ===================== GuiListControl::IItemPrimaryTextView =====================
+
+					WString											GetPrimaryTextViewText(vint itemIndex)override;
+					bool											ContainsPrimaryText(vint itemIndex)override;
+					
+					// ===================== list::TextItemStyleProvider::ITextItemView =====================
+
+					WString											GetText(vint itemIndex)override;
+					bool											GetChecked(vint itemIndex)override;
+					void											SetCheckedSilently(vint itemIndex, bool value)override;
+				};
+
+			protected:
+				ItemSource*											itemSource;
+
+			public:
+				GuiBindableTextList(IStyleProvider* _styleProvider, list::TextItemStyleProvider::ITextItemStyleProvider* _itemStyleProvider, Ptr<description::IValueEnumerable> _itemSource);
+				~GuiBindableTextList();
+				
+				compositions::GuiNotifyEvent						TextPropertyChanged;
+				compositions::GuiNotifyEvent						CheckedPropertyChanged;
+				
+				const WString&										GetTextProperty();
+				void												SetTextProperty(const WString& value);
+				
+				const WString&										GetCheckedProperty();
+				void												SetCheckedProperty(const WString& value);
+
+				description::Value									GetSelectedItem();
+			};
+
+/***********************************************************************
+GuiBindableListView
+***********************************************************************/
+			
+			class GuiBindableListView : public GuiVirtualListView, public Description<GuiBindableListView>
+			{
+			protected:
+				class ItemSource;
+			public:
+				class ListViewDataColumns : public list::ItemsBase<vint>
+				{
+					friend class ItemSource;
+				protected:
+					ItemSource*										itemProvider;
+
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override;
+				public:
+					ListViewDataColumns();
+					~ListViewDataColumns();
+				};
+				
+				class ListViewColumns : public list::ItemsBase<Ptr<list::ListViewColumn>>
+				{
+					friend class ItemSource;
+				protected:
+					ItemSource*										itemProvider;
+
+					void NotifyUpdateInternal(vint start, vint count, vint newCount)override;
+				public:
+					ListViewColumns();
+					~ListViewColumns();
+				};
+
+			protected:
+				class ItemSource
+					: public list::ItemProviderBase
+					, protected GuiListControl::IItemBindingView
+					, protected virtual list::ListViewItemStyleProvider::IListViewItemView
+					, protected virtual list::ListViewColumnItemArranger::IColumnItemView
+				{
+					friend class ListViewDataColumns;
+					friend class ListViewColumns;
+					typedef collections::List<list::ListViewColumnItemArranger::IColumnItemViewCallback*>		ColumnItemViewCallbackList;
+				protected:
+					ListViewDataColumns								dataColumns;
+					ListViewColumns									columns;
+					ColumnItemViewCallbackList						columnItemViewCallbacks;
+					Ptr<EventHandler>								itemChangedEventHandler;
+					Ptr<description::IValueReadonlyList>			itemSource;
+
+				public:
+					WString											largeImageProperty;
+					WString											smallImageProperty;
+
+				public:
+					ItemSource(Ptr<description::IValueEnumerable> _itemSource);
+					~ItemSource();
+					
+					description::Value								Get(vint index);
+					void											UpdateBindingProperties();
+					bool											NotifyUpdate(vint start, vint count);
+					ListViewDataColumns&							GetDataColumns();
+					ListViewColumns&								GetColumns();
+					
+					// ===================== GuiListControl::IItemProvider =====================
+
+					vint											Count()override;
+					IDescriptable*									RequestView(const WString& identifier)override;
+					void											ReleaseView(IDescriptable* view)override;
+					
+					// ===================== GuiListControl::IItemBindingView =====================
+
+					description::Value								GetBindingValue(vint itemIndex)override;
+
+					// ===================== GuiListControl::IItemPrimaryTextView =====================
+
+					WString											GetPrimaryTextViewText(vint itemIndex)override;
+					bool											ContainsPrimaryText(vint itemIndex)override;
+
+					// ===================== list::ListViewItemStyleProvider::IListViewItemView =====================
+
+					Ptr<GuiImageData>								GetSmallImage(vint itemIndex)override;
+					Ptr<GuiImageData>								GetLargeImage(vint itemIndex)override;
+					WString											GetText(vint itemIndex)override;
+					WString											GetSubItem(vint itemIndex, vint index)override;
+					vint											GetDataColumnCount()override;
+					vint											GetDataColumn(vint index)override;
+
+					// ===================== list::ListViewColumnItemArranger::IColumnItemView =====================
+						
+					bool											AttachCallback(list::ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
+					bool											DetachCallback(list::ListViewColumnItemArranger::IColumnItemViewCallback* value)override;
+					vint											GetColumnCount()override;
+					WString											GetColumnText(vint index)override;
+					vint											GetColumnSize(vint index)override;
+					void											SetColumnSize(vint index, vint value)override;
+					GuiMenu*										GetDropdownPopup(vint index)override;
+					GuiListViewColumnHeader::ColumnSortingState		GetSortingState(vint index)override;
+				};
+
+			protected:
+				ItemSource*											itemSource;
+
+			public:
+				GuiBindableListView(IStyleProvider* _styleProvider, Ptr<description::IValueEnumerable> _itemSource);
+				~GuiBindableListView();
+
+				ListViewDataColumns&								GetDataColumns();
+				ListViewColumns&									GetColumns();
+				
+				compositions::GuiNotifyEvent						LargeImagePropertyChanged;
+				compositions::GuiNotifyEvent						SmallImagePropertyChanged;
+				
+				const WString&										GetLargeImageProperty();
+				void												SetLargeImageProperty(const WString& value);
+				
+				const WString&										GetSmallImageProperty();
+				void												SetSmallImageProperty(const WString& value);
+
+				description::Value									GetSelectedItem();
+			};
+
+/***********************************************************************
+GuiBindableTreeView
+***********************************************************************/
+			
+			class GuiBindableTreeView : public GuiVirtualTreeView, public Description<GuiBindableTreeView>
+			{
+			protected:
+				class ItemSource;
+
+				class ItemSourceNode
+					: public Object
+					, public virtual tree::INodeProvider
+				{
+					friend class ItemSource;
+					typedef collections::List<Ptr<ItemSourceNode>>	NodeList;
+				protected:
+					description::Value								itemSource;
+					ItemSource*										rootProvider;
+					ItemSourceNode*									parent;
+					tree::INodeProviderCallback*					callback;
+					bool											expanding = false;
+
+					Ptr<EventHandler>								itemChangedEventHandler;
+					Ptr<description::IValueReadonlyList>			childrenVirtualList;
+					NodeList										children;
+
+					void											PrepareChildren();
+					void											UnprepareChildren();
+				public:
+					ItemSourceNode(const description::Value& _itemSource, ItemSourceNode* _parent);
+					ItemSourceNode(const description::Value& _itemSource, ItemSource* _rootProvider);
+					~ItemSourceNode();
+
+					description::Value								GetItemSource();
+
+					// ===================== tree::INodeProvider =====================
+
+					bool											GetExpanding()override;
+					void											SetExpanding(bool value)override;
+					vint											CalculateTotalVisibleNodes()override;
+
+					vint											GetChildCount()override;
+					tree::INodeProvider*							GetParent()override;
+					tree::INodeProvider*							GetChild(vint index)override;
+					void											Increase()override;
+					void											Release()override;
+				};
+
+				class ItemSource
+					: public tree::NodeRootProviderBase
+					, protected virtual tree::INodeItemBindingView
+					, protected virtual tree::ITreeViewItemView
+				{
+					friend class ItemSourceNode;
+				public:
+					WString											textProperty;
+					WString											imageProperty;
+					WString											childrenProperty;
+					Ptr<ItemSourceNode>								rootNode;
+
+				public:
+					ItemSource(const description::Value& _itemSource);
+					~ItemSource();
+
+					void											UpdateBindingProperties(bool updateChildrenProperty);
+
+					// ===================== tree::INodeRootProvider =====================
+
+					tree::INodeProvider*							GetRootNode()override;
+					IDescriptable*									RequestView(const WString& identifier)override;
+					void											ReleaseView(IDescriptable* view)override;
+
+					// ===================== tree::INodeItemBindingView =====================
+
+					description::Value								GetBindingValue(tree::INodeProvider* node)override;
+
+					// ===================== tree::INodeItemPrimaryTextView =====================
+
+					WString											GetPrimaryTextViewText(tree::INodeProvider* node)override;
+
+					// ===================== tree::ITreeViewItemView =====================
+
+					Ptr<GuiImageData>								GetNodeImage(tree::INodeProvider* node)override;
+					WString											GetNodeText(tree::INodeProvider* node)override;
+				};
+
+			protected:
+				ItemSource*											itemSource;
+
+			public:
+				GuiBindableTreeView(IStyleProvider* _styleProvider, const description::Value& _itemSource);
+				~GuiBindableTreeView();
+				
+				compositions::GuiNotifyEvent						TextPropertyChanged;
+				compositions::GuiNotifyEvent						ImagePropertyChanged;
+				compositions::GuiNotifyEvent						ChildrenPropertyChanged;
+				
+				const WString&										GetTextProperty();
+				void												SetTextProperty(const WString& value);
+				
+				const WString&										GetImageProperty();
+				void												SetImageProperty(const WString& value);
+				
+				const WString&										GetChildrenProperty();
+				void												SetChildrenProperty(const WString& value);
+
+				description::Value									GetSelectedItem();
+			};
+
+/***********************************************************************
+GuiBindableDataGrid
+***********************************************************************/
+			
+			class GuiBindableDataGrid : public GuiVirtualDataGrid, public Description<GuiBindableDataGrid>
+			{
+			protected:
+				class ItemSource
+					: public Object
+					, public virtual list::IDataProvider
+				{
+				public:
+					ItemSource(Ptr<description::IValueEnumerable> _itemSource);
+					~ItemSource();
+
+					// ===================== list::IDataProvider =====================
+
+					void											SetCommandExecutor(list::IDataProviderCommandExecutor* value)override;
+					vint											GetColumnCount()override;
+					WString											GetColumnText(vint column)override;
+					vint											GetColumnSize(vint column)override;
+					void											SetColumnSize(vint column, vint value)override;
+					GuiMenu*										GetColumnPopup(vint column)override;
+					bool											IsColumnSortable(vint column)override;
+					void											SortByColumn(vint column, bool ascending)override;
+					vint											GetSortedColumn()override;
+					bool											IsSortOrderAscending()override;
+					
+					vint											GetRowCount()override;
+					Ptr<GuiImageData>								GetRowLargeImage(vint row)override;
+					Ptr<GuiImageData>								GetRowSmallImage(vint row)override;
+					vint											GetCellSpan(vint row, vint column)override;
+					WString											GetCellText(vint row, vint column)override;
+					list::IDataVisualizerFactory*					GetCellDataVisualizerFactory(vint row, vint column)override;
+					void											VisualizeCell(vint row, vint column, list::IDataVisualizer* dataVisualizer)override;
+					list::IDataEditorFactory*						GetCellDataEditorFactory(vint row, vint column)override;
+					void											BeforeEditCell(vint row, vint column, list::IDataEditor* dataEditor)override;
+					void											SaveCellData(vint row, vint column, list::IDataEditor* dataEditor)override;
+				};
+
+			protected:
+				ItemSource*											itemSource;
+
+			public:
+				GuiBindableDataGrid(IStyleProvider* _styleProvider, Ptr<description::IValueEnumerable> _itemSource);
+				~GuiBindableDataGrid();
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
 CONTROLS\TOOLSTRIPPACKAGE\GUITOOLSTRIPCOMMAND.H
 ***********************************************************************/
 /***********************************************************************
@@ -10284,8 +10768,12 @@ Toolstrip Item Collection
 
 				void										InvokeUpdateLayout();
 				void										OnInterestingMenuButtonPropertyChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
-				bool										RemoveAtInternal(vint index, GuiControl* const& control)override;
-				bool										InsertInternal(vint index, GuiControl* const& control)override;
+				bool										QueryInsert(vint index, GuiControl* const& child)override;
+				bool										QueryRemove(vint index, GuiControl* const& child)override;
+				void										BeforeInsert(vint index, GuiControl* const& child)override;
+				void										BeforeRemove(vint index, GuiControl* const& child)override;
+				void										AfterInsert(vint index, GuiControl* const& child)override;
+				void										AfterRemove(vint index, vint count)override;
 			public:
 				GuiToolstripCollection(IContentCallback* _contentCallback, compositions::GuiStackComposition* _stackComposition, Ptr<compositions::GuiSubComponentMeasurer> _subComponentMeasurer);
 				~GuiToolstripCollection();
@@ -13384,6 +13872,172 @@ List
 #endif
 
 /***********************************************************************
+CONTROLS\TEMPLATES\GUICONTROLTEMPLATES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Template System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_TEMPLATES_GUICONTROLTEMPLATES
+#define VCZH_PRESENTATION_CONTROLS_TEMPLATES_GUICONTROLTEMPLATES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace templates
+		{
+			class GuiTemplate : public compositions::GuiBoundsComposition, public controls::GuiInstanceRootObject, public Description<GuiTemplate>
+			{
+			public:
+				class IFactory : public IDescriptable, public Description<IFactory>
+				{
+				public:
+					virtual GuiTemplate*				CreateTemplate(const description::Value& viewModel) = 0;
+
+					static Ptr<IFactory>				CreateTemplateFactory(const collections::List<description::ITypeDescriptor*>& types);
+				};
+
+				GuiTemplate();
+				~GuiTemplate();
+			};
+
+#define GUI_TEMPLATE_PROPERTY_DECL(CLASS, TYPE, NAME)\
+			private:\
+				TYPE NAME##_;\
+			public:\
+				TYPE Get##NAME();\
+				void Set##NAME(const TYPE& value);\
+				compositions::GuiNotifyEvent NAME##Changed;\
+
+#define GUI_TEMPLATE_PROPERTY_IMPL(CLASS, TYPE, NAME)\
+			TYPE CLASS::Get##NAME()\
+			{\
+				return NAME##_;\
+			}\
+			void CLASS::Set##NAME(const TYPE& value)\
+			{\
+				if (NAME##_ != value)\
+				{\
+					NAME##_ = value;\
+					NAME##Changed.Execute(compositions::GuiEventArgs(this));\
+				}\
+			}\
+
+#define GUI_TEMPLATE_PROPERTY_EVENT_INIT(CLASS, TYPE, NAME)\
+			NAME##Changed.SetAssociatedComposition(this);
+
+/***********************************************************************
+Control Template
+***********************************************************************/
+
+/***********************************************************************
+Item Template
+***********************************************************************/
+
+			class GuiListItemTemplate : public GuiTemplate
+			{
+			public:
+				GuiListItemTemplate();
+				~GuiListItemTemplate();
+				
+#define GuiListItemTemplate_PROPERTIES(F)\
+				F(GuiListItemTemplate, bool, Selected)\
+				F(GuiListItemTemplate, vint, Index)\
+
+				GuiListItemTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_DECL)
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
+CONTROLS\TEMPLATES\GUICONTROLTEMPLATESTYLES.H
+***********************************************************************/
+/***********************************************************************
+Vczh Library++ 3.0
+Developer: 陈梓瀚(vczh)
+GacUI::Template System
+
+Interfaces:
+***********************************************************************/
+
+#ifndef VCZH_PRESENTATION_CONTROLS_TEMPLATES_GUICONTROLTEMPLATESTYLES
+#define VCZH_PRESENTATION_CONTROLS_TEMPLATES_GUICONTROLTEMPLATESTYLES
+
+
+namespace vl
+{
+	namespace presentation
+	{
+		namespace templates
+		{
+
+/***********************************************************************
+Control Template
+***********************************************************************/
+
+/***********************************************************************
+Item Template (GuiListItemTemplate)
+***********************************************************************/
+
+			class GuiListItemTemplate_ItemStyleProvider : public Object, public virtual controls::GuiSelectableListControl::IItemStyleProvider
+			{
+			protected:
+				Ptr<GuiTemplate::IFactory>							factory;
+				controls::GuiListControl*							listControl;
+				controls::GuiListControl::IItemBindingView*			bindingView;
+
+			public:
+				GuiListItemTemplate_ItemStyleProvider(Ptr<GuiTemplate::IFactory> _factory);
+				~GuiListItemTemplate_ItemStyleProvider();
+
+				void												AttachListControl(controls::GuiListControl* value)override;
+				void												DetachListControl()override;
+				vint												GetItemStyleId(vint itemIndex)override;
+				controls::GuiListControl::IItemStyleController*		CreateItemStyle(vint styleId)override;
+				void												DestroyItemStyle(controls::GuiListControl::IItemStyleController* style)override;
+				void												Install(controls::GuiListControl::IItemStyleController* style, vint itemIndex)override;
+				void												SetStyleIndex(controls::GuiListControl::IItemStyleController* style, vint value)override;
+				void												SetStyleSelected(controls::GuiListControl::IItemStyleController* style, bool value)override;
+			};
+
+			class GuiListItemTemplate_ItemStyleController : public Object, public virtual controls::GuiListControl::IItemStyleController
+			{
+			protected:
+				GuiListItemTemplate_ItemStyleProvider*				itemStyleProvider;
+				GuiListItemTemplate*								itemTemplate;
+				bool												installed;
+
+			public:
+				GuiListItemTemplate_ItemStyleController(GuiListItemTemplate_ItemStyleProvider* _itemStyleProvider);
+				~GuiListItemTemplate_ItemStyleController();
+
+				GuiListItemTemplate*								GetTemplate();
+				void												SetTemplate(GuiListItemTemplate* _itemTemplate);
+
+				controls::GuiListControl::IItemStyleProvider*		GetStyleProvider()override;
+				vint												GetItemStyleId()override;
+				compositions::GuiBoundsComposition*					GetBoundsComposition()override;
+				bool												IsCacheable()override;
+				bool												IsInstalled()override;
+				void												OnInstalled()override;
+				void												OnUninstalled()override;
+			};
+		}
+	}
+}
+
+#endif
+
+/***********************************************************************
 RESOURCES\GUIPARSERMANAGER.H
 ***********************************************************************/
 /***********************************************************************
@@ -13461,6 +14115,11 @@ Strong Typed Table Parser
 				{
 					collections::List<Ptr<parsing::ParsingError>> parsingErrors;
 					auto result = function(text, table, parsingErrors, -1);
+					if (!result)
+					{
+						errors.Add(L"Failed to parse the following input as format \"" + name + L"\":");
+						errors.Add(text);
+					}
 					for (vint i = 0; i < parsingErrors.Count(); i++)
 					{
 						auto error = parsingErrors[i];
@@ -13546,6 +14205,7 @@ using namespace vl::presentation::elements;
 using namespace vl::presentation::compositions;
 using namespace vl::presentation::controls;
 using namespace vl::presentation::theme;
+using namespace vl::presentation::templates;
 
 extern int SetupWindowsGDIRenderer();
 extern int SetupWindowsDirect2DRenderer();
