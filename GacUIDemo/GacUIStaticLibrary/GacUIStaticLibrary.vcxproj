@@ -142,6 +142,7 @@
     <Xml Include="..\Resources\XmlDocDemo.xml" />
     <Xml Include="..\Resources\XmlResource.xml" />
     <Xml Include="..\Resources\XmlWindowResource.xml" />
+    <Xml Include="..\Resources\XmlWindowResourceControlTemplate.precompiled.xml" />
     <Xml Include="..\Resources\XmlWindowResourceDataBinding.xml" />
     <Xml Include="..\Resources\XmlWindowResourceItemTemplate.xml" />
     <Xml Include="..\Resources\XmlWindowResourceListViewModel.xml" />

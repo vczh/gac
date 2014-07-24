@@ -1,0 +1,378 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="CodeBehind">
+      <UniqueIdentifier>{5fdef4f3-218c-422b-b7f2-15a92ebc193b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\BottomScrollButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CheckBoxTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CheckItemBackgroundTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\CheckTextListTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ComboBoxTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\DatePickerTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\DocumentLabelTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ExpandingDecoratorTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\GroupBoxTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\HelloWorldPartialClasses.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\HScrollHandleTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\HScrollTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\HTrackerTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ItemBackgroundTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\LabelTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\LeftScrollButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ListViewColumnHeaderTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ListViewTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\MainWindow.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\MenuBarButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\MenuItemButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\MenuSplitterTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\MultilineTextBoxTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ProgressBarTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\RadioButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\RadioTextListTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\RightScrollButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ScrollViewTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\SinglelineTextBoxTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TabDropdownTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TabHeaderTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TabTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TextListTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripDropdownButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripMenuTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripSplitArrowTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripSplitButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripSplitterTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ToolstripTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TopScrollButtonTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\TreeViewTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\VScrollHandleTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\VScrollTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\VTrackerTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\WindowTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="UI\XmlWindowResourceControlTemplates.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
+    <Xml Include="UI\XmlDocDemo.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
+    <Xml Include="UI\XmlWindowResourceControlTemplate.xml">
+      <Filter>Resource Files</Filter>
+    </Xml>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="UI\_Copy.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Cut.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Delete.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_New.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Open.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Paste.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Print.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Redo.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Save.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_SaveAs.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\_Undo.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\OfficeExcel.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\OfficeOneNote.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\OfficeOutlook.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\OfficePowerPoint.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="UI\OfficeWord.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="UI\Codegen.bat">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="UI\BottomScrollButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CheckBoxTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CheckItemBackgroundTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\CheckTextListTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ComboBoxTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\DatePickerTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\DocumentLabelTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ExpandingDecoratorTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\GroupBoxTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\HelloWorld.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\HelloWorldPartialClasses.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\HScrollHandleTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\HScrollTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\HTrackerTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ItemBackgroundTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\LabelTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\LeftScrollButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ListViewColumnHeaderTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ListViewTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\MainWindow.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\MenuBarButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\MenuItemButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\MenuSplitterTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\MultilineTextBoxTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ProgressBarTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\RadioButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\RadioTextListTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\RightScrollButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ScrollViewTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\SinglelineTextBoxTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TabDropdownTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TabHeaderTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TabTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TextListTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripDropdownButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripMenuTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripSplitArrowTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripSplitButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripSplitterTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ToolstripTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TopScrollButtonTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TreeViewTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\VScrollHandleTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\VScrollTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\VTrackerTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\WindowTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -72,17 +72,17 @@ private:
 		Ptr<list::ListViewItem> item=new list::ListViewItem;
 
 		// Get large icon.
-		item->largeImage=file->GetBigIcon();
+		item->SetLargeImage(file->GetBigIcon());
 		// Get small icon.
-		item->smallImage=file->GetSmallIcon();
+		item->SetSmallImage(file->GetSmallIcon());
 		// Get display name
-		item->text=file->GetDisplayName();
+		item->SetText(file->GetDisplayName());
 		// Get type name
-		item->subItems.Add(file->GetTypeName());
+		item->GetSubItems().Add(file->GetTypeName());
 		// Get last write time
-		item->subItems.Add(FileTimeToString(file->GetLastWriteTime()));
+		item->GetSubItems().Add(FileTimeToString(file->GetLastWriteTime()));
 		// Get file size
-		item->subItems.Add(FileSizeToString(file->GetSize()));
+		item->GetSubItems().Add(FileSizeToString(file->GetSize()));
 
 		return item;
 	}
@@ -113,7 +113,7 @@ private:
 	void Column_Clicked(GuiGraphicsComposition* sender, GuiItemEventArgs& arguments)
 	{
 		// Get the sorting state of the clicked column
-		GuiListViewColumnHeader::ColumnSortingState state=listView->GetItems().GetColumns()[arguments.itemIndex]->sortingState;
+		GuiListViewColumnHeader::ColumnSortingState state=listView->GetItems().GetColumns()[arguments.itemIndex]->GetSortingState();
 
 		// Calculate the new sorting state
 		switch(state)
@@ -137,11 +137,11 @@ private:
 			Ptr<list::ListViewColumn> column=listView->GetItems().GetColumns()[i];
 			if(i==sortingColumn)
 			{
-				column->sortingState=ascending?GuiListViewColumnHeader::Ascending:GuiListViewColumnHeader::Descending;
+				column->SetSortingState(ascending ? GuiListViewColumnHeader::Ascending : GuiListViewColumnHeader::Descending);
 			}
 			else
 			{
-				column->sortingState=GuiListViewColumnHeader::NotSorted;
+				column->SetSortingState(GuiListViewColumnHeader::NotSorted);
 			}
 		}
 		listView->GetItems().GetColumns().NotifyUpdate(0, listView->GetItems().GetColumns().Count());
@@ -213,7 +213,7 @@ public:
 			}
 
 			// Attach the menu to the "Type" column
-			listView->GetItems().GetColumns()[1]->dropdownPopup=fileTypeMenu;
+			listView->GetItems().GetColumns()[1]->SetDropdownPopup(fileTypeMenu);
 			listView->GetItems().GetColumns().NotifyUpdate(1);
 		}
 		FillData();
@@ -229,7 +229,7 @@ public:
 
 	~SortingAndFilteringWindow()
 	{
-		listView->GetItems().GetColumns()[1]->dropdownPopup=0;
+		listView->GetItems().GetColumns()[1]->SetDropdownPopup(0);
 		listView->GetItems().GetColumns().NotifyUpdate(1);
 		delete fileTypeMenu;
 	}

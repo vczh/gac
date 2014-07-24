@@ -148,7 +148,7 @@ protected:
 					bool checked=textList->GetItems()[0]->GetChecked();
 					for(vint i=1;i<textList->GetItems().Count();i++)
 					{
-						textList->GetItems().SetChecked(i, checked);
+						textList->GetItems().Get(i)->SetChecked(checked);
 					}
 					preventEvent=false;
 				}

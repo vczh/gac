@@ -25,6 +25,7 @@ using system::reflection::*;
 using presentation::*;
 using presentation::controls::*;
 using presentation::compositions::*;
+using presentation::theme::*;
 
 var window : GuiWindow* = null;
 
@@ -36,11 +37,11 @@ func button_Clicked(sender : GuiGraphicsComposition*, arguments : GuiEventArgs*)
 
 func CreateWindow() : GuiWindow*
 {
-	window = new GuiWindow*();
+	window = new GuiWindow*(ITheme::GetCurrentTheme().CreateWindowStyle());
 	window.Text = "Scriptable GacUI!";
 	window.ContainerComposition.PreferredMinSize = cast Size "x:300 y:200";
 
-	var button = new GuiButton*();
+	var button = new GuiButton*(ITheme::GetCurrentTheme().CreateButtonStyle());
 	button.Text = "Click Me!";
 	button.BoundsComposition.AlignmentToParent = cast Margin "left:50 top:50 right:50 bottom:50";
 	attach(button.Clicked, button_Clicked);

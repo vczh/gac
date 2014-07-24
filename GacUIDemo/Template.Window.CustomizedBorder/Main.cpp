@@ -279,6 +279,10 @@ public:
 		}
 	}
 
+	void SetSizeState(INativeWindow::WindowSizeState value)override
+	{
+	}
+
 	bool GetMaximizedBox()override
 	{
 		return true;
@@ -468,17 +472,17 @@ void FillList(GuiListView* listView, const WString& path, List<WString>& files)
 		WString fullPath=path+L"\\"+file;
 
 		// Get large icon.
-		item->largeImage=GetFileIcon(fullPath, SHGFI_LARGEICON | SHGFI_ICON);
+		item->SetLargeImage(GetFileIcon(fullPath, SHGFI_LARGEICON | SHGFI_ICON));
 		// Get small icon.
-		item->smallImage=GetFileIcon(fullPath, SHGFI_SMALLICON | SHGFI_ICON);
+		item->SetSmallImage(GetFileIcon(fullPath, SHGFI_SMALLICON | SHGFI_ICON));
 		// Get display name
-		item->text=GetFileDisplayName(fullPath);
+		item->SetText(GetFileDisplayName(fullPath));
 		// Get type name
-		item->subItems.Add(GetFileTypeName(fullPath));
+		item->GetSubItems().Add(GetFileTypeName(fullPath));
 		// Get last write time
-		item->subItems.Add(FileTimeToString(GetFileLastWriteTime(fullPath)));
+		item->GetSubItems().Add(FileTimeToString(GetFileLastWriteTime(fullPath)));
 		// Get file size
-		item->subItems.Add(FileSizeToString(GetFileSize(fullPath)));
+		item->GetSubItems().Add(FileSizeToString(GetFileSize(fullPath)));
 
 		listView->GetItems().Add(item);
 	}

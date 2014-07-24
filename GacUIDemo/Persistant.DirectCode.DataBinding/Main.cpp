@@ -25,6 +25,7 @@ using system::reflection::*;
 using presentation::*;
 using presentation::controls::*;
 using presentation::compositions::*;
+using presentation::theme::*;
 
 func AddRow(table : GuiTableComposition*, row : int, title : string) : GuiSinglelineTextBox*
 {
@@ -33,7 +34,7 @@ func AddRow(table : GuiTableComposition*, row : int, title : string) : GuiSingle
 		table.AddChild(cell);
 		cell.SetSite(row, 0, 1, 1);
 
-		var label = new GuiLabel*();
+		var label = new GuiLabel*(ITheme::GetCurrentTheme().CreateLabelStyle());
 		label.Text = title;
 		label.BoundsComposition.AlignmentToParent = cast Margin "left:0 top:0 right:0 bottom:0";
 		cell.AddChild(label.BoundsComposition);
@@ -43,7 +44,7 @@ func AddRow(table : GuiTableComposition*, row : int, title : string) : GuiSingle
 		table.AddChild(cell);
 		cell.SetSite(row, 1, 1, 1);
 
-		var textBox = new GuiSinglelineTextBox*();
+		var textBox = new GuiSinglelineTextBox*(ITheme::GetCurrentTheme().CreateTextBoxStyle());
 		textBox.BoundsComposition.AlignmentToParent = cast Margin "left:0 top:0 right:0 bottom:0";
 		textBox.BoundsComposition.PreferredMinSize = cast Size $"x:0 y:$(textBox.Font.size * 2)";
 		cell.AddChild(textBox.BoundsComposition);
@@ -53,7 +54,7 @@ func AddRow(table : GuiTableComposition*, row : int, title : string) : GuiSingle
 
 func CreateWindow() : GuiWindow*
 {
-	var window = new GuiWindow*();
+	var window = new GuiWindow*(ITheme::GetCurrentTheme().CreateWindowStyle());
 	window.Text = "Scriptable GacUI!";
 	window.ContainerComposition.PreferredMinSize = cast Size "x:300 y:200";
 
