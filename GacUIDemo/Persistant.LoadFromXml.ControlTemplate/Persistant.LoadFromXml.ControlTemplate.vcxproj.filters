@@ -162,6 +162,9 @@
     <ClCompile Include="UI\WindowTemplate.cpp">
       <Filter>CodeBehind</Filter>
     </ClCompile>
+    <ClCompile Include="UI\TooltipTemplate.cpp">
+      <Filter>CodeBehind</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="UI\XmlWindowResourceControlTemplates.xml">
@@ -372,6 +375,9 @@
       <Filter>CodeBehind</Filter>
     </ClInclude>
     <ClInclude Include="UI\WindowTemplate.h">
+      <Filter>CodeBehind</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\TooltipTemplate.h">
       <Filter>CodeBehind</Filter>
     </ClInclude>
   </ItemGroup>

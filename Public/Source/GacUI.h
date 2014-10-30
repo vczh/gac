@@ -632,7 +632,7 @@ Basic Construction
 			{
 			public:
 				virtual void							StartRendering()=0;
-				virtual void							StopRendering()=0;
+				virtual bool							StopRendering()=0;
 				virtual void							PushClipper(Rect clipper)=0;
 				virtual void							PopClipper()=0;
 				virtual Rect							GetClipper()=0;
@@ -971,6 +971,8 @@ Native Window
 			virtual void				SetTitleBar(bool visible)=0;
 			virtual bool				GetTopMost()=0;
 			virtual void				SetTopMost(bool topmost)=0;
+
+			virtual void				SupressAlt() = 0;
 			
 			virtual bool				InstallListener(INativeWindowListener* listener)=0;
 			virtual bool				UninstallListener(INativeWindowListener* listener)=0;
@@ -1588,6 +1590,7 @@ Resource Manager
 				virtual IGuiGraphicsElementFactory*		GetElementFactory(const WString& elementTypeName);
 				virtual IGuiGraphicsRendererFactory*	GetRendererFactory(const WString& elementTypeName);
 				virtual IGuiGraphicsRenderTarget*		GetRenderTarget(INativeWindow* window)=0;
+				virtual void							RecreateRenderTarget(INativeWindow* window) = 0;
 				virtual IGuiGraphicsLayoutProvider*		GetLayoutProvider()=0;
 			};
 
@@ -1811,6 +1814,42 @@ Helper Functions
 		extern WString								BinaryToHex(stream::IStream& stream);
 
 /***********************************************************************
+Global String Key
+***********************************************************************/
+
+		struct GlobalStringKey
+		{
+		public:
+			static GlobalStringKey					Empty;
+			static GlobalStringKey					_Set;
+			static GlobalStringKey					_Ref;
+			static GlobalStringKey					_Bind;
+			static GlobalStringKey					_Format;
+			static GlobalStringKey					_Eval;
+			static GlobalStringKey					_Uri;
+			static GlobalStringKey					_Workflow_Assembly_Cache;
+			static GlobalStringKey					_Workflow_Global_Context;
+			static GlobalStringKey					_ControlTemplate;
+			static GlobalStringKey					_ItemTemplate;
+
+		private:
+			vint									key = -1;
+
+		public:
+			static vint Compare(GlobalStringKey a, GlobalStringKey b){ return a.key - b.key; }
+			bool operator==(GlobalStringKey g)const{ return key == g.key; }
+			bool operator!=(GlobalStringKey g)const{ return key != g.key; }
+			bool operator<(GlobalStringKey g)const{ return key < g.key; }
+			bool operator<=(GlobalStringKey g)const{ return key <= g.key; }
+			bool operator>(GlobalStringKey g)const{ return key > g.key; }
+			bool operator>=(GlobalStringKey g)const{ return key >= g.key; }
+
+			static GlobalStringKey					Get(const WString& string);
+			vint									ToKey()const;
+			WString									ToString()const;
+		};
+
+/***********************************************************************
 Resource Image
 ***********************************************************************/
 			
@@ -1914,8 +1953,11 @@ Resource Structure
 			ItemMap									items;
 			FolderMap								folders;
 
-			void									LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, collections::List<WString>& errors);
+			void									LoadResourceFolderFromXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, collections::List<WString>& errors);
 			void									SaveResourceFolderToXml(Ptr<parsing::xml::XmlElement> xmlParent, bool serializePrecompiledResource);
+			void									CollectTypeNames(collections::List<WString>& typeNames);
+			void									LoadResourceFolderFromBinary(DelayLoadingList& delayLoadings, stream::internal::Reader& reader, collections::List<WString>& typeNames, collections::List<WString>& errors);
+			void									SaveResourceFolderToBinary(stream::internal::Writer& writer, collections::List<WString>& typeNames);
 			void									PrecompileResourceFolder(Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors);
 		public:
 			GuiResourceFolder();
@@ -1945,6 +1987,8 @@ Resource
 		{
 		protected:
 			WString									workingDirectory;
+
+			static void								ProcessDelayLoading(Ptr<GuiResource> resource, DelayLoadingList& delayLoadings, collections::List<WString>& errors);
 		public:
 			GuiResource();
 			~GuiResource();
@@ -1956,6 +2000,10 @@ Resource
 			static Ptr<GuiResource>					LoadFromXml(const WString& filePath, collections::List<WString>& errors);
 
 			Ptr<parsing::xml::XmlDocument>			SaveToXml(bool serializePrecompiledResource);
+			
+			static Ptr<GuiResource>					LoadPrecompiledBinary(stream::IStream& stream, collections::List<WString>& errors);
+			
+			void									SavePrecompiledBinary(stream::IStream& stream);
 
 			void									Precompile(collections::List<WString>& errors);
 			
@@ -2002,22 +2050,49 @@ Resource Path Resolver
 Resource Type Resolver
 ***********************************************************************/
 
-		class IGuiResourceTypeResolver : public IDescriptable, public Description<IGuiResourceTypeResolver>
+		class IGuiResourceTypeResolver_DirectLoadXml;
+		class IGuiResourceTypeResolver_DirectLoadStream;
+		class IGuiResourceTypeResolver_IndirectLoad;
+
+		class IGuiResourceTypeResolver : public virtual IDescriptable, public Description<IGuiResourceTypeResolver>
 		{
 		public:
-			virtual WString									GetType() = 0;
-			virtual WString									GetPreloadType() = 0;
-			virtual bool									IsDelayLoad() = 0;
+			virtual WString										GetType() = 0;
 			
-			virtual void									Precompile(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors) = 0;
+			virtual void										Precompile(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors) = 0;
+			
+			virtual IGuiResourceTypeResolver_DirectLoadXml*		DirectLoadXml(){ return 0; }
+			virtual IGuiResourceTypeResolver_DirectLoadStream*	DirectLoadStream(){ return 0; }
+			virtual IGuiResourceTypeResolver_IndirectLoad*		IndirectLoad(){ return 0; }
+		};
 
-			virtual Ptr<parsing::xml::XmlElement>			Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource) = 0;
+		class IGuiResourceTypeResolver_DirectLoadXml : public virtual IDescriptable, public Description<IGuiResourceTypeResolver_DirectLoadXml>
+		{
+		public:
+			virtual Ptr<parsing::xml::XmlElement>				Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource) = 0;
 
-			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors) = 0;
+			virtual Ptr<DescriptableObject>						ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors) = 0;
 
-			virtual Ptr<DescriptableObject>					ResolveResource(const WString& path, collections::List<WString>& errors) = 0;
+			virtual Ptr<DescriptableObject>						ResolveResource(const WString& path, collections::List<WString>& errors) = 0;
+		};
 
-			virtual Ptr<DescriptableObject>					ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors) = 0;
+		class IGuiResourceTypeResolver_DirectLoadStream : public virtual IDescriptable, public Description<IGuiResourceTypeResolver_DirectLoadStream>
+		{
+		public:
+			virtual void										SerializePrecompiled(Ptr<DescriptableObject> resource, stream::IStream& stream) = 0;
+
+			virtual Ptr<DescriptableObject>						ResolveResourcePrecompiled(stream::IStream& stream, collections::List<WString>& errors) = 0;
+		};
+
+		class IGuiResourceTypeResolver_IndirectLoad : public virtual IDescriptable, public Description<IGuiResourceTypeResolver_IndirectLoad>
+		{
+		public:
+			virtual WString										GetPreloadType() = 0;
+			virtual bool										IsDelayLoad() = 0;
+
+			virtual Ptr<DescriptableObject>						Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource) = 0;
+
+			virtual Ptr<DescriptableObject>						ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors) = 0;
 		};
 
 /***********************************************************************
@@ -2027,13 +2102,13 @@ Resource Resolver Manager
 		class IGuiResourceResolverManager : public IDescriptable, public Description<IGuiResourceResolverManager>
 		{
 		public:
-			virtual IGuiResourcePathResolverFactory*		GetPathResolverFactory(const WString& protocol)=0;
-			virtual bool									SetPathResolverFactory(Ptr<IGuiResourcePathResolverFactory> factory)=0;
-			virtual IGuiResourceTypeResolver*				GetTypeResolver(const WString& type)=0;
-			virtual bool									SetTypeResolver(Ptr<IGuiResourceTypeResolver> resolver)=0;
+			virtual IGuiResourcePathResolverFactory*			GetPathResolverFactory(const WString& protocol)=0;
+			virtual bool										SetPathResolverFactory(Ptr<IGuiResourcePathResolverFactory> factory)=0;
+			virtual IGuiResourceTypeResolver*					GetTypeResolver(const WString& type)=0;
+			virtual bool										SetTypeResolver(Ptr<IGuiResourceTypeResolver> resolver)=0;
 		};
 		
-		extern IGuiResourceResolverManager*					GetResourceResolverManager();
+		extern IGuiResourceResolverManager*						GetResourceResolverManager();
 	}
 }
 
@@ -2196,9 +2271,9 @@ Rich Content Document (run)
 		class DocumentParagraphRun : public DocumentContainerRun, public Description<DocumentParagraphRun>
 		{
 		public:
-			Alignment						alignment;
+			Nullable<Alignment>				alignment;
 
-			DocumentParagraphRun():alignment(Alignment::Left){}
+			DocumentParagraphRun(){}
 
 			void							Accept(IVisitor* visitor)override{visitor->Visit(this);}
 
@@ -2920,7 +2995,7 @@ Rich Content Document (element)
 				void										RenameStyle(const WString& oldStyleName, const WString& newStyleName);
 				void										ClearStyle(TextPos begin, TextPos end);
 				Ptr<DocumentStyleProperties>				SummarizeStyle(TextPos begin, TextPos end);
-				void										SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments);
+				void										SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Nullable<Alignment>>& alignments);
 
 				Ptr<DocumentHyperlinkRun>					GetHyperlinkFromPoint(Point point);
 			};
@@ -4019,6 +4094,11 @@ namespace vl
 {
 	namespace presentation
 	{
+		namespace controls
+		{
+			class GuiWindow;
+		}
+
 		namespace compositions
 		{
 
@@ -4073,12 +4153,58 @@ Shortcut Key Manager
 			};
 
 /***********************************************************************
+Alt-Combined Shortcut Key Interfaces
+***********************************************************************/
+
+			class IGuiAltActionHost;
+			
+			class IGuiAltAction : public virtual IDescriptable
+			{
+			public:
+				static const wchar_t* const				Identifier;
+
+				static bool								IsLegalAlt(const WString& alt);
+
+				virtual const WString&					GetAlt() = 0;
+				virtual bool							IsAltEnabled() = 0;
+				virtual bool							IsAltAvailable() = 0;
+				virtual GuiGraphicsComposition*			GetAltComposition() = 0;
+				virtual IGuiAltActionHost*				GetActivatingAltHost() = 0;
+				virtual void							OnActiveAlt() = 0;
+			};
+			
+			class IGuiAltActionContainer : public virtual IDescriptable
+			{
+			public:
+				static const wchar_t* const				Identifier;
+
+				virtual vint							GetAltActionCount() = 0;
+				virtual IGuiAltAction*					GetAltAction(vint index) = 0;
+			};
+			
+			class IGuiAltActionHost : public virtual IDescriptable
+			{
+			public:
+				static const wchar_t* const				Identifier;
+
+				static void								CollectAltActionsFromControl(controls::GuiControl* control, collections::Group<WString, IGuiAltAction*>& actions);
+				
+				virtual GuiGraphicsComposition*			GetAltComposition() = 0;
+				virtual IGuiAltActionHost*				GetPreviousAltHost() = 0;
+				virtual void							OnActivatedAltHost(IGuiAltActionHost* previousHost) = 0;
+				virtual void							OnDeactivatedAltHost() = 0;
+				virtual void							CollectAltActions(collections::Group<WString, IGuiAltAction*>& actions) = 0;
+			};
+
+/***********************************************************************
 Host
 ***********************************************************************/
 
 			class GuiGraphicsHost : public Object, private INativeWindowListener, private INativeControllerListener, public Description<GuiGraphicsHost>
 			{
-				typedef collections::List<GuiGraphicsComposition*>		CompositionList;
+				typedef collections::List<GuiGraphicsComposition*>							CompositionList;
+				typedef collections::Dictionary<WString, IGuiAltAction*>					AltActionMap;
+				typedef collections::Dictionary<WString, controls::GuiControl*>				AltControlMap;
 			public:
 				static const unsigned __int64	CaretInterval=500;
 			protected:
@@ -4094,6 +4220,21 @@ Host
 				GuiGraphicsAnimationManager				animationManager;
 				GuiGraphicsComposition*					mouseCaptureComposition;
 				CompositionList							mouseEnterCompositions;
+
+				IGuiAltActionHost*						currentAltHost;
+				AltActionMap							currentActiveAltActions;
+				AltControlMap							currentActiveAltTitles;
+				WString									currentAltPrefix;
+				vint									supressAltKey;
+
+				void									EnterAltHost(IGuiAltActionHost* host);
+				void									LeaveAltHost();
+				bool									EnterAltKey(wchar_t key);
+				void									LeaveAltKey();
+				void									CreateAltTitles(const collections::Group<WString, IGuiAltAction*>& actions);
+				vint									FilterTitles();
+				void									ClearAltHost();
+				void									CloseAltHost();
 
 				void									DisconnectCompositionInternal(GuiGraphicsComposition* composition);
 				void									MouseCapture(const NativeWindowMouseInfo& info);
@@ -4246,7 +4387,7 @@ namespace vl
 Basic Construction
 ***********************************************************************/
 
-			class GuiControl : public Object, public Description<GuiControl>
+			class GuiControl : public Object, protected compositions::IGuiAltAction, public Description<GuiControl>
 			{
 				friend class compositions::GuiGraphicsComposition;
 				typedef collections::List<GuiControl*>		ControlList;
@@ -4296,8 +4437,10 @@ Basic Construction
 				bool									isEnabled;
 				bool									isVisuallyEnabled;
 				bool									isVisible;
+				WString									alt;
 				WString									text;
 				FontProperties							font;
+				compositions::IGuiAltActionHost*		activatingAltHost;
 
 				GuiControl*								parent;
 				ControlList								children;
@@ -4314,7 +4457,14 @@ Basic Construction
 				virtual void							UpdateVisuallyEnabled();
 				void									SetFocusableComposition(compositions::GuiGraphicsComposition* value);
 
+				bool									IsAltEnabled()override;
+				bool									IsAltAvailable()override;
+				compositions::GuiGraphicsComposition*	GetAltComposition()override;
+				compositions::IGuiAltActionHost*		GetActivatingAltHost()override;
+				void									OnActiveAlt()override;
+
 				static bool								SharedPtrDestructorProc(DescriptableObject* obj, bool forceDisposing);
+
 			public:
 				GuiControl(IStyleController* _styleController);
 				~GuiControl();
@@ -4322,6 +4472,7 @@ Basic Construction
 				compositions::GuiNotifyEvent			VisibleChanged;
 				compositions::GuiNotifyEvent			EnabledChanged;
 				compositions::GuiNotifyEvent			VisuallyEnabledChanged;
+				compositions::GuiNotifyEvent			AltChanged;
 				compositions::GuiNotifyEvent			TextChanged;
 				compositions::GuiNotifyEvent			FontChanged;
 
@@ -4343,6 +4494,9 @@ Basic Construction
 				virtual void							SetEnabled(bool value);
 				virtual bool							GetVisible();
 				virtual void							SetVisible(bool value);
+				virtual const WString&					GetAlt();
+				virtual bool							SetAlt(const WString& value);
+				void									SetActivatingAltHost(compositions::IGuiAltActionHost* host);
 				virtual const WString&					GetText();
 				virtual void							SetText(const WString& value);
 				virtual const FontProperties&			GetFont();
@@ -4361,7 +4515,7 @@ Basic Construction
 				virtual IDescriptable*					QueryService(const WString& identifier);
 
 				template<typename T>
-				T* QueryService()
+				T* QueryTypedService()
 				{
 					return dynamic_cast<T*>(QueryService(T::Identifier));
 				}
@@ -4476,6 +4630,7 @@ Buttons
 				ControlState							controlState;
 				
 				void									OnParentLineChanged()override;
+				void									OnActiveAlt()override;
 				void									UpdateControlState();
 				void									OnLeftButtonDown(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 				void									OnLeftButtonUp(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
@@ -4948,7 +5103,6 @@ Control Host
 				INativeWindow*									GetNativeWindow();
 				void											SetNativeWindow(INativeWindow* window);
 				void											ForceCalculateSizeImmediately();
-				void											Render();
 				
 				bool											GetEnabled()override;
 				void											SetEnabled(bool value)override;
@@ -4990,7 +5144,7 @@ Control Host
 Window
 ***********************************************************************/
 
-			class GuiWindow : public GuiControlHost, public Description<GuiWindow>
+			class GuiWindow : public GuiControlHost, protected compositions::IGuiAltActionHost, public Description<GuiWindow>
 			{
 				friend class GuiApplication;
 			public:
@@ -5012,6 +5166,8 @@ Window
 					virtual void						SetIconVisible(bool visible)=0;
 					virtual bool						GetTitleBar()=0;
 					virtual void						SetTitleBar(bool visible)=0;
+					virtual IStyleController*			CreateTooltipStyle() = 0;
+					virtual GuiLabel::IStyleController*	CreateShortcutKeyStyle() = 0;
 				};
 				
 				class DefaultBehaviorStyleController : virtual public IStyleController
@@ -5037,17 +5193,28 @@ Window
 					void								SetIconVisible(bool visible)override;
 					bool								GetTitleBar()override;
 					void								SetTitleBar(bool visible)override;
+					IStyleController*					CreateTooltipStyle()override;
+					GuiLabel::IStyleController*			CreateShortcutKeyStyle()override;
 				};
 			protected:
 				IStyleController*						styleController;
+				compositions::IGuiAltActionHost*		previousAltHost;
 				
 				void									Moved()override;
 				void									OnNativeWindowChanged()override;
 				void									OnVisualStatusChanged()override;
 				virtual void							MouseClickedOnOtherWindow(GuiWindow* window);
+
+				compositions::GuiGraphicsComposition*	GetAltComposition()override;
+				compositions::IGuiAltActionHost*		GetPreviousAltHost()override;
+				void									OnActivatedAltHost(IGuiAltActionHost* previousHost)override;
+				void									OnDeactivatedAltHost()override;
+				void									CollectAltActions(collections::Group<WString, IGuiAltAction*>& actions)override;
 			public:
 				GuiWindow(IStyleController* _styleController);
 				~GuiWindow();
+
+				IDescriptable*							QueryService(const WString& identifier)override;
 
 				compositions::GuiNotifyEvent			ClipboardUpdated;
 
@@ -5081,7 +5248,7 @@ Window
 				~GuiPopup();
 
 				bool									IsClippedByScreen(Point location);
-				void									ShowPopup(Point location);
+				void									ShowPopup(Point location, INativeScreen* screen = 0);
 				void									ShowPopup(GuiControl* control, Rect bounds, bool preferredTopBottomSide);
 				void									ShowPopup(GuiControl* control, Point location);
 				void									ShowPopup(GuiControl* control, bool preferredTopBottomSide);
@@ -5152,8 +5319,9 @@ Application
 				void											ClipboardUpdated()override;
 			protected:
 				GuiWindow*										mainWindow;
+				GuiWindow*										sharedTooltipOwnerWindow;
 				GuiControl*										sharedTooltipOwner;
-				GuiTooltip*										sharedTooltipWindow;
+				GuiTooltip*										sharedTooltipControl;
 				bool											sharedTooltipHovering;
 				bool											sharedTooltipClosing;
 				collections::List<GuiWindow*>					windows;
@@ -5290,33 +5458,43 @@ Tab Control
 
 			class GuiTab;
 
-			class GuiTabPage : public Object, public Description<GuiTabPage>
+			class GuiTabPage : public Object, protected compositions::IGuiAltActionHost, public Description<GuiTabPage>
 			{
 				friend class GuiTab;
 				friend class Ptr<GuiTabPage>;
 			protected:
-				compositions::GuiBoundsComposition*				containerComposition;
+				GuiControl*										containerControl;
 				GuiTab*											owner;
+				WString											alt;
 				WString											text;
+				compositions::IGuiAltActionHost*				previousAltHost;
 
 				bool											AssociateTab(GuiTab* _owner);
 				bool											DeassociateTab(GuiTab* _owner);
+				compositions::GuiGraphicsComposition*			GetAltComposition()override;
+				compositions::IGuiAltActionHost*				GetPreviousAltHost()override;
+				void											OnActivatedAltHost(compositions::IGuiAltActionHost* previousHost)override;
+				void											OnDeactivatedAltHost()override;
+				void											CollectAltActions(collections::Group<WString, compositions::IGuiAltAction*>& actions)override;
 			public:
 				GuiTabPage();
 				~GuiTabPage();
-
+				
+				compositions::GuiNotifyEvent					AltChanged;
 				compositions::GuiNotifyEvent					TextChanged;
 				compositions::GuiNotifyEvent					PageInstalled;
 				compositions::GuiNotifyEvent					PageUninstalled;
 
-				compositions::GuiBoundsComposition*				GetContainerComposition();
+				compositions::GuiGraphicsComposition*			GetContainerComposition();
 				GuiTab*											GetOwnerTab();
+				const WString&									GetAlt();
+				bool											SetAlt(const WString& value);
 				const WString&									GetText();
 				void											SetText(const WString& param);
 				bool											GetSelected();
 			};
 
-			class GuiTab : public GuiControl, public Description<GuiTab>
+			class GuiTab : public GuiControl, protected compositions::IGuiAltActionContainer, public Description<GuiTab>
 			{
 				friend class GuiTabPage;
 			public:
@@ -5335,6 +5513,8 @@ Tab Control
 					virtual void								RemoveTab(vint index)=0;
 					virtual void								MoveTab(vint oldIndex, vint newIndex)=0;
 					virtual void								SetSelectedTab(vint index)=0;
+					virtual void								SetTabAlt(vint index, const WString& value, compositions::IGuiAltActionHost* host)=0;
+					virtual compositions::IGuiAltAction*		GetTabAltAction(vint index) = 0;
 				};
 			protected:
 				class CommandExecutor : public Object, public ICommandExecutor
@@ -5352,9 +5532,14 @@ Tab Control
 				IStyleController*								styleController;
 				collections::List<GuiTabPage*>					tabPages;
 				GuiTabPage*										selectedPage;
+
+				vint											GetAltActionCount()override;
+				compositions::IGuiAltAction*					GetAltAction(vint index)override;
 			public:
 				GuiTab(IStyleController* _styleController);
 				~GuiTab();
+
+				IDescriptable*									QueryService(const WString& identifier)override;
 
 				compositions::GuiNotifyEvent					SelectedPageChanged;
 
@@ -5409,6 +5594,7 @@ Scroll View
 
 					GuiScroll*								GetHorizontalScroll();
 					GuiScroll*								GetVerticalScroll();
+
 					compositions::GuiTableComposition*		GetInternalTableComposition();
 					compositions::GuiBoundsComposition*		GetInternalContainerComposition();
 
@@ -5432,16 +5618,22 @@ Scroll View
 				void									OnContainerBoundsChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void									OnHorizontalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void									OnVerticalScroll(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
+				void									OnHorizontalWheel(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
+				void									OnVerticalWheel(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments);
 				void									CallUpdateView();
 				void									Initialize();
 
 				virtual Size							QueryFullSize()=0;
 				virtual void							UpdateView(Rect viewBounds)=0;
+				virtual vint							GetSmallMove();
+				virtual Size							GetBigMove();
 				
 				GuiScrollView(StyleController* _styleController);
 			public:
 				GuiScrollView(IStyleProvider* styleProvider);
 				~GuiScrollView();
+
+				virtual void							SetFont(const FontProperties& value);
 
 				void									CalculateView();
 				Size									GetViewSize();
@@ -6301,6 +6493,7 @@ Menu
 			protected:
 				GuiControl*								owner;
 
+				void									OnDeactivatedAltHost()override;
 				void									MouseClickedOnOtherWindow(GuiWindow* window)override;
 				void									OnWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void									OnWindowClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
@@ -6356,6 +6549,9 @@ MenuButton
 				GuiButton*								GetSubMenuHost();
 				void									OpenSubMenuInternal();
 				void									OnParentLineChanged()override;
+				bool									IsAltAvailable()override;
+				compositions::IGuiAltActionHost*		GetActivatingAltHost()override;
+
 				void									OnSubMenuWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void									OnSubMenuWindowClosed(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
 				void									OnMouseEnter(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments);
@@ -8555,8 +8751,8 @@ Undo Redo (Document)
 				{
 					vint									start;
 					vint									end;
-					collections::Array<Alignment>			originalAlignments;
-					collections::Array<Alignment>			inputAlignments;
+					collections::Array<Nullable<Alignment>>	originalAlignments;
+					collections::Array<Nullable<Alignment>>	inputAlignments;
 				};
 
 			protected:
@@ -9055,7 +9251,7 @@ GuiDocumentCommonInterface
 				void										RenameStyle(const WString& oldStyleName, const WString& newStyleName);
 				void										ClearStyle(TextPos begin, TextPos end);
 				Ptr<DocumentStyleProperties>				SummarizeStyle(TextPos begin, TextPos end);
-				void										SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments);
+				void										SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Nullable<Alignment>>& alignments);
 
 				//================ editing control
 
@@ -10996,6 +11192,7 @@ namespace vl
 				virtual controls::GuiCustomControl::IStyleController*						CreateCustomControlStyle() = 0;
 				virtual controls::GuiTooltip::IStyleController*								CreateTooltipStyle()=0;
 				virtual controls::GuiLabel::IStyleController*								CreateLabelStyle()=0;
+				virtual controls::GuiLabel::IStyleController*								CreateShortcutKeyStyle()=0;
 				virtual controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()=0;
 				virtual controls::GuiControl::IStyleController*								CreateGroupBoxStyle()=0;
 				virtual controls::GuiTab::IStyleController*									CreateTabStyle()=0;
@@ -11133,6 +11330,7 @@ Theme
 				controls::GuiCustomControl::IStyleController*						CreateCustomControlStyle()override;
 				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
+				controls::GuiLabel::IStyleController*								CreateShortcutKeyStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
 				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
 				controls::GuiTab::IStyleController*									CreateTabStyle()override;
@@ -11217,6 +11415,7 @@ Theme
 				controls::GuiCustomControl::IStyleController*						CreateCustomControlStyle()override;
 				controls::GuiTooltip::IStyleController*								CreateTooltipStyle()override;
 				controls::GuiLabel::IStyleController*								CreateLabelStyle()override;
+				controls::GuiLabel::IStyleController*								CreateShortcutKeyStyle()override;
 				controls::GuiScrollContainer::IStyleProvider*						CreateScrollContainerStyle()override;
 				controls::GuiControl::IStyleController*								CreateGroupBoxStyle()override;
 				controls::GuiTab::IStyleController*									CreateTabStyle()override;
@@ -11813,7 +12012,7 @@ Container
 				compositions::GuiBoundsComposition*			boundsComposition;
 				elements::GuiSolidLabelElement*				textElement;
 			public:
-				Win7LabelStyle();
+				Win7LabelStyle(bool forShortcutKey);
 				~Win7LabelStyle();
 
 				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
@@ -12219,6 +12418,8 @@ Tab
 				void														RemoveTab(vint index)override;
 				void														MoveTab(vint oldIndex, vint newIndex)override;
 				void														SetSelectedTab(vint index)override;
+				void														SetTabAlt(vint index, const WString& value, compositions::IGuiAltActionHost* host)override;
+				compositions::IGuiAltAction*								GetTabAltAction(vint index)override;
 			};
 		}
 	}
@@ -13053,7 +13254,7 @@ Container
 				compositions::GuiBoundsComposition*			boundsComposition;
 				elements::GuiSolidLabelElement*				textElement;
 			public:
-				Win8LabelStyle();
+				Win8LabelStyle(bool forShortcutKey);
 				~Win8LabelStyle();
 
 				compositions::GuiBoundsComposition*			GetBoundsComposition()override;
@@ -14041,6 +14242,8 @@ Control Template
 				F(GuiWindowTemplate, bool, TitleBar)\
 				F(GuiWindowTemplate, bool, CustomizedBorder)\
 				F(GuiWindowTemplate, bool, Maximized)\
+				F(GuiWindowTemplate, WString, TooltipTemplate)\
+				F(GuiWindowTemplate, WString, ShortcutKeyTemplate)
 
 				GuiWindowTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_DECL)
 			};
@@ -14377,6 +14580,8 @@ Control Template
 			protected:
 				GuiWindowTemplate*												controlTemplate;
 				controls::GuiWindow*											window;
+				Ptr<GuiTemplate::IFactory>										tooltipTemplateFactory;
+				Ptr<GuiTemplate::IFactory>										shortcutKeyTemplateFactory;
 
 			public:
 				GuiWindowTemplate_StyleProvider(Ptr<GuiTemplate::IFactory> factory);
@@ -14397,6 +14602,8 @@ Control Template
 				void															SetIconVisible(bool visible)override;
 				bool															GetTitleBar()override;
 				void															SetTitleBar(bool visible)override;
+				controls::GuiWindow::IStyleController*							CreateTooltipStyle()override;
+				controls::GuiLabel::IStyleController*							CreateShortcutKeyStyle()override;
 			};
 
 			class GuiButtonTemplate_StyleProvider
@@ -14697,6 +14904,8 @@ Control Template
 				void															RemoveTab(vint index)override;
 				void															MoveTab(vint oldIndex, vint newIndex)override;
 				void															SetSelectedTab(vint index)override;
+				void															SetTabAlt(vint index, const WString& value, compositions::IGuiAltActionHost* host)override;
+				compositions::IGuiAltAction*									GetTabAltAction(vint index)override;
 			};
 
 /***********************************************************************

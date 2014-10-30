@@ -75,6 +75,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\Resources\XmlWindowResourceControlTemplate.precompiled.bin" />
+    <None Include="..\Resources\XmlWindowResourceControlTemplate.precompiled.compressed" />
     <None Include="..\Resources\_Copy.png" />
     <None Include="..\Resources\_Cut.png" />
     <None Include="..\Resources\_Delete.png" />

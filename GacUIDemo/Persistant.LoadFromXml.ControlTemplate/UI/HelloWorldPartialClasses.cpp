@@ -57,6 +57,7 @@ namespace vl
 			IMPL_TYPE_INFO(demos::ToolstripSplitButtonTemplate)
 			IMPL_TYPE_INFO(demos::ToolstripSplitterTemplate)
 			IMPL_TYPE_INFO(demos::ToolstripTemplate)
+			IMPL_TYPE_INFO(demos::TooltipTemplate)
 			IMPL_TYPE_INFO(demos::TopScrollButtonTemplate)
 			IMPL_TYPE_INFO(demos::TreeViewTemplate)
 			IMPL_TYPE_INFO(demos::VScrollHandleTemplate)
@@ -272,6 +273,11 @@ namespace vl
 				CLASS_MEMBER_CONSTRUCTOR(demos::ToolstripTemplate*(), NO_PARAMETER)
 			END_CLASS_MEMBER(demos::ToolstripTemplate)
 
+			BEGIN_CLASS_MEMBER(demos::TooltipTemplate)
+				CLASS_MEMBER_BASE(vl::presentation::templates::GuiWindowTemplate)
+				CLASS_MEMBER_CONSTRUCTOR(demos::TooltipTemplate*(), NO_PARAMETER)
+			END_CLASS_MEMBER(demos::TooltipTemplate)
+
 			BEGIN_CLASS_MEMBER(demos::TopScrollButtonTemplate)
 				CLASS_MEMBER_BASE(vl::presentation::templates::GuiButtonTemplate)
 				CLASS_MEMBER_CONSTRUCTOR(demos::TopScrollButtonTemplate*(), NO_PARAMETER)
@@ -357,6 +363,7 @@ namespace vl
 					ADD_TYPE_INFO(demos::ToolstripSplitButtonTemplate)
 					ADD_TYPE_INFO(demos::ToolstripSplitterTemplate)
 					ADD_TYPE_INFO(demos::ToolstripTemplate)
+					ADD_TYPE_INFO(demos::TooltipTemplate)
 					ADD_TYPE_INFO(demos::TopScrollButtonTemplate)
 					ADD_TYPE_INFO(demos::TreeViewTemplate)
 					ADD_TYPE_INFO(demos::VScrollHandleTemplate)

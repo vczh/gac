@@ -1364,6 +1364,36 @@ namespace demos
 namespace demos
 {
 	template<typename TImpl>
+	class TooltipTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
+	{
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TooltipTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>(L"demos::TooltipTemplate")
+			,container(0)
+		{
+		}
+	};
+
+	class TooltipTemplate;
+}
+
+namespace demos
+{
+	template<typename TImpl>
 	class TopScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
 	private:
@@ -1602,6 +1632,7 @@ namespace vl
 			DECL_TYPE_INFO(demos::ToolstripSplitButtonTemplate)
 			DECL_TYPE_INFO(demos::ToolstripSplitterTemplate)
 			DECL_TYPE_INFO(demos::ToolstripTemplate)
+			DECL_TYPE_INFO(demos::TooltipTemplate)
 			DECL_TYPE_INFO(demos::TopScrollButtonTemplate)
 			DECL_TYPE_INFO(demos::TreeViewTemplate)
 			DECL_TYPE_INFO(demos::VScrollHandleTemplate)
@@ -1616,10 +1647,10 @@ namespace vl
 BottomScrollButtonTemplate.h :
 namespace demos
 {
-	class BottomScrollButtonTemplate : public BottomScrollButtonTemplate_<BottomScrollButtonTemplate>
+	class BottomScrollButtonTemplate : public demos::BottomScrollButtonTemplate_<demos::BottomScrollButtonTemplate>
 	{
-		friend class BottomScrollButtonTemplate_<BottomScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<BottomScrollButtonTemplate>;
+		friend class demos::BottomScrollButtonTemplate_<demos::BottomScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::BottomScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1647,10 +1678,10 @@ namespace demos
 ButtonTemplate.h :
 namespace demos
 {
-	class ButtonTemplate : public ButtonTemplate_<ButtonTemplate>
+	class ButtonTemplate : public demos::ButtonTemplate_<demos::ButtonTemplate>
 	{
-		friend class ButtonTemplate_<ButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ButtonTemplate>;
+		friend class demos::ButtonTemplate_<demos::ButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1678,10 +1709,10 @@ namespace demos
 CheckBoxTemplate.h :
 namespace demos
 {
-	class CheckBoxTemplate : public CheckBoxTemplate_<CheckBoxTemplate>
+	class CheckBoxTemplate : public demos::CheckBoxTemplate_<demos::CheckBoxTemplate>
 	{
-		friend class CheckBoxTemplate_<CheckBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<CheckBoxTemplate>;
+		friend class demos::CheckBoxTemplate_<demos::CheckBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::CheckBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1709,10 +1740,10 @@ namespace demos
 CheckItemBackgroundTemplate.h :
 namespace demos
 {
-	class CheckItemBackgroundTemplate : public CheckItemBackgroundTemplate_<CheckItemBackgroundTemplate>
+	class CheckItemBackgroundTemplate : public demos::CheckItemBackgroundTemplate_<demos::CheckItemBackgroundTemplate>
 	{
-		friend class CheckItemBackgroundTemplate_<CheckItemBackgroundTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<CheckItemBackgroundTemplate>;
+		friend class demos::CheckItemBackgroundTemplate_<demos::CheckItemBackgroundTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::CheckItemBackgroundTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1740,10 +1771,10 @@ namespace demos
 CheckTextListTemplate.h :
 namespace demos
 {
-	class CheckTextListTemplate : public CheckTextListTemplate_<CheckTextListTemplate>
+	class CheckTextListTemplate : public demos::CheckTextListTemplate_<demos::CheckTextListTemplate>
 	{
-		friend class CheckTextListTemplate_<CheckTextListTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<CheckTextListTemplate>;
+		friend class demos::CheckTextListTemplate_<demos::CheckTextListTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::CheckTextListTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1771,10 +1802,10 @@ namespace demos
 ComboBoxTemplate.h :
 namespace demos
 {
-	class ComboBoxTemplate : public ComboBoxTemplate_<ComboBoxTemplate>
+	class ComboBoxTemplate : public demos::ComboBoxTemplate_<demos::ComboBoxTemplate>
 	{
-		friend class ComboBoxTemplate_<ComboBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ComboBoxTemplate>;
+		friend class demos::ComboBoxTemplate_<demos::ComboBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ComboBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1802,10 +1833,10 @@ namespace demos
 DatePickerTemplate.h :
 namespace demos
 {
-	class DatePickerTemplate : public DatePickerTemplate_<DatePickerTemplate>
+	class DatePickerTemplate : public demos::DatePickerTemplate_<demos::DatePickerTemplate>
 	{
-		friend class DatePickerTemplate_<DatePickerTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<DatePickerTemplate>;
+		friend class demos::DatePickerTemplate_<demos::DatePickerTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::DatePickerTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1833,10 +1864,10 @@ namespace demos
 DocumentLabelTemplate.h :
 namespace demos
 {
-	class DocumentLabelTemplate : public DocumentLabelTemplate_<DocumentLabelTemplate>
+	class DocumentLabelTemplate : public demos::DocumentLabelTemplate_<demos::DocumentLabelTemplate>
 	{
-		friend class DocumentLabelTemplate_<DocumentLabelTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<DocumentLabelTemplate>;
+		friend class demos::DocumentLabelTemplate_<demos::DocumentLabelTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::DocumentLabelTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1864,10 +1895,10 @@ namespace demos
 ExpandingDecoratorTemplate.h :
 namespace demos
 {
-	class ExpandingDecoratorTemplate : public ExpandingDecoratorTemplate_<ExpandingDecoratorTemplate>
+	class ExpandingDecoratorTemplate : public demos::ExpandingDecoratorTemplate_<demos::ExpandingDecoratorTemplate>
 	{
-		friend class ExpandingDecoratorTemplate_<ExpandingDecoratorTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ExpandingDecoratorTemplate>;
+		friend class demos::ExpandingDecoratorTemplate_<demos::ExpandingDecoratorTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ExpandingDecoratorTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1895,10 +1926,10 @@ namespace demos
 GroupBoxTemplate.h :
 namespace demos
 {
-	class GroupBoxTemplate : public GroupBoxTemplate_<GroupBoxTemplate>
+	class GroupBoxTemplate : public demos::GroupBoxTemplate_<demos::GroupBoxTemplate>
 	{
-		friend class GroupBoxTemplate_<GroupBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<GroupBoxTemplate>;
+		friend class demos::GroupBoxTemplate_<demos::GroupBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::GroupBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1926,10 +1957,10 @@ namespace demos
 HScrollHandleTemplate.h :
 namespace demos
 {
-	class HScrollHandleTemplate : public HScrollHandleTemplate_<HScrollHandleTemplate>
+	class HScrollHandleTemplate : public demos::HScrollHandleTemplate_<demos::HScrollHandleTemplate>
 	{
-		friend class HScrollHandleTemplate_<HScrollHandleTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<HScrollHandleTemplate>;
+		friend class demos::HScrollHandleTemplate_<demos::HScrollHandleTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::HScrollHandleTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1957,10 +1988,10 @@ namespace demos
 HScrollTemplate.h :
 namespace demos
 {
-	class HScrollTemplate : public HScrollTemplate_<HScrollTemplate>
+	class HScrollTemplate : public demos::HScrollTemplate_<demos::HScrollTemplate>
 	{
-		friend class HScrollTemplate_<HScrollTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<HScrollTemplate>;
+		friend class demos::HScrollTemplate_<demos::HScrollTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::HScrollTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2003,10 +2034,10 @@ namespace demos
 HTrackerTemplate.h :
 namespace demos
 {
-	class HTrackerTemplate : public HTrackerTemplate_<HTrackerTemplate>
+	class HTrackerTemplate : public demos::HTrackerTemplate_<demos::HTrackerTemplate>
 	{
-		friend class HTrackerTemplate_<HTrackerTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<HTrackerTemplate>;
+		friend class demos::HTrackerTemplate_<demos::HTrackerTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::HTrackerTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2049,10 +2080,10 @@ namespace demos
 ItemBackgroundTemplate.h :
 namespace demos
 {
-	class ItemBackgroundTemplate : public ItemBackgroundTemplate_<ItemBackgroundTemplate>
+	class ItemBackgroundTemplate : public demos::ItemBackgroundTemplate_<demos::ItemBackgroundTemplate>
 	{
-		friend class ItemBackgroundTemplate_<ItemBackgroundTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ItemBackgroundTemplate>;
+		friend class demos::ItemBackgroundTemplate_<demos::ItemBackgroundTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ItemBackgroundTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2080,10 +2111,10 @@ namespace demos
 LabelTemplate.h :
 namespace demos
 {
-	class LabelTemplate : public LabelTemplate_<LabelTemplate>
+	class LabelTemplate : public demos::LabelTemplate_<demos::LabelTemplate>
 	{
-		friend class LabelTemplate_<LabelTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<LabelTemplate>;
+		friend class demos::LabelTemplate_<demos::LabelTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::LabelTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2111,10 +2142,10 @@ namespace demos
 LeftScrollButtonTemplate.h :
 namespace demos
 {
-	class LeftScrollButtonTemplate : public LeftScrollButtonTemplate_<LeftScrollButtonTemplate>
+	class LeftScrollButtonTemplate : public demos::LeftScrollButtonTemplate_<demos::LeftScrollButtonTemplate>
 	{
-		friend class LeftScrollButtonTemplate_<LeftScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<LeftScrollButtonTemplate>;
+		friend class demos::LeftScrollButtonTemplate_<demos::LeftScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::LeftScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2142,10 +2173,10 @@ namespace demos
 ListViewColumnHeaderTemplate.h :
 namespace demos
 {
-	class ListViewColumnHeaderTemplate : public ListViewColumnHeaderTemplate_<ListViewColumnHeaderTemplate>
+	class ListViewColumnHeaderTemplate : public demos::ListViewColumnHeaderTemplate_<demos::ListViewColumnHeaderTemplate>
 	{
-		friend class ListViewColumnHeaderTemplate_<ListViewColumnHeaderTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ListViewColumnHeaderTemplate>;
+		friend class demos::ListViewColumnHeaderTemplate_<demos::ListViewColumnHeaderTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ListViewColumnHeaderTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2173,10 +2204,10 @@ namespace demos
 ListViewTemplate.h :
 namespace demos
 {
-	class ListViewTemplate : public ListViewTemplate_<ListViewTemplate>
+	class ListViewTemplate : public demos::ListViewTemplate_<demos::ListViewTemplate>
 	{
-		friend class ListViewTemplate_<ListViewTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ListViewTemplate>;
+		friend class demos::ListViewTemplate_<demos::ListViewTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ListViewTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2204,10 +2235,10 @@ namespace demos
 MainWindow.h :
 namespace demos
 {
-	class MainWindow : public MainWindow_<MainWindow>
+	class MainWindow : public demos::MainWindow_<demos::MainWindow>
 	{
-		friend class MainWindow_<MainWindow>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<MainWindow>;
+		friend class demos::MainWindow_<demos::MainWindow>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MainWindow>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2235,10 +2266,10 @@ namespace demos
 MenuBarButtonTemplate.h :
 namespace demos
 {
-	class MenuBarButtonTemplate : public MenuBarButtonTemplate_<MenuBarButtonTemplate>
+	class MenuBarButtonTemplate : public demos::MenuBarButtonTemplate_<demos::MenuBarButtonTemplate>
 	{
-		friend class MenuBarButtonTemplate_<MenuBarButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<MenuBarButtonTemplate>;
+		friend class demos::MenuBarButtonTemplate_<demos::MenuBarButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MenuBarButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2266,10 +2297,10 @@ namespace demos
 MenuItemButtonTemplate.h :
 namespace demos
 {
-	class MenuItemButtonTemplate : public MenuItemButtonTemplate_<MenuItemButtonTemplate>
+	class MenuItemButtonTemplate : public demos::MenuItemButtonTemplate_<demos::MenuItemButtonTemplate>
 	{
-		friend class MenuItemButtonTemplate_<MenuItemButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<MenuItemButtonTemplate>;
+		friend class demos::MenuItemButtonTemplate_<demos::MenuItemButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MenuItemButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2297,10 +2328,10 @@ namespace demos
 MenuSplitterTemplate.h :
 namespace demos
 {
-	class MenuSplitterTemplate : public MenuSplitterTemplate_<MenuSplitterTemplate>
+	class MenuSplitterTemplate : public demos::MenuSplitterTemplate_<demos::MenuSplitterTemplate>
 	{
-		friend class MenuSplitterTemplate_<MenuSplitterTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<MenuSplitterTemplate>;
+		friend class demos::MenuSplitterTemplate_<demos::MenuSplitterTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MenuSplitterTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2328,10 +2359,10 @@ namespace demos
 MultilineTextBoxTemplate.h :
 namespace demos
 {
-	class MultilineTextBoxTemplate : public MultilineTextBoxTemplate_<MultilineTextBoxTemplate>
+	class MultilineTextBoxTemplate : public demos::MultilineTextBoxTemplate_<demos::MultilineTextBoxTemplate>
 	{
-		friend class MultilineTextBoxTemplate_<MultilineTextBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<MultilineTextBoxTemplate>;
+		friend class demos::MultilineTextBoxTemplate_<demos::MultilineTextBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MultilineTextBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2359,10 +2390,10 @@ namespace demos
 ProgressBarTemplate.h :
 namespace demos
 {
-	class ProgressBarTemplate : public ProgressBarTemplate_<ProgressBarTemplate>
+	class ProgressBarTemplate : public demos::ProgressBarTemplate_<demos::ProgressBarTemplate>
 	{
-		friend class ProgressBarTemplate_<ProgressBarTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ProgressBarTemplate>;
+		friend class demos::ProgressBarTemplate_<demos::ProgressBarTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ProgressBarTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2390,10 +2421,10 @@ namespace demos
 RadioButtonTemplate.h :
 namespace demos
 {
-	class RadioButtonTemplate : public RadioButtonTemplate_<RadioButtonTemplate>
+	class RadioButtonTemplate : public demos::RadioButtonTemplate_<demos::RadioButtonTemplate>
 	{
-		friend class RadioButtonTemplate_<RadioButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<RadioButtonTemplate>;
+		friend class demos::RadioButtonTemplate_<demos::RadioButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::RadioButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2421,10 +2452,10 @@ namespace demos
 RadioTextListTemplate.h :
 namespace demos
 {
-	class RadioTextListTemplate : public RadioTextListTemplate_<RadioTextListTemplate>
+	class RadioTextListTemplate : public demos::RadioTextListTemplate_<demos::RadioTextListTemplate>
 	{
-		friend class RadioTextListTemplate_<RadioTextListTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<RadioTextListTemplate>;
+		friend class demos::RadioTextListTemplate_<demos::RadioTextListTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::RadioTextListTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2452,10 +2483,10 @@ namespace demos
 RightScrollButtonTemplate.h :
 namespace demos
 {
-	class RightScrollButtonTemplate : public RightScrollButtonTemplate_<RightScrollButtonTemplate>
+	class RightScrollButtonTemplate : public demos::RightScrollButtonTemplate_<demos::RightScrollButtonTemplate>
 	{
-		friend class RightScrollButtonTemplate_<RightScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<RightScrollButtonTemplate>;
+		friend class demos::RightScrollButtonTemplate_<demos::RightScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::RightScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2483,10 +2514,10 @@ namespace demos
 ScrollViewTemplate.h :
 namespace demos
 {
-	class ScrollViewTemplate : public ScrollViewTemplate_<ScrollViewTemplate>
+	class ScrollViewTemplate : public demos::ScrollViewTemplate_<demos::ScrollViewTemplate>
 	{
-		friend class ScrollViewTemplate_<ScrollViewTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ScrollViewTemplate>;
+		friend class demos::ScrollViewTemplate_<demos::ScrollViewTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ScrollViewTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2514,10 +2545,10 @@ namespace demos
 SinglelineTextBoxTemplate.h :
 namespace demos
 {
-	class SinglelineTextBoxTemplate : public SinglelineTextBoxTemplate_<SinglelineTextBoxTemplate>
+	class SinglelineTextBoxTemplate : public demos::SinglelineTextBoxTemplate_<demos::SinglelineTextBoxTemplate>
 	{
-		friend class SinglelineTextBoxTemplate_<SinglelineTextBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<SinglelineTextBoxTemplate>;
+		friend class demos::SinglelineTextBoxTemplate_<demos::SinglelineTextBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::SinglelineTextBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2545,10 +2576,10 @@ namespace demos
 TabDropdownTemplate.h :
 namespace demos
 {
-	class TabDropdownTemplate : public TabDropdownTemplate_<TabDropdownTemplate>
+	class TabDropdownTemplate : public demos::TabDropdownTemplate_<demos::TabDropdownTemplate>
 	{
-		friend class TabDropdownTemplate_<TabDropdownTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TabDropdownTemplate>;
+		friend class demos::TabDropdownTemplate_<demos::TabDropdownTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TabDropdownTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2576,10 +2607,10 @@ namespace demos
 TabHeaderTemplate.h :
 namespace demos
 {
-	class TabHeaderTemplate : public TabHeaderTemplate_<TabHeaderTemplate>
+	class TabHeaderTemplate : public demos::TabHeaderTemplate_<demos::TabHeaderTemplate>
 	{
-		friend class TabHeaderTemplate_<TabHeaderTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TabHeaderTemplate>;
+		friend class demos::TabHeaderTemplate_<demos::TabHeaderTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TabHeaderTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2607,10 +2638,10 @@ namespace demos
 TabTemplate.h :
 namespace demos
 {
-	class TabTemplate : public TabTemplate_<TabTemplate>
+	class TabTemplate : public demos::TabTemplate_<demos::TabTemplate>
 	{
-		friend class TabTemplate_<TabTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TabTemplate>;
+		friend class demos::TabTemplate_<demos::TabTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TabTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2638,10 +2669,10 @@ namespace demos
 TextListTemplate.h :
 namespace demos
 {
-	class TextListTemplate : public TextListTemplate_<TextListTemplate>
+	class TextListTemplate : public demos::TextListTemplate_<demos::TextListTemplate>
 	{
-		friend class TextListTemplate_<TextListTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TextListTemplate>;
+		friend class demos::TextListTemplate_<demos::TextListTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TextListTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2669,10 +2700,10 @@ namespace demos
 ToolstripButtonTemplate.h :
 namespace demos
 {
-	class ToolstripButtonTemplate : public ToolstripButtonTemplate_<ToolstripButtonTemplate>
+	class ToolstripButtonTemplate : public demos::ToolstripButtonTemplate_<demos::ToolstripButtonTemplate>
 	{
-		friend class ToolstripButtonTemplate_<ToolstripButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripButtonTemplate>;
+		friend class demos::ToolstripButtonTemplate_<demos::ToolstripButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2700,10 +2731,10 @@ namespace demos
 ToolstripDropdownButtonTemplate.h :
 namespace demos
 {
-	class ToolstripDropdownButtonTemplate : public ToolstripDropdownButtonTemplate_<ToolstripDropdownButtonTemplate>
+	class ToolstripDropdownButtonTemplate : public demos::ToolstripDropdownButtonTemplate_<demos::ToolstripDropdownButtonTemplate>
 	{
-		friend class ToolstripDropdownButtonTemplate_<ToolstripDropdownButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripDropdownButtonTemplate>;
+		friend class demos::ToolstripDropdownButtonTemplate_<demos::ToolstripDropdownButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripDropdownButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2731,10 +2762,10 @@ namespace demos
 ToolstripMenuTemplate.h :
 namespace demos
 {
-	class ToolstripMenuTemplate : public ToolstripMenuTemplate_<ToolstripMenuTemplate>
+	class ToolstripMenuTemplate : public demos::ToolstripMenuTemplate_<demos::ToolstripMenuTemplate>
 	{
-		friend class ToolstripMenuTemplate_<ToolstripMenuTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripMenuTemplate>;
+		friend class demos::ToolstripMenuTemplate_<demos::ToolstripMenuTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripMenuTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2762,10 +2793,10 @@ namespace demos
 ToolstripSplitArrowTemplate.h :
 namespace demos
 {
-	class ToolstripSplitArrowTemplate : public ToolstripSplitArrowTemplate_<ToolstripSplitArrowTemplate>
+	class ToolstripSplitArrowTemplate : public demos::ToolstripSplitArrowTemplate_<demos::ToolstripSplitArrowTemplate>
 	{
-		friend class ToolstripSplitArrowTemplate_<ToolstripSplitArrowTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripSplitArrowTemplate>;
+		friend class demos::ToolstripSplitArrowTemplate_<demos::ToolstripSplitArrowTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripSplitArrowTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2793,10 +2824,10 @@ namespace demos
 ToolstripSplitButtonTemplate.h :
 namespace demos
 {
-	class ToolstripSplitButtonTemplate : public ToolstripSplitButtonTemplate_<ToolstripSplitButtonTemplate>
+	class ToolstripSplitButtonTemplate : public demos::ToolstripSplitButtonTemplate_<demos::ToolstripSplitButtonTemplate>
 	{
-		friend class ToolstripSplitButtonTemplate_<ToolstripSplitButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripSplitButtonTemplate>;
+		friend class demos::ToolstripSplitButtonTemplate_<demos::ToolstripSplitButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripSplitButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2824,10 +2855,10 @@ namespace demos
 ToolstripSplitterTemplate.h :
 namespace demos
 {
-	class ToolstripSplitterTemplate : public ToolstripSplitterTemplate_<ToolstripSplitterTemplate>
+	class ToolstripSplitterTemplate : public demos::ToolstripSplitterTemplate_<demos::ToolstripSplitterTemplate>
 	{
-		friend class ToolstripSplitterTemplate_<ToolstripSplitterTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripSplitterTemplate>;
+		friend class demos::ToolstripSplitterTemplate_<demos::ToolstripSplitterTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripSplitterTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2855,10 +2886,10 @@ namespace demos
 ToolstripTemplate.h :
 namespace demos
 {
-	class ToolstripTemplate : public ToolstripTemplate_<ToolstripTemplate>
+	class ToolstripTemplate : public demos::ToolstripTemplate_<demos::ToolstripTemplate>
 	{
-		friend class ToolstripTemplate_<ToolstripTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<ToolstripTemplate>;
+		friend class demos::ToolstripTemplate_<demos::ToolstripTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2883,13 +2914,44 @@ namespace demos
 }
 
 
+TooltipTemplate.h :
+namespace demos
+{
+	class TooltipTemplate : public demos::TooltipTemplate_<demos::TooltipTemplate>
+	{
+		friend class demos::TooltipTemplate_<demos::TooltipTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TooltipTemplate>;
+	protected:
+
+		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
+		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
+	public:
+		TooltipTemplate();
+	};
+}
+
+
+TooltipTemplate.cpp :
+namespace demos
+{
+	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
+
+	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
+
+	TooltipTemplate::TooltipTemplate()
+	{
+		InitializeComponents();
+	}
+}
+
+
 TopScrollButtonTemplate.h :
 namespace demos
 {
-	class TopScrollButtonTemplate : public TopScrollButtonTemplate_<TopScrollButtonTemplate>
+	class TopScrollButtonTemplate : public demos::TopScrollButtonTemplate_<demos::TopScrollButtonTemplate>
 	{
-		friend class TopScrollButtonTemplate_<TopScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TopScrollButtonTemplate>;
+		friend class demos::TopScrollButtonTemplate_<demos::TopScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TopScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2917,10 +2979,10 @@ namespace demos
 TreeViewTemplate.h :
 namespace demos
 {
-	class TreeViewTemplate : public TreeViewTemplate_<TreeViewTemplate>
+	class TreeViewTemplate : public demos::TreeViewTemplate_<demos::TreeViewTemplate>
 	{
-		friend class TreeViewTemplate_<TreeViewTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TreeViewTemplate>;
+		friend class demos::TreeViewTemplate_<demos::TreeViewTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TreeViewTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2948,10 +3010,10 @@ namespace demos
 VScrollHandleTemplate.h :
 namespace demos
 {
-	class VScrollHandleTemplate : public VScrollHandleTemplate_<VScrollHandleTemplate>
+	class VScrollHandleTemplate : public demos::VScrollHandleTemplate_<demos::VScrollHandleTemplate>
 	{
-		friend class VScrollHandleTemplate_<VScrollHandleTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<VScrollHandleTemplate>;
+		friend class demos::VScrollHandleTemplate_<demos::VScrollHandleTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::VScrollHandleTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2979,10 +3041,10 @@ namespace demos
 VScrollTemplate.h :
 namespace demos
 {
-	class VScrollTemplate : public VScrollTemplate_<VScrollTemplate>
+	class VScrollTemplate : public demos::VScrollTemplate_<demos::VScrollTemplate>
 	{
-		friend class VScrollTemplate_<VScrollTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<VScrollTemplate>;
+		friend class demos::VScrollTemplate_<demos::VScrollTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::VScrollTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -3025,10 +3087,10 @@ namespace demos
 VTrackerTemplate.h :
 namespace demos
 {
-	class VTrackerTemplate : public VTrackerTemplate_<VTrackerTemplate>
+	class VTrackerTemplate : public demos::VTrackerTemplate_<demos::VTrackerTemplate>
 	{
-		friend class VTrackerTemplate_<VTrackerTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<VTrackerTemplate>;
+		friend class demos::VTrackerTemplate_<demos::VTrackerTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::VTrackerTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -3071,10 +3133,10 @@ namespace demos
 WindowTemplate.h :
 namespace demos
 {
-	class WindowTemplate : public WindowTemplate_<WindowTemplate>
+	class WindowTemplate : public demos::WindowTemplate_<demos::WindowTemplate>
 	{
-		friend class WindowTemplate_<WindowTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<WindowTemplate>;
+		friend class demos::WindowTemplate_<demos::WindowTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::WindowTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)

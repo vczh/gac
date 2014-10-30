@@ -181,7 +181,11 @@ void DocumentEditorWindow::UpdateMenuItems(int commands)
 		for(vint i=first;i<=last;i++)
 		{
 			Ptr<DocumentParagraphRun> paragraph=textBox->GetDocument()->paragraphs[i];
-			switch(paragraph->alignment)
+			if (!paragraph->alignment)
+			{
+				left = true;
+			}
+			else switch(paragraph->alignment.Value())
 			{
 			case Alignment::Left:
 				left=true;
@@ -378,7 +382,7 @@ void DocumentEditorWindow::commandStyleAlignLeft_Executed(GuiGraphicsComposition
 		if(count<0) count=-count;
 		count++;
 		
-		Array<Alignment> alignments(count);
+		Array<Nullable<Alignment>> alignments(count);
 		for(vint i=0;i<count;i++)
 		{
 			alignments[i]=Alignment::Left;
@@ -399,7 +403,7 @@ void DocumentEditorWindow::commandStyleAlignCenter_Executed(GuiGraphicsCompositi
 		if(count<0) count=-count;
 		count++;
 		
-		Array<Alignment> alignments(count);
+		Array<Nullable<Alignment>> alignments(count);
 		for(vint i=0;i<count;i++)
 		{
 			alignments[i]=Alignment::Center;
@@ -420,7 +424,7 @@ void DocumentEditorWindow::commandStyleAlignRight_Executed(GuiGraphicsCompositio
 		if(count<0) count=-count;
 		count++;
 		
-		Array<Alignment> alignments(count);
+		Array<Nullable<Alignment>> alignments(count);
 		for(vint i=0;i<count;i++)
 		{
 			alignments[i]=Alignment::Right;

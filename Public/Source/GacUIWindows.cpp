@@ -29,8 +29,6 @@ namespace vl
 
 				void RebuildCanvas(Size size)
 				{
-					if(size.x==0) size.x=1;
-					if(size.y==0) size.y=1;
 					if(!d2dRenderTarget)
 					{
 						ID2D1HwndRenderTarget* renderTarget=0;
@@ -79,6 +77,14 @@ namespace vl
 				{
 					if(!d2dRenderTarget) Moved();
 					return d2dRenderTarget.Obj();
+				}
+
+				void RecreateRenderTarget()
+				{
+					if (d2dRenderTarget)
+					{
+						d2dRenderTarget = 0;
+					}
 				}
 			};
 
@@ -132,6 +138,15 @@ namespace vl
 				return index==-1?0:direct2DListener->nativeWindowListeners.Values().Get(index)->GetDirect2DRenderTarget();
 			}
 
+			void RecreateNativeWindowDirect2DRenderTarget(INativeWindow* window)
+			{
+				vint index=direct2DListener->nativeWindowListeners.Keys().IndexOf(window);
+				if (index == -1)
+				{
+					direct2DListener->nativeWindowListeners.Values().Get(index)->RecreateRenderTarget();
+				}
+			}
+
 			ID2D1Factory* GetDirect2DFactory()
 			{
 				return direct2DListener->d2dFactory.Obj();
@@ -152,6 +167,11 @@ OS Supporting
 			class WinDirect2DApplicationDirect2DObjectProvider : public IWindowsDirect2DObjectProvider
 			{
 			public:
+				void RecreateRenderTarget(INativeWindow* window)
+				{
+					vl::presentation::windows::RecreateNativeWindowDirect2DRenderTarget(window);
+				}
+
 				ID2D1RenderTarget* GetNativeWindowDirect2DRenderTarget(INativeWindow* window)
 				{
 					return vl::presentation::windows::GetNativeWindowDirect2DRenderTarget(window);
@@ -3915,9 +3935,10 @@ WindowsClass
 			class WinClass : public Object
 			{
 			protected:
-				WString					name;
-				WNDCLASSEX				windowClass;
-				ATOM					windowAtom;
+				WString									name;
+				WNDCLASSEX								windowClass;
+				ATOM									windowAtom;
+
 			public:
 				WinClass(WString _name, bool shadow, bool ownDC, WNDPROC procedure, HINSTANCE hInstance)
 				{
@@ -4443,6 +4464,11 @@ WindowsForm
 					case WM_SYSKEYUP:
 						{
 							NativeWindowKeyInfo info=ConvertKey(wParam, lParam);
+							if (supressingAlt && !info.ctrl && !info.shift && info.code == VK_MENU)
+							{
+								supressingAlt = false;
+								break;
+							}
 							for(vint i=0;i<listeners.Count();i++)
 							{
 								listeners[i]->SysKeyUp(info);
@@ -4452,6 +4478,10 @@ WindowsForm
 					case WM_SYSKEYDOWN:
 						{
 							NativeWindowKeyInfo info=ConvertKey(wParam, lParam);
+							if (supressingAlt && !info.ctrl && !info.shift && info.code == VK_MENU)
+							{
+								break;
+							}
 							for(vint i=0;i<listeners.Count();i++)
 							{
 								listeners[i]->SysKeyDown(info);
@@ -4477,6 +4507,7 @@ WindowsForm
 						}
 						break;
 					case WM_ERASEBKGND:
+						result = 0;
 						return true;
 					case WM_NCPAINT:
 					case WM_SYNCPAINT:
@@ -4666,11 +4697,14 @@ WindowsForm
 				WindowsForm*						parentWindow;
 				bool								alwaysPassFocusToParent;
 				List<INativeWindowListener*>		listeners;
-				vint									mouseLastX;
-				vint									mouseLastY;
-				vint									mouseHoving;
+				vint								mouseLastX;
+				vint								mouseLastY;
+				vint								mouseHoving;
 				Interface*							graphicsHandler;
 				bool								customFrameMode;
+				List<Ptr<INativeMessageHandler>>	messageHandlers;
+				bool								supressingAlt;
+
 			public:
 				WindowsForm(HWND parent, WString className, HINSTANCE hInstance)
 					:cursor(0)
@@ -4681,6 +4715,7 @@ WindowsForm
 					,mouseHoving(false)
 					,graphicsHandler(0)
 					,customFrameMode(false)
+					,supressingAlt(false)
 				{
 					DWORD exStyle=WS_EX_APPWINDOW | WS_EX_CONTROLPARENT;
 					DWORD style=WS_BORDER | WS_CAPTION | WS_SIZEBOX | WS_SYSMENU | WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
@@ -4712,22 +4747,59 @@ WindowsForm
 
 				bool HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& result)
 				{
-					return HandleMessageInternal(hwnd, uMsg, wParam, lParam, result);
+					bool skip = false;
+					{
+						FOREACH(Ptr<INativeMessageHandler>, handler, messageHandlers)
+						{
+							handler->BeforeHandle(hwnd, uMsg, wParam, lParam, skip);
+						}
+						if (skip)
+						{
+							return true;
+						}
+					}
+					skip = HandleMessageInternal(hwnd, uMsg, wParam, lParam, result);
+					if (GetWindowsFormFromHandle(hwnd))
+					{
+						FOREACH(Ptr<INativeMessageHandler>, handler, messageHandlers)
+						{
+							handler->AfterHandle(hwnd, uMsg, wParam, lParam, skip, result);
+						}
+					}
+					return skip;
 				}
 
-				HWND GetWindowHandle()
+				HWND GetWindowHandle()override
 				{
 					return handle;
 				}
 
-				Interface* GetGraphicsHandler()
+				Interface* GetGraphicsHandler()override
 				{
 					return graphicsHandler;
 				}
 
-				void SetGraphicsHandler(Interface* handler)
+				void SetGraphicsHandler(Interface* handler)override
 				{
 					graphicsHandler=handler;
+				}
+
+				bool InstallMessageHandler(Ptr<INativeMessageHandler> handler)override
+				{
+					if (messageHandlers.Contains(handler.Obj()))
+					{
+						return false;
+					}
+					messageHandlers.Add(handler);
+					return true;
+				}
+
+				bool UninstallMessageHandler(Ptr<INativeMessageHandler> handler)override
+				{
+					vint index = messageHandlers.IndexOf(handler.Obj());
+					if (index == -1)return false;
+					messageHandlers.RemoveAt(handler);
+					return true;
 				}
 
 				Rect GetBounds()
@@ -5070,7 +5142,17 @@ WindowsForm
 
 				void SetTopMost(bool topmost)
 				{
-					SetWindowPos(handle,(topmost?HWND_TOPMOST:HWND_NOTOPMOST),0,0,0,0,SWP_NOSIZE | SWP_NOMOVE | SWP_FRAMECHANGED);
+					SetWindowPos(handle, (topmost ? HWND_TOPMOST : HWND_NOTOPMOST), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_FRAMECHANGED);
+				}
+
+				void SupressAlt()
+				{
+					if (!supressingAlt)
+					{
+						supressingAlt = true;
+						PostMessage(handle, WM_SYSKEYDOWN, VK_MENU, 0);
+						PostMessage(handle, WM_SYSKEYUP, VK_MENU, 0);
+					}
 				}
 
 				bool InstallListener(INativeWindowListener* listener)
@@ -5158,6 +5240,13 @@ WindowsController
 					inputService.StopHookMouse();
 					clipboardService.SetOwnerHandle(NULL);
 					DestroyWindow(godWindow);
+				}
+
+				WindowsForm* GetWindowsFormFromHandle(HWND hwnd)
+				{
+					vint index = windows.Keys().IndexOf(hwnd);
+					if (index == -1)return 0;
+					return windows.Values()[index];
 				}
 
 				bool HandleMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& result)
@@ -5483,6 +5572,16 @@ Windows Platform Native Controller
 			INativeController* CreateWindowsNativeController(HINSTANCE hInstance)
 			{
 				return new WindowsController(hInstance);
+			}
+
+			IWindowsForm* GetWindowsFormFromHandle(HWND hwnd)
+			{
+				auto controller = dynamic_cast<WindowsController*>(GetCurrentController());
+				if (controller)
+				{
+					return controller->GetWindowsFormFromHandle(hwnd);
+				}
+				return 0;
 			}
 
 			IWindowsForm* GetWindowsForm(INativeWindow* window)
@@ -9351,9 +9450,10 @@ WindowsGDIRenderTarget
 					dc=GetWindowsGDIObjectProvider()->GetNativeWindowDC(window);
 				}
 
-				void StopRendering()override
+				bool StopRendering()override
 				{
-					dc=0;
+					dc = 0;
+					return true;
 				}
 
 				void PushClipper(Rect clipper)override
@@ -9619,6 +9719,10 @@ WindowsGDIResourceManager
 				IGuiGraphicsRenderTarget* GetRenderTarget(INativeWindow* window)override
 				{
 					return GetWindowsGDIObjectProvider()->GetBindedRenderTarget(window);
+				}
+
+				void RecreateRenderTarget(INativeWindow* window)override
+				{
 				}
 
 				IGuiGraphicsLayoutProvider* GetLayoutProvider()override
@@ -12667,10 +12771,11 @@ WindowsDirect2DRenderTarget
 					d2dRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 				}
 
-				void StopRendering()override
+				bool StopRendering()override
 				{
-					d2dRenderTarget->EndDraw();
+					auto result = d2dRenderTarget->EndDraw();
 					d2dRenderTarget=0;
+					return result == S_OK;
 				}
 
 				void PushClipper(Rect clipper)override
@@ -12706,17 +12811,14 @@ WindowsDirect2DRenderTarget
 
 				void PopClipper()override
 				{
-					if(clippers.Count()>0)
+					if(clipperCoverWholeTargetCounter>0)
 					{
-						if(clipperCoverWholeTargetCounter>0)
-						{
-							clipperCoverWholeTargetCounter--;
-						}
-						else
-						{
-							clippers.RemoveAt(clippers.Count()-1);
-							d2dRenderTarget->PopAxisAlignedClip();
-						}
+						clipperCoverWholeTargetCounter--;
+					}
+					else if(clippers.Count()>0)
+					{
+						clippers.RemoveAt(clippers.Count()-1);
+						d2dRenderTarget->PopAxisAlignedClip();
 					}
 				}
 
@@ -12779,6 +12881,13 @@ WindowsGDIResourceManager
 				IGuiGraphicsRenderTarget* GetRenderTarget(INativeWindow* window)override
 				{
 					return GetWindowsDirect2DObjectProvider()->GetBindedRenderTarget(window);
+				}
+				
+				void RecreateRenderTarget(INativeWindow* window)override
+				{
+					NativeWindowDestroying(window);
+					GetWindowsDirect2DObjectProvider()->RecreateRenderTarget(window);
+					NativeWindowCreated(window);
 				}
 
 				IGuiGraphicsLayoutProvider* GetLayoutProvider()override

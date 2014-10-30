@@ -599,15 +599,25 @@ namespace vl
 Windows Platform Native Controller
 ***********************************************************************/
 
+			class INativeMessageHandler : public Interface
+			{
+			public:
+				virtual void								BeforeHandle(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool& skip) = 0;
+				virtual void								AfterHandle(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool& skip, LRESULT& result) = 0;
+			};
+
 			class IWindowsForm : public Interface
 			{
 			public:
-				virtual HWND								GetWindowHandle()=0;
-				virtual Interface*							GetGraphicsHandler()=0;
-				virtual void								SetGraphicsHandler(Interface* handler)=0;
+				virtual HWND								GetWindowHandle() = 0;
+				virtual Interface*							GetGraphicsHandler() = 0;
+				virtual void								SetGraphicsHandler(Interface* handler) = 0;
+				virtual bool								InstallMessageHandler(Ptr<INativeMessageHandler> handler) = 0;
+				virtual bool								UninstallMessageHandler(Ptr<INativeMessageHandler> handler) = 0;
 			};
 
 			extern INativeController*						CreateWindowsNativeController(HINSTANCE hInstance);
+			extern IWindowsForm*							GetWindowsFormFromHandle(HWND hwnd);
 			extern IWindowsForm*							GetWindowsForm(INativeWindow* window);
 			extern void										DestroyWindowsNativeController(INativeController* controller);
 			extern void										EnableCrossKernelCrashing();
@@ -640,6 +650,7 @@ namespace vl
 		namespace windows
 		{
 			extern ID2D1RenderTarget*					GetNativeWindowDirect2DRenderTarget(INativeWindow* window);
+			extern void									RecreateNativeWindowDirect2DRenderTarget(INativeWindow* window);
 			extern ID2D1Factory*						GetDirect2DFactory();
 			extern IDWriteFactory*						GetDirectWriteFactory();
 		}
@@ -1043,7 +1054,7 @@ namespace vl
 
 				static BOOL CALLBACK							MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData);
 				void											RefreshScreenInformation();
-				vint												GetScreenCount()override;
+				vint											GetScreenCount()override;
 				INativeScreen*									GetScreen(vint index)override;
 				INativeScreen*									GetScreen(INativeWindow* window)override;
 			};
@@ -1894,6 +1905,7 @@ OS Supporting
 			class IWindowsDirect2DObjectProvider : public Interface
 			{
 			public:
+				virtual void								RecreateRenderTarget(INativeWindow* window)=0;
 				virtual ID2D1RenderTarget*					GetNativeWindowDirect2DRenderTarget(INativeWindow* window)=0;
 				virtual ID2D1Factory*						GetDirect2DFactory()=0;
 				virtual IDWriteFactory*						GetDirectWriteFactory()=0;

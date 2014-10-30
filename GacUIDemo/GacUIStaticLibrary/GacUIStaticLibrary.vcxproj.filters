@@ -49,6 +49,12 @@
     <None Include="..\Resources\_Undo.png">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\Resources\XmlWindowResourceControlTemplate.precompiled.compressed">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\Resources\XmlWindowResourceControlTemplate.precompiled.bin">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Public\Source\GacUI.cpp">

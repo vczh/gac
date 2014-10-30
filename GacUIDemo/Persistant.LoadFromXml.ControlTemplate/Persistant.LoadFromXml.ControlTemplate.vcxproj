@@ -124,6 +124,7 @@
     <ClCompile Include="UI\ToolstripSplitButtonTemplate.cpp" />
     <ClCompile Include="UI\ToolstripSplitterTemplate.cpp" />
     <ClCompile Include="UI\ToolstripTemplate.cpp" />
+    <ClCompile Include="UI\TooltipTemplate.cpp" />
     <ClCompile Include="UI\TopScrollButtonTemplate.cpp" />
     <ClCompile Include="UI\TreeViewTemplate.cpp" />
     <ClCompile Include="UI\VScrollHandleTemplate.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="UI\ToolstripSplitButtonTemplate.h" />
     <ClInclude Include="UI\ToolstripSplitterTemplate.h" />
     <ClInclude Include="UI\ToolstripTemplate.h" />
+    <ClInclude Include="UI\TooltipTemplate.h" />
     <ClInclude Include="UI\TopScrollButtonTemplate.h" />
     <ClInclude Include="UI\TreeViewTemplate.h" />
     <ClInclude Include="UI\VScrollHandleTemplate.h" />

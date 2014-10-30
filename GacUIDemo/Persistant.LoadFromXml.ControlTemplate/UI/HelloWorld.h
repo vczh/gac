@@ -51,6 +51,7 @@ DO NOT MODIFY
 #include "ToolstripSplitButtonTemplate.h"
 #include "ToolstripSplitterTemplate.h"
 #include "ToolstripTemplate.h"
+#include "TooltipTemplate.h"
 #include "TopScrollButtonTemplate.h"
 #include "TreeViewTemplate.h"
 #include "VScrollHandleTemplate.h"

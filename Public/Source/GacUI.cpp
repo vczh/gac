@@ -67,8 +67,9 @@ GuiApplication
 
 			GuiApplication::GuiApplication()
 				:mainWindow(0)
+				,sharedTooltipOwnerWindow(0)
 				,sharedTooltipOwner(0)
-				,sharedTooltipWindow(0)
+				,sharedTooltipControl(0)
 				,sharedTooltipHovering(false)
 				,sharedTooltipClosing(false)
 			{
@@ -77,10 +78,10 @@ GuiApplication
 
 			GuiApplication::~GuiApplication()
 			{
-				if(sharedTooltipWindow)
+				if(sharedTooltipControl)
 				{
-					delete sharedTooltipWindow;
-					sharedTooltipWindow=0;
+					delete sharedTooltipControl;
+					sharedTooltipControl=0;
 				}
 				GetCurrentController()->CallbackService()->UninstallListener(this);
 			}
@@ -184,24 +185,43 @@ GuiApplication
 
 			void GuiApplication::ShowTooltip(GuiControl* owner, GuiControl* tooltip, vint preferredContentWidth, Point location)
 			{
-				if(!sharedTooltipWindow)
+				GuiWindow* ownerWindow = dynamic_cast<GuiWindow*>(owner->GetRelatedControlHost());
+				if (sharedTooltipOwnerWindow != ownerWindow)
 				{
-					sharedTooltipWindow=new GuiTooltip(GetCurrentTheme()->CreateTooltipStyle());
-					sharedTooltipWindow->GetBoundsComposition()->GetEventReceiver()->mouseEnter.AttachMethod(this, &GuiApplication::TooltipMouseEnter);
-					sharedTooltipWindow->GetBoundsComposition()->GetEventReceiver()->mouseLeave.AttachMethod(this, &GuiApplication::TooltipMouseLeave);
+					delete sharedTooltipControl;
+					sharedTooltipControl = 0;
 				}
+
+				if(!sharedTooltipControl)
+				{
+					GuiWindow::IStyleController* tooltipStyle = 0;
+					if (ownerWindow)
+					{
+						tooltipStyle = dynamic_cast<GuiWindow::IStyleController*>(ownerWindow->GetStyleController())->CreateTooltipStyle();
+					}
+					if (!tooltipStyle)
+					{
+						tooltipStyle = GetCurrentTheme()->CreateTooltipStyle();
+					}
+
+					sharedTooltipControl=new GuiTooltip(tooltipStyle);
+					sharedTooltipControl->GetBoundsComposition()->GetEventReceiver()->mouseEnter.AttachMethod(this, &GuiApplication::TooltipMouseEnter);
+					sharedTooltipControl->GetBoundsComposition()->GetEventReceiver()->mouseLeave.AttachMethod(this, &GuiApplication::TooltipMouseLeave);
+				}
+
 				sharedTooltipHovering=false;
 				sharedTooltipClosing=false;
+				sharedTooltipOwnerWindow = ownerWindow;
 				sharedTooltipOwner=owner;
-				sharedTooltipWindow->SetTemporaryContentControl(tooltip);
-				sharedTooltipWindow->SetPreferredContentWidth(preferredContentWidth);
-				sharedTooltipWindow->SetClientSize(Size(10, 10));
-				sharedTooltipWindow->ShowPopup(owner, location);
+				sharedTooltipControl->SetTemporaryContentControl(tooltip);
+				sharedTooltipControl->SetPreferredContentWidth(preferredContentWidth);
+				sharedTooltipControl->SetClientSize(Size(10, 10));
+				sharedTooltipControl->ShowPopup(owner, location);
 			}
 
 			void GuiApplication::CloseTooltip()
 			{
-				if(sharedTooltipWindow)
+				if(sharedTooltipControl)
 				{
 					if(sharedTooltipHovering)
 					{
@@ -210,15 +230,15 @@ GuiApplication
 					else
 					{
 						sharedTooltipClosing=false;
-						sharedTooltipWindow->Close();
+						sharedTooltipControl->Close();
 					}
 				}
 			}
 
 			GuiControl* GuiApplication::GetTooltipOwner()
 			{
-				if(!sharedTooltipWindow) return 0;
-				if(!sharedTooltipWindow->GetTemporaryContentControl()) return 0;
+				if(!sharedTooltipControl) return 0;
+				if(!sharedTooltipControl->GetTemporaryContentControl()) return 0;
 				return sharedTooltipOwner;
 			}
 
@@ -545,6 +565,41 @@ GuiControl
 				}
 			}
 
+			bool GuiControl::IsAltEnabled()
+			{
+				GuiControl* control = this;
+				while (control)
+				{
+					if (!control->GetVisible() || !control->GetEnabled())
+					{
+						return false;
+					}
+					control = control->GetParent();
+				}
+
+				return true;
+			}
+
+			bool GuiControl::IsAltAvailable()
+			{
+				return focusableComposition != 0 && alt != L"";
+			}
+
+			compositions::GuiGraphicsComposition* GuiControl::GetAltComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::IGuiAltActionHost* GuiControl::GetActivatingAltHost()
+			{
+				return activatingAltHost;
+			}
+
+			void GuiControl::OnActiveAlt()
+			{
+				SetFocus();
+			}
+
 			bool GuiControl::SharedPtrDestructorProc(DescriptableObject* obj, bool forceDisposing)
 			{
 				GuiControl* value=dynamic_cast<GuiControl*>(obj);
@@ -564,6 +619,7 @@ GuiControl
 				,isEnabled(true)
 				,isVisuallyEnabled(true)
 				,isVisible(true)
+				,activatingAltHost(0)
 				,parent(0)
 				,tooltipControl(0)
 				,tooltipWidth(50)
@@ -572,6 +628,7 @@ GuiControl
 				VisibleChanged.SetAssociatedComposition(boundsComposition);
 				EnabledChanged.SetAssociatedComposition(boundsComposition);
 				VisuallyEnabledChanged.SetAssociatedComposition(boundsComposition);
+				AltChanged.SetAssociatedComposition(boundsComposition);
 				TextChanged.SetAssociatedComposition(boundsComposition);
 				FontChanged.SetAssociatedComposition(boundsComposition);
 
@@ -708,6 +765,27 @@ GuiControl
 				}
 			}
 
+			const WString& GuiControl::GetAlt()
+			{
+				return alt;
+			}
+
+			bool GuiControl::SetAlt(const WString& value)
+			{
+				if (!IGuiAltAction::IsLegalAlt(value)) return false;
+				if (alt != value)
+				{
+					alt = value;
+					AltChanged.Execute(GetNotifyEventArguments());
+				}
+				return true;
+			}
+
+			void GuiControl::SetActivatingAltHost(compositions::IGuiAltActionHost* host)
+			{
+				activatingAltHost = host;
+			}
+
 			const WString& GuiControl::GetText()
 			{
 				return text;
@@ -799,7 +877,15 @@ GuiControl
 
 			IDescriptable* GuiControl::QueryService(const WString& identifier)
 			{
-				if(parent)
+				if (identifier == IGuiAltAction::Identifier)
+				{
+					return (IGuiAltAction*)this;
+				}
+				else if (identifier == IGuiAltActionContainer::Identifier)
+				{
+					return 0;
+				}
+				else if(parent)
 				{
 					return parent->QueryService(identifier);
 				}
@@ -981,6 +1067,11 @@ GuiButton
 					mouseHoving=false;
 					UpdateControlState();
 				}
+			}
+
+			void GuiButton::OnActiveAlt()
+			{
+				Clicked.Execute(GetNotifyEventArguments());
 			}
 
 			void GuiButton::UpdateControlState()
@@ -1444,8 +1535,7 @@ GuiTabPage
 				else
 				{
 					owner=_owner;
-					GuiEventArgs arguments(containerComposition);
-					PageInstalled.Execute(arguments);
+					PageInstalled.Execute(containerControl->GetNotifyEventArguments());
 					return true;
 				}
 			}
@@ -1454,8 +1544,7 @@ GuiTabPage
 			{
 				if(owner && owner==_owner)
 				{
-					GuiEventArgs arguments(containerComposition);
-					PageUninstalled.Execute(arguments);
+					PageUninstalled.Execute(containerControl->GetNotifyEventArguments());
 					owner=0;
 					return true;
 				}
@@ -1465,34 +1554,81 @@ GuiTabPage
 				}
 			}
 
-			GuiTabPage::GuiTabPage()
-				:containerComposition(0)
-				,owner(0)
+			compositions::GuiGraphicsComposition* GuiTabPage::GetAltComposition()
 			{
-				containerComposition = new GuiBoundsComposition;
-				containerComposition->SetAlignmentToParent(Margin(2, 2, 2, 2));
+				return containerControl->GetContainerComposition();
+			}
 
-				TextChanged.SetAssociatedComposition(containerComposition);
-				PageInstalled.SetAssociatedComposition(containerComposition);
-				PageUninstalled.SetAssociatedComposition(containerComposition);
+			compositions::IGuiAltActionHost* GuiTabPage::GetPreviousAltHost()
+			{
+				return previousAltHost;
+			}
+
+			void GuiTabPage::OnActivatedAltHost(compositions::IGuiAltActionHost* previousHost)
+			{
+				previousAltHost = previousHost;
+			}
+
+			void GuiTabPage::OnDeactivatedAltHost()
+			{
+				previousAltHost = 0;
+			}
+
+			void GuiTabPage::CollectAltActions(collections::Group<WString, compositions::IGuiAltAction*>& actions)
+			{
+				IGuiAltActionHost::CollectAltActionsFromControl(containerControl, actions);
+			}
+
+			GuiTabPage::GuiTabPage()
+				:containerControl(0)
+				,owner(0)
+				,previousAltHost(0)
+			{
+				containerControl = new GuiControl(new GuiControl::EmptyStyleController());
+				containerControl->GetBoundsComposition()->SetAlignmentToParent(Margin(2, 2, 2, 2));
+				
+				AltChanged.SetAssociatedComposition(containerControl->GetBoundsComposition());
+				TextChanged.SetAssociatedComposition(containerControl->GetBoundsComposition());
+				PageInstalled.SetAssociatedComposition(containerControl->GetBoundsComposition());
+				PageUninstalled.SetAssociatedComposition(containerControl->GetBoundsComposition());
 			}
 
 			GuiTabPage::~GuiTabPage()
 			{
-				if(!containerComposition->GetParent())
+				if (!containerControl->GetParent())
 				{
-					delete containerComposition;
+					delete containerControl;
 				}
 			}
 
-			compositions::GuiBoundsComposition* GuiTabPage::GetContainerComposition()
+			compositions::GuiGraphicsComposition* GuiTabPage::GetContainerComposition()
 			{
-				return containerComposition;
+				return containerControl->GetContainerComposition();
 			}
 
 			GuiTab* GuiTabPage::GetOwnerTab()
 			{
 				return owner;
+			}
+
+			const WString& GuiTabPage::GetAlt()
+			{
+				return alt;
+			}
+
+			bool GuiTabPage::SetAlt(const WString& value)
+			{
+				if (!IGuiAltAction::IsLegalAlt(value)) return false;
+				if(owner)
+				{
+					owner->styleController->SetTabAlt(owner->tabPages.IndexOf(this), text, this);
+				}
+				if (alt != value)
+				{
+					alt = value;
+					AltChanged.Execute(containerControl->GetNotifyEventArguments());
+				}
+				return true;
 			}
 
 			const WString& GuiTabPage::GetText()
@@ -1509,8 +1645,7 @@ GuiTabPage
 					{
 						owner->styleController->SetTabText(owner->tabPages.IndexOf(this), text);
 					}
-					GuiEventArgs arguments(containerComposition);
-					TextChanged.Execute(arguments);
+					TextChanged.Execute(containerControl->GetNotifyEventArguments());
 				}
 			}
 
@@ -1537,6 +1672,16 @@ GuiTab
 				tab->SetSelectedPage(tab->GetPages().Get(index));
 			}
 
+			vint GuiTab::GetAltActionCount()
+			{
+				return tabPages.Count();
+			}
+
+			compositions::IGuiAltAction* GuiTab::GetAltAction(vint index)
+			{
+				return styleController->GetTabAltAction(index);
+			}
+
 			GuiTab::GuiTab(IStyleController* _styleController)
 				:GuiControl(_styleController)
 				,styleController(_styleController)
@@ -1551,6 +1696,18 @@ GuiTab
 				for(vint i=0;i<tabPages.Count();i++)
 				{
 					delete tabPages[i];
+				}
+			}
+
+			IDescriptable* GuiTab::QueryService(const WString& identifier)
+			{
+				if (identifier == IGuiAltActionContainer::Identifier)
+				{
+					return (IGuiAltActionContainer*)this;
+				}
+				else
+				{
+					return GuiControl::QueryService(identifier);
 				}
 			}
 
@@ -1585,6 +1742,7 @@ GuiTab
 					GetContainerComposition()->AddChild(page->GetContainerComposition());
 					styleController->InsertTab(index);
 					styleController->SetTabText(index, page->GetText());
+					styleController->SetTabAlt(index, page->GetAlt(), page);
 				
 					if(!selectedPage)
 					{
@@ -1894,6 +2052,30 @@ GuiScrollView
 				}
 			}
 
+			void GuiScrollView::OnHorizontalWheel(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+			{
+				if(!supressScrolling)
+				{
+					auto scroll = styleController->GetHorizontalScroll();
+					vint position = scroll->GetPosition();
+					vint move = scroll->GetSmallMove();
+					position -= move*arguments.wheel / 60;
+					scroll->SetPosition(position);
+				}
+			}
+
+			void GuiScrollView::OnVerticalWheel(compositions::GuiGraphicsComposition* sender, compositions::GuiMouseEventArgs& arguments)
+			{
+				if(!supressScrolling && GetVisuallyEnabled())
+				{
+					auto scroll = styleController->GetVerticalScroll();
+					vint position = scroll->GetPosition();
+					vint move = scroll->GetSmallMove();
+					position -= move*arguments.wheel / 60;
+					scroll->SetPosition(position);
+				}
+			}
+
 			void GuiScrollView::CallUpdateView()
 			{
 				Rect viewBounds=GetViewBounds();
@@ -1908,6 +2090,8 @@ GuiScrollView
 				styleController->GetInternalContainerComposition()->BoundsChanged.AttachMethod(this, &GuiScrollView::OnContainerBoundsChanged);
 				styleController->GetHorizontalScroll()->PositionChanged.AttachMethod(this, &GuiScrollView::OnHorizontalScroll);
 				styleController->GetVerticalScroll()->PositionChanged.AttachMethod(this, &GuiScrollView::OnVerticalScroll);
+				styleController->GetBoundsComposition()->GetEventReceiver()->horizontalWheel.AttachMethod(this, &GuiScrollView::OnHorizontalWheel);
+				styleController->GetBoundsComposition()->GetEventReceiver()->verticalWheel.AttachMethod(this, &GuiScrollView::OnVerticalWheel);
 			}
 
 			GuiScrollView::GuiScrollView(StyleController* _styleController)
@@ -1923,27 +2107,49 @@ GuiScrollView
 			{
 				Initialize();
 			}
+
+			vint GuiScrollView::GetSmallMove()
+			{
+				return GetFont().size * 2;
+			}
+
+			Size GuiScrollView::GetBigMove()
+			{
+				return GetViewSize();
+			}
 			
 			GuiScrollView::~GuiScrollView()
 			{
+			}
+
+			void GuiScrollView::SetFont(const FontProperties& value)
+			{
+				GuiControl::SetFont(value);
+				CalculateView();
 			}
 
 			void GuiScrollView::CalculateView()
 			{
 				if(!supressScrolling)
 				{
-					Size fullSize=QueryFullSize();
+					Size fullSize = QueryFullSize();
 					while(true)
 					{
 						styleController->AdjustView(fullSize);
 						styleController->AdjustView(fullSize);
-						supressScrolling=true;
+						supressScrolling = true;
 						CallUpdateView();
-						supressScrolling=false;
+						supressScrolling = false;
 
 						Size newSize=QueryFullSize();
-						if(fullSize==newSize)
+						if (fullSize == newSize)
 						{
+							vint smallMove = GetSmallMove();
+							styleController->GetHorizontalScroll()->SetSmallMove(smallMove);
+							styleController->GetVerticalScroll()->SetSmallMove(smallMove);
+							Size bigMove = GetBigMove();
+							styleController->GetHorizontalScroll()->SetBigMove(bigMove.x);
+							styleController->GetVerticalScroll()->SetBigMove(bigMove.y);
 							break;
 						}
 						else
@@ -2882,11 +3088,6 @@ GuiControlHost
 				SetBounds(GetBounds());
 			}
 
-			void GuiControlHost::Render()
-			{
-				host->Render();
-			}
-
 			bool GuiControlHost::GetEnabled()
 			{
 				if(host->GetNativeWindow())
@@ -3344,6 +3545,16 @@ GuiWindow::DefaultBehaviorStyleController
 				}
 			}
 
+			GuiWindow::IStyleController* GuiWindow::DefaultBehaviorStyleController::CreateTooltipStyle()
+			{
+				return 0;
+			}
+
+			GuiLabel::IStyleController* GuiWindow::DefaultBehaviorStyleController::CreateShortcutKeyStyle()
+			{
+				return 0;
+			}
+
 /***********************************************************************
 GuiWindow
 ***********************************************************************/
@@ -3369,9 +3580,35 @@ GuiWindow
 			{
 			}
 
+			compositions::GuiGraphicsComposition* GuiWindow::GetAltComposition()
+			{
+				return boundsComposition;
+			}
+
+			compositions::IGuiAltActionHost* GuiWindow::GetPreviousAltHost()
+			{
+				return previousAltHost;
+			}
+
+			void GuiWindow::OnActivatedAltHost(IGuiAltActionHost* previousHost)
+			{
+				previousAltHost = previousHost;
+			}
+
+			void GuiWindow::OnDeactivatedAltHost()
+			{
+				previousAltHost = 0;
+			}
+
+			void GuiWindow::CollectAltActions(collections::Group<WString, IGuiAltAction*>& actions)
+			{
+				IGuiAltActionHost::CollectAltActionsFromControl(this, actions);
+			}
+
 			GuiWindow::GuiWindow(IStyleController* _styleController)
 				:GuiControlHost(_styleController)
 				,styleController(_styleController)
+				,previousAltHost(0)
 			{
 				INativeWindow* window=GetCurrentController()->WindowService()->CreateNativeWindow();
 				styleController->AttachWindow(this);
@@ -3388,6 +3625,18 @@ GuiWindow
 				{
 					SetNativeWindow(0);
 					GetCurrentController()->WindowService()->DestroyNativeWindow(window);
+				}
+			}
+
+			IDescriptable* GuiWindow::QueryService(const WString& identifier)
+			{
+				if (identifier == IGuiAltActionHost::Identifier)
+				{
+					return (IGuiAltActionHost*)this;
+				}
+				else
+				{
+					return GuiControlHost::QueryService(identifier);
 				}
 			}
 
@@ -3567,12 +3816,17 @@ GuiPopup
 				return true;
 			}
 
-			void GuiPopup::ShowPopup(Point location)
+			void GuiPopup::ShowPopup(Point location, INativeScreen* screen)
 			{
 				INativeWindow* window=GetNativeWindow();
 				if(window)
 				{
-					INativeScreen* screen=GetCurrentController()->ScreenService()->GetScreen(window);
+					if (!screen)
+					{
+						SetBounds(Rect(location, GetBounds().GetSize()));
+						screen = GetCurrentController()->ScreenService()->GetScreen(window);
+					}
+
 					if(screen)
 					{
 						Rect screenBounds=screen->GetClientBounds();
@@ -3647,7 +3901,7 @@ GuiPopup
 									return;
 								}
 							}
-							ShowPopup(locations[0]);
+							ShowPopup(locations[0], GetCurrentController()->ScreenService()->GetScreen(controlWindow));
 						}
 					}
 				}
@@ -3672,7 +3926,7 @@ GuiPopup
 							vint x=controlBounds.x1+controlClientOffset.x+location.x;
 							vint y=controlBounds.y1+controlClientOffset.y+location.y;
 							window->SetParent(controlWindow);
-							ShowPopup(Point(x, y));
+							ShowPopup(Point(x, y), GetCurrentController()->ScreenService()->GetScreen(controlWindow));
 						}
 					}
 				}
@@ -14194,7 +14448,12 @@ Win7Theme
 
 			controls::GuiLabel::IStyleController* Win7Theme::CreateLabelStyle()
 			{
-				return new Win7LabelStyle;
+				return new Win7LabelStyle(false);
+			}
+
+			controls::GuiLabel::IStyleController* Win7Theme::CreateShortcutKeyStyle()
+			{
+				return new Win7LabelStyle(true);
 			}
 
 			controls::GuiScrollContainer::IStyleProvider* Win7Theme::CreateScrollContainerStyle()
@@ -14429,7 +14688,12 @@ Win8Theme
 
 			controls::GuiLabel::IStyleController* Win8Theme::CreateLabelStyle()
 			{
-				return new Win8LabelStyle;
+				return new Win8LabelStyle(false);
+			}
+
+			controls::GuiLabel::IStyleController* Win8Theme::CreateShortcutKeyStyle()
+			{
+				return new Win8LabelStyle(true);
 			}
 
 			controls::GuiScrollContainer::IStyleProvider* Win8Theme::CreateScrollContainerStyle()
@@ -15067,14 +15331,41 @@ Win7TooltipStyle
 Win7LabelStyle
 ***********************************************************************/
 
-			Win7LabelStyle::Win7LabelStyle()
+			Win7LabelStyle::Win7LabelStyle(bool forShortcutKey)
 			{
 				textElement=GuiSolidLabelElement::Create();
 				textElement->SetColor(GetDefaultTextColor());
 				
 				boundsComposition=new GuiBoundsComposition;
-				boundsComposition->SetOwnedElement(textElement);
-				boundsComposition->SetMinSizeLimitation(GuiBoundsComposition::LimitToElement);
+				boundsComposition->SetMinSizeLimitation(GuiBoundsComposition::LimitToElementAndChildren);
+				if (forShortcutKey)
+				{
+					{
+						GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+						element->SetColor(Color(100, 100, 100));
+						boundsComposition->SetOwnedElement(element);
+					}
+
+					auto containerComposition=new GuiBoundsComposition;
+					containerComposition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					boundsComposition->AddChild(containerComposition);
+					{
+						GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+						element->SetColor(Color(255, 255, 225));
+						containerComposition->SetOwnedElement(element);
+					}
+
+					auto labelComposition = new GuiBoundsComposition;
+					labelComposition->SetAlignmentToParent(Margin(2, 2, 2, 2));
+					labelComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+					labelComposition->SetOwnedElement(textElement);
+					containerComposition->AddChild(labelComposition);
+				}
+				else
+				{
+					boundsComposition->SetOwnedElement(textElement);
+				}
 			}
 
 			Win7LabelStyle::~Win7LabelStyle()
@@ -18710,6 +19001,18 @@ Win7TabStyle
 				
 				UpdateHeaderLayout();
 			}
+
+			void Win7TabStyle::SetTabAlt(vint index, const WString& value, compositions::IGuiAltActionHost* host)
+			{
+				auto button = headerButtons[index];
+				button->SetAlt(value);
+				button->SetActivatingAltHost(host);
+			}
+
+			compositions::IGuiAltAction* Win7TabStyle::GetTabAltAction(vint index)
+			{
+				return headerButtons[index]->QueryTypedService<IGuiAltAction>();
+			}
 		}
 	}
 }
@@ -19533,14 +19836,41 @@ Win8TooltipStyle
 Win8LabelStyle
 ***********************************************************************/
 
-			Win8LabelStyle::Win8LabelStyle()
+			Win8LabelStyle::Win8LabelStyle(bool forShortcutKey)
 			{
 				textElement=GuiSolidLabelElement::Create();
 				textElement->SetColor(GetDefaultTextColor());
 				
 				boundsComposition=new GuiBoundsComposition;
-				boundsComposition->SetOwnedElement(textElement);
-				boundsComposition->SetMinSizeLimitation(GuiBoundsComposition::LimitToElement);
+				boundsComposition->SetMinSizeLimitation(GuiBoundsComposition::LimitToElementAndChildren);
+				if (forShortcutKey)
+				{
+					{
+						GuiSolidBorderElement* element=GuiSolidBorderElement::Create();
+						element->SetColor(Color(100, 100, 100));
+						boundsComposition->SetOwnedElement(element);
+					}
+
+					auto containerComposition=new GuiBoundsComposition;
+					containerComposition->SetAlignmentToParent(Margin(1, 1, 1, 1));
+					containerComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElementAndChildren);
+					boundsComposition->AddChild(containerComposition);
+					{
+						GuiSolidBackgroundElement* element=GuiSolidBackgroundElement::Create();
+						element->SetColor(Color(255, 255, 225));
+						containerComposition->SetOwnedElement(element);
+					}
+
+					auto labelComposition = new GuiBoundsComposition;
+					labelComposition->SetAlignmentToParent(Margin(2, 2, 2, 2));
+					labelComposition->SetMinSizeLimitation(GuiGraphicsComposition::LimitToElement);
+					labelComposition->SetOwnedElement(textElement);
+					containerComposition->AddChild(labelComposition);
+				}
+				else
+				{
+					boundsComposition->SetOwnedElement(textElement);
+				}
 			}
 
 			Win8LabelStyle::~Win8LabelStyle()
@@ -23306,6 +23636,8 @@ GuiWindowTemplate_StyleProvider
 				{
 					CHECK_FAIL(L"GuiWindowTemplate_StyleProvider::GuiWindowTemplate_StyleProvider()#An instance of GuiWindowTemplate is expected.");
 				}
+				INITIALIZE_FACTORY_FROM_TEMPLATE(tooltipTemplateFactory, TooltipTemplate);
+				INITIALIZE_FACTORY_FROM_TEMPLATE(shortcutKeyTemplateFactory, ShortcutKeyTemplate);
 			}
 
 			GuiWindowTemplate_StyleProvider::~GuiWindowTemplate_StyleProvider()
@@ -23407,6 +23739,16 @@ GuiWindowTemplate_StyleProvider
 			void GuiWindowTemplate_StyleProvider::SetTitleBar(bool visible)
 			{
 				WINDOW_TEMPLATE_SET(TitleBar);
+			}
+
+			controls::GuiWindow::IStyleController* GuiWindowTemplate_StyleProvider::CreateTooltipStyle()
+			{
+				GET_FACTORY_FROM_TEMPLATE_OPT(GuiWindowTemplate, tooltipTemplateFactory, TooltipTemplate);
+			}
+
+			controls::GuiLabel::IStyleController* GuiWindowTemplate_StyleProvider::CreateShortcutKeyStyle()
+			{
+				GET_FACTORY_FROM_TEMPLATE_OPT(GuiLabelTemplate, shortcutKeyTemplateFactory, ShortcutKeyTemplate);
 			}
 
 #undef WINDOW_TEMPLATE_GET
@@ -24129,6 +24471,18 @@ GuiTabTemplate_StyleProvider
 				headerButtons[index]->SetSelected(true);
 				
 				UpdateHeaderLayout();
+			}
+
+			void GuiTabTemplate_StyleProvider::SetTabAlt(vint index, const WString& value, compositions::IGuiAltActionHost* host)
+			{
+				auto button = headerButtons[index];
+				button->SetAlt(value);
+				button->SetActivatingAltHost(host);
+			}
+
+			compositions::IGuiAltAction* GuiTabTemplate_StyleProvider::GetTabAltAction(vint index)
+			{
+				return headerButtons[index]->QueryTypedService<IGuiAltAction>();
 			}
 
 /***********************************************************************
@@ -25157,7 +25511,7 @@ GuiDocumentViewer
 				return documentElement->SummarizeStyle(begin, end);
 			}
 
-			void GuiDocumentCommonInterface::SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments)
+			void GuiDocumentCommonInterface::SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Nullable<Alignment>>& alignments)
 			{
 				vint first=begin.row;
 				vint last=end.row;
@@ -29479,7 +29833,7 @@ GuiDocumentUndoRedoProcessor::RenameStyleStep
 			}
 
 /***********************************************************************
-GuiDocumentUndoRedoProcessor::RenameStyleStep
+GuiDocumentUndoRedoProcessor::SetAlignmentStep
 ***********************************************************************/
 
 			void GuiDocumentUndoRedoProcessor::SetAlignmentStep::Undo()
@@ -29557,6 +29911,7 @@ namespace vl
 	{
 		namespace controls
 		{
+			using namespace compositions;
 
 /***********************************************************************
 IGuiMenuService
@@ -29641,6 +29996,11 @@ GuiMenu
 				}
 			}
 
+			void GuiMenu::OnDeactivatedAltHost()
+			{
+				Hide();
+			}
+
 			void GuiMenu::MouseClickedOnOtherWindow(GuiWindow* window)
 			{
 				GuiMenu* targetMenu=dynamic_cast<GuiMenu*>(window);
@@ -29682,7 +30042,7 @@ GuiMenu
 			{
 				if(owner)
 				{
-					parentMenuService=owner->QueryService<IGuiMenuService>();
+					parentMenuService=owner->QueryTypedService<IGuiMenuService>();
 				}
 			}
 
@@ -29772,7 +30132,7 @@ GuiMenuButton
 			void GuiMenuButton::OnParentLineChanged()
 			{
 				GuiButton::OnParentLineChanged();
-				ownerMenuService=QueryService<IGuiMenuService>();
+				ownerMenuService=QueryTypedService<IGuiMenuService>();
 				if(ownerMenuService)
 				{
 					SetClickOnMouseUp(!ownerMenuService->IsSubMenuActivatedByMouseDown());
@@ -29781,6 +30141,20 @@ GuiMenuButton
 				{
 					subMenu->UpdateMenuService();
 				}
+			}
+
+			bool GuiMenuButton::IsAltAvailable()
+			{
+				return true;
+			}
+
+			compositions::IGuiAltActionHost* GuiMenuButton::GetActivatingAltHost()
+			{
+				if (subMenu)
+				{
+					return subMenu->QueryTypedService<IGuiAltActionHost>();
+				}
+				return 0;
 			}
 
 			void GuiMenuButton::OnSubMenuWindowOpened(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
@@ -33301,7 +33675,7 @@ GuiDocumentElement::GuiDocumentElementRenderer
 					if(!cache->graphicsParagraph)
 					{
 						cache->graphicsParagraph=layoutProvider->CreateParagraph(cache->fullText, renderTarget);
-						cache->graphicsParagraph->SetParagraphAlignment(paragraph->alignment);
+						cache->graphicsParagraph->SetParagraphAlignment(paragraph->alignment ? paragraph->alignment.Value() : Alignment::Left);
 						SetPropertiesVisitor::SetProperty(element->document.Obj(), cache->graphicsParagraph.Obj(), paragraph, cache->selectionBegin, cache->selectionEnd);
 					}
 					if(cache->graphicsParagraph->GetMaxWidth()!=lastMaxWidth)
@@ -34071,7 +34445,7 @@ GuiDocumentElement
 				return 0;
 			}
 
-			void GuiDocumentElement::SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Alignment>& alignments)
+			void GuiDocumentElement::SetParagraphAlignment(TextPos begin, TextPos end, const collections::Array<Nullable<Alignment>>& alignments)
 			{
 				Ptr<GuiDocumentElementRenderer> elementRenderer=renderer.Cast<GuiDocumentElementRenderer>();
 				if(elementRenderer)
@@ -34853,6 +35227,8 @@ namespace vl
 		{
 			using namespace collections;
 			using namespace controls;
+			using namespace elements;
+			using namespace theme;
 
 /***********************************************************************
 GuiGraphicsAnimationManager
@@ -34893,8 +35269,261 @@ GuiGraphicsAnimationManager
 			}
 
 /***********************************************************************
+IGuiAltAction
+***********************************************************************/
+
+			const wchar_t* const IGuiAltAction::Identifier = L"vl::presentation::compositions::IGuiAltAction";
+			const wchar_t* const IGuiAltActionContainer::Identifier = L"vl::presentation::compositions::IGuiAltAction";
+			const wchar_t* const IGuiAltActionHost::Identifier = L"vl::presentation::compositions::IGuiAltAction";
+
+			bool IGuiAltAction::IsLegalAlt(const WString& alt)
+			{
+				for (vint i = 0; i < alt.Length(); i++)
+				{
+					if (alt[i] < L'A' || L'Z' < alt[i])
+					{
+						return false;
+					}
+				}
+				return true;
+			}
+
+			void IGuiAltActionHost::CollectAltActionsFromControl(controls::GuiControl* control, collections::Group<WString, IGuiAltAction*>& actions)
+			{
+				List<GuiControl*> controls;
+				controls.Add(control);
+				vint current = 0;
+
+				while (current < controls.Count())
+				{
+					GuiControl* control = controls[current++];
+
+					if (auto container = control->QueryTypedService<IGuiAltActionContainer>())
+					{
+						vint count = container->GetAltActionCount();
+						for (vint i = 0; i < count; i++)
+						{
+							auto action = container->GetAltAction(i);
+							actions.Add(action->GetAlt(), action);
+						}
+						continue;
+					}
+					else if (auto action = control->QueryTypedService<IGuiAltAction>())
+					{
+						if (action->IsAltAvailable())
+						{
+							if (action->IsAltEnabled())
+							{
+								actions.Add(action->GetAlt(), action);
+								continue;
+							}
+						}
+					}
+
+					vint count = control->GetChildrenCount();
+					for (vint i = 0; i < count; i++)
+					{
+						controls.Add(control->GetChild(i));
+					}
+				}
+			}
+
+/***********************************************************************
 GuiGraphicsHost
 ***********************************************************************/
+
+			void GuiGraphicsHost::EnterAltHost(IGuiAltActionHost* host)
+			{
+				ClearAltHost();
+
+				Group<WString, IGuiAltAction*> actions;
+				host->CollectAltActions(actions);
+				if (actions.Count() == 0)
+				{
+					CloseAltHost();
+					return;
+				}
+
+				host->OnActivatedAltHost(currentAltHost);
+				currentAltHost = host;
+				CreateAltTitles(actions);
+			}
+
+			void GuiGraphicsHost::LeaveAltHost()
+			{
+				if (currentAltHost)
+				{
+					ClearAltHost();
+					auto previousHost = currentAltHost->GetPreviousAltHost();
+					currentAltHost->OnDeactivatedAltHost();
+					currentAltHost = previousHost;
+
+					if (currentAltHost)
+					{
+						Group<WString, IGuiAltAction*> actions;
+						currentAltHost->CollectAltActions(actions);
+						CreateAltTitles(actions);
+					}
+				}
+			}
+
+			bool GuiGraphicsHost::EnterAltKey(wchar_t key)
+			{
+				currentAltPrefix += key;
+				vint index = currentActiveAltActions.Keys().IndexOf(currentAltPrefix);
+				if (index == -1)
+				{
+					if (FilterTitles() == 0)
+					{
+						currentAltPrefix = currentAltPrefix.Left(currentAltPrefix.Length() - 1);
+						FilterTitles();
+					}
+				}
+				else
+				{
+					auto action = currentActiveAltActions.Values()[index];
+					if (action->GetActivatingAltHost())
+					{
+						EnterAltHost(action->GetActivatingAltHost());
+					}
+					else
+					{
+						CloseAltHost();
+					}
+					action->OnActiveAlt();
+					return true;
+				}
+				return false;
+			}
+
+			void GuiGraphicsHost::LeaveAltKey()
+			{
+				if (currentAltPrefix.Length() >= 1)
+				{
+					currentAltPrefix = currentAltPrefix.Left(currentAltPrefix.Length() - 1);
+				}
+				FilterTitles();
+			}
+
+			void GuiGraphicsHost::CreateAltTitles(const collections::Group<WString, IGuiAltAction*>& actions)
+			{
+				if (currentAltHost)
+				{
+					vint count = actions.Count();
+					for (vint i = 0; i < count; i++)
+					{
+						const auto& values = actions.GetByIndex(i);
+						vint numberLength = 0;
+						if (values.Count() == 1)
+						{
+							numberLength = 0;
+						}
+						else if (values.Count() <= 10)
+						{
+							numberLength = 1;
+						}
+						else if (values.Count() <= 100)
+						{
+							numberLength = 2;
+						}
+						else if (values.Count() <= 1000)
+						{
+							numberLength = 3;
+						}
+						else
+						{
+							continue;
+						}
+
+						FOREACH_INDEXER(IGuiAltAction*, action, index, values)
+						{
+							WString key = actions.Keys()[i];
+							if (numberLength > 0)
+							{
+								WString number = itow(index);
+								while (number.Length() < numberLength)
+								{
+									number = L"0" + number;
+								}
+								key += number;
+							}
+							currentActiveAltActions.Add(key, action);
+						}
+					}
+
+					count = currentActiveAltActions.Count();
+					auto window = dynamic_cast<GuiWindow*>(currentAltHost->GetAltComposition()->GetRelatedControlHost());
+					auto windowStyle = dynamic_cast<GuiWindow::IStyleController*>(window->GetStyleController());
+					for (vint i = 0; i < count; i++)
+					{
+						auto key = currentActiveAltActions.Keys()[i];
+						auto composition = currentActiveAltActions.Values()[i]->GetAltComposition();
+
+						auto labelStyle = windowStyle->CreateShortcutKeyStyle();
+						if (!labelStyle)labelStyle = GetCurrentTheme()->CreateShortcutKeyStyle();
+						auto label = new GuiLabel(labelStyle);
+						label->SetText(key);
+						composition->AddChild(label->GetBoundsComposition());
+						currentActiveAltTitles.Add(key, label);
+					}
+
+					FilterTitles();
+				}
+			}
+
+			vint GuiGraphicsHost::FilterTitles()
+			{
+				vint count = currentActiveAltTitles.Count();
+				vint visibles = 0;
+				for (vint i = 0; i < count; i++)
+				{
+					auto key = currentActiveAltTitles.Keys()[i];
+					auto value = currentActiveAltTitles.Values()[i];
+					if (key.Length() >= currentAltPrefix.Length() && key.Left(currentAltPrefix.Length()) == currentAltPrefix)
+					{
+						value->SetVisible(true);
+						if (currentAltPrefix.Length() <= key.Length())
+						{
+							value->SetText(
+								key
+								.Insert(currentAltPrefix.Length(), L"[")
+								.Insert(currentAltPrefix.Length() + 2, L"]")
+								);
+						}
+						else
+						{
+							value->SetText(key);
+						}
+						visibles++;
+					}
+					else
+					{
+						value->SetVisible(false);
+					}
+				}
+				return visibles;
+			}
+
+			void GuiGraphicsHost::ClearAltHost()
+			{
+				FOREACH(GuiControl*, title, currentActiveAltTitles.Values())
+				{
+					SafeDeleteControl(title);
+				}
+				currentActiveAltActions.Clear();
+				currentActiveAltTitles.Clear();
+				currentAltPrefix = L"";
+			}
+
+			void GuiGraphicsHost::CloseAltHost()
+			{
+				ClearAltHost();
+				while (currentAltHost)
+				{
+					currentAltHost->OnDeactivatedAltHost();
+					currentAltHost = currentAltHost->GetPreviousAltHost();
+				}
+			}
 
 			void GuiGraphicsHost::DisconnectCompositionInternal(GuiGraphicsComposition* composition)
 			{
@@ -35092,8 +35721,6 @@ GuiGraphicsHost
 			{
 				Rect oldBounds=nativeWindow->GetBounds();
 				minSize=windowComposition->GetPreferredBounds().GetSize();
-				if(minSize.x<1) minSize.x=1;
-				if(minSize.y<1) minSize.y=1;
 				Size minWindowSize=minSize+(oldBounds.GetSize()-nativeWindow->GetClientSize());
 				if(bounds.Width()<minWindowSize.x)
 				{
@@ -35146,6 +35773,7 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::LeftButtonDown(const NativeWindowMouseInfo& info)
 			{
+				CloseAltHost();
 				MouseCapture(info);
 				OnMouseInput(info, &GuiGraphicsEventReceiver::leftButtonDown);
 			}
@@ -35164,6 +35792,7 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::RightButtonDown(const NativeWindowMouseInfo& info)
 			{
+				CloseAltHost();
 				MouseCapture(info);
 				OnMouseInput(info, &GuiGraphicsEventReceiver::rightButtonDown);
 			}
@@ -35182,6 +35811,7 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::MiddleButtonDown(const NativeWindowMouseInfo& info)
 			{
+				CloseAltHost();
 				MouseCapture(info);
 				OnMouseInput(info, &GuiGraphicsEventReceiver::middleButtonDown);
 			}
@@ -35290,6 +35920,40 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::KeyDown(const NativeWindowKeyInfo& info)
 			{
+				if (!info.ctrl && !info.shift && currentAltHost)
+				{
+					if (info.code == VKEY_ESCAPE)
+					{
+						LeaveAltHost();
+						return;
+					}
+					else if (info.code == VKEY_BACK)
+					{
+						LeaveAltKey();
+					}
+					else if (VKEY_NUMPAD0 <= info.code && info.code <= VKEY_NUMPAD9)
+					{
+						if (EnterAltKey('0' + (info.code - VKEY_NUMPAD0)))
+						{
+							supressAltKey = info.code;
+							return;
+						}
+					}
+					else if (('0' <= info.code && info.code <= '9') || ('A' <= info.code && info.code <= 'Z'))
+					{
+						if (EnterAltKey((wchar_t)info.code))
+						{
+							supressAltKey = info.code;
+							return;
+						}
+					}
+				}
+
+				if (currentAltHost)
+				{
+					return;
+				}
+				
 				if(shortcutKeyManager && shortcutKeyManager->Execute(info))
 				{
 					return;
@@ -35302,6 +35966,12 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::KeyUp(const NativeWindowKeyInfo& info)
 			{
+				if (!info.ctrl && !info.shift && info.code == supressAltKey)
+				{
+					supressAltKey = 0;
+					return;
+				}
+
 				if(focusedComposition && focusedComposition->HasEventReceiver())
 				{
 					OnKeyInput(info, focusedComposition, &GuiGraphicsEventReceiver::keyUp);
@@ -35310,6 +35980,25 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::SysKeyDown(const NativeWindowKeyInfo& info)
 			{
+				if (!info.ctrl && !info.shift && info.code == VKEY_MENU && !currentAltHost)
+				{
+					if (auto window = dynamic_cast<GuiWindow*>(windowComposition->Children()[0]->GetRelatedControlHost()))
+					{
+						if (auto altHost = window->QueryTypedService<IGuiAltActionHost>())
+						{
+							if (!altHost->GetPreviousAltHost())
+							{
+								EnterAltHost(altHost);
+							}
+						}
+					}
+				}
+
+				if (currentAltHost)
+				{
+					return;
+				}
+
 				if(focusedComposition && focusedComposition->HasEventReceiver())
 				{
 					OnKeyInput(info, focusedComposition, &GuiGraphicsEventReceiver::systemKeyDown);
@@ -35318,6 +36007,14 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::SysKeyUp(const NativeWindowKeyInfo& info)
 			{
+				if (!info.ctrl && !info.shift && info.code == VKEY_MENU && nativeWindow)
+				{
+					if (nativeWindow)
+					{
+						nativeWindow->SupressAlt();
+					}
+				}
+
 				if(focusedComposition && focusedComposition->HasEventReceiver())
 				{
 					OnKeyInput(info, focusedComposition, &GuiGraphicsEventReceiver::systemKeyUp);
@@ -35326,9 +36023,12 @@ GuiGraphicsHost
 
 			void GuiGraphicsHost::Char(const NativeWindowCharInfo& info)
 			{
-				if(focusedComposition && focusedComposition->HasEventReceiver())
+				if (!currentAltHost && !supressAltKey)
 				{
-					OnCharInput(info, focusedComposition, &GuiGraphicsEventReceiver::charInput);
+					if(focusedComposition && focusedComposition->HasEventReceiver())
+					{
+						OnCharInput(info, focusedComposition, &GuiGraphicsEventReceiver::charInput);
+					}
 				}
 			}
 
@@ -35359,6 +36059,7 @@ GuiGraphicsHost
 				,focusedComposition(0)
 				,mouseCaptureComposition(0)
 				,lastCaretTime(0)
+				,currentAltHost(0)
 			{
 				windowComposition=new GuiWindowComposition;
 				windowComposition->SetAssociatedHost(this);
@@ -35413,8 +36114,15 @@ GuiGraphicsHost
 				{
 					windowComposition->GetRenderTarget()->StartRendering();
 					windowComposition->Render(Size());
-					windowComposition->GetRenderTarget()->StopRendering();
+					bool success = windowComposition->GetRenderTarget()->StopRendering();
 					nativeWindow->RedrawContent();
+
+					if (!success)
+					{
+						windowComposition->SetAttachedWindow(0);
+						GetGuiGraphicsResourceManager()->RecreateRenderTarget(nativeWindow);
+						windowComposition->SetAttachedWindow(nativeWindow);
+					}
 				}
 			}
 
@@ -38806,6 +39514,10 @@ DocumentModel::EditRun
 				CopyFrom(beginParagraph->runs, newBeginRuns->runs, true);
 				
 				Ptr<DocumentParagraphRun> newEndRuns=runs[runs.Count()-1];
+				if (newEndRuns->alignment)
+				{
+					endParagraph->alignment = newEndRuns->alignment;
+				}
 				for(vint i=0;i<newEndRuns->runs.Count();i++)
 				{
 					endParagraph->runs.Insert(i, newEndRuns->runs[i]);
@@ -39718,17 +40430,20 @@ document_operation_visitors::SerializeRunVisitor
 					element->name.value=L"p";
 
 					XmlElementWriter writer(element);
-					switch(run->alignment)
+					if (run->alignment)
 					{
-					case Alignment::Left:
-						writer.Attribute(L"align", L"Left");
-						break;
-					case Alignment::Center:
-						writer.Attribute(L"align", L"Center");
-						break;
-					case Alignment::Right:
-						writer.Attribute(L"align", L"Right");
-						break;
+						switch(run->alignment.Value())
+						{
+						case Alignment::Left:
+							writer.Attribute(L"align", L"Left");
+							break;
+						case Alignment::Center:
+							writer.Attribute(L"align", L"Center");
+							break;
+						case Alignment::Right:
+							writer.Attribute(L"align", L"Right");
+							break;
+						}
 					}
 					VisitContainer(element, run);
 				}
@@ -40053,6 +40768,74 @@ namespace vl
 		}
 
 /***********************************************************************
+GlobalStringKey
+***********************************************************************/
+
+		GlobalStringKey GlobalStringKey::Empty;
+		GlobalStringKey GlobalStringKey::_Set;
+		GlobalStringKey GlobalStringKey::_Ref;
+		GlobalStringKey GlobalStringKey::_Bind;
+		GlobalStringKey GlobalStringKey::_Format;
+		GlobalStringKey GlobalStringKey::_Eval;
+		GlobalStringKey GlobalStringKey::_Uri;
+		GlobalStringKey GlobalStringKey::_Workflow_Assembly_Cache;
+		GlobalStringKey GlobalStringKey::_Workflow_Global_Context;
+		GlobalStringKey GlobalStringKey::_ControlTemplate;
+		GlobalStringKey GlobalStringKey::_ItemTemplate;
+
+		class GlobalStringKeyManager
+		{
+		public:
+			Dictionary<WString, vint>		stoi;
+			List<WString>					itos;
+
+			void InitializeConstants()
+			{
+				GlobalStringKey::_Set = GlobalStringKey::Get(L"set");
+				GlobalStringKey::_Ref = GlobalStringKey::Get(L"ref");
+				GlobalStringKey::_Bind = GlobalStringKey::Get(L"bind");
+				GlobalStringKey::_Format = GlobalStringKey::Get(L"format");
+				GlobalStringKey::_Eval = GlobalStringKey::Get(L"eval");
+				GlobalStringKey::_Uri = GlobalStringKey::Get(L"uri");
+				GlobalStringKey::_Workflow_Assembly_Cache = GlobalStringKey::Get(L"WORKFLOW-ASSEMBLY-CACHE");
+				GlobalStringKey::_Workflow_Global_Context = GlobalStringKey::Get(L"WORKFLOW-GLOBAL-CONTEXT");
+				GlobalStringKey::_ControlTemplate = GlobalStringKey::Get(L"ControlTemplate");
+				GlobalStringKey::_ItemTemplate = GlobalStringKey::Get(L"ItemTemplate");
+			}
+		}* globalStringKeyManager = 0;
+
+		GlobalStringKey GlobalStringKey::Get(const WString& string)
+		{
+			GlobalStringKey key;
+			if (string != L"")
+			{
+				vint index = globalStringKeyManager->stoi.Keys().IndexOf(string);
+				if (index == -1)
+				{
+					key.key = globalStringKeyManager->itos.Add(string);
+					globalStringKeyManager->stoi.Add(string, key.key);
+				}
+				else
+				{
+					key.key = globalStringKeyManager->stoi.Values()[index];
+				}
+			}
+			return key;
+		}
+
+		vint GlobalStringKey::ToKey()const
+		{
+			return key;
+		}
+
+		WString GlobalStringKey::ToString()const
+		{
+			return *this == GlobalStringKey::Empty
+				? L""
+				: globalStringKeyManager->itos[key];
+		}
+
+/***********************************************************************
 GuiImageData
 ***********************************************************************/
 
@@ -40190,7 +40973,7 @@ GuiResourceItem
 GuiResourceFolder
 ***********************************************************************/
 
-		void GuiResourceFolder::LoadResourceFolderXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, collections::List<WString>& errors)
+		void GuiResourceFolder::LoadResourceFolderFromXml(DelayLoadingList& delayLoadings, const WString& containingFolder, Ptr<parsing::xml::XmlElement> folderXml, collections::List<WString>& errors)
 		{
 			ClearItems();
 			ClearFolders();
@@ -40242,7 +41025,7 @@ GuiResourceFolder
 									}
 								}
 							}
-							folder->LoadResourceFolderXml(delayLoadings, newContainingFolder, newFolderXml, errors);
+							folder->LoadResourceFolderFromXml(delayLoadings, newContainingFolder, newFolderXml, errors);
 						}
 						else
 						{
@@ -40267,22 +41050,25 @@ GuiResourceFolder
 						}
 					}
 
-					Ptr<GuiResourceItem> item=new GuiResourceItem;
+					Ptr<GuiResourceItem> item = new GuiResourceItem;
 					if(AddItem(name, item))
 					{
-						WString type=element->name.value;
-						IGuiResourceTypeResolver* typeResolver=GetResourceResolverManager()->GetTypeResolver(type);
-						IGuiResourceTypeResolver* preloadResolver=typeResolver;
+						WString type = element->name.value;
+						IGuiResourceTypeResolver* typeResolver = GetResourceResolverManager()->GetTypeResolver(type);
+						IGuiResourceTypeResolver* preloadResolver = typeResolver;
 
 						if(typeResolver)
 						{
-							WString preloadType = typeResolver->GetPreloadType();
-							if (preloadType != L"")
+							if (!typeResolver->DirectLoadXml())
 							{
-								preloadResolver = GetResourceResolverManager()->GetTypeResolver(preloadType);
-								if (!preloadResolver)
+								WString preloadType = typeResolver->IndirectLoad()->GetPreloadType();
+								if (preloadType != L"")
 								{
-									errors.Add(L"Unknown resource resolver \"" + preloadType + L"\" of resource type \"" + type + L"\".");
+									preloadResolver = GetResourceResolverManager()->GetTypeResolver(preloadType);
+									if (!preloadResolver)
+									{
+										errors.Add(L"Unknown resource resolver \"" + preloadType + L"\" of resource type \"" + type + L"\".");
+									}
 								}
 							}
 						}
@@ -40293,35 +41079,50 @@ GuiResourceFolder
 
 						if(typeResolver && preloadResolver)
 						{
-							Ptr<DescriptableObject> resource;
-							WString typeName = preloadResolver->GetType();
-							if (filePath == L"")
+							if (auto directLoad = preloadResolver->DirectLoadXml())
 							{
-								resource = preloadResolver->ResolveResource(element, errors);
+								Ptr<DescriptableObject> resource;
+								WString itemType = preloadResolver->GetType();
+								if (filePath == L"")
+								{
+									resource = directLoad->ResolveResource(element, errors);
+								}
+								else
+								{
+									item->SetPath(relativeFilePath);
+									resource = directLoad->ResolveResource(filePath, errors);
+								}
+
+								if (typeResolver != preloadResolver)
+								{
+									if (auto indirectLoad = typeResolver->IndirectLoad())
+									{
+										if(indirectLoad->IsDelayLoad())
+										{
+											DelayLoading delayLoading;
+											delayLoading.type = type;
+											delayLoading.workingDirectory = containingFolder;
+											delayLoading.preloadResource = item;
+											delayLoadings.Add(delayLoading);
+										}
+										else if(resource)
+										{
+											resource = indirectLoad->ResolveResource(resource, 0, errors);
+											itemType = typeResolver->GetType();
+										}
+									}
+									else
+									{
+										resource = 0;
+										errors.Add(L"Resource type \"" + typeResolver->GetType() + L"\" is not a indirect load resource type.");
+									}
+								}
+								item->SetContent(itemType, resource);
 							}
 							else
 							{
-								item->SetPath(relativeFilePath);
-								resource = preloadResolver->ResolveResource(filePath, errors);
+								errors.Add(L"Resource type \"" + preloadResolver->GetType() + L"\" is not a direct load resource type.");
 							}
-
-							if (typeResolver != preloadResolver)
-							{
-								if(typeResolver->IsDelayLoad())
-								{
-									DelayLoading delayLoading;
-									delayLoading.type=type;
-									delayLoading.workingDirectory=containingFolder;
-									delayLoading.preloadResource=item;
-									delayLoadings.Add(delayLoading);
-								}
-								else if(resource)
-								{
-									resource = typeResolver->ResolveResource(resource, 0, errors);
-									typeName = typeResolver->GetType();
-								}
-							}
-							item->SetContent(typeName, resource);
 						}
 
 						if(!item->GetContent())
@@ -40348,7 +41149,27 @@ GuiResourceFolder
 				if (serializePrecompiledResource || item->GetPath() == L"")
 				{
 					auto resolver = GetResourceResolverManager()->GetTypeResolver(item->GetTypeName());
-					auto xmlElement = resolver->Serialize(item->GetContent(), serializePrecompiledResource);
+					Ptr<XmlElement> xmlElement;
+
+					if (auto directLoad = resolver->DirectLoadXml())
+					{
+						xmlElement = directLoad->Serialize(item->GetContent(), serializePrecompiledResource);
+					}
+					else if (auto indirectLoad = resolver->IndirectLoad())
+					{
+						if (auto preloadResolver = GetResourceResolverManager()->GetTypeResolver(indirectLoad->GetPreloadType()))
+						{
+							if (auto directLoad = preloadResolver->DirectLoadXml())
+							{
+								if (auto resource = indirectLoad->Serialize(item->GetContent(), serializePrecompiledResource))
+								{
+									xmlElement = directLoad->Serialize(resource, serializePrecompiledResource);
+									xmlElement->name.value = resolver->GetType();
+								}
+							}
+						}
+					}
+
 					if (xmlElement)
 					{
 						xmlElement->attributes.Add(attName);
@@ -40399,6 +41220,173 @@ GuiResourceFolder
 					xmlText->content.value = folder->GetPath();
 					xmlFolder->subNodes.Add(xmlText);
 				}
+			}
+		}
+
+		void GuiResourceFolder::CollectTypeNames(collections::List<WString>& typeNames)
+		{
+			FOREACH(Ptr<GuiResourceItem>, item, items.Values())
+			{
+				if (!typeNames.Contains(item->GetTypeName()))
+				{
+					typeNames.Add(item->GetTypeName());
+				}
+			}
+			FOREACH(Ptr<GuiResourceFolder>, folder, folders.Values())
+			{
+				folder->CollectTypeNames(typeNames);
+			}
+		}
+
+		void GuiResourceFolder::LoadResourceFolderFromBinary(DelayLoadingList& delayLoadings, stream::internal::Reader& reader, collections::List<WString>& typeNames, collections::List<WString>& errors)
+		{
+			vint count = 0;
+			reader << count;
+			for (vint i = 0; i < count; i++)
+			{
+				vint typeName = 0;
+				WString name;
+				reader << typeName << name;
+
+				auto resolver = GetResourceResolverManager()->GetTypeResolver(typeNames[typeName]);
+				Ptr<GuiResourceItem> item = new GuiResourceItem;
+				if(AddItem(name, item))
+				{
+					WString type = typeNames[typeName];
+					IGuiResourceTypeResolver* typeResolver = GetResourceResolverManager()->GetTypeResolver(type);
+					IGuiResourceTypeResolver* preloadResolver = typeResolver;
+
+					if(typeResolver)
+					{
+						if (!typeResolver->DirectLoadStream())
+						{
+							WString preloadType = typeResolver->IndirectLoad()->GetPreloadType();
+							if (preloadType != L"")
+							{
+								preloadResolver = GetResourceResolverManager()->GetTypeResolver(preloadType);
+								if (!preloadResolver)
+								{
+									errors.Add(L"Unknown resource resolver \"" + preloadType + L"\" of resource type \"" + type + L"\".");
+								}
+							}
+						}
+					}
+					else
+					{
+						errors.Add(L"Unknown resource type \"" + type + L"\".");
+					}
+
+					if(typeResolver && preloadResolver)
+					{
+						if (auto directLoad = preloadResolver->DirectLoadStream())
+						{
+							WString itemType = preloadResolver->GetType();
+							auto resource = directLoad->ResolveResourcePrecompiled(reader.input, errors);
+
+							if (typeResolver != preloadResolver)
+							{
+								if (auto indirectLoad = typeResolver->IndirectLoad())
+								{
+									if(indirectLoad->IsDelayLoad())
+									{
+										DelayLoading delayLoading;
+										delayLoading.type = type;
+										delayLoading.preloadResource = item;
+										delayLoadings.Add(delayLoading);
+									}
+									else if(resource)
+									{
+										resource = indirectLoad->ResolveResource(resource, 0, errors);
+										itemType = typeResolver->GetType();
+									}
+								}
+								else
+								{
+									resource = 0;
+									errors.Add(L"Resource type \"" + typeResolver->GetType() + L"\" is not a indirect load resource type.");
+								}
+							}
+							item->SetContent(itemType, resource);
+						}
+						else
+						{
+							errors.Add(L"Resource type \"" + preloadResolver->GetType() + L"\" is not a direct load resource type.");
+						}
+					}
+
+					if(!item->GetContent())
+					{
+						RemoveItem(name);
+					}
+				}
+				else
+				{
+					errors.Add(L"Duplicated resource item name \"" + name + L"\".");
+				}
+			}
+
+			reader << count;
+			for (vint i = 0; i < count; i++)
+			{
+				WString name;
+				reader << name;
+
+				auto folder = MakePtr<GuiResourceFolder>();
+				folder->LoadResourceFolderFromBinary(delayLoadings, reader, typeNames, errors);
+				AddFolder(name, folder);
+			}
+		}
+
+		void GuiResourceFolder::SaveResourceFolderToBinary(stream::internal::Writer& writer, collections::List<WString>& typeNames)
+		{
+			typedef Tuple<vint, WString, IGuiResourceTypeResolver_DirectLoadStream*, Ptr<DescriptableObject>> ItemTuple;
+			List<ItemTuple> itemTuples;
+
+			FOREACH(Ptr<GuiResourceItem>, item, items.Values())
+			{
+				vint typeName = typeNames.IndexOf(item->GetTypeName());
+				WString name = item->GetName();
+
+				auto resolver = GetResourceResolverManager()->GetTypeResolver(item->GetTypeName());
+				if (auto directLoad = resolver->DirectLoadStream())
+				{
+					itemTuples.Add(ItemTuple(typeName, name, directLoad, item->GetContent()));
+				}
+				else if (auto indirectLoad = resolver->IndirectLoad())
+				{
+					if (auto preloadResolver = GetResourceResolverManager()->GetTypeResolver(indirectLoad->GetPreloadType()))
+					{
+						if (auto directLoad = preloadResolver->DirectLoadStream())
+						{
+							if (auto resource = indirectLoad->Serialize(item->GetContent(), true))
+							{
+								itemTuples.Add(ItemTuple(typeName, name, directLoad, resource));
+							}
+						}
+					}
+				}
+			}
+
+			vint count = itemTuples.Count();
+			writer << count;
+			FOREACH(ItemTuple, item, itemTuples)
+			{
+				vint typeName = item.f0;
+				WString name = item.f1;
+				writer << typeName << name;
+
+				auto directLoad = item.f2;
+				auto resource = item.f3;
+				directLoad->SerializePrecompiled(resource, writer.output);
+			}
+
+			count = folders.Count();
+			writer << count;
+			FOREACH(Ptr<GuiResourceFolder>, folder, folders.Values())
+			{
+				WString name = folder->GetName();
+				writer << name;
+				folder->SaveResourceFolderToBinary(writer, typeNames);
 			}
 		}
 
@@ -40545,6 +41533,32 @@ GuiResourceFolder
 GuiResource
 ***********************************************************************/
 
+		void GuiResource::ProcessDelayLoading(Ptr<GuiResource> resource, DelayLoadingList& delayLoadings, collections::List<WString>& errors)
+		{
+			FOREACH(DelayLoading, delay, delayLoadings)
+			{
+				WString type = delay.type;
+				WString folder = delay.workingDirectory;
+				Ptr<GuiResourceItem> item = delay.preloadResource;
+
+				auto typeResolver = GetResourceResolverManager()->GetTypeResolver(type);
+				auto indirectLoad = typeResolver->IndirectLoad();
+				if (!indirectLoad)
+				{
+					errors.Add(L"Unknown resource type \"" + type + L"\".");
+				}
+				else if (item->GetContent())
+				{
+					Ptr<GuiResourcePathResolver> pathResolver = new GuiResourcePathResolver(resource, folder);
+					Ptr<DescriptableObject> resource = indirectLoad->ResolveResource(item->GetContent(), pathResolver, errors);
+					if(resource)
+					{
+						item->SetContent(typeResolver->GetType(), resource);
+					}
+				}
+			}
+		}
+
 		GuiResource::GuiResource()
 		{
 		}
@@ -40563,29 +41577,9 @@ GuiResource
 			Ptr<GuiResource> resource = new GuiResource;
 			resource->workingDirectory = workingDirectory;
 			DelayLoadingList delayLoadings;
-			resource->LoadResourceFolderXml(delayLoadings, resource->workingDirectory, xml->rootElement, errors);
+			resource->LoadResourceFolderFromXml(delayLoadings, resource->workingDirectory, xml->rootElement, errors);
 
-			FOREACH(DelayLoading, delay, delayLoadings)
-			{
-				WString type = delay.type;
-				WString folder = delay.workingDirectory;
-				Ptr<GuiResourceItem> item = delay.preloadResource;
-
-				IGuiResourceTypeResolver* typeResolver = GetResourceResolverManager()->GetTypeResolver(type);
-				if (!typeResolver)
-				{
-					errors.Add(L"Unknown resource type \"" + type + L"\".");
-				}
-				else if (item->GetContent())
-				{
-					Ptr<GuiResourcePathResolver> pathResolver = new GuiResourcePathResolver(resource, folder);
-					Ptr<DescriptableObject> resource = typeResolver->ResolveResource(item->GetContent(), pathResolver, errors);
-					if(resource)
-					{
-						item->SetContent(typeResolver->GetType(), resource);
-					}
-				}
-			}
+			ProcessDelayLoading(resource, delayLoadings, errors);
 			return resource;
 		}
 
@@ -40620,6 +41614,31 @@ GuiResource
 			auto doc = MakePtr<XmlDocument>();
 			doc->rootElement = xmlRoot;
 			return doc;
+		}
+
+		Ptr<GuiResource> GuiResource::LoadPrecompiledBinary(stream::IStream& stream, collections::List<WString>& errors)
+		{
+			stream::internal::Reader reader(stream);
+			auto resource = MakePtr<GuiResource>();
+
+			List<WString> typeNames;
+			reader << typeNames;
+			
+			DelayLoadingList delayLoadings;
+			resource->LoadResourceFolderFromBinary(delayLoadings, reader, typeNames, errors);
+			
+			ProcessDelayLoading(resource, delayLoadings, errors);
+			return resource;
+		}
+
+		void GuiResource::SavePrecompiledBinary(stream::IStream& stream)
+		{
+			stream::internal::Writer writer(stream);
+
+			List<WString> typeNames;
+			CollectTypeNames(typeNames);
+			writer << typeNames;
+			SaveResourceFolderToBinary(writer, typeNames);
 		}
 
 		void GuiResource::Precompile(collections::List<WString>& errors)
@@ -40815,7 +41834,10 @@ IGuiResourceResolverManager
 
 			void Load()override
 			{
-				resourceResolverManager=this;
+				globalStringKeyManager = new GlobalStringKeyManager();
+				globalStringKeyManager->InitializeConstants();
+
+				resourceResolverManager = this;
 				SetPathResolverFactory(new GuiResourcePathFileResolver::Factory);
 				SetPathResolverFactory(new GuiResourcePathResResolver::Factory);
 			}
@@ -40826,7 +41848,9 @@ IGuiResourceResolverManager
 
 			void Unload()override
 			{
-				resourceResolverManager=0;
+				delete globalStringKeyManager;
+				globalStringKeyManager = 0;
+				resourceResolverManager = 0;
 			}
 
 			IGuiResourcePathResolverFactory* GetPathResolverFactory(const WString& protocol)override
@@ -40867,6 +41891,7 @@ namespace vl
 {
 	namespace presentation
 	{
+		using namespace collections;
 		using namespace controls;
 		using namespace parsing;
 		using namespace parsing::tabling;
@@ -40877,7 +41902,11 @@ namespace vl
 Image Type Resolver
 ***********************************************************************/
 
-		class GuiResourceImageTypeResolver : public Object, public IGuiResourceTypeResolver
+		class GuiResourceImageTypeResolver
+			: public Object
+			, public IGuiResourceTypeResolver
+			, private IGuiResourceTypeResolver_DirectLoadXml
+			, private IGuiResourceTypeResolver_DirectLoadStream
 		{
 		public:
 			WString GetType()override
@@ -40885,18 +41914,18 @@ Image Type Resolver
 				return L"Image";
 			}
 
-			WString GetPreloadType()override
-			{
-				return L"";
-			}
-
-			bool IsDelayLoad()override
-			{
-				return false;
-			}
-
 			void Precompile(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)override
 			{
+			}
+
+			IGuiResourceTypeResolver_DirectLoadXml* DirectLoadXml()override
+			{
+				return this;
+			}
+
+			IGuiResourceTypeResolver_DirectLoadStream* DirectLoadStream()override
+			{
+				return this;
 			}
 
 			Ptr<parsing::xml::XmlElement> Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource)override
@@ -40913,6 +41942,14 @@ Image Type Resolver
 					return xmlImage;
 				}
 				return 0;
+			}
+
+			void SerializePrecompiled(Ptr<DescriptableObject> resource, stream::IStream& stream)override
+			{
+				auto obj = resource.Cast<GuiImageData>();
+				stream::internal::Writer writer(stream);
+				FileStream fileStream(obj->GetFilePath(), FileStream::ReadOnly);
+				writer << (stream::IStream&)fileStream;
 			}
 
 			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)override
@@ -40946,10 +41983,22 @@ Image Type Resolver
 				}
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)override
+			Ptr<DescriptableObject> ResolveResourcePrecompiled(stream::IStream& stream, collections::List<WString>& errors)
 			{
-				errors.Add(L"Internal error: Image resource doesn't need resource preloading.");
-				return 0;
+				stream::internal::Reader reader(stream);
+				MemoryStream memoryStream;
+				reader << (stream::IStream&)memoryStream;
+
+				auto image = GetCurrentController()->ImageService()->CreateImageFromStream(memoryStream);
+				if (image)
+				{
+					return new GuiImageData(image, 0);
+				}
+				else
+				{
+					errors.Add(L"Failed to load an image from binary data in a stream.");
+					return 0;
+				}
 			}
 		};
 
@@ -40957,7 +42006,11 @@ Image Type Resolver
 Text Type Resolver
 ***********************************************************************/
 
-		class GuiResourceTextTypeResolver : public Object, public IGuiResourceTypeResolver
+		class GuiResourceTextTypeResolver
+			: public Object
+			, public IGuiResourceTypeResolver
+			, private IGuiResourceTypeResolver_DirectLoadXml
+			, private IGuiResourceTypeResolver_DirectLoadStream
 		{
 		public:
 			WString GetType()override
@@ -40965,18 +42018,18 @@ Text Type Resolver
 				return L"Text";
 			}
 
-			WString GetPreloadType()override
-			{
-				return L"";
-			}
-
-			bool IsDelayLoad()override
-			{
-				return false;
-			}
-
 			void Precompile(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)override
 			{
+			}
+
+			IGuiResourceTypeResolver_DirectLoadXml* DirectLoadXml()override
+			{
+				return this;
+			}
+
+			IGuiResourceTypeResolver_DirectLoadStream* DirectLoadStream()override
+			{
+				return this;
 			}
 
 			Ptr<parsing::xml::XmlElement> Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource)override
@@ -40993,6 +42046,14 @@ Text Type Resolver
 					return xmlText;
 				}
 				return 0;
+			}
+
+			void SerializePrecompiled(Ptr<DescriptableObject> resource, stream::IStream& stream)override
+			{
+				auto obj = resource.Cast<GuiTextData>();
+				stream::internal::Writer writer(stream);
+				WString text = obj->GetText();
+				writer << text;
 			}
 
 			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)override
@@ -41014,10 +42075,12 @@ Text Type Resolver
 				}
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)override
+			Ptr<DescriptableObject> ResolveResourcePrecompiled(stream::IStream& stream, collections::List<WString>& errors)
 			{
-				errors.Add(L"Internal error: Text resource doesn't need resource preloading.");
-				return 0;
+				stream::internal::Reader reader(stream);
+				WString text;
+				reader << text;
+				return new GuiTextData(text);
 			}
 		};
 
@@ -41025,7 +42088,11 @@ Text Type Resolver
 Xml Type Resolver
 ***********************************************************************/
 
-		class GuiResourceXmlTypeResolver : public Object, public IGuiResourceTypeResolver
+		class GuiResourceXmlTypeResolver
+			: public Object
+			, public IGuiResourceTypeResolver
+			, private IGuiResourceTypeResolver_DirectLoadXml
+			, private IGuiResourceTypeResolver_DirectLoadStream
 		{
 		public:
 			WString GetType()override
@@ -41033,18 +42100,18 @@ Xml Type Resolver
 				return L"Xml";
 			}
 
-			WString GetPreloadType()override
-			{
-				return L"";
-			}
-
-			bool IsDelayLoad()override
-			{
-				return false;
-			}
-
 			void Precompile(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)override
 			{
+			}
+
+			IGuiResourceTypeResolver_DirectLoadXml* DirectLoadXml()override
+			{
+				return this;
+			}
+
+			IGuiResourceTypeResolver_DirectLoadStream* DirectLoadStream()override
+			{
+				return this;
 			}
 
 			Ptr<parsing::xml::XmlElement> Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource)override
@@ -41059,9 +42126,27 @@ Xml Type Resolver
 				return 0;
 			}
 
+			void SerializePrecompiled(Ptr<DescriptableObject> resource, stream::IStream& stream)override
+			{
+				auto obj = resource.Cast<XmlDocument>();
+				MemoryStream buffer;
+				{
+					StreamWriter writer(buffer);
+					XmlPrint(obj, writer);
+				}
+				{
+					buffer.SeekFromBegin(0);
+					StreamReader reader(buffer);
+					WString text = reader.ReadToEnd();
+
+					stream::internal::Writer writer(stream);
+					writer << text;
+				}
+			}
+
 			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)override
 			{
-				Ptr<XmlElement> root=XmlGetElements(element).First(0);
+				Ptr<XmlElement> root = XmlGetElements(element).First(0);
 				if(root)
 				{
 					Ptr<XmlDocument> xml=new XmlDocument;
@@ -41088,10 +42173,14 @@ Xml Type Resolver
 				return 0;
 			}
 
-			Ptr<DescriptableObject> ResolveResource(Ptr<DescriptableObject> resource, Ptr<GuiResourcePathResolver> resolver, collections::List<WString>& errors)override
+			Ptr<DescriptableObject> ResolveResourcePrecompiled(stream::IStream& stream, collections::List<WString>& errors)
 			{
-				errors.Add(L"Internal error: Xml resource doesn't need resource preloading.");
-				return 0;
+				stream::internal::Reader reader(stream);
+				WString text;
+				reader << text;
+
+				auto parser = GetParserManager()->GetParser<XmlDocument>(L"XML");
+				return parser->TypedParse(text, errors);
 			}
 		};
 
@@ -41099,7 +42188,10 @@ Xml Type Resolver
 Doc Type Resolver
 ***********************************************************************/
 
-		class GuiResourceDocTypeResolver : public Object, public IGuiResourceTypeResolver
+		class GuiResourceDocTypeResolver
+			: public Object
+			, public IGuiResourceTypeResolver
+			, private IGuiResourceTypeResolver_IndirectLoad
 		{
 		public:
 			WString GetType()override
@@ -41121,27 +42213,17 @@ Doc Type Resolver
 			{
 			}
 
-			Ptr<parsing::xml::XmlElement> Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource)override
+			IGuiResourceTypeResolver_IndirectLoad* IndirectLoad()override
+			{
+				return this;
+			}
+
+			Ptr<DescriptableObject> Serialize(Ptr<DescriptableObject> resource, bool serializePrecompiledResource)override
 			{
 				if (auto obj = resource.Cast<DocumentModel>())
 				{
-					auto xmlDoc = MakePtr<XmlElement>();
-					xmlDoc->name.value = L"Doc";
-					xmlDoc->subNodes.Add(obj->SaveToXml()->rootElement);
-					return xmlDoc;
+					return obj->SaveToXml();
 				}
-				return 0;
-			}
-
-			Ptr<DescriptableObject> ResolveResource(Ptr<parsing::xml::XmlElement> element, collections::List<WString>& errors)override
-			{
-				errors.Add(L"Internal error: Doc resource needs resource preloading.");
-				return 0;
-			}
-
-			Ptr<DescriptableObject> ResolveResource(const WString& path, collections::List<WString>& errors)override
-			{
-				errors.Add(L"Internal error: Doc resource needs resource preloading.");
 				return 0;
 			}
 
