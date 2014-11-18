@@ -882,20 +882,27 @@ GuiDefaultInstanceLoader
 					if (IEventInfo* ev = eventInfo.typeInfo.typeDescriptor->GetEventByName(eventInfo.propertyName.ToString(), true))
 					{
 #ifndef VCZH_DEBUG_NO_REFLECTION
-						auto handlerType = ev->GetHandlerType();
+						ITypeInfo	*handlerType = 0,
+									*genericType = 0,
+									*functionType = 0,
+									*returnType = 0,
+									*senderType = 0,
+									*argumentType = 0;
+
+						handlerType = ev->GetHandlerType();
 						if (handlerType->GetDecorator() != ITypeInfo::SharedPtr) goto UNSUPPORTED;
 
-						auto genericType = handlerType->GetElementType();
+						genericType = handlerType->GetElementType();
 						if (genericType->GetDecorator() != ITypeInfo::Generic) goto UNSUPPORTED;
 
-						auto functionType = genericType->GetElementType();
+						functionType = genericType->GetElementType();
 						if (functionType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
 						if (functionType->GetTypeDescriptor() != description::GetTypeDescriptor<IValueFunctionProxy>()) goto UNSUPPORTED;
 
 						if (genericType->GetGenericArgumentCount() != 3) goto UNSUPPORTED;
-						auto returnType = genericType->GetGenericArgument(0);
-						auto senderType = genericType->GetGenericArgument(1);
-						auto argumentType = genericType->GetGenericArgument(2);
+						returnType = genericType->GetGenericArgument(0);
+						senderType = genericType->GetGenericArgument(1);
+						argumentType = genericType->GetGenericArgument(2);
 					
 						if (returnType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
 						if (returnType->GetTypeDescriptor() != description::GetTypeDescriptor<VoidValue>()) goto UNSUPPORTED;
@@ -1489,7 +1496,7 @@ GuiInstanceLoaderManager
 			Ptr<GuiResource> GetResource(const WString& name)override
 			{
 				vint index = resources.Keys().IndexOf(name);
-				return index == -1 ? 0 : resources.Values()[index];
+				return index == -1 ? nullptr : resources.Values()[index];
 			}
 		};
 		GUI_REGISTER_PLUGIN(GuiInstanceLoaderManager)
@@ -2484,7 +2491,13 @@ ExecuteBindingSetters
 					{
 						auto name = GlobalStringKey::Get(L"<temp>" + itow(env->scope->referenceValues.Count()));
 						bindingSetter.bindingTarget->instanceName = name;
-						env->scope->referenceValues.Add(name, bindingSetter.propertyValue.instanceValue);
+					}
+
+					auto name = bindingSetter.bindingTarget->instanceName;
+					auto value = bindingSetter.propertyValue.instanceValue;
+					if (!env->scope->referenceValues.Keys().Contains(bindingSetter.bindingTarget->instanceName))
+					{
+						env->scope->referenceValues.Add(name, value);
 					}
 				}
 
@@ -2544,7 +2557,13 @@ ExecuteBindingSetters
 						{
 							auto name = GlobalStringKey::Get(L"<temp>" + itow(env->scope->referenceValues.Count()));
 							eventSetter.bindingTarget->instanceName = name;
-							env->scope->referenceValues.Add(name, eventSetter.propertyValue.instanceValue);
+						}
+
+						auto name = eventSetter.bindingTarget->instanceName;
+						auto value = eventSetter.propertyValue.instanceValue;
+						if (!env->scope->referenceValues.Keys().Contains(eventSetter.bindingTarget->instanceName))
+						{
+							env->scope->referenceValues.Add(name, value);
 						}
 					}
 
@@ -2572,25 +2591,27 @@ ExecuteBindingSetters
 						auto method = group->GetMethod(i);
 						if (method->GetParameterCount() != 2) goto UNSUPPORTED;
 
-						auto returnType = method->GetReturn();
-						auto senderType = method->GetParameter(0)->GetType();
-						auto argumentType = method->GetParameter(1)->GetType();
+						{
+							auto returnType = method->GetReturn();
+							auto senderType = method->GetParameter(0)->GetType();
+							auto argumentType = method->GetParameter(1)->GetType();
 					
-						if (returnType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
-						if (returnType->GetTypeDescriptor() != description::GetTypeDescriptor<VoidValue>()) goto UNSUPPORTED;
+							if (returnType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
+							if (returnType->GetTypeDescriptor() != description::GetTypeDescriptor<VoidValue>()) goto UNSUPPORTED;
 					
-						if (senderType->GetDecorator() != ITypeInfo::RawPtr) goto UNSUPPORTED;
-						senderType = senderType->GetElementType();
-						if (senderType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
-						if (senderType->GetTypeDescriptor() != description::GetTypeDescriptor<compositions::GuiGraphicsComposition>()) goto UNSUPPORTED;
+							if (senderType->GetDecorator() != ITypeInfo::RawPtr) goto UNSUPPORTED;
+							senderType = senderType->GetElementType();
+							if (senderType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
+							if (senderType->GetTypeDescriptor() != description::GetTypeDescriptor<compositions::GuiGraphicsComposition>()) goto UNSUPPORTED;
 					
-						if (argumentType->GetDecorator() != ITypeInfo::RawPtr) goto UNSUPPORTED;
-						argumentType = argumentType->GetElementType();
-						if (argumentType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
-						if (argumentType->GetTypeDescriptor() != eventSetter.eventInfo->argumentType) goto UNSUPPORTED;
+							if (argumentType->GetDecorator() != ITypeInfo::RawPtr) goto UNSUPPORTED;
+							argumentType = argumentType->GetElementType();
+							if (argumentType->GetDecorator() != ITypeInfo::TypeDescriptor) goto UNSUPPORTED;
+							if (argumentType->GetTypeDescriptor() != eventSetter.eventInfo->argumentType) goto UNSUPPORTED;
 
-						selectedMethod = method;
-						break;
+							selectedMethod = method;
+							break;
+						}
 
 					UNSUPPORTED:
 						continue;
@@ -2890,7 +2911,7 @@ LogInstanceLoaderManager_PrintProperties
 					loader = index == loaders.Count() - 1 ? 0 : loaders[index + 1];
 				}
 
-				if (firstInfo->support == GuiInstanceEventInfo::NotSupport)
+				if (firstInfo->support == GuiInstancePropertyInfo::NotSupport)
 				{
 					continue;
 				}
@@ -3391,7 +3412,18 @@ GuiResourceInstanceBinder
 							}
 							else if(Ptr<DescriptableObject> obj=resource.Cast<DescriptableObject>())
 							{
-								value=Value::From(obj);
+								if (auto image = obj.Cast<GuiImageData>())
+								{
+									auto td = propertyValue.typeInfo.typeDescriptor;
+									if (auto prop = td->GetPropertyByName(propertyValue.propertyName.ToString(), true))
+									{
+										if (prop->GetReturn() && prop->GetReturn()->GetTypeDescriptor()->GetTypeName() == L"presentation::INativeImage")
+										{
+											obj = image->GetImage();
+										}
+									}
+								}
+								value = Value::From(obj);
 							}
 
 							if(!value.IsNull())
@@ -5397,7 +5429,7 @@ GuiPredefinedInstanceLoadersPlugin
 #define ADD_TEMPLATE_CONTROL(TYPENAME, CONSTRUCTOR, TEMPLATE)\
 	manager->SetLoader(\
 		new GuiTemplateControlInstanceLoader(\
-			L"presentation::controls::" L#TYPENAME,\
+			L"presentation::controls::" L ## #TYPENAME,\
 			[](){return Value::From(CONSTRUCTOR());},\
 			[](Ptr<GuiTemplate::IFactory> factory){return Value::From(new TYPENAME(new TEMPLATE##_StyleProvider(factory))); }\
 			)\
@@ -5406,7 +5438,7 @@ GuiPredefinedInstanceLoadersPlugin
 #define ADD_TEMPLATE_CONTROL_2(TYPENAME, CONSTRUCTOR, TEMPLATE)\
 	manager->SetLoader(\
 		new GuiTemplateControlInstanceLoader(\
-			L"presentation::controls::" L#TYPENAME,\
+			L"presentation::controls::" L ## #TYPENAME,\
 			[](){return Value::From(CONSTRUCTOR());},\
 			[](Ptr<GuiTemplate::IFactory> factory)\
 			{\
@@ -5421,7 +5453,7 @@ GuiPredefinedInstanceLoadersPlugin
 	manager->CreateVirtualType(\
 		GlobalStringKey::Get(description::GetTypeDescriptor<TYPENAME>()->GetTypeName()),\
 		new GuiTemplateControlInstanceLoader(\
-			L"presentation::controls::Gui" L#VIRTUALTYPENAME,\
+			L"presentation::controls::Gui" L ## #VIRTUALTYPENAME,\
 			[](){return Value::From(CONSTRUCTOR());},\
 			[](Ptr<GuiTemplate::IFactory> factory){return Value::From(new TYPENAME(new TEMPLATE##_StyleProvider(factory))); }\
 			)\
@@ -5431,7 +5463,7 @@ GuiPredefinedInstanceLoadersPlugin
 	manager->CreateVirtualType(\
 		GlobalStringKey::Get(description::GetTypeDescriptor<TYPENAME>()->GetTypeName()),\
 		new GuiTemplateControlInstanceLoader(\
-			L"presentation::controls::Gui" L#VIRTUALTYPENAME,\
+			L"presentation::controls::Gui" L ## #VIRTUALTYPENAME,\
 			[](){return Value::From(CONSTRUCTOR());},\
 			[](Ptr<GuiTemplate::IFactory> factory)\
 			{\
@@ -5446,7 +5478,7 @@ GuiPredefinedInstanceLoadersPlugin
 	manager->CreateVirtualType(\
 		GlobalStringKey::Get(description::GetTypeDescriptor<TYPENAME>()->GetTypeName()),\
 		new GuiTemplateControlInstanceLoader(\
-			L"presentation::controls::Gui" L#VIRTUALTYPENAME,\
+			L"presentation::controls::Gui" L ## #VIRTUALTYPENAME,\
 			[](){return Value::From(CONSTRUCTOR());},\
 			[](Ptr<GuiTemplate::IFactory> factory)\
 			{\
@@ -7222,7 +7254,7 @@ GuiInstanceContext
 				}
 			}
 
-			return context->instance?context:0;
+			return context->instance ? context : nullptr;
 		}
 
 		Ptr<parsing::xml::XmlDocument> GuiInstanceContext::SaveToXml(bool serializePrecompiledResource)
@@ -11854,7 +11886,7 @@ Type Declaration
 				CLASS_MEMBER_METHOD(RemoveLines, {L"start" _ L"end"})
 				CLASS_MEMBER_METHOD(IsAvailable, {L"pos"})
 				CLASS_MEMBER_METHOD(Normalize, {L"pos"})
-				CLASS_MEMBER_METHOD_OVERLOAD(Modify, {L"start"_ L"end"_ L"input"}, TextPos(text::TextLines::*)(TextPos _ TextPos _ const WString&))
+				CLASS_MEMBER_METHOD_OVERLOAD(Modify, {L"start" _ L"end" _ L"input"}, TextPos(text::TextLines::*)(TextPos _ TextPos _ const WString&))
 				CLASS_MEMBER_METHOD(Clear, NO_PARAMETER)
 				CLASS_MEMBER_METHOD(ClearMeasurement, NO_PARAMETER)
 				CLASS_MEMBER_METHOD(MeasureRow, {L"row"})

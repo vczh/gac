@@ -391,7 +391,7 @@ Color
 					unsigned char b;
 					unsigned char a;
 				};
-				unsigned __int32 value;
+				vuint32_t value;
 			};
 
 			Color()
@@ -2688,8 +2688,8 @@ Colorized Plain Text (model)
 			{
 				struct CharAtt
 				{
-					unsigned __int32				rightOffset;
-					unsigned __int32				colorIndex;
+					vuint32_t						rightOffset;
+					vuint32_t						colorIndex;
 				};
 				
 				struct TextLine
@@ -3153,8 +3153,8 @@ Event
 					return handler;
 				}
 
-				template<typename T>
-				Ptr<IHandler> AttachLambda(const T& lambda)
+				template<typename TLambda>
+				Ptr<IHandler> AttachLambda(const TLambda& lambda)
 				{
 					Ptr<IHandler> handler=new FunctionHandler(FunctionType(lambda));
 					Attach(handler);
@@ -3193,6 +3193,12 @@ Event
 				void Execute(T& argument)
 				{
 					ExecuteWithNewSender(argument, 0);
+				}
+
+				void Execute(const T& argument)
+				{
+					auto t = argument;
+					ExecuteWithNewSender(t, 0);
 				}
 			};
 
@@ -4206,7 +4212,7 @@ Host
 				typedef collections::Dictionary<WString, IGuiAltAction*>					AltActionMap;
 				typedef collections::Dictionary<WString, controls::GuiControl*>				AltControlMap;
 			public:
-				static const unsigned __int64	CaretInterval=500;
+				static const vuint64_t					CaretInterval=500;
 			protected:
 				INativeWindow*							nativeWindow;
 				IGuiShortcutKeyManager*					shortcutKeyManager;
@@ -4215,7 +4221,7 @@ Host
 				Size									previousClientSize;
 				Size									minSize;
 				Point									caretPoint;
-				unsigned __int64						lastCaretTime;
+				vuint64_t								lastCaretTime;
 
 				GuiGraphicsAnimationManager				animationManager;
 				GuiGraphicsComposition*					mouseCaptureComposition;
@@ -4299,7 +4305,7 @@ Animation Helpers
 			class GuiTimeBasedAnimation : public IGuiGraphicsAnimation, public Description<GuiTimeBasedAnimation>
 			{
 			protected:
-				unsigned __int64				startTime;
+				vuint64_t						startTime;
 				vint							length;
 			public:
 				GuiTimeBasedAnimation(vint totalMilliseconds);
@@ -6230,7 +6236,7 @@ Predefined ItemProvider
 				public:
 					vint Count()override
 					{
-						return items.Count();
+						return this->items.Count();
 					}
 				};
 			}
@@ -6337,6 +6343,8 @@ TextList Style Provider
 TextList Data Source
 ***********************************************************************/
 
+				class TextItemProvider;
+
 				class TextItem : public Object, public Description<TextItem>
 				{
 					friend class TextItemProvider;
@@ -6367,7 +6375,7 @@ TextList Data Source
 					, public Description<TextItemProvider>
 				{
 					friend class TextItem;
-					friend class GuiTextList;
+					friend class vl::presentation::controls::GuiTextList;
 				protected:
 					GuiTextList*								listControl;
 
@@ -7115,6 +7123,8 @@ ListView
 
 			namespace list
 			{
+				class ListViewItem;
+
 				class ListViewSubItems : public ItemsBase<WString>
 				{
 					friend class ListViewItem;
@@ -7124,6 +7134,8 @@ ListView
 					void											NotifyUpdateInternal(vint start, vint count, vint newCount)override;
 				public:
 				};
+
+				class ListViewItemProvider;
 
 				class ListViewItem : public Object, public Description<ListViewItem>
 				{
@@ -7151,6 +7163,8 @@ ListView
 					description::Value								GetTag();
 					void											SetTag(const description::Value& value);
 				};
+
+				class ListViewColumns;
 				
 				class ListViewColumn : public Object, public Description<ListViewColumn>
 				{
@@ -7178,6 +7192,8 @@ ListView
 					GuiListViewColumnHeader::ColumnSortingState		GetSortingState();
 					void											SetSortingState(GuiListViewColumnHeader::ColumnSortingState value);
 				};
+
+				class ListViewItemProvider;
 
 				class ListViewDataColumns : public ItemsBase<vint>
 				{
@@ -8363,7 +8379,7 @@ GuiTextBoxColorizerBase
 
 				virtual vint								GetLexerStartState()=0;
 				virtual vint								GetContextStartState()=0;
-				virtual void								ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)=0;
+				virtual void								ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, vuint32_t* colors, vint length, vint& lexerState, vint& contextState)=0;
 				virtual const ColorArray&					GetColors()=0;
 			};
 
@@ -8403,7 +8419,7 @@ GuiTextBoxRegexColorizer
 
 				vint														GetLexerStartState()override;
 				vint														GetContextStartState()override;
-				void														ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)override;
+				void														ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, vuint32_t* colors, vint length, vint& lexerState, vint& contextState)override;
 				const ColorArray&											GetColors()override;
 			};
 
@@ -9846,7 +9862,7 @@ Strong Typed DataSource Extensions
 				{
 				public:
 					StrongTypedColumnProvider(StrongTypedDataProvider<TRow>* _dataProvider)
-						:StrongTypedColumnProviderBase(_dataProvider)
+						:StrongTypedColumnProviderBase<TRow, TColumn>(_dataProvider)
 					{
 					}
 
@@ -9864,7 +9880,7 @@ Strong Typed DataSource Extensions
 
 				public:
 					StrongTypedFieldColumnProvider(StrongTypedDataProvider<TRow>* _dataProvider, TColumn TRow::* _field)
-						:StrongTypedColumnProvider(_dataProvider)
+						:StrongTypedColumnProvider<TRow, TColumn>(_dataProvider)
 						,field(_field)
 					{
 					}
@@ -9892,7 +9908,8 @@ Strong Typed DataSource Extensions
 					{
 						if(AddStrongTypedColumn(text, column))
 						{
-							column->SetInherentSorter(new StrongTypedColumnProvider<TRow, TColumn>::Sorter(column.Obj()));
+							typedef typename StrongTypedColumnProvider<TRow, TColumn>::Sorter ColumnSorter;
+							column->SetInherentSorter(new ColumnSorter(column.Obj()));
 						}
 						return column;
 					}
@@ -10466,7 +10483,7 @@ StringGrid Control
 				class StringGridProvider : private StrongTypedDataProvider<Ptr<StringGridItem>>, public Description<StringGridProvider>
 				{
 					friend class StringGridColumn;
-					friend class GuiStringGrid;
+					friend class vl::presentation::controls::GuiStringGrid;
 				protected:
 					bool												readonly;
 					collections::List<Ptr<StringGridItem>>				items;
@@ -15074,7 +15091,27 @@ Parser
 			}
 		};
 
-		class IGuiParserManager;
+/***********************************************************************
+Parser Manager
+***********************************************************************/
+
+		class IGuiParserManager : public IDescriptable, public Description<IGuiParserManager>
+		{
+		protected:
+			typedef parsing::tabling::ParsingTable			Table;
+
+		public:
+			virtual Ptr<Table>						GetParsingTable(const WString& name)=0;
+			virtual bool							SetParsingTable(const WString& name, Func<Ptr<Table>()> loader)=0;
+			virtual Ptr<IGuiGeneralParser>			GetParser(const WString& name)=0;
+			virtual bool							SetParser(const WString& name, Ptr<IGuiGeneralParser> parser)=0;
+
+			template<typename T>
+			Ptr<IGuiParser<T>>						GetParser(const WString& name);
+
+			template<typename T>
+			bool									SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>, collections::List<Ptr<parsing::ParsingError>>&, vint));
+		};
 
 		extern IGuiParserManager*					GetParserManager();
 
@@ -15133,30 +15170,18 @@ Strong Typed Table Parser
 Parser Manager
 ***********************************************************************/
 
-		class IGuiParserManager : public IDescriptable, public Description<IGuiParserManager>
+		template<typename T>
+		Ptr<IGuiParser<T>> IGuiParserManager::GetParser(const WString& name)
 		{
-		protected:
-			typedef parsing::tabling::ParsingTable			Table;
+			return GetParser(name).Cast<IGuiParser<T>>();
+		}
 
-		public:
-			virtual Ptr<Table>						GetParsingTable(const WString& name)=0;
-			virtual bool							SetParsingTable(const WString& name, Func<Ptr<Table>()> loader)=0;
-			virtual Ptr<IGuiGeneralParser>			GetParser(const WString& name)=0;
-			virtual bool							SetParser(const WString& name, Ptr<IGuiGeneralParser> parser)=0;
-
-			template<typename T>
-			Ptr<IGuiParser<T>> GetParser(const WString& name)
-			{
-				return GetParser(name).Cast<IGuiParser<T>>();
-			}
-
-			template<typename T>
-			bool SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>, collections::List<Ptr<parsing::ParsingError>>&, vint))
-			{
-				Ptr<IGuiParser<T>> parser=new GuiStrongTypedTableParser<T>(tableName, function);
-				return SetParser(parserName, parser);
-			}
-		};
+		template<typename T>
+		bool IGuiParserManager::SetTableParser(const WString& tableName, const WString& parserName, Ptr<T>(*function)(const WString&, Ptr<Table>, collections::List<Ptr<parsing::ParsingError>>&, vint))
+		{
+			Ptr<IGuiParser<T>> parser=new GuiStrongTypedTableParser<T>(tableName, function);
+			return SetParser(parserName, parser);
+		}
 	}
 }
 

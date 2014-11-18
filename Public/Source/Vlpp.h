@@ -3406,7 +3406,8 @@ namespace vl
 		static void					Enumerate(collections::List<Locale>& locales);
 
 		const WString&				GetName()const;
-#if defined VCZH_MSVC
+
+		// <NOT_IMPLEMENTED_USING GCC> -- BEGIN
 		void						GetShortDateFormats(collections::List<WString>& formats)const;
 		void						GetLongDateFormats(collections::List<WString>& formats)const;
 		void						GetYearMonthDateFormats(collections::List<WString>& formats)const;
@@ -3454,7 +3455,7 @@ namespace vl
 		collections::Pair<vint, vint>			FindLast(const WString& text, const WString& find, Normalization normalization)const;
 		bool									StartsWith(const WString& text, const WString& find, Normalization normalization)const;
 		bool									EndsWidth(const WString& text, const WString& find, Normalization normalization)const;
-#endif
+		// <NOT_IMPLEMENTED_USING GCC> -- END
 	};
 
 #define INVLOC vl::Locale::Invariant()
@@ -6773,7 +6774,7 @@ LazyList
 			template<typename U>
 			LazyList<Ptr<U>> Cast()const
 			{
-				Func<Ptr<U>(T)> f=[](T t)->Ptr<U>{return t.Cast<U>();};
+				Func<Ptr<U>(T)> f=[](T t)->Ptr<U>{return t.template Cast<U>();};
 				return new SelectEnumerator<T, Ptr<U>>(xs(), f);
 			}
 
@@ -11901,7 +11902,7 @@ Type
 #define INVOKE_INTERFACE_PROXY(METHODNAME, ...)\
 	proxy->Invoke(L ## #METHODNAME, IValueList::Create(collections::From((collections::Array<Value>&)(Value_xs(), __VA_ARGS__))))
 
-#define INVOKE_INTERFACE_PROXY_NOPARAM(METHODNAME)\
+#define INVOKE_INTERFACE_PROXY_NOPARAMS(METHODNAME)\
 	proxy->Invoke(L ## #METHODNAME, IValueList::Create())
 
 #define INVOKEGET_INTERFACE_PROXY(METHODNAME, ...)\
@@ -14933,10 +14934,13 @@ namespace vl
 		bool										Signal();
 		bool										Unsignal();
 	};
+#endif
 
 /***********************************************************************
 线程池
 ***********************************************************************/
+
+	// <NOT_IMPLEMENTED_USING GCC> -- BEGIN
 
 	class ThreadPoolLite : public Object
 	{
@@ -14954,6 +14958,9 @@ namespace vl
 		}
 	};
 
+	// <NOT_IMPLEMENTED_USING GCC> -- END
+
+#ifdef VCZH_MSVC
 /***********************************************************************
 进程内对象
 ***********************************************************************/
@@ -15069,7 +15076,6 @@ namespace vl
 #define READER_LOCK(LOCK) SCOPE_VARIABLE(const ReaderWriterLock::ReaderScope&, scope, LOCK)
 #define WRITER_LOCK(LOCK) SCOPE_VARIABLE(const ReaderWriterLock::WriterScope&, scope, LOCK)
 
-#ifdef VCZH_MSVC
 /***********************************************************************
 RepeatingTaskExecutor
 ***********************************************************************/
@@ -15149,7 +15155,6 @@ RepeatingTaskExecutor
 			}
 		}
 	};
-#endif
 }
 #endif
 

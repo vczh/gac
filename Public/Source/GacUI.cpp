@@ -1164,7 +1164,7 @@ GuiButton
 			{
 				Clicked.SetAssociatedComposition(boundsComposition);
 				styleController->Transfer(Normal);
-				styleController->SetFocusableComposition(boundsComposition);
+				SetFocusableComposition(boundsComposition);
 
 				GetEventReceiver()->leftButtonDown.AttachMethod(this, &GuiButton::OnLeftButtonDown);
 				GetEventReceiver()->leftButtonUp.AttachMethod(this, &GuiButton::OnLeftButtonUp);
@@ -4182,7 +4182,8 @@ GuiBindableTextList::ItemSource
 			{
 				if (0 <= itemIndex && itemIndex < itemSource->GetCount())
 				{
-					WriteProperty(itemSource->Get(itemIndex), checkedProperty, BoxValue(value));
+					auto thisValue = itemSource->Get(itemIndex);
+					WriteProperty(thisValue, checkedProperty, BoxValue(value));
 				}
 			}
 
@@ -6228,7 +6229,7 @@ StringGridProvider
 						readonly=value;
 						FOREACH(Ptr<StructuredColummProviderBase>, column, columns)
 						{
-							column->SetEditorFactory(readonly?0:editorFactory);
+							column->SetEditorFactory(readonly ? nullptr : editorFactory);
 						}
 					}
 				}
@@ -6323,7 +6324,7 @@ StringGridProvider
 					columnProvider->SetText(text);
 					columnProvider->SetSize(size);
 					columnProvider->SetVisualizerFactory(visualizerFactory);
-					columnProvider->SetEditorFactory(readonly?0:editorFactory);
+					columnProvider->SetEditorFactory(readonly ? nullptr : editorFactory);
 					if(!InsertColumnInternal(column, columnProvider, false)) return false;
 
 					FOREACH(Ptr<StringGridItem>, item, items)
@@ -8258,7 +8259,7 @@ GuiSelectableListControl
 
 			Ptr<GuiListControl::IItemStyleProvider> GuiSelectableListControl::SetStyleProvider(Ptr<GuiListControl::IItemStyleProvider> value)
 			{
-				selectableStyleProvider=value?value.Cast<IItemStyleProvider>():0;
+				selectableStyleProvider = value ? value.Cast<IItemStyleProvider>() : nullptr;
 				return GuiListControl::SetStyleProvider(value);
 			}
 
@@ -23668,7 +23669,7 @@ GuiWindowTemplate_StyleProvider
 				{\
 					case BoolOption::AlwaysTrue: return true;\
 					case BoolOption::AlwaysFalse: return false;\
-					default: return controlTemplate->Get##PROPERTY##();\
+					default: return controlTemplate->Get##PROPERTY();\
 				}\
 
 #define WINDOW_TEMPLATE_SET(PROPERTY)\
@@ -24853,7 +24854,7 @@ Helper Functions
 				CopyFrom(
 					types,
 					From(typeNames)
-						.Select(&description::GetTypeDescriptor)
+						.Select<ITypeDescriptor*(*)(const WString&)>(&description::GetTypeDescriptor)
 						.Where([](ITypeDescriptor* type){return type != 0; })
 					);
 
@@ -27218,7 +27219,7 @@ GuiTextBoxColorizerBase
 				{
 					vint lineIndex=-1;
 					wchar_t* text=0;
-					unsigned __int32* colors=0;
+					vuint32_t* colors=0;
 					vint length=0;
 					vint lexerState=-1;
 					vint contextState=-1;
@@ -27235,7 +27236,7 @@ GuiTextBoxColorizerBase
 						TextLine& line=colorizer->element->GetLines().GetLine(lineIndex);
 						length=line.dataLength;
 						text=new wchar_t[length+2];
-						colors=new unsigned __int32[length+2];
+						colors=new vuint32_t[length+2];
 						memcpy(text, line.text, sizeof(wchar_t)*length);
 						text[length]=L'\r';
 						text[length+1]=L'\n';
@@ -27384,7 +27385,7 @@ GuiTextBoxRegexColorizer
 				GuiTextBoxRegexColorizer*		colorizer;
 				vint							lineIndex;
 				const wchar_t*					text;
-				unsigned __int32*				colors;
+				vuint32_t*						colors;
 				vint							contextState;
 			};
 
@@ -27526,7 +27527,7 @@ GuiTextBoxRegexColorizer
 				return 0;
 			}
 
-			void GuiTextBoxRegexColorizer::ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, unsigned __int32* colors, vint length, vint& lexerState, vint& contextState)
+			void GuiTextBoxRegexColorizer::ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, vuint32_t* colors, vint length, vint& lexerState, vint& contextState)
 			{
 				memset(colors, 0, sizeof(*colors)*length);
 				if(lexer)
@@ -30410,7 +30411,7 @@ GuiToolstripCommand
 					}
 					shortcutKeyItem=0;
 					shortcutKeyItemExecutedHandler=0;
-					shortcutBuilder = value ? builder : 0;
+					shortcutBuilder = value ? builder : nullptr;
 					if(value)
 					{
 						shortcutKeyItem=value;
@@ -30475,7 +30476,7 @@ GuiToolstripCommand
 
 			void GuiToolstripCommand::Detach(GuiInstanceRootObject* rootObject)
 			{
-				ReplaceShortcut(0, false);
+				ReplaceShortcut(0, nullptr);
 				shortcutOwner = 0;
 			}
 
@@ -30588,7 +30589,7 @@ GuiToolstripCommand::ShortcutBuilder Parser
 					WString name = match->Groups()[L"key"][0].Value();
 					builder->key = GetCurrentController()->InputService()->GetKey(name);
 
-					return builder->key == -1 ? 0 : builder;
+					return builder->key == -1 ? nullptr : builder;
 				}
 			};
 
@@ -33814,8 +33815,8 @@ GuiDocumentElement::GuiDocumentElementRenderer
 				if(0<=index && index<paragraphCaches.Count() && 0<=oldCount && index+oldCount<=paragraphCaches.Count() && 0<=newCount)
 				{
 					vint paragraphCount=element->document->paragraphs.Count();
-					CHECK_ERROR(updatedText || oldCount==newCount, L"GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint, vint, vint, bool)#oldCount和newCount设置错误。");
-					CHECK_ERROR(paragraphCount-paragraphCaches.Count()==newCount-oldCount, L"GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint, vint, vint, bool)#oldCount和newCount设置错误。");
+					CHECK_ERROR(updatedText || oldCount==newCount, L"GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint, vint, vint, bool)#Illegal values of oldCount and newCount.");
+					CHECK_ERROR(paragraphCount-paragraphCaches.Count()==newCount-oldCount, L"GuiDocumentElement::GuiDocumentElementRenderer::NotifyParagraphUpdated(vint, vint, vint, bool)#Illegal values of oldCount and newCount.");
 
 					ParagraphCacheArray oldCaches;
 					CopyFrom(oldCaches, paragraphCaches);
@@ -39741,7 +39742,7 @@ DocumentModel::ClearStyle
 			if(begin==end) goto END_OF_SUMMERIZING;
 
 			// check caret range
-			if(!CheckEditRange(begin, end, runRanges)) return false;
+			if(!CheckEditRange(begin, end, runRanges)) return nullptr;
 
 			// summerize container
 			if(begin.row==end.row)
@@ -40633,7 +40634,7 @@ IGuiParserManager
 			Ptr<IGuiGeneralParser> GetParser(const WString& name)override
 			{
 				vint index=parsers.Keys().IndexOf(name);
-				return index==-1?0:parsers.Values()[index];
+				return index == -1 ? nullptr : parsers.Values()[index];
 			}
 
 			bool SetParser(const WString& name, Ptr<IGuiGeneralParser> parser)override
@@ -41420,7 +41421,7 @@ GuiResourceFolder
 		Ptr<GuiResourceItem> GuiResourceFolder::GetItem(const WString& name)
 		{
 			vint index=items.Keys().IndexOf(name);
-			return index==-1?0:items.Values().Get(index);
+			return index == -1 ? nullptr : items.Values().Get(index);
 		}
 
 		bool GuiResourceFolder::AddItem(const WString& name, Ptr<GuiResourceItem> item)
@@ -41453,7 +41454,7 @@ GuiResourceFolder
 		Ptr<GuiResourceFolder> GuiResourceFolder::GetFolder(const WString& name)
 		{
 			vint index=folders.Keys().IndexOf(name);
-			return index==-1?0:folders.Values().Get(index);
+			return index == -1 ? nullptr : folders.Values().Get(index);
 		}
 
 		bool GuiResourceFolder::AddFolder(const WString& name, Ptr<GuiResourceFolder> folder)

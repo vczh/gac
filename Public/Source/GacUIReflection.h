@@ -1256,7 +1256,7 @@ Interface Proxy
 
 					void Stop()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Stop);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(Stop);
 					}
 				};
 			}
@@ -1714,7 +1714,7 @@ Interface Proxy
 
 					void InitializeNativeWindowProperties()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(InitializeNativeWindowProperties);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(InitializeNativeWindowProperties);
 					}
 
 					void SetSizeState(INativeWindow::WindowSizeState value)
@@ -1939,12 +1939,12 @@ Interface Proxy
 
 					void OnInstalled()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(OnInstalled);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(OnInstalled);
 					}
 
 					void OnUninstalled()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(OnUninstalled);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(OnUninstalled);
 					}
 				};
 
@@ -1968,7 +1968,7 @@ Interface Proxy
 
 					void DetachListControl()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(DetachListControl);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(DetachListControl);
 					}
 
 					vint GetItemStyleId(vint itemIndex)override
@@ -2017,7 +2017,7 @@ Interface Proxy
 
 					void DetachListControl()override
 					{
-						INVOKE_INTERFACE_PROXY(DetachListControl);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(DetachListControl);
 					}
 
 					GuiListControl::IItemArrangerCallback* GetCallback()override
@@ -2282,7 +2282,7 @@ Interface Proxy
 
 					vint GetColumnCount()override
 					{
-						return INVOKEGET_INTERFACE_PROXY(GetColumnCount);
+						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetColumnCount);
 					}
 
 					WString GetColumnText(vint index)override
@@ -2321,7 +2321,7 @@ Interface Proxy
 
 					void Uninstall()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Uninstall);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(Uninstall);
 					}
 				};
 
@@ -2360,7 +2360,7 @@ Interface Proxy
 
 					void DetachListControl()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(DetachListControl);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(DetachListControl);
 					}
 				};
 
@@ -2531,12 +2531,12 @@ Interface Proxy
 
 					void Increase()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Increase);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(Increase);
 					}
 
 					void Release()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Release);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(Release);
 					}
 				};
 
@@ -2705,7 +2705,7 @@ Interface Proxy
 
 					void DetachListControl()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(DetachListControl);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(DetachListControl);
 					}
 
 					vint GetItemStyleId(tree::INodeProvider* node)override
@@ -2830,7 +2830,7 @@ Interface Proxy
 
 					void OnItemSelected()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(OnItemSelected);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(OnItemSelected);
 					}
 				};
 
@@ -2960,7 +2960,7 @@ Interface Proxy
 
 					void ReinstallEditor()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(ReinstallEditor);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(ReinstallEditor);
 					}
 				};
 
@@ -3399,7 +3399,7 @@ GuiEventInfoImpl
 							GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, true);
 							if(eventObject)
 							{
-								Ptr<GuiGraphicsEvent<T>::IHandler> handler=eventObject->AttachLambda(
+								auto handler=eventObject->AttachLambda(
 									[=](GuiGraphicsComposition* sender, T& arguments)
 									{
 										Value senderObject = BoxValue<GuiGraphicsComposition*>(sender, Description<GuiGraphicsComposition>::GetAssociatedTypeDescriptor());
@@ -3425,7 +3425,7 @@ GuiEventInfoImpl
 							GuiGraphicsEvent<T>* eventObject=eventRetriver(thisObject, false);
 							if(eventObject)
 							{
-								Ptr<GuiGraphicsEvent<T>::IHandler> handler=handlerImpl->GetDescriptableTag().Cast<GuiGraphicsEvent<T>::IHandler>();
+								auto handler=handlerImpl->GetDescriptableTag().Cast<typename GuiGraphicsEvent<T>::IHandler>();
 								if(handler)
 								{
 									eventObject->Detach(handler);
@@ -3484,7 +3484,7 @@ Macros
 			AddEvent(\
 				new GuiEventInfoImpl<GuiEventArgumentTypeRetriver<decltype(&ClassType::EVENTNAME)>::Type>(\
 					this,\
-					L#EVENTNAME,\
+					L ## #EVENTNAME,\
 					[](DescriptableObject* thisObject, bool addEventHandler){\
 						return &dynamic_cast<ClassType*>(thisObject)->EVENTNAME;\
 					}\
@@ -3495,7 +3495,7 @@ Macros
 			AddEvent(\
 				new GuiEventInfoImpl<GuiEventArgumentTypeRetriver<decltype(&GuiGraphicsEventReceiver::EVENTNAME)>::Type>(\
 					this,\
-					L#EVENTNAME,\
+					L ## #EVENTNAME,\
 					[](DescriptableObject* thisObject, bool addEventHandler){\
 						GuiGraphicsComposition* composition=dynamic_cast<GuiGraphicsComposition*>(thisObject);\
 						if(!addEventHandler && !composition->HasEventReceiver())\

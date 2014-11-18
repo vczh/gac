@@ -4480,7 +4480,7 @@ Automaton
 				state->ownerRule=ownerRule;
 				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
 				state->stateName=ownerRule->name+L".Start";
-				state->stateExpression=L"· <"+ownerRule->name+L">";
+				state->stateExpression=L"@ <"+ownerRule->name+L">";
 				return state;
 			}
 
@@ -4492,7 +4492,7 @@ Automaton
 				state->ownerRule=ownerRule;
 				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
 				state->stateName=ownerRule->name+L".RootStart";
-				state->stateExpression=L"● $<"+ownerRule->name+L">";
+				state->stateExpression=L"@ $<"+ownerRule->name+L">";
 				return state;
 			}
 
@@ -4504,7 +4504,7 @@ Automaton
 				state->ownerRule=ownerRule;
 				state->ownerRuleSymbol=symbolManager->GetGlobal()->GetSubSymbolByName(ownerRule->name);
 				state->stateName=ownerRule->name+L".RootEnd";
-				state->stateExpression=L"$<"+ownerRule->name+L"> ●";
+				state->stateExpression=L"$<"+ownerRule->name+L"> @";
 				return state;
 			}
 
@@ -7815,13 +7815,13 @@ Logger (ParsingDefinitionGrammar)
 				{
 					if(grammar==stateNode && beforeNode)
 					{
-						writer.WriteString(L"●");
+						writer.WriteString(L"@");
 					}
 					ParsingDefinitionGrammarLogger visitor(writer, parentPriority, stateNode, beforeNode);
 					grammar->Accept(&visitor);
 					if(grammar==stateNode && !beforeNode)
 					{
-						writer.WriteString(L"●");
+						writer.WriteString(L"@");
 					}
 				}
 
@@ -8568,9 +8568,9 @@ Logger (ParsingTreeNode)
 						vint length=range.end.index-start+1;
 						if(length>0)
 						{
-							writer.WriteString(L" // 【");
+							writer.WriteString(L" // [");
 							writer.WriteString(originalInput.Sub(start, length));
-							writer.WriteString(L"】");
+							writer.WriteString(L"]");
 						}
 					}
 				}
@@ -15045,7 +15045,7 @@ Interface Implementation Proxy (Implement)
 
 					void Clear()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Clear);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(Clear);
 					}
 				};
 
@@ -15122,7 +15122,7 @@ Interface Implementation Proxy (Implement)
 
 					void Clear()override
 					{
-						INVOKE_INTERFACE_PROXY_NOPARAM(Clear);
+						INVOKE_INTERFACE_PROXY_NOPARAMS(Clear);
 					}
 				};
 				
@@ -18607,13 +18607,13 @@ PureInterpretor
 							vint index=subsets.IndexOf(dfaTransition->range);
 							if(index==-1)
 							{
-								CHECK_ERROR(false, L"PureInterpretor::PureInterpretor(Automaton::Ref, CharRange::List&)#指定的字符集转换没有出现在正规化的字符集结果上。");
+								CHECK_ERROR(false, L"PureInterpretor::PureInterpretor(Automaton::Ref, CharRange::List&)#Specified chars don't appear in the normalized char ranges.");
 							}
 							transition[i][index]=dfa->states.IndexOf(dfaTransition->target);
 						}
 						break;
 					default:
-						CHECK_ERROR(false, L"PureInterpretor::PureInterpretor(Automaton::Ref, CharRange::List&)#PureInterpretor只接受Transition::Chars转换。");
+						CHECK_ERROR(false, L"PureInterpretor::PureInterpretor(Automaton::Ref, CharRange::List&)#PureInterpretor only accepts Transition::Chars transitions.");
 					}
 				}
 			}
@@ -19296,7 +19296,7 @@ RegexNode
 		RegexNode RegexNode::operator!()const
 		{
 			CharSetExpression* source=dynamic_cast<CharSetExpression*>(expression.Obj());
-			CHECK_ERROR(source, L"RegexNode::operator!()#!操作符只能使用在字符集合表达式上。");
+			CHECK_ERROR(source, L"RegexNode::operator!()#operator ! can only applies on charset expressions.");
 			Ptr<CharSetExpression> target=new CharSetExpression;
 			CopyFrom(target->ranges, source->ranges);
 			target->reverse=!source->reverse;
@@ -19307,7 +19307,7 @@ RegexNode
 		{
 			CharSetExpression* left=dynamic_cast<CharSetExpression*>(expression.Obj());
 			CharSetExpression* right=dynamic_cast<CharSetExpression*>(node.expression.Obj());
-			CHECK_ERROR(left && right && !left->reverse && !right->reverse, L"RegexNode::operator%(const RegexNode&)#非凡转字符集合表达式才能使用%操作符连接。");
+			CHECK_ERROR(left && right && !left->reverse && !right->reverse, L"RegexNode::operator%(const RegexNode&)#operator % only connects non-reverse charset expressions.");
 			Ptr<CharSetExpression> target=new CharSetExpression;
 			target->reverse=false;
 			CopyFrom(target->ranges, left->ranges);
@@ -19315,7 +19315,7 @@ RegexNode
 			{
 				if(!target->AddRangeWithConflict(right->ranges[i]))
 				{
-					CHECK_ERROR(false, L"RegexNode::operator%(const RegexNode&)#融合字符集和失败。");
+					CHECK_ERROR(false, L"RegexNode::operator%(const RegexNode&)#Failed to create charset expression from operator %.");
 				}
 			}
 			return RegexNode(target);
