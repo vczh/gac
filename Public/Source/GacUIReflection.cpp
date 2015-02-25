@@ -29,7 +29,7 @@ namespace vl
 Type Declaration
 ***********************************************************************/
 
-			GUIREFLECTIONHELPERTYPES_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONHELPERTYPES_TYPELIST(IMPL_VL_TYPE_INFO)
 
 #define _ ,
 
@@ -131,7 +131,7 @@ GuiInstancePropertyInfo
 			:support(NotSupport)
 			, tryParent(false)
 			, required(false)
-			, constructorParameter(false)
+			, scope(Property)
 		{
 		}
 
@@ -727,6 +727,7 @@ GuiDefaultInstanceLoader
 				case ITypeInfo::TypeDescriptor:
 					propertyInfo->acceptableTypes.Add(propType->GetTypeDescriptor());
 					return true;
+				default:;
 				}
 				return false;
 			}
@@ -754,6 +755,27 @@ GuiDefaultInstanceLoader
 				}
 			}
 
+			bool ContainsViewModels(const TypeInfo& typeInfo)
+			{
+				if (auto ctors = typeInfo.typeDescriptor->GetConstructorGroup())
+				{
+					if (ctors->GetMethodCount() == 1)
+					{
+						IMethodInfo* method = ctors->GetMethod(0);
+						vint count = method->GetParameterCount();
+						for (vint i = 0; i < count; i++)
+						{
+							auto parameter = method->GetParameter(i);
+							auto prop = typeInfo.typeDescriptor->GetPropertyByName(parameter->GetName(), false);
+							if (!prop || !prop->GetGetter() || prop->GetSetter() || prop->GetValueChangedEvent()) return false;
+							if (parameter->GetType()->GetTypeFriendlyName() != prop->GetReturn()->GetTypeFriendlyName()) return false;
+						}
+						return true;
+					}
+				}
+				return false;
+			}
+
 			//***********************************************************************************
 
 			void GetPropertyNames(const TypeInfo& typeInfo, collections::List<GlobalStringKey>& propertyNames)override
@@ -763,6 +785,15 @@ GuiDefaultInstanceLoader
 
 			void GetConstructorParameters(const TypeInfo& typeInfo, collections::List<GlobalStringKey>& propertyNames)override
 			{
+				if (ContainsViewModels(typeInfo))
+				{
+					IMethodInfo* method = typeInfo.typeDescriptor->GetConstructorGroup()->GetMethod(0);
+					vint count = method->GetParameterCount();
+					for (vint i = 0; i < count; i++)
+					{
+						propertyNames.Add(GlobalStringKey::Get(method->GetParameter(i)->GetName()));
+					}
+				}
 			}
 
 			PropertyType GetPropertyTypeCached(const PropertyInfo& propertyInfo)
@@ -776,6 +807,19 @@ GuiDefaultInstanceLoader
 					{
 						Ptr<GuiInstancePropertyInfo> result = new GuiInstancePropertyInfo;
 						result->support = support;
+
+						if (ContainsViewModels(propertyInfo.typeInfo))
+						{
+							IMethodInfo* method = propertyInfo.typeInfo.typeDescriptor->GetConstructorGroup()->GetMethod(0);
+							vint count = method->GetParameterCount();
+							for (vint i = 0; i < count; i++)
+							{
+								if (method->GetParameter(i)->GetName() == propertyInfo.propertyName.ToString())
+								{
+									result->scope = GuiInstancePropertyInfo::ViewModel;
+								}
+							}
+						}
 
 						if (FillPropertyInfo(result, propType))
 						{
@@ -836,6 +880,7 @@ GuiDefaultInstanceLoader
 						propertyValue.instanceValue.SetProperty(propertyValue.propertyName.ToString(), propertyValue.propertyValue);
 						propertyType.f1->SetValue(propertyValue.instanceValue, propertyValue.propertyValue);
 						return true;
+					default:;
 					}
 				}
 				return false;
@@ -1106,7 +1151,7 @@ GuiResourceInstanceLoader
 							{
 								auto info = GuiInstancePropertyInfo::Assign(td);
 								info->required = true;
-								info->constructorParameter = true;
+								info->scope = GuiInstancePropertyInfo::ViewModel;
 								return info;
 							}
 						}
@@ -1768,9 +1813,19 @@ LoadInstancePropertyValue
 			{
 				if (auto propertyInfo = propertyLoader->GetPropertyType(propertyValue))
 				{
-					if (propertyInfo->constructorParameter != constructorArgument)
+					if (constructorArgument)
 					{
-						return false;
+						if (propertyInfo->scope == GuiInstancePropertyInfo::Property)
+						{
+							return false;
+						}
+					}
+					else
+					{
+						if (propertyInfo->scope == GuiInstancePropertyInfo::Constructor)
+						{
+							return false;
+						}
 					}
 					if (propertyInfo->support == GuiInstancePropertyInfo::NotSupport)
 					{
@@ -1928,7 +1983,7 @@ LoadInstancePropertyValue
 														output.Add(Pair<Value, IGuiInstanceLoader*>(translatedValue, propertyLoader));
 													}
 												}
-												else
+												else if (propertyInfo->scope == GuiInstancePropertyInfo::Property)
 												{
 													FillInstanceBindingSetter bindingSetter;
 													bindingSetter.binder = binder;
@@ -1989,6 +2044,7 @@ LoadInstancePropertyValue
 							output.Add(Pair<Value, IGuiInstanceLoader*>(Value::From(list), propertyLoader));
 						}
 						break;
+					default:;
 					}
 
 					if (!propertyInfo->tryParent)
@@ -2080,7 +2136,7 @@ FillInstance
 				{
 					while (eventLoader)
 					{
-						if (eventInfo = eventLoader->GetEventType(propertyInfo))
+						if ((eventInfo = eventLoader->GetEventType(propertyInfo)))
 						{
 							if (eventInfo->support == GuiInstanceEventInfo::NotSupport)
 							{
@@ -2232,7 +2288,7 @@ CreateInstance
 								auto info = loader->GetPropertyType(propertyInfo);
 								vint index = ctor->setters.Keys().IndexOf(propertyName);
 
-								if (info->constructorParameter)
+								if (info->scope != GuiInstancePropertyInfo::Property)
 								{
 									if (info->required)
 									{
@@ -2419,7 +2475,7 @@ ExecuteBindingSetters
 				}
 
 				auto value = info->GetValue(env->scope->rootInstance);
-				if (parameterTd && !value.GetTypeDescriptor()->CanConvertTo(parameterTd))
+				if (parameterTd && (!value.GetTypeDescriptor() || !value.GetTypeDescriptor()->CanConvertTo(parameterTd)))
 				{
 					env->scope->errors.Add(L"Value of parameter \"" + parameter->name.ToString() + L"\" is not \"" + parameterTd->GetTypeName() + L"\" which is required.");
 				}
@@ -2917,13 +2973,17 @@ LogInstanceLoaderManager_PrintProperties
 				}
 
 				LogInstanceLoaderManager_PrintFieldName(writer, (propertyName == GlobalStringKey::Empty? L"<DEFAULT-PROPERTY>" : propertyName.ToString()));
-				if (firstInfo->constructorParameter)
+				switch (firstInfo->scope)
 				{
+				case GuiInstancePropertyInfo::ViewModel:
+					writer.WriteString(L"#");
+					break;
+				case GuiInstancePropertyInfo::Constructor:
 					writer.WriteString(firstInfo->required ? L"+" : L"*");
-				}
-				else
-				{
+					break;
+				case GuiInstancePropertyInfo::Property:
 					writer.WriteString(L" ");
+					break;
 				}
 				switch (firstInfo->support)
 				{
@@ -2939,6 +2999,7 @@ LogInstanceLoaderManager_PrintProperties
 				case GuiInstancePropertyInfo::SupportSet:
 					writer.WriteString(L"[set]        ");
 					break;
+				default:;
 				}
 
 				switch (acceptableTypes.Count())
@@ -3871,7 +3932,7 @@ GuiVrtualTypeInstanceLoader
 				if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return 0;
@@ -4019,7 +4080,7 @@ GuiTabInstanceLoader
 				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
@@ -4027,7 +4088,7 @@ GuiTabInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiTab* container = dynamic_cast<GuiTab*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiTab*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::Empty)
 					{
@@ -4081,7 +4142,7 @@ GuiTabPageInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiTabPage* container = dynamic_cast<GuiTabPage*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiTabPage*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::Empty)
 					{
@@ -4163,7 +4224,7 @@ GuiToolstripMenuInstanceLoader
 				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
@@ -4171,7 +4232,7 @@ GuiToolstripMenuInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiToolstripMenu* container = dynamic_cast<GuiToolstripMenu*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiToolstripMenu*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::Empty)
 					{
@@ -4248,7 +4309,7 @@ GuiToolstripMenuBarInstanceLoader
 				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
@@ -4256,7 +4317,7 @@ GuiToolstripMenuBarInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiToolstripMenuBar* container = dynamic_cast<GuiToolstripMenuBar*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiToolstripMenuBar*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::Empty)
 					{
@@ -4333,7 +4394,7 @@ GuiToolstripToolBarInstanceLoader
 				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
@@ -4341,7 +4402,7 @@ GuiToolstripToolBarInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiToolstripToolBar* container = dynamic_cast<GuiToolstripToolBar*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiToolstripToolBar*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::Empty)
 					{
@@ -4416,7 +4477,7 @@ GuiToolstripButtonInstanceLoader
 				if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				else if (propertyInfo.propertyName == _SubMenu)
@@ -4428,7 +4489,7 @@ GuiToolstripButtonInstanceLoader
 
 			bool GetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiToolstripButton* container = dynamic_cast<GuiToolstripButton*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiToolstripButton*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == _SubMenu)
 					{
@@ -4481,7 +4542,7 @@ GuiSelectableListControlInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiSelectableListControl* container = dynamic_cast<GuiSelectableListControl*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiSelectableListControl*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::_ItemTemplate)
 					{
@@ -4532,54 +4593,15 @@ GuiVirtualTreeViewInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (propertyValue.propertyName == GlobalStringKey::_ItemTemplate)
+				if (auto container = dynamic_cast<GuiVirtualTreeListControl*>(propertyValue.instanceValue.GetRawPtr()))
 				{
-					return true;
-				}
-				return false;
-			}
-		};
-
-/***********************************************************************
-GuiVirtualDataGridInstanceLoader
-***********************************************************************/
-
-		class GuiVirtualDataGridInstanceLoader : public Object, public IGuiInstanceLoader
-		{
-		protected:
-			GlobalStringKey					typeName;
-
-		public:
-			GuiVirtualDataGridInstanceLoader()
-			{
-				typeName = GlobalStringKey::Get(description::GetTypeDescriptor<GuiVirtualDataGrid>()->GetTypeName());
-			}
-
-			GlobalStringKey GetTypeName()override
-			{
-				return typeName;
-			}
-
-			void GetPropertyNames(const TypeInfo& typeInfo, collections::List<GlobalStringKey>& propertyNames)override
-			{
-				propertyNames.Add(GlobalStringKey::_ItemTemplate);
-			}
-
-			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
-			{
-				if (propertyInfo.propertyName == GlobalStringKey::_ItemTemplate)
-				{
-					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					return info;
-				}
-				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
-			}
-
-			bool SetPropertyValue(PropertyValue& propertyValue)override
-			{
-				if (propertyValue.propertyName == GlobalStringKey::_ItemTemplate)
-				{
-					return true;
+					if (propertyValue.propertyName == GlobalStringKey::_ItemTemplate)
+					{
+						auto factory = CreateTemplateFactory(propertyValue.propertyValue.GetText());
+						auto styleProvider = new GuiTreeItemTemplate_ItemStyleProvider(factory);
+						container->SetNodeStyleProvider(styleProvider);
+						return true;
+					}
 				}
 				return false;
 			}
@@ -4632,10 +4654,10 @@ GuiListViewInstanceLoader
 					GuiListViewBase::IStyleProvider* styleProvider = 0;
 					Size iconSize;
 					{
-						vint itemSourceIndex = constructorArguments.Keys().IndexOf(_ItemSource);
-						if (itemSourceIndex != -1)
+						vint indexItemSource = constructorArguments.Keys().IndexOf(_ItemSource);
+						if (indexItemSource != -1)
 						{
-							itemSource = UnboxValue<Ptr<IValueEnumerable>>(constructorArguments.GetByIndex(itemSourceIndex)[0]);
+							itemSource = UnboxValue<Ptr<IValueEnumerable>>(constructorArguments.GetByIndex(indexItemSource)[0]);
 						}
 						else if (bindable)
 						{
@@ -4727,19 +4749,19 @@ GuiListViewInstanceLoader
 				if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				else if (propertyInfo.propertyName == _View)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<ListViewViewType>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				else if (propertyInfo.propertyName == _IconSize)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<Size>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				else if (propertyInfo.propertyName == _ItemSource)
@@ -4747,7 +4769,7 @@ GuiListViewInstanceLoader
 					if (bindable)
 					{
 						auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<IValueEnumerable>());
-						info->constructorParameter = true;
+						info->scope = GuiInstancePropertyInfo::Constructor;
 						info->required = true;
 						return info;
 					}
@@ -4879,7 +4901,7 @@ GuiTreeViewInstanceLoader
 				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				else if (propertyInfo.propertyName == _ItemSource)
@@ -4887,7 +4909,7 @@ GuiTreeViewInstanceLoader
 					if (bindable)
 					{
 						auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<Value>());
-						info->constructorParameter = true;
+						info->scope = GuiInstancePropertyInfo::Constructor;
 						info->required = true;
 						return info;
 					}
@@ -4895,7 +4917,7 @@ GuiTreeViewInstanceLoader
 				else if (propertyInfo.propertyName == _IconSize)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<Size>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
@@ -4903,7 +4925,7 @@ GuiTreeViewInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiTreeView* container = dynamic_cast<GuiTreeView*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiTreeView*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == _Nodes)
 					{
@@ -4997,14 +5019,14 @@ GuiComboBoxInstanceLoader
 				if (propertyInfo.propertyName == _ListControl)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<GuiSelectableListControl>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					info->required = true;
 					return info;
 				}
 				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
@@ -5088,17 +5110,223 @@ GuiBindableTextListInstanceLoader
 				if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					return info;
 				}
 				if (propertyInfo.propertyName == _ItemSource)
 				{
 					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<IValueEnumerable>());
-					info->constructorParameter = true;
+					info->scope = GuiInstancePropertyInfo::Constructor;
 					info->required = true;
 					return info;
 				}
 				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+		};
+
+/***********************************************************************
+GuiBindableDataColumnInstanceLoader
+***********************************************************************/
+
+		class GuiBindableDataColumnInstanceLoader : public Object, public IGuiInstanceLoader
+		{
+		protected:
+			GlobalStringKey		typeName;
+			GlobalStringKey		_VisualizerTemplates;
+			GlobalStringKey		_EditorTemplate;
+
+		public:
+			GuiBindableDataColumnInstanceLoader()
+			{
+				typeName = GlobalStringKey::Get(description::GetTypeDescriptor<list::BindableDataColumn>()->GetTypeName());
+				_VisualizerTemplates = GlobalStringKey::Get(L"VisualizerTemplates");
+				_EditorTemplate = GlobalStringKey::Get(L"EditorTemplate");
+			}
+
+			GlobalStringKey GetTypeName()override
+			{
+				return typeName;
+			}
+
+			void GetPropertyNames(const TypeInfo& typeInfo, collections::List<GlobalStringKey>& propertyNames)override
+			{
+				propertyNames.Add(_VisualizerTemplates);
+				propertyNames.Add(_EditorTemplate);
+			}
+
+			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
+			{
+				if (propertyInfo.propertyName == _VisualizerTemplates)
+				{
+					return GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
+				}
+				else if (propertyInfo.propertyName == _EditorTemplate)
+				{
+					return GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
+				}
+				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+
+			bool SetPropertyValue(PropertyValue& propertyValue)override
+			{
+				if (auto container = dynamic_cast<list::BindableDataColumn*>(propertyValue.instanceValue.GetRawPtr()))
+				{
+					if (propertyValue.propertyName == _VisualizerTemplates)
+					{
+						List<WString> types;
+						SplitBySemicolon(propertyValue.propertyValue.GetText(), types);
+						Ptr<list::IDataVisualizerFactory> factory;
+						FOREACH(WString, type, types)
+						{
+							auto templateFactory = CreateTemplateFactory(type);
+							if (factory)
+							{
+								factory = new GuiBindableDataVisualizer::DecoratedFactory(templateFactory, container, factory);
+							}
+							else
+							{
+								factory = new GuiBindableDataVisualizer::Factory(templateFactory, container);
+							}
+						}
+
+						container->SetVisualizerFactory(factory);
+						return true;
+					}
+					else if (propertyValue.propertyName == _EditorTemplate)
+					{
+						auto templateFactory = CreateTemplateFactory(propertyValue.propertyValue.GetText());
+						auto factory = new GuiBindableDataEditor::Factory(templateFactory, container);
+						container->SetEditorFactory(factory);
+						return true;
+					}
+				}
+				return false;
+			}
+		};
+
+/***********************************************************************
+GuiBindableDataGridInstanceLoader
+***********************************************************************/
+
+		class GuiBindableDataGridInstanceLoader : public Object, public IGuiInstanceLoader
+		{
+		protected:
+			GlobalStringKey		typeName;
+			GlobalStringKey		_ItemSource;
+			GlobalStringKey		_ViewModelContext;
+			GlobalStringKey		_Columns;
+
+		public:
+			GuiBindableDataGridInstanceLoader()
+			{
+				typeName = GlobalStringKey::Get(description::GetTypeDescriptor<GuiBindableDataGrid>()->GetTypeName());
+				_ItemSource = GlobalStringKey::Get(L"ItemSource");
+				_ViewModelContext = GlobalStringKey::Get(L"ViewModelContext");
+				_Columns = GlobalStringKey::Get(L"Columns");
+			}
+
+			GlobalStringKey GetTypeName()override
+			{
+				return typeName;
+			}
+
+			bool IsCreatable(const TypeInfo& typeInfo)override
+			{
+				return typeInfo.typeName == GetTypeName();
+			}
+
+			description::Value CreateInstance(Ptr<GuiInstanceEnvironment> env, const TypeInfo& typeInfo, collections::Group<GlobalStringKey, description::Value>& constructorArguments)override
+			{
+				if (typeInfo.typeName == GetTypeName())
+				{
+					vint indexItemSource = constructorArguments.Keys().IndexOf(_ItemSource);	
+					if (indexItemSource == -1)
+					{
+						return Value();
+					}
+
+					GuiBindableDataGrid::IStyleProvider* styleProvider = 0;
+					vint indexControlTemplate = constructorArguments.Keys().IndexOf(GlobalStringKey::_ControlTemplate);
+					if (indexControlTemplate == -1)
+					{
+						styleProvider = GetCurrentTheme()->CreateListViewStyle();
+					}
+					else
+					{
+						auto factory = CreateTemplateFactory(constructorArguments.GetByIndex(indexControlTemplate)[0].GetText());
+						styleProvider = new GuiListViewTemplate_StyleProvider(factory);
+					}
+					
+					auto itemSource = UnboxValue<Ptr<IValueEnumerable>>(constructorArguments.GetByIndex(indexItemSource)[0]);
+
+					Value viewModelContext;
+					vint indexViewModelContext = constructorArguments.Keys().IndexOf(_ViewModelContext);
+					if (indexViewModelContext != -1)
+					{
+						viewModelContext = constructorArguments.GetByIndex(indexViewModelContext)[0];
+					}
+
+					auto dataGrid = new GuiBindableDataGrid(styleProvider, itemSource, viewModelContext);
+					return Value::From(dataGrid);
+				}
+				return Value();
+			}
+
+			void GetPropertyNames(const TypeInfo& typeInfo, collections::List<GlobalStringKey>& propertyNames)override
+			{
+				propertyNames.Add(_Columns);
+			}
+
+			void GetConstructorParameters(const TypeInfo& typeInfo, collections::List<GlobalStringKey>& propertyNames)override
+			{
+				if (typeInfo.typeName == GetTypeName())
+				{
+					propertyNames.Add(GlobalStringKey::_ControlTemplate);
+					propertyNames.Add(_ItemSource);
+					propertyNames.Add(_ViewModelContext);
+				}
+			}
+
+			Ptr<GuiInstancePropertyInfo> GetPropertyType(const PropertyInfo& propertyInfo)override
+			{
+				if (propertyInfo.propertyName == _Columns)
+				{
+					return GuiInstancePropertyInfo::Collection(description::GetTypeDescriptor<list::BindableDataColumn>());
+				}
+				else if (propertyInfo.propertyName == GlobalStringKey::_ControlTemplate)
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<WString>());
+					info->scope = GuiInstancePropertyInfo::Constructor;
+					return info;
+				}
+				else if (propertyInfo.propertyName == _ItemSource)
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<IValueEnumerable>());
+					info->scope = GuiInstancePropertyInfo::Constructor;
+					info->required = true;
+					return info;
+				}
+				else if (propertyInfo.propertyName == _ViewModelContext)
+				{
+					auto info = GuiInstancePropertyInfo::Assign(description::GetTypeDescriptor<Value>());
+					info->scope = GuiInstancePropertyInfo::Constructor;
+					return info;
+				}
+				return IGuiInstanceLoader::GetPropertyType(propertyInfo);
+			}
+
+			bool SetPropertyValue(PropertyValue& propertyValue)override
+			{
+				if (auto container = dynamic_cast<GuiBindableDataGrid*>(propertyValue.instanceValue.GetRawPtr()))
+				{
+					if (propertyValue.propertyName == _Columns)
+					{
+						auto column = UnboxValue<Ptr<list::BindableDataColumn>>(propertyValue.propertyValue);
+						container->AddBindableColumn(column);
+						return true;
+					}
+				}
+				return false;
 			}
 		};
 
@@ -5142,7 +5370,7 @@ GuiCompositionInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiGraphicsComposition* container = dynamic_cast<GuiGraphicsComposition*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiGraphicsComposition*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == GlobalStringKey::Empty)
 					{
@@ -5207,7 +5435,7 @@ GuiTableCompositionInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiTableComposition* container = dynamic_cast<GuiTableComposition*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiTableComposition*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == _Rows)
 					{
@@ -5274,7 +5502,7 @@ GuiCellCompositionInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (GuiCellComposition* container = dynamic_cast<GuiCellComposition*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<GuiCellComposition*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == _Site)
 					{
@@ -5358,7 +5586,7 @@ GuiTreeNodeInstanceLoader
 
 			bool SetPropertyValue(PropertyValue& propertyValue)override
 			{
-				if (tree::MemoryNodeProvider* container = dynamic_cast<tree::MemoryNodeProvider*>(propertyValue.instanceValue.GetRawPtr()))
+				if (auto container = dynamic_cast<tree::MemoryNodeProvider*>(propertyValue.instanceValue.GetRawPtr()))
 				{
 					if (propertyValue.propertyName == _Text)
 					{
@@ -5498,12 +5726,13 @@ GuiPredefinedInstanceLoadersPlugin
 				manager->SetLoader(new GuiToolstripButtonInstanceLoader);			// ControlTemplate
 				manager->SetLoader(new GuiSelectableListControlInstanceLoader);		// ItemTemplate
 				manager->SetLoader(new GuiVirtualTreeViewInstanceLoader);			// ItemTemplate
-				manager->SetLoader(new GuiVirtualDataGridInstanceLoader);			// ItemTemplate
 				manager->SetLoader(new GuiListViewInstanceLoader(false));			// ControlTemplate
 				manager->SetLoader(new GuiTreeViewInstanceLoader(false));			// ControlTemplate
 				manager->SetLoader(new GuiBindableTextListInstanceLoader(L"", [](){return GetCurrentTheme()->CreateTextListItemStyle(); }));	// ControlTemplate, ItemSource
 				manager->SetLoader(new GuiListViewInstanceLoader(true));			// ControlTemplate, ItemSource
 				manager->SetLoader(new GuiTreeViewInstanceLoader(true));			// ControlTemplate, ItemSource
+				manager->SetLoader(new GuiBindableDataColumnInstanceLoader);		// VisualizerTemplates, EditorTemplate
+				manager->SetLoader(new GuiBindableDataGridInstanceLoader);			// ControlTemplate, ItemSource
 
 				manager->SetLoader(new GuiCompositionInstanceLoader);
 				manager->SetLoader(new GuiTableCompositionInstanceLoader);
@@ -5606,7 +5835,14 @@ Variable
 			FOREACH_INDEXER(GlobalStringKey, name, index, env->scope->referenceValues.Keys())
 			{
 				auto value = env->scope->referenceValues.Values()[index];
-				types.Add(name, value.GetTypeDescriptor());
+				if (value.GetTypeDescriptor())
+				{
+					types.Add(name, value.GetTypeDescriptor());
+				}
+				else
+				{
+					types.Add(name, GetTypeDescriptor<Value>());
+				}
 			}
 		}
 		
@@ -6152,9 +6388,26 @@ Workflow_GetSharedManager
 
 			void Visit(GuiConstructorRepr* repr)override
 			{
-				auto source = FindInstanceLoadingSource(context, repr);
-				bindingTargetTypeInfo.typeName = source.typeName;
-				bindingTargetTypeInfo.typeDescriptor = GetInstanceLoaderManager()->GetTypeDescriptorForType(source.typeName);
+				bool found = false;
+				if (repr == context->instance.Obj() && context->className)
+				{
+					auto fullName = GlobalStringKey::Get(context->className.Value());
+					auto td = GetInstanceLoaderManager()->GetTypeDescriptorForType(fullName);
+					if (td)
+					{
+						found = true;
+						bindingTargetTypeInfo.typeName = fullName;
+						bindingTargetTypeInfo.typeDescriptor = td;
+					}
+				}
+
+				if (!found)
+				{
+					auto source = FindInstanceLoadingSource(context, repr);
+					bindingTargetTypeInfo.typeName = source.typeName;
+					bindingTargetTypeInfo.typeDescriptor = GetInstanceLoaderManager()->GetTypeDescriptorForType(source.typeName);
+				}
+
 				if (!bindingTargetTypeInfo.typeDescriptor)
 				{
 					errors.Add(
@@ -6270,7 +6523,7 @@ Workflow_GetSharedManager
 							}
 							else if (setter->binding == GlobalStringKey::_Eval)
 							{
-								if (propertyInfo->constructorParameter)
+								if (propertyInfo->scope != GuiInstancePropertyInfo::Property)
 								{
 									WString cacheKey = L"<att.eval>" + expressionCode;
 									auto assembly = Workflow_CompileExpression(types, errors, expressionCode);
@@ -7040,42 +7293,44 @@ GuiInstanceContext
 				// collect attributes as setters
 				FOREACH(Ptr<XmlAttribute>, att, xml->attributes)
 				{
-					if(auto name=parser->TypedParse(att->name.value, errors))
-					if(name->IsReferenceAttributeName())
+					if (auto name = parser->TypedParse(att->name.value, errors))
 					{
-						// collect reference attributes
-						if (name->name == L"Name")
+						if(name->IsReferenceAttributeName())
 						{
-							setter->instanceName = GlobalStringKey::Get(att->value.value);
+							// collect reference attributes
+							if (name->name == L"Name")
+							{
+								setter->instanceName = GlobalStringKey::Get(att->value.value);
+							}
 						}
-					}
-					else if(name->IsPropertyAttributeName())
-					{
-						// collect attributes setters
-						if (setter->setters.Keys().Contains(GlobalStringKey::Get(name->name)))
+						else if(name->IsPropertyAttributeName())
 						{
-							errors.Add(L"Duplicated attribute name \"" + name->name + L"\".");
-						}
-						else
-						{
-							Ptr<GuiAttSetterRepr::SetterValue> sv=new GuiAttSetterRepr::SetterValue;
-							sv->binding=GlobalStringKey::Get(name->binding);
-							setter->setters.Add(GlobalStringKey::Get(name->name), sv);
+							// collect attributes setters
+							if (setter->setters.Keys().Contains(GlobalStringKey::Get(name->name)))
+							{
+								errors.Add(L"Duplicated attribute name \"" + name->name + L"\".");
+							}
+							else
+							{
+								Ptr<GuiAttSetterRepr::SetterValue> sv=new GuiAttSetterRepr::SetterValue;
+								sv->binding=GlobalStringKey::Get(name->binding);
+								setter->setters.Add(GlobalStringKey::Get(name->name), sv);
 
-							Ptr<GuiTextRepr> value=new GuiTextRepr;
-							value->text=att->value.value;
-							sv->values.Add(value);
+								Ptr<GuiTextRepr> value=new GuiTextRepr;
+								value->text=att->value.value;
+								sv->values.Add(value);
+							}
 						}
-					}
-					else if (name->IsEventAttributeName())
-					{
-						// collect event setters
-						if (!setter->eventHandlers.Keys().Contains(GlobalStringKey::Get(name->name)))
+						else if (name->IsEventAttributeName())
 						{
-							auto value = MakePtr<GuiAttSetterRepr::EventValue>();
-							value->binding = GlobalStringKey::Get(name->binding);
-							value->value = att->value.value;
-							setter->eventHandlers.Add(GlobalStringKey::Get(name->name), value);
+							// collect event setters
+							if (!setter->eventHandlers.Keys().Contains(GlobalStringKey::Get(name->name)))
+							{
+								auto value = MakePtr<GuiAttSetterRepr::EventValue>();
+								value->binding = GlobalStringKey::Get(name->binding);
+								value->value = att->value.value;
+								setter->eventHandlers.Add(GlobalStringKey::Get(name->name), value);
+							}
 						}
 					}
 				}
@@ -7088,31 +7343,35 @@ GuiInstanceContext
 
 		Ptr<GuiConstructorRepr> GuiInstanceContext::LoadCtor(Ptr<parsing::xml::XmlElement> xml, collections::List<WString>& errors)
 		{
-			if(auto parser=GetParserManager()->GetParser<ElementName>(L"INSTANCE-ELEMENT-NAME"))
-			if(auto name=parser->TypedParse(xml->name.value, errors))
-			if(name->IsCtorName())
+			if (auto parser = GetParserManager()->GetParser<ElementName>(L"INSTANCE-ELEMENT-NAME"))
 			{
-				Ptr<GuiConstructorRepr> ctor=new GuiConstructorRepr;
-				ctor->typeNamespace = GlobalStringKey::Get(name->namespaceName);
-				ctor->typeName = GlobalStringKey::Get(name->name);
-				// collect attributes as setters
-				FOREACH(Ptr<XmlAttribute>, att, xml->attributes)
+				if (auto name = parser->TypedParse(xml->name.value, errors))
 				{
-					if(auto name=parser->TypedParse(att->name.value, errors))
-					if(name->IsReferenceAttributeName())
+					if(name->IsCtorName())
 					{
-						if (name->name == L"Style")
+						Ptr<GuiConstructorRepr> ctor=new GuiConstructorRepr;
+						ctor->typeNamespace = GlobalStringKey::Get(name->namespaceName);
+						ctor->typeName = GlobalStringKey::Get(name->name);
+						// collect attributes as setters
+						FOREACH(Ptr<XmlAttribute>, att, xml->attributes)
 						{
-							ctor->styleName = att->value.value;
+							if(auto name=parser->TypedParse(att->name.value, errors))
+							if(name->IsReferenceAttributeName())
+							{
+								if (name->name == L"Style")
+								{
+									ctor->styleName = att->value.value;
+								}
+							}
 						}
+						FillAttSetter(ctor, xml, errors);
+						return ctor;
+					}
+					else
+					{
+						errors.Add(L"Wrong constructor name \"" + xml->name.value + L"\".");
 					}
 				}
-				FillAttSetter(ctor, xml, errors);
-				return ctor;
-			}
-			else
-			{
-				errors.Add(L"Wrong constructor name \"" + xml->name.value + L"\".");
 			}
 			return 0;
 		}
@@ -7231,6 +7490,35 @@ GuiInstanceContext
 							context->parameters.Add(parameter);
 						}
 					}
+					else if (element->name.value == L"ref.Property")
+					{
+						auto attName = XmlGetAttribute(element, L"Name");
+						auto attType = XmlGetAttribute(element, L"Type");
+						auto attReadonly = XmlGetAttribute(element, L"Readonly");
+						if (attName && attType)
+						{
+							auto prop = MakePtr<GuiInstanceProperty>();
+							prop->name = GlobalStringKey::Get(attName->value.value);
+							prop->typeName = attType->value.value;
+							if (attReadonly)
+							{
+								prop->readonly = attReadonly->value.value == L"true";
+							}
+							context->properties.Add(prop);
+						}
+					}
+					else if (element->name.value == L"ref.State")
+					{
+						auto attName = XmlGetAttribute(element, L"Name");
+						auto attType = XmlGetAttribute(element, L"Type");
+						if (attName && attType)
+						{
+							auto state = MakePtr<GuiInstanceState>();
+							state->name = GlobalStringKey::Get(attName->value.value);
+							state->typeName = attType->value.value;
+							context->states.Add(state);
+						}
+					}
 					else if (element->name.value == L"ref.Cache")
 					{
 						auto attName = XmlGetAttribute(element, L"Name");
@@ -7309,6 +7597,45 @@ GuiInstanceContext
 				attClass->name.value = L"Class";
 				attClass->value.value = parameter->className.ToString();
 				xmlParameter->attributes.Add(attClass);
+			}
+
+			FOREACH(Ptr<GuiInstanceProperty>, prop, properties)
+			{
+				auto xmlProperty = MakePtr<XmlElement>();
+				xmlProperty->name.value = L"ref.Property";
+				xmlInstance->subNodes.Add(xmlProperty);
+
+				auto attName = MakePtr<XmlAttribute>();
+				attName->name.value = L"Name";
+				attName->value.value = prop->name.ToString();
+				xmlProperty->attributes.Add(attName);
+
+				auto attType = MakePtr<XmlAttribute>();
+				attType->name.value = L"Type";
+				attType->value.value = prop->typeName;
+				xmlProperty->attributes.Add(attType);
+
+				auto attReadonly = MakePtr<XmlAttribute>();
+				attReadonly->name.value = L"Readonly";
+				attReadonly->value.value = prop->readonly ? L"true" : L"false";
+				xmlProperty->attributes.Add(attReadonly);
+			}
+
+			FOREACH(Ptr<GuiInstanceState>, state, states)
+			{
+				auto xmlState = MakePtr<XmlElement>();
+				xmlState->name.value = L"ref.State";
+				xmlInstance->subNodes.Add(xmlState);
+
+				auto attName = MakePtr<XmlAttribute>();
+				attName->name.value = L"Name";
+				attName->value.value = state->name.ToString();
+				xmlState->attributes.Add(attName);
+
+				auto attType = MakePtr<XmlAttribute>();
+				attType->name.value = L"Type";
+				attType->value.value = state->typeName;
+				xmlState->attributes.Add(attType);
 			}
 
 			if (!serializePrecompiledResource && stylePaths.Count() > 0)
@@ -7431,6 +7758,38 @@ GuiInstanceContext
 				}
 			}
 			{
+				vint count = -1;
+				reader << count;
+				for (vint i = 0; i < count; i++)
+				{
+					vint nameIndex = -1;
+					WString typeName;
+					bool readonly = false;
+					reader << nameIndex << typeName << readonly;
+
+					auto prop = MakePtr<GuiInstanceProperty>();
+					prop->name = sortedKeys[nameIndex];
+					prop->typeName = typeName;
+					prop->readonly = readonly;
+					context->properties.Add(prop);
+				}
+			}
+			{
+				vint count = -1;
+				reader << count;
+				for (vint i = 0; i < count; i++)
+				{
+					vint nameIndex = -1;
+					WString typeName;
+					reader << nameIndex << typeName;
+
+					auto state = MakePtr<GuiInstanceState>();
+					state->name = sortedKeys[nameIndex];
+					state->typeName = typeName;
+					context->states.Add(state);
+				}
+			}
+			{
 				vint count = 0;
 				reader << count;
 
@@ -7507,6 +7866,29 @@ GuiInstanceContext
 					vint classNameIndex = sortedKeys.IndexOf(parameter->className);
 					CHECK_ERROR(nameIndex != -1 && classNameIndex != -1, L"GuiInstanceContext::SavePrecompiledBinary(stream::IStream&)#Internal Error.");
 					writer << nameIndex << classNameIndex;
+				}
+			}
+			{
+				vint count = properties.Count();
+				writer << count;
+				FOREACH(Ptr<GuiInstanceProperty>, prop, properties)
+				{
+					vint nameIndex = sortedKeys.IndexOf(prop->name);
+					WString typeName = prop->typeName;
+					bool readonly = prop->readonly;
+					CHECK_ERROR(nameIndex != -1, L"GuiInstanceContext::SavePrecompiledBinary(stream::IStream&)#Internal Error.");
+					writer << nameIndex << typeName << readonly;
+				}
+			}
+			{
+				vint count = states.Count();
+				writer << count;
+				FOREACH(Ptr<GuiInstanceState>, state, states)
+				{
+					vint nameIndex = sortedKeys.IndexOf(state->name);
+					WString typeName = state->typeName;
+					CHECK_ERROR(nameIndex != -1, L"GuiInstanceContext::SavePrecompiledBinary(stream::IStream&)#Internal Error.");
+					writer << nameIndex << typeName;
 				}
 			}
 			{
@@ -8115,7 +8497,8 @@ ExecuteQueryVisitor
 
 			void Visit(GuiIqPrimaryQuery* node)override
 			{
-				if (&input)
+				auto inputExists = &input;
+				if (inputExists)
 				{
 					FOREACH(Ptr<GuiConstructorRepr>, setter, input)
 					{
@@ -8826,7 +9209,7 @@ namespace vl
 
 #ifndef VCZH_DEBUG_NO_REFLECTION
 
-			GUIREFLECTIONBASIC_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONBASIC_TYPELIST(IMPL_VL_TYPE_INFO)
 
 			Color TypedValueSerializerProvider<Color>::GetDefaultValue()
 			{
@@ -9576,7 +9959,7 @@ namespace vl
 
 #ifndef VCZH_DEBUG_NO_REFLECTION
 
-			GUIREFLECTIONCOMPOSITION_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONCOMPOSITION_TYPELIST(IMPL_VL_TYPE_INFO)
 
 /***********************************************************************
 External Functions
@@ -9870,7 +10253,7 @@ namespace vl
 
 #ifndef VCZH_DEBUG_NO_REFLECTION
 
-			GUIREFLECTIONCONTROLS_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONCONTROLS_TYPELIST(IMPL_VL_TYPE_INFO)
 
 /***********************************************************************
 External Functions
@@ -11468,6 +11851,21 @@ Type Declaration
 				CLASS_MEMBER_PROPERTY_FAST(AdditionalFilter)
 			END_CLASS_MEMBER(StructuredDataProvider)
 
+			BEGIN_CLASS_MEMBER(StructuredColummProviderBase)
+				CLASS_MEMBER_BASE(IStructuredColumnProvider)
+
+				CLASS_MEMBER_PROPERTY_FAST(Text)
+				CLASS_MEMBER_PROPERTY_FAST(Popup)
+				CLASS_MEMBER_PROPERTY_FAST(InherentFilter)
+				CLASS_MEMBER_PROPERTY_FAST(InherentSorter)
+				CLASS_MEMBER_PROPERTY_FAST(VisualizerFactory)
+				CLASS_MEMBER_PROPERTY_FAST(EditorFactory)
+			END_CLASS_MEMBER(StructuredColummProviderBase)
+
+			BEGIN_CLASS_MEMBER(StructuredDataProviderBase)
+				CLASS_MEMBER_BASE(IStructuredDataProvider)
+			END_CLASS_MEMBER(StructuredDataProviderBase)
+
 			BEGIN_CLASS_MEMBER(ListViewMainColumnDataVisualizer)
 				CLASS_MEMBER_BASE(IDataVisualizer)
 
@@ -11655,9 +12053,27 @@ Type Declaration
 				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedItem, SelectionChanged)
 			END_CLASS_MEMBER(GuiBindableTreeView)
 
+			BEGIN_CLASS_MEMBER(BindableDataColumn)
+				CLASS_MEMBER_BASE(StructuredColummProviderBase)
+				CLASS_MEMBER_CONSTRUCTOR(Ptr<BindableDataColumn>(), NO_PARAMETER)
+
+				CLASS_MEMBER_METHOD(GetCellValue, { L"row" })
+				CLASS_MEMBER_METHOD(SetCellValue, { L"row" _ L"value" })
+				CLASS_MEMBER_PROPERTY_GUIEVENT_FAST(ValueProperty)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(ViewModelContext)
+			END_CLASS_MEMBER(BindableDataColumn)
+
 			BEGIN_CLASS_MEMBER(GuiBindableDataGrid)
 				CLASS_MEMBER_BASE(GuiVirtualDataGrid)
-				CLASS_MEMBER_CONSTRUCTOR(GuiBindableDataGrid*(GuiBindableDataGrid::IStyleProvider*, Ptr<IValueEnumerable>), {L"styleProvider" _ L"itemSource"})
+				CLASS_MEMBER_CONSTRUCTOR(GuiBindableDataGrid*(GuiBindableDataGrid::IStyleProvider*, Ptr<IValueEnumerable>, const Value&), {L"styleProvider" _ L"itemSource" _ L"viewModelContext"})
+
+				CLASS_MEMBER_METHOD(InsertBindableColumn, { L"index" _ L"column" })
+				CLASS_MEMBER_METHOD(AddBindableColumn, { L"column" })
+				CLASS_MEMBER_METHOD(RemoveBindableColumn, { L"column" })
+				CLASS_MEMBER_METHOD(ClearBindableColumns, NO_PARAMETER)
+				CLASS_MEMBER_METHOD(GetBindableColumn, { L"index" })
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedRowValue, SelectionCellChanged)
+				CLASS_MEMBER_PROPERTY_EVENT_READONLY_FAST(SelectedCellValue, SelectedCellChanged)
 			END_CLASS_MEMBER(GuiBindableDataGrid)
 
 #undef INTERFACE_IDENTIFIER
@@ -11714,7 +12130,7 @@ namespace vl
 
 #ifndef VCZH_DEBUG_NO_REFLECTION
 
-			GUIREFLECTIONELEMENT_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONELEMENT_TYPELIST(IMPL_VL_TYPE_INFO)
 
 /***********************************************************************
 External Functions
@@ -12007,7 +12423,7 @@ namespace vl
 
 #ifndef VCZH_DEBUG_NO_REFLECTION
 
-			GUIREFLECTIONEVENT_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONEVENT_TYPELIST(IMPL_VL_TYPE_INFO)
 
 /***********************************************************************
 Type Declaration
@@ -12195,7 +12611,7 @@ namespace vl
 
 #ifndef VCZH_DEBUG_NO_REFLECTION
 
-			GUIREFLECTIONTEMPLATES_TYPELIST(IMPL_TYPE_INFO)
+			GUIREFLECTIONTEMPLATES_TYPELIST(IMPL_VL_TYPE_INFO)
 
 /***********************************************************************
 Type Declaration
@@ -12374,6 +12790,20 @@ Type Declaration
 
 				GuiTreeItemTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_REFLECTION)
 			END_CLASS_MEMBER(GuiTreeItemTemplate)
+
+			BEGIN_CLASS_MEMBER(GuiGridVisualizerTemplate)
+				CLASS_MEMBER_BASE(GuiControlTemplate)
+				CLASS_MEMBER_CONSTRUCTOR(GuiGridVisualizerTemplate*(), NO_PARAMETER)
+
+				GuiGridVisualizerTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_REFLECTION)
+			END_CLASS_MEMBER(GuiGridVisualizerTemplate)
+
+			BEGIN_CLASS_MEMBER(GuiGridEditorTemplate)
+				CLASS_MEMBER_BASE(GuiControlTemplate)
+				CLASS_MEMBER_CONSTRUCTOR(GuiGridEditorTemplate*(), NO_PARAMETER)
+
+				GuiGridEditorTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_REFLECTION)
+			END_CLASS_MEMBER(GuiGridEditorTemplate)
 
 #undef INTERFACE_EXTERNALCTOR
 #undef _

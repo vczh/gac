@@ -43,17 +43,17 @@ public:
 		colors[COMMENT_COLOR]=entry;
 	}
 
-	int GetLexerStartState()override
+	vint GetLexerStartState()override
 	{
 		return 0;
 	}
 
-	int GetContextStartState()override
+	vint GetContextStartState()override
 	{
 		return 0;
 	}
 
-	void ColorizeLineWithCRLF(int lineIndex, const wchar_t* text, unsigned __int32* colors, int length, int& lexerState, int& contextState)override
+	void ColorizeLineWithCRLF(vint lineIndex, const wchar_t* text, vuint32_t* colors, vint length, vint& lexerState, vint& contextState)override
 	{
 		if(length>0)
 		{
@@ -159,7 +159,7 @@ public:
 		}
 	}
 
-	int GetContextStartState()override
+	vint GetContextStartState()override
 	{
 		return 0;
 	}

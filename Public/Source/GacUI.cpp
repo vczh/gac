@@ -408,14 +408,21 @@ GuiApplicationMain
 				{
 					WString osVersion=GetCurrentController()->GetOSVersion();
 					vint index=osVersion.IndexOf(L';');
-					WString osMainVersion=osVersion.Sub(0, index);
-					if(osMainVersion==L"Windows 8" || osMainVersion==L"Windows Server 2012")
+					if (index == -1)
 					{
 						theme=new win8::Win8Theme;
 					}
 					else
 					{
-						theme=new win7::Win7Theme;
+						WString osMainVersion=osVersion.Sub(0, index);
+						if(osMainVersion==L"Windows 8" || osMainVersion==L"Windows Server 2012")
+						{
+							theme=new win8::Win8Theme;
+						}
+						else
+						{
+							theme=new win7::Win7Theme;
+						}
 					}
 				}
 
@@ -3650,8 +3657,8 @@ GuiWindow
 					SetBounds(
 						Rect(
 							Point(
-								windowBounds.Left()+(screenBounds.Width()-windowBounds.Width())/2,
-								windowBounds.Top()+(screenBounds.Height()-windowBounds.Height())/2
+								screenBounds.Left()+(screenBounds.Width()-windowBounds.Width())/2,
+								screenBounds.Top()+(screenBounds.Height()-windowBounds.Height())/2
 								),
 							windowBounds.GetSize()
 							)
@@ -4025,6 +4032,7 @@ namespace vl
 			using namespace list;
 			using namespace tree;
 			using namespace reflection::description;
+			using namespace templates;
 
 			Value ReadProperty(const Value& thisObject, const WString& propertyName)
 			{
@@ -4949,133 +4957,257 @@ GuiBindableTreeView
 				return result;
 			}
 
+			namespace list
+			{
 /***********************************************************************
-GuiBindableDataGrid::ItemSource
+GuiBindableDataColumn
 ***********************************************************************/
 
-			GuiBindableDataGrid::ItemSource::ItemSource(Ptr<description::IValueEnumerable> _itemSource)
-			{
-				throw 0;
-			}
+				void BindableDataColumn::SetItemSource(Ptr<description::IValueReadonlyList> _itemSource)
+				{
+					itemSource = _itemSource;
+				}
 
-			GuiBindableDataGrid::ItemSource::~ItemSource()
-			{
-			}
+				BindableDataColumn::BindableDataColumn()
+				{
+				}
 
-			// ===================== list::IDataProvider =====================
+				BindableDataColumn::~BindableDataColumn()
+				{
+				}
 
-			void GuiBindableDataGrid::ItemSource::SetCommandExecutor(list::IDataProviderCommandExecutor* value)
-			{
-				throw 0;
-			}
+				void BindableDataColumn::SaveCellData(vint row, IDataEditor* dataEditor)
+				{
+					if (auto editor = dynamic_cast<GuiBindableDataEditor*>(dataEditor))
+					{
+						SetCellValue(row, editor->GetEditedCellValue());
+					}
+					if (commandExecutor)
+					{
+						commandExecutor->OnDataProviderItemModified(row, 1, 1);
+					}
+				}
 
-			vint GuiBindableDataGrid::ItemSource::GetColumnCount()
-			{
-				throw 0;
-			}
+				WString BindableDataColumn::GetCellText(vint row)
+				{
+					return GetCellValue(row).GetText();
+				}
 
-			WString GuiBindableDataGrid::ItemSource::GetColumnText(vint column)
-			{
-				throw 0;
-			}
+				description::Value BindableDataColumn::GetCellValue(vint row)
+				{
+					if (0 <= row && row < itemSource->GetCount())
+					{
+						return ReadProperty(itemSource->Get(row), valueProperty);
+					}
+					return Value();
+				}
 
-			vint GuiBindableDataGrid::ItemSource::GetColumnSize(vint column)
-			{
-				throw 0;
-			}
+				void BindableDataColumn::SetCellValue(vint row, description::Value value)
+				{
+					if (0 <= row && row < itemSource->GetCount())
+					{
+						return WriteProperty(itemSource->Get(row), valueProperty, value);
+					}
+				}
 
-			void GuiBindableDataGrid::ItemSource::SetColumnSize(vint column, vint value)
-			{
-				throw 0;
-			}
+				const WString& BindableDataColumn::GetValueProperty()
+				{
+					return valueProperty;
+				}
 
-			GuiMenu* GuiBindableDataGrid::ItemSource::GetColumnPopup(vint column)
-			{
-				throw 0;
-			}
+				void BindableDataColumn::SetValueProperty(const WString& value)
+				{
+					if (valueProperty != value)
+					{
+						valueProperty = value;
+						if (commandExecutor)
+						{
+							commandExecutor->OnDataProviderColumnChanged();
+						}
+						compositions::GuiEventArgs arguments;
+						ValuePropertyChanged.Execute(arguments);
+					}
+				}
 
-			bool GuiBindableDataGrid::ItemSource::IsColumnSortable(vint column)
-			{
-				throw 0;
-			}
+				const description::Value& BindableDataColumn::GetViewModelContext()
+				{
+					return viewModelContext;
+				}
 
-			void GuiBindableDataGrid::ItemSource::SortByColumn(vint column, bool ascending)
-			{
-				throw 0;
-			}
+/***********************************************************************
+GuiBindableDataProvider
+***********************************************************************/
 
-			vint GuiBindableDataGrid::ItemSource::GetSortedColumn()
-			{
-				throw 0;
-			}
+				BindableDataProvider::BindableDataProvider(Ptr<description::IValueEnumerable> _itemSource, const description::Value& _viewModelContext)
+					:viewModelContext(_viewModelContext)
+				{
+					if (auto ol = _itemSource.Cast<IValueObservableList>())
+					{
+						itemSource = ol;
+						itemChangedEventHandler = ol->ItemChanged.Add([this](vint start, vint oldCount, vint newCount)
+						{
+							commandExecutor->OnDataProviderItemModified(start, oldCount, newCount);
+						});
+					}
+					else if (auto rl = _itemSource.Cast<IValueReadonlyList>())
+					{
+						itemSource = rl;
+					}
+					else
+					{
+						itemSource = IValueList::Create(GetLazyList<Value>(_itemSource));
+					}
+				}
 
-			bool GuiBindableDataGrid::ItemSource::IsSortOrderAscending()
-			{
-				throw 0;
-			}
+				BindableDataProvider::~BindableDataProvider()
+				{
+					if (itemChangedEventHandler)
+					{
+						auto ol = itemSource.Cast<IValueObservableList>();
+						ol->ItemChanged.Remove(itemChangedEventHandler);
+					}
+				}
 
-			vint GuiBindableDataGrid::ItemSource::GetRowCount()
-			{
-				throw 0;
-			}
+				vint BindableDataProvider::GetRowCount()
+				{
+					return itemSource->GetCount();
+				}
 
-			Ptr<GuiImageData> GuiBindableDataGrid::ItemSource::GetRowLargeImage(vint row)
-			{
-				throw 0;
-			}
+				description::Value BindableDataProvider::GetRowValue(vint row)
+				{
+					if (0 <= row && row < itemSource->GetCount())
+					{
+						return itemSource->Get(row);
+					}
+					else
+					{
+						return Value();
+					}
+				}
 
-			Ptr<GuiImageData> GuiBindableDataGrid::ItemSource::GetRowSmallImage(vint row)
-			{
-				throw 0;
-			}
+				bool BindableDataProvider::InsertBindableColumn(vint index, Ptr<BindableDataColumn> column)
+				{
+					if (InsertColumnInternal(index, column, true))
+					{
+						column->viewModelContext = viewModelContext;
+						column->itemSource = itemSource;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
 
-			vint GuiBindableDataGrid::ItemSource::GetCellSpan(vint row, vint column)
-			{
-				throw 0;
-			}
+				bool BindableDataProvider::AddBindableColumn(Ptr<BindableDataColumn> column)
+				{
+					if (AddColumnInternal(column, true))
+					{
+						column->viewModelContext = viewModelContext;
+						column->itemSource = itemSource;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
 
-			WString GuiBindableDataGrid::ItemSource::GetCellText(vint row, vint column)
-			{
-				throw 0;
-			}
+				bool BindableDataProvider::RemoveBindableColumn(Ptr<BindableDataColumn> column)
+				{
+					if (RemoveColumnInternal(column, true))
+					{
+						column->viewModelContext = Value();
+						column->itemSource = nullptr;
+						return true;
+					}
+					else
+					{
+						return false;
+					}
+				}
 
-			list::IDataVisualizerFactory* GuiBindableDataGrid::ItemSource::GetCellDataVisualizerFactory(vint row, vint column)
-			{
-				throw 0;
-			}
+				bool BindableDataProvider::ClearBindableColumns()
+				{
+					FOREACH(Ptr<StructuredColummProviderBase>, column, columns)
+					{
+						column.Cast<BindableDataColumn>()->viewModelContext = Value();
+						column.Cast<BindableDataColumn>()->itemSource = nullptr;
+					}
+					return ClearColumnsInternal(true);
+				}
 
-			void GuiBindableDataGrid::ItemSource::VisualizeCell(vint row, vint column, list::IDataVisualizer* dataVisualizer)
-			{
-				throw 0;
-			}
+				Ptr<BindableDataColumn> BindableDataProvider::GetBindableColumn(vint index)
+				{
+					if (0 <= index && index < GetColumnCount())
+					{
+						return columns[index].Cast<BindableDataColumn>();
+					}
+					else
+					{
+						return nullptr;
+					}
+				}
 
-			list::IDataEditorFactory* GuiBindableDataGrid::ItemSource::GetCellDataEditorFactory(vint row, vint column)
-			{
-				throw 0;
-			}
-
-			void GuiBindableDataGrid::ItemSource::BeforeEditCell(vint row, vint column, list::IDataEditor* dataEditor)
-			{
-				throw 0;
-			}
-
-			void GuiBindableDataGrid::ItemSource::SaveCellData(vint row, vint column, list::IDataEditor* dataEditor)
-			{
-				throw 0;
+				const description::Value& BindableDataProvider::GetViewModelContext()
+				{
+					return viewModelContext;
+				}
 			}
 
 /***********************************************************************
 GuiBindableDataGrid
 ***********************************************************************/
 
-			GuiBindableDataGrid::GuiBindableDataGrid(IStyleProvider* _styleProvider, Ptr<description::IValueEnumerable> _itemSource)
-				:GuiVirtualDataGrid(_styleProvider, new ItemSource(_itemSource))
+			GuiBindableDataGrid::GuiBindableDataGrid(IStyleProvider* _styleProvider, Ptr<description::IValueEnumerable> _itemSource, const description::Value& _viewModelContext)
+				:GuiVirtualDataGrid(_styleProvider, new BindableDataProvider(_itemSource, _viewModelContext))
 			{
-				itemSource = dynamic_cast<ItemSource*>(GetDataProvider());
+				bindableDataProvider = GetStructuredDataProvider()->GetStructuredDataProvider().Cast<BindableDataProvider>();
 			}
 
 			GuiBindableDataGrid::~GuiBindableDataGrid()
 			{
+			}
+
+			bool GuiBindableDataGrid::InsertBindableColumn(vint index, Ptr<list::BindableDataColumn> column)
+			{
+				return bindableDataProvider->InsertBindableColumn(index, column);
+			}
+
+			bool GuiBindableDataGrid::AddBindableColumn(Ptr<list::BindableDataColumn> column)
+			{
+				return bindableDataProvider->AddBindableColumn(column);
+			}
+
+			bool GuiBindableDataGrid::RemoveBindableColumn(Ptr<list::BindableDataColumn> column)
+			{
+				return bindableDataProvider->RemoveBindableColumn(column);
+			}
+
+			bool GuiBindableDataGrid::ClearBindableColumns()
+			{
+				return bindableDataProvider->ClearBindableColumns();
+			}
+
+			Ptr<list::BindableDataColumn> GuiBindableDataGrid::GetBindableColumn(vint index)
+			{
+				return bindableDataProvider->GetBindableColumn(index);
+			}
+
+			description::Value GuiBindableDataGrid::GetSelectedRowValue()
+			{
+				return bindableDataProvider->GetRowValue(GetSelectedCell().row);
+			}
+
+			description::Value GuiBindableDataGrid::GetSelectedCellValue()
+			{
+				auto cell = GetSelectedCell();
+				auto column = GetBindableColumn(cell.column);
+				if (column)
+				{
+					return column->GetCellValue(cell.row);
+				}
+				return Value();
 			}
 		}
 	}
@@ -5860,6 +5992,18 @@ DataGridContentProvider
 				{
 					if(currentEditor && !currentEditorOpening)
 					{
+						GuiControl* focusedControl = nullptr;
+						if (auto controlHost = dataGrid->GetRelatedControlHost())
+						{
+							if (auto graphicsHost = controlHost->GetGraphicsHost())
+							{
+								if (auto focusComposition = graphicsHost->GetFocusedComposition())
+								{
+									focusedControl = focusComposition->GetRelatedControl();
+								}
+							}
+						}
+
 						currentEditorRequestingSaveData=true;
 						dataProvider->SaveCellData(currentCell.row, currentCell.column, currentEditor.Obj());
 						currentEditorRequestingSaveData=false;
@@ -5873,6 +6017,10 @@ DataGridContentProvider
 							if(!itemContent) return;
 							itemContent->ForceSetEditor(currentCell.column, currentEditor.Obj());
 							currentEditor->ReinstallEditor();
+							if (focusedControl)
+							{
+								focusedControl->SetFocus();
+							}
 						}
 					}
 				}
@@ -6509,6 +6657,10 @@ DataVisualizerBase
 
 				void DataVisualizerBase::BeforeVisualizeCell(IDataProvider* dataProvider, vint row, vint column)
 				{
+					if(decoratedDataVisualizer)
+					{
+						decoratedDataVisualizer->BeforeVisualizeCell(dataProvider, row, column);
+					}
 				}
 
 				IDataVisualizer* DataVisualizerBase::GetDecoratedDataVisualizer()
@@ -6610,6 +6762,8 @@ ListViewMainColumnDataVisualizer
 
 				void ListViewMainColumnDataVisualizer::BeforeVisualizeCell(IDataProvider* dataProvider, vint row, vint column)
 				{
+					DataVisualizerBase::BeforeVisualizeCell(dataProvider, row, column);
+
 					Ptr<GuiImageData> imageData=dataProvider->GetRowSmallImage(row);
 					if(imageData)
 					{
@@ -6655,6 +6809,8 @@ ListViewSubColumnDataVisualizer
 
 				void ListViewSubColumnDataVisualizer::BeforeVisualizeCell(IDataProvider* dataProvider, vint row, vint column)
 				{
+					DataVisualizerBase::BeforeVisualizeCell(dataProvider, row, column);
+
 					text->SetAlignments(Alignment::Left, Alignment::Center);
 					text->SetFont(font);
 					text->SetColor(styleProvider->GetSecondaryTextColor());
@@ -6726,6 +6882,8 @@ ImageDataVisualizer
 
 				void ImageDataVisualizer::BeforeVisualizeCell(IDataProvider* dataProvider, vint row, vint column)
 				{
+					DataVisualizerBase::BeforeVisualizeCell(dataProvider, row, column);
+
 					image->SetImage(0, -1);
 					image->SetAlignments(Alignment::Center, Alignment::Center);
 					image->SetStretch(false);
@@ -6776,14 +6934,9 @@ CellBorderDataVisualizer
 					:DataVisualizerBase(decoratedDataVisualizer)
 				{
 				}
-
-				void CellBorderDataVisualizer::BeforeVisualizeCell(IDataProvider* dataProvider, vint row, vint column)
-				{
-					decoratedDataVisualizer->BeforeVisualizeCell(dataProvider, row, column);
-				}
 				
 /***********************************************************************
-CellBorderDataVisualizer
+NotifyIconDataVisualizer
 ***********************************************************************/
 
 				compositions::GuiBoundsComposition* NotifyIconDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
@@ -6833,7 +6986,7 @@ CellBorderDataVisualizer
 
 				void NotifyIconDataVisualizer::BeforeVisualizeCell(IDataProvider* dataProvider, vint row, vint column)
 				{
-					decoratedDataVisualizer->BeforeVisualizeCell(dataProvider, row, column);
+					DataVisualizerBase::BeforeVisualizeCell(dataProvider, row, column);
 
 					leftImage->SetImage(0, -1);
 					leftImage->SetAlignments(Alignment::Center, Alignment::Center);
@@ -6884,11 +7037,6 @@ TextBoxDataEditor
 					{
 						textBox->SetFocus();
 					});
-				}
-
-				void TextBoxDataEditor::ReinstallEditor()
-				{
-					textBox->SetFocus();
 				}
 
 				GuiSinglelineTextBox* TextBoxDataEditor::GetTextBox()
@@ -7534,10 +7682,20 @@ StructuredColummProviderBase
 					return this;
 				}
 
+				Ptr<IDataVisualizerFactory> StructuredColummProviderBase::GetVisualizerFactory()
+				{
+					return visualizerFactory;
+				}
+
 				StructuredColummProviderBase* StructuredColummProviderBase::SetVisualizerFactory(Ptr<IDataVisualizerFactory> value)
 				{
 					visualizerFactory=value;
 					return this;
+				}
+
+				Ptr<IDataEditorFactory> StructuredColummProviderBase::GetEditorFactory()
+				{
+					return editorFactory;
 				}
 
 				StructuredColummProviderBase* StructuredColummProviderBase::SetEditorFactory(Ptr<IDataEditorFactory> value)
@@ -8679,6 +8837,7 @@ AxisAlignedItemCoordinateTransformer
 						return Margin(y2, x2, y1, x1);
 					case UpRight:
 						return Margin(y1, x2, y2, x1);
+					default:;
 					}
 					return margin;
 				}
@@ -8704,6 +8863,7 @@ AxisAlignedItemCoordinateTransformer
 						pageKey=true;
 						key=GuiListControl::Right;
 						break;
+					default:;
 					}
 
 					switch(key)
@@ -8786,6 +8946,7 @@ AxisAlignedItemCoordinateTransformer
 						case UpRight:	key=GuiListControl::Home;	break;
 						}
 						break;
+					default:;
 					}
 
 					if(pageKey)
@@ -8804,6 +8965,7 @@ AxisAlignedItemCoordinateTransformer
 						case GuiListControl::Right:
 							key=GuiListControl::PageRight;
 							break;
+						default:;
 						}
 					}
 					return key;
@@ -9908,6 +10070,11 @@ GuiListViewColumnHeader
 
 			GuiListViewColumnHeader::~GuiListViewColumnHeader()
 			{
+			}
+
+			bool GuiListViewColumnHeader::IsAltAvailable()
+			{
+				return false;
 			}
 
 			GuiListViewColumnHeader::ColumnSortingState GuiListViewColumnHeader::GetColumnSortingState()
@@ -19229,6 +19396,7 @@ Win7ToolstripButtonStyle
 								cell->AddChild(subMenuHost->GetBoundsComposition());
 							}
 							break;
+						default:;
 						}
 					}
 					GetContainerComposition()->AddChild(table);
@@ -22855,6 +23023,7 @@ Win8ToolstripButtonStyle
 								cell->AddChild(subMenuHost->GetBoundsComposition());
 							}
 							break;
+						default:;
 						}
 					}
 					GetContainerComposition()->AddChild(table);
@@ -23453,6 +23622,36 @@ GuiTreeItemTemplate
 			GuiTreeItemTemplate::~GuiTreeItemTemplate()
 			{
 			}
+
+/***********************************************************************
+GuiGridVisualizerTemplate
+***********************************************************************/
+
+			GuiGridVisualizerTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_IMPL)
+
+			GuiGridVisualizerTemplate::GuiGridVisualizerTemplate()
+			{
+				GuiGridVisualizerTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_EVENT_INIT)
+			}
+
+			GuiGridVisualizerTemplate::~GuiGridVisualizerTemplate()
+			{
+			}
+
+/***********************************************************************
+GuiGridEditorTemplate
+***********************************************************************/
+
+			GuiGridEditorTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_IMPL)
+
+			GuiGridEditorTemplate::GuiGridEditorTemplate()
+			{
+				GuiGridEditorTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_EVENT_INIT)
+			}
+
+			GuiGridEditorTemplate::~GuiGridEditorTemplate()
+			{
+			}
 		}
 	}
 }
@@ -23470,6 +23669,7 @@ namespace vl
 			using namespace compositions;
 			using namespace elements;
 			using namespace controls;
+			using namespace controls::list;
 			using namespace reflection::description;
 			using namespace collections;
 
@@ -24819,6 +25019,213 @@ GuiTreeItemTemplate_ItemStyleController
 			}
 
 /***********************************************************************
+GuiBindableDataVisualizer::Factory
+***********************************************************************/
+
+			GuiBindableDataVisualizer::Factory::Factory(Ptr<GuiTemplate::IFactory> _templateFactory, controls::list::BindableDataColumn* _ownerColumn)
+				:templateFactory(_templateFactory)
+				, ownerColumn(_ownerColumn)
+			{
+			}
+
+			GuiBindableDataVisualizer::Factory::~Factory()
+			{
+			}
+
+			Ptr<controls::list::IDataVisualizer> GuiBindableDataVisualizer::Factory::CreateVisualizer(const FontProperties& font, controls::GuiListViewBase::IStyleProvider* styleProvider)
+			{
+				auto visualizer = DataVisualizerFactory<GuiBindableDataVisualizer>::CreateVisualizer(font, styleProvider).Cast<GuiBindableDataVisualizer>();
+				if (visualizer)
+				{
+					visualizer->templateFactory = templateFactory;
+					visualizer->ownerColumn = ownerColumn;
+				}
+				return visualizer;
+			}
+
+/***********************************************************************
+GuiBindableDataVisualizer::DecoratedFactory
+***********************************************************************/
+
+			GuiBindableDataVisualizer::DecoratedFactory::DecoratedFactory(Ptr<GuiTemplate::IFactory> _templateFactory, controls::list::BindableDataColumn* _ownerColumn, Ptr<IDataVisualizerFactory> _decoratedFactory)
+				:DataDecoratableVisualizerFactory<GuiBindableDataVisualizer>(_decoratedFactory)
+				, templateFactory(_templateFactory)
+				, ownerColumn(_ownerColumn)
+			{
+			}
+
+			GuiBindableDataVisualizer::DecoratedFactory::~DecoratedFactory()
+			{
+			}
+
+			Ptr<controls::list::IDataVisualizer> GuiBindableDataVisualizer::DecoratedFactory::CreateVisualizer(const FontProperties& font, controls::GuiListViewBase::IStyleProvider* styleProvider)
+			{
+				auto visualizer = DataDecoratableVisualizerFactory<GuiBindableDataVisualizer>::CreateVisualizer(font, styleProvider).Cast<GuiBindableDataVisualizer>();
+				if (visualizer)
+				{
+					visualizer->templateFactory = templateFactory;
+					visualizer->ownerColumn = ownerColumn;
+				}
+				return visualizer;
+			}
+
+/***********************************************************************
+GuiBindableDataVisualizer
+***********************************************************************/
+
+			compositions::GuiBoundsComposition* GuiBindableDataVisualizer::CreateBoundsCompositionInternal(compositions::GuiBoundsComposition* decoratedComposition)
+			{
+				GuiTemplate* itemTemplate = templateFactory->CreateTemplate(ownerColumn->GetViewModelContext());
+				if (!(visualizerTemplate = dynamic_cast<GuiGridVisualizerTemplate*>(itemTemplate)))
+				{
+					delete itemTemplate;
+					CHECK_FAIL(L"GuiBindableDataVisualizer::CreateBoundsCompositionInternal(presentation::compositions::GuiBoundsComposition*)#An instance of GuiGridVisualizerTemplate is expected.");
+				}
+
+				if (decoratedComposition)
+				{
+					decoratedComposition->SetAlignmentToParent(Margin(0, 0, 0, 0));
+					visualizerTemplate->GetContainerComposition()->AddChild(decoratedComposition);
+				}
+				visualizerTemplate->SetFont(font);
+				return visualizerTemplate;
+			}
+
+			GuiBindableDataVisualizer::GuiBindableDataVisualizer()
+			{
+			}
+
+			GuiBindableDataVisualizer::GuiBindableDataVisualizer(Ptr<controls::list::IDataVisualizer> _decoratedVisualizer)
+				:DataVisualizerBase(_decoratedVisualizer)
+			{
+			}
+
+			GuiBindableDataVisualizer::~GuiBindableDataVisualizer()
+			{
+			}
+
+			void GuiBindableDataVisualizer::BeforeVisualizeCell(controls::list::IDataProvider* dataProvider, vint row, vint column)
+			{
+				DataVisualizerBase::BeforeVisualizeCell(dataProvider, row, column);
+				if (!visualizerTemplate) return;
+				visualizerTemplate->SetText(dataProvider->GetCellText(row, column));
+
+				auto structuredDataProvider = dynamic_cast<list::StructuredDataProvider*>(dataProvider);
+				if (!structuredDataProvider) return;
+
+				auto bindableDataProvider = structuredDataProvider->GetStructuredDataProvider().Cast<list::BindableDataProvider>();
+				if (!bindableDataProvider) return;
+
+				auto columnProvider = bindableDataProvider->GetBindableColumn(column);
+				if (!columnProvider) return;
+
+				visualizerTemplate->SetRowValue(bindableDataProvider->GetRowValue(row));
+				visualizerTemplate->SetCellValue(columnProvider->GetCellValue(row));
+			}
+
+			void GuiBindableDataVisualizer::SetSelected(bool value)
+			{
+				DataVisualizerBase::SetSelected(value);
+				if (visualizerTemplate)
+				{
+					visualizerTemplate->SetSelected(value);
+				}
+			}
+
+/***********************************************************************
+GuiBindableDataEditor::Factory
+***********************************************************************/
+
+			GuiBindableDataEditor::Factory::Factory(Ptr<GuiTemplate::IFactory> _templateFactory, controls::list::BindableDataColumn* _ownerColumn)
+				:templateFactory(_templateFactory)
+				, ownerColumn(_ownerColumn)
+			{
+			}
+
+			GuiBindableDataEditor::Factory::~Factory()
+			{
+			}
+
+			Ptr<IDataEditor> GuiBindableDataEditor::Factory::CreateEditor(controls::list::IDataEditorCallback* callback)
+			{
+				auto editor = DataEditorFactory<GuiBindableDataEditor>::CreateEditor(callback).Cast<GuiBindableDataEditor>();
+				if (editor)
+				{
+					editor->templateFactory = templateFactory;
+					editor->ownerColumn = ownerColumn;
+
+					// Invoke GuiBindableDataEditor::CreateBoundsCompositionInternal
+					// so that GuiBindableDataEditor::BeforeEditCell is able to set RowValue and CellValue to the editor
+					editor->GetBoundsComposition();
+				}
+				return editor;
+			}
+
+/***********************************************************************
+GuiBindableDataEditor
+***********************************************************************/
+
+			compositions::GuiBoundsComposition* GuiBindableDataEditor::CreateBoundsCompositionInternal()
+			{
+				GuiTemplate* itemTemplate = templateFactory->CreateTemplate(ownerColumn->GetViewModelContext());
+				if (!(editorTemplate = dynamic_cast<GuiGridEditorTemplate*>(itemTemplate)))
+				{
+					delete itemTemplate;
+					CHECK_FAIL(L"GuiBindableDataEditor::CreateBoundsCompositionInternal()#An instance of GuiGridEditorTemplate is expected.");
+				}
+
+				editorTemplate->CellValueChanged.AttachMethod(this, &GuiBindableDataEditor::editorTemplate_CellValueChanged);
+				return editorTemplate;
+			}
+
+			void GuiBindableDataEditor::editorTemplate_CellValueChanged(compositions::GuiGraphicsComposition* sender, compositions::GuiEventArgs& arguments)
+			{
+				if (callback)
+				{
+					callback->RequestSaveData();
+				}
+			}
+
+			GuiBindableDataEditor::GuiBindableDataEditor()
+			{
+			}
+
+			GuiBindableDataEditor::~GuiBindableDataEditor()
+			{
+			}
+
+			void GuiBindableDataEditor::BeforeEditCell(controls::list::IDataProvider* dataProvider, vint row, vint column)
+			{
+				DataEditorBase::BeforeEditCell(dataProvider, row, column);
+				if (!editorTemplate) return;
+				editorTemplate->SetText(dataProvider->GetCellText(row, column));
+
+				auto structuredDataProvider = dynamic_cast<list::StructuredDataProvider*>(dataProvider);
+				if (!structuredDataProvider) return;
+
+				auto bindableDataProvider = structuredDataProvider->GetStructuredDataProvider().Cast<list::BindableDataProvider>();
+				if (!bindableDataProvider) return;
+
+				auto columnProvider = bindableDataProvider->GetBindableColumn(column);
+				if (!columnProvider) return;
+
+				editorTemplate->SetRowValue(bindableDataProvider->GetRowValue(row));
+				editorTemplate->SetCellValue(columnProvider->GetCellValue(row));
+			}
+
+			description::Value GuiBindableDataEditor::GetEditedCellValue()
+			{
+				if (editorTemplate)
+				{
+					return editorTemplate->GetCellValue();
+				}
+				else
+				{
+					return description::Value();
+				}
+			}
+
+/***********************************************************************
 Helper Functions
 ***********************************************************************/
 
@@ -24832,7 +25239,7 @@ Helper Functions
 					WString pattern;
 					if(attSemicolon)
 					{
-						pattern = WString(attValue, attSemicolon - attValue);
+						pattern = WString(attValue, vint(attSemicolon - attValue));
 						attValue = attSemicolon + 1;
 					}
 					else
@@ -25326,6 +25733,7 @@ GuiDocumentViewer
 							}
 						}
 						break;
+					default:;
 					}
 				}
 			}
@@ -26251,7 +26659,7 @@ GuiGrammarAutoComplete
 								input.editVersion=context.input.editVersion;
 								SubmitTask(input);
 							}
-							else if(context.input.editVersion=arguments.editVersion)
+							else if(context.input.editVersion==arguments.editVersion)
 							{
 								// if the current caret changing is not caused by editing
 								// submit a task with the previous input
@@ -26683,7 +27091,7 @@ GuiGrammarAutoComplete
 											}
 										}
 
-										if(duplicated=same)
+										if((duplicated=same))
 										{
 											break;
 										}
@@ -26714,6 +27122,7 @@ GuiGrammarAutoComplete
 							}
 						}
 						break;
+					default:;
 					}
 				}
 				return 0;
@@ -29381,7 +29790,7 @@ RepeatingParsingExecutor
 					}
 					md.hasContextColor=tokenContextColorAtts.Keys().Contains(tokenIndex);
 					md.hasAutoComplete=tokenAutoCompleteAtts.Keys().Contains(tokenIndex);
-					if(md.isCandidate=tokenCandidateAtts.Keys().Contains(tokenIndex))
+					if((md.isCandidate=tokenCandidateAtts.Keys().Contains(tokenIndex)))
 					{
 						const ParsingTable::TokenInfo& tokenInfo=table->GetTokenInfo(md.tableTokenIndex);
 						if(IsRegexEscapedListeralString(tokenInfo.regex))
@@ -30788,6 +31197,7 @@ GuiToolstripBuilder
 				case ToolBar:
 					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarDropdownButtonStyle());
 					break;
+				default:;
 				}
 				if(lastCreatedButton)
 				{
@@ -30810,6 +31220,7 @@ GuiToolstripBuilder
 				case ToolBar:
 					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarDropdownButtonStyle());
 					break;
+				default:;
 				}
 				if(lastCreatedButton)
 				{
@@ -30831,6 +31242,7 @@ GuiToolstripBuilder
 				case ToolBar:
 					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarSplitButtonStyle());
 					break;
+				default:;
 				}
 				if(lastCreatedButton)
 				{
@@ -30853,6 +31265,7 @@ GuiToolstripBuilder
 				case ToolBar:
 					lastCreatedButton=new GuiToolstripButton(theme->CreateToolBarSplitButtonStyle());
 					break;
+				default:;
 				}
 				if(lastCreatedButton)
 				{
@@ -30877,6 +31290,7 @@ GuiToolstripBuilder
 				case ToolBar:
 					toolstripItems->Add(new GuiControl(theme->CreateToolBarSplitterStyle()));
 					break;
+				default:;
 				}
 				return this;
 			}
@@ -32838,6 +33252,7 @@ GuiTableComposition
 								}
 							}
 							break;
+						default:;
 						}
 					}
 				}
@@ -36061,6 +36476,7 @@ GuiGraphicsHost
 				,mouseCaptureComposition(0)
 				,lastCaretTime(0)
 				,currentAltHost(0)
+				,supressAltKey(0)
 			{
 				windowComposition=new GuiWindowComposition;
 				windowComposition->SetAssociatedHost(this);
@@ -39059,7 +39475,8 @@ document_operation_visitors::SummerizeStyleVisitor
 					,start(_start)
 					,end(_end)
 				{
-					DocumentModel::ResolvedStyle resolvedStyle=model->GetStyle(DocumentModel::DefaultStyleName, resolvedStyle);
+					DocumentModel::ResolvedStyle resolvedStyle;
+					resolvedStyle = model->GetStyle(DocumentModel::DefaultStyleName, resolvedStyle);
 					resolvedStyles.Add(resolvedStyle);
 				}
 
@@ -41934,13 +42351,16 @@ Image Type Resolver
 				if (auto obj = resource.Cast<GuiImageData>())
 				{
 					FileStream fileStream(obj->GetFilePath(), FileStream::ReadOnly);
-					auto xmlContent = MakePtr<XmlCData>();
-					xmlContent->content.value = BinaryToHex(fileStream);
+					if (fileStream.IsAvailable())
+					{
+						auto xmlContent = MakePtr<XmlCData>();
+						xmlContent->content.value = BinaryToHex(fileStream);
 
-					auto xmlImage = MakePtr<XmlElement>();
-					xmlImage->name.value = L"Image";
-					xmlImage->subNodes.Add(xmlContent);
-					return xmlImage;
+						auto xmlImage = MakePtr<XmlElement>();
+						xmlImage->name.value = L"Image";
+						xmlImage->subNodes.Add(xmlContent);
+						return xmlImage;
+					}
 				}
 				return 0;
 			}

@@ -1718,6 +1718,7 @@ Instruction
 				CompareLiteral,		// I48/U48/F48/S		: Value, Value -> <int>							;
 				CompareStruct,		// 						: Value, Value -> <bool>						;
 				CompareReference,	// 						: Value, Value -> <bool>						;
+				CompareValue,		// 						: Value, Value -> <bool>						;
 				OpNot,				// B/I1248/U1248		: Value -> Value								;
 				OpPositive,			// I1248/U1248			: Value -> Value								;
 				OpNegative,			// I1248				: Value -> Value								;
@@ -1779,6 +1780,7 @@ Instruction
 			APPLY_TYPE(CompareLiteral)\
 			APPLY(CompareStruct)\
 			APPLY(CompareReference)\
+			APPLY(CompareValue)\
 			APPLY_TYPE(OpNot)\
 			APPLY_TYPE(OpPositive)\
 			APPLY_TYPE(OpNegative)\

@@ -14,7 +14,7 @@ namespace demos
 
 	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
 
-	SeasonItemTemplate::SeasonItemTemplate(Ptr<list::TextItem> ViewModel)
+	SeasonItemTemplate::SeasonItemTemplate(Ptr<presentation::controls::list::TextItem> ViewModel)
 	{
 		InitializeComponents(ViewModel);
 	}

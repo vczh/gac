@@ -1,4 +1,4 @@
-# Gaclib 0.7.5.0
+# Gaclib 0.7.6.0
 
 
 GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
@@ -15,13 +15,10 @@ Here is a simple description to the code
     * **Content** Necessary CSS/JPG files for document
 
 * New Features
-    * Add supporting about mouse scrolling on some content controls.
-    * Add the "Alt" property on controls so that you can press [ALT] and then press a series of letter keys to navigate to your target control. The navigation is multiple level, if you navigate into tab pages or menu items.
-    * Supports compressable binary format to serialize the XML resource for a lot of performance improving.
-    * When you are using GacUI under Windows, you have a chance to handle window messages.
-    * Add control template for tooltip control.
+    * Add BindableDataGrid for XML Resource.
+    * Add <ref.Property> and <ref.State> for <Instance>, which means that Workflow script in xml can access internal and external states of a UI class.
+    * GacGen.exe supports code generation and exporting precompiled binary resources for full-featured XML resource.
 
 Improvements to the previous release
 * Fix Bugs
-    * Fix the Direct2D lost device problem.
-    * Fix a GuiDocumentViewer editing bug.
+    * Update broken Demo XML resources to the latest version.

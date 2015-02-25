@@ -21,6 +21,18 @@ Interfaces:
 #define VCZH_PRESENTATION_REFLECTION_GUIINSTANCEHELPERTYPES
 
 
+#if defined(__APPLE__) || defined(__APPLE_CC__)
+
+using namespace vl;
+using namespace vl::presentation;
+using namespace vl::presentation::elements;
+using namespace vl::presentation::compositions;
+using namespace vl::presentation::controls;
+using namespace vl::presentation::templates;
+using namespace vl::presentation::theme;
+
+#endif
+
 namespace vl
 {
 	namespace presentation
@@ -387,11 +399,33 @@ Instance Namespace
 			WString									postfix;
 		};
 
+		// Workflow:	<name>
+		// C++:			<instance>->Get<name>
 		class GuiInstanceParameter : public Object, public Description<GuiInstanceParameter>
 		{
 		public:
 			GlobalStringKey							name;
 			GlobalStringKey							className;
+		};
+
+		// Workflow:	<instance>.<name>
+		// C++:			<instance>->Get<name>
+		//				<instance>->Set<name>
+		class GuiInstanceProperty : public Object, public Description<GuiInstanceProperty>
+		{
+		public:
+			GlobalStringKey							name;
+			WString									typeName;
+			bool									readonly = false;
+		};
+		
+		// Workflow:	<instance>.<name>
+		// C++:			<instance>-><name>
+		class GuiInstanceState : public Object, public Description<GuiInstanceState>
+		{
+		public:
+			GlobalStringKey							name;
+			WString									typeName;
 		};
 
 /***********************************************************************
@@ -413,6 +447,8 @@ Instance Context
 			};
 			typedef collections::Dictionary<GlobalStringKey, Ptr<NamespaceInfo>>		NamespaceMap;
 			typedef collections::List<Ptr<GuiInstanceParameter>>						ParameterList;
+			typedef collections::List<Ptr<GuiInstanceProperty>>							PropertyList;
+			typedef collections::List<Ptr<GuiInstanceState>>							StateList;
 			typedef collections::List<Ptr<GuiInstanceStyleContext>>						StyleContextList;
 
 			class ElementName : public Object
@@ -435,6 +471,8 @@ Instance Context
 			NamespaceMap							namespaces;
 			Nullable<WString>						className;
 			ParameterList							parameters;
+			PropertyList							properties;
+			StateList								states;
 			collections::List<WString>				stylePaths;
 
 			bool									appliedStyles = false;
@@ -554,10 +592,17 @@ Instance Loader
 				SupportSet,
 			};
 
+			enum PropertyScope
+			{
+				ViewModel,		// <ref.Parameter/>
+				Constructor,	// constructor parameter that is not ViewModel
+				Property,		// property of the class
+			};
+
 			Support									support;
 			bool									tryParent;
 			bool									required;
-			bool									constructorParameter;
+			PropertyScope							scope;
 			TypeDescriptorList						acceptableTypes;
 
 			GuiInstancePropertyInfo();
@@ -830,7 +875,7 @@ Instance Scope Wrapper
 					if (loader->IsInitializable(typeInfo))
 					{
 						auto value = description::Value::From(dynamic_cast<T*>(this));
-						if (scope = loader->InitializeInstance(typeInfo, value))
+						if ((scope = loader->InitializeInstance(typeInfo, value)))
 						{
 #ifdef _DEBUG
 							CHECK_ERROR(scope->errors.Count() == 0, L"vl::presentation::GuiInstancePartialClass<T>::InitializeFromResource()#There is something wrong with the resource.");
@@ -885,7 +930,7 @@ Instance Scope Wrapper
 			}
 		};
 
-#define GUI_INSTANCE_REFERENCE(NAME) LoadInstanceReference(L#NAME, this->NAME)
+#define GUI_INSTANCE_REFERENCE(NAME) LoadInstanceReference(L ## #NAME, this->NAME)
 	}
 }
 
@@ -1457,6 +1502,8 @@ Type List
 			F(presentation::controls::list::StructuredDataMultipleSorter)\
 			F(presentation::controls::list::StructuredDataReverseSorter)\
 			F(presentation::controls::list::StructuredDataProvider)\
+			F(presentation::controls::list::StructuredColummProviderBase)\
+			F(presentation::controls::list::StructuredDataProviderBase)\
 			F(presentation::controls::list::ListViewMainColumnDataVisualizer)\
 			F(presentation::controls::list::ListViewMainColumnDataVisualizer::Factory)\
 			F(presentation::controls::list::ListViewSubColumnDataVisualizer)\
@@ -1483,6 +1530,7 @@ Type List
 			F(presentation::controls::GuiBindableTextList)\
 			F(presentation::controls::GuiBindableListView)\
 			F(presentation::controls::GuiBindableTreeView)\
+			F(presentation::controls::list::BindableDataColumn)\
 			F(presentation::controls::GuiBindableDataGrid)\
 
 			GUIREFLECTIONCONTROLS_TYPELIST(DECL_TYPE_INFO)
@@ -3804,6 +3852,8 @@ Type List
 			F(presentation::templates::GuiTabTemplate)\
 			F(presentation::templates::GuiListItemTemplate)\
 			F(presentation::templates::GuiTreeItemTemplate)\
+			F(presentation::templates::GuiGridVisualizerTemplate)\
+			F(presentation::templates::GuiGridEditorTemplate)\
 
 			GUIREFLECTIONTEMPLATES_TYPELIST(DECL_TYPE_INFO)
 

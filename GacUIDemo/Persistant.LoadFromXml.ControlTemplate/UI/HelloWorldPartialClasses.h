@@ -15,9 +15,58 @@ DO NOT MODIFY
 
 namespace demos
 {
+	class BottomScrollButtonTemplate;
+	class ButtonTemplate;
+	class CheckBoxTemplate;
+	class CheckItemBackgroundTemplate;
+	class CheckTextListTemplate;
+	class ComboBoxTemplate;
+	class DatePickerTemplate;
+	class DocumentLabelTemplate;
+	class ExpandingDecoratorTemplate;
+	class GroupBoxTemplate;
+	class HScrollHandleTemplate;
+	class HScrollTemplate;
+	class HTrackerTemplate;
+	class ItemBackgroundTemplate;
+	class LabelTemplate;
+	class LeftScrollButtonTemplate;
+	class ListViewColumnHeaderTemplate;
+	class ListViewTemplate;
+	class MainWindow;
+	class MenuBarButtonTemplate;
+	class MenuItemButtonTemplate;
+	class MenuSplitterTemplate;
+	class MultilineTextBoxTemplate;
+	class ProgressBarTemplate;
+	class RadioButtonTemplate;
+	class RadioTextListTemplate;
+	class RightScrollButtonTemplate;
+	class ScrollViewTemplate;
+	class SinglelineTextBoxTemplate;
+	class TabDropdownTemplate;
+	class TabHeaderTemplate;
+	class TabTemplate;
+	class TextListTemplate;
+	class ToolstripButtonTemplate;
+	class ToolstripDropdownButtonTemplate;
+	class ToolstripMenuTemplate;
+	class ToolstripSplitArrowTemplate;
+	class ToolstripSplitButtonTemplate;
+	class ToolstripSplitterTemplate;
+	class ToolstripTemplate;
+	class TooltipTemplate;
+	class TopScrollButtonTemplate;
+	class TreeViewTemplate;
+	class VScrollHandleTemplate;
+	class VScrollTemplate;
+	class VTrackerTemplate;
+	class WindowTemplate;
+
 	template<typename TImpl>
 	class BottomScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -40,14 +89,10 @@ namespace demos
 		}
 	};
 
-	class BottomScrollButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -70,14 +115,10 @@ namespace demos
 		}
 	};
 
-	class ButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class CheckBoxTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiSelectableButtonTemplate* self;
@@ -100,14 +141,10 @@ namespace demos
 		}
 	};
 
-	class CheckBoxTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class CheckItemBackgroundTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -133,14 +170,10 @@ namespace demos
 		}
 	};
 
-	class CheckItemBackgroundTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class CheckTextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -166,14 +199,10 @@ namespace demos
 		}
 	};
 
-	class CheckTextListTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ComboBoxTemplate_ : public vl::presentation::templates::GuiDateComboBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDateComboBoxTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -199,14 +228,10 @@ namespace demos
 		}
 	};
 
-	class ComboBoxTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class DatePickerTemplate_ : public vl::presentation::templates::GuiDatePickerTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDatePickerTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiDatePickerTemplate* self;
@@ -229,14 +254,10 @@ namespace demos
 		}
 	};
 
-	class DatePickerTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class DocumentLabelTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiControlTemplate* self;
@@ -259,14 +280,10 @@ namespace demos
 		}
 	};
 
-	class DocumentLabelTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ExpandingDecoratorTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiSelectableButtonTemplate* self;
@@ -289,14 +306,10 @@ namespace demos
 		}
 	};
 
-	class ExpandingDecoratorTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class GroupBoxTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -325,14 +338,10 @@ namespace demos
 		}
 	};
 
-	class GroupBoxTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class HScrollHandleTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -355,14 +364,10 @@ namespace demos
 		}
 	};
 
-	class HScrollHandleTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class HScrollTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiPartialViewComposition* handle;
@@ -391,14 +396,10 @@ namespace demos
 		}
 	};
 
-	class HScrollTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class HTrackerTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* handle;
@@ -424,14 +425,10 @@ namespace demos
 		}
 	};
 
-	class HTrackerTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ItemBackgroundTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -457,14 +454,10 @@ namespace demos
 		}
 	};
 
-	class ItemBackgroundTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class LabelTemplate_ : public vl::presentation::templates::GuiLabelTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiLabelTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiLabelTemplate* self;
@@ -487,14 +480,10 @@ namespace demos
 		}
 	};
 
-	class LabelTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class LeftScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -517,14 +506,10 @@ namespace demos
 		}
 	};
 
-	class LeftScrollButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ListViewColumnHeaderTemplate_ : public vl::presentation::templates::GuiListViewColumnHeaderTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiListViewColumnHeaderTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::controls::GuiSelectableButton* buttonArrow;
@@ -550,14 +535,10 @@ namespace demos
 		}
 	};
 
-	class ListViewColumnHeaderTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ListViewTemplate_ : public vl::presentation::templates::GuiListViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiListViewTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -583,14 +564,10 @@ namespace demos
 		}
 	};
 
-	class ListViewTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class MainWindow_ : public vl::presentation::controls::GuiWindow, public vl::presentation::GuiInstancePartialClass<vl::presentation::controls::GuiWindow>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::controls::GuiButton* buttonAddTab;
@@ -701,14 +678,10 @@ return style;
 		}
 	};
 
-	class MainWindow;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class MenuBarButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiToolstripButtonTemplate* self;
@@ -731,14 +704,10 @@ namespace demos
 		}
 	};
 
-	class MenuBarButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class MenuItemButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiToolstripButtonTemplate* self;
@@ -761,14 +730,10 @@ namespace demos
 		}
 	};
 
-	class MenuItemButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class MenuSplitterTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 
@@ -788,14 +753,10 @@ namespace demos
 		}
 	};
 
-	class MenuSplitterTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class MultilineTextBoxTemplate_ : public vl::presentation::templates::GuiMultilineTextBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMultilineTextBoxTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -821,14 +782,10 @@ namespace demos
 		}
 	};
 
-	class MultilineTextBoxTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ProgressBarTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -854,14 +811,10 @@ namespace demos
 		}
 	};
 
-	class ProgressBarTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class RadioButtonTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiSelectableButtonTemplate* self;
@@ -884,14 +837,10 @@ namespace demos
 		}
 	};
 
-	class RadioButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class RadioTextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -917,14 +866,10 @@ namespace demos
 		}
 	};
 
-	class RadioTextListTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class RightScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -947,14 +892,10 @@ namespace demos
 		}
 	};
 
-	class RightScrollButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ScrollViewTemplate_ : public vl::presentation::templates::GuiScrollViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollViewTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -980,14 +921,10 @@ namespace demos
 		}
 	};
 
-	class ScrollViewTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class SinglelineTextBoxTemplate_ : public vl::presentation::templates::GuiSinglelineTextBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSinglelineTextBoxTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1013,14 +950,10 @@ namespace demos
 		}
 	};
 
-	class SinglelineTextBoxTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TabDropdownTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -1043,14 +976,10 @@ namespace demos
 		}
 	};
 
-	class TabDropdownTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TabHeaderTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiSelectableButtonTemplate* self;
@@ -1073,14 +1002,10 @@ namespace demos
 		}
 	};
 
-	class TabHeaderTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TabTemplate_ : public vl::presentation::templates::GuiTabTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTabTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1109,14 +1034,10 @@ namespace demos
 		}
 	};
 
-	class TabTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1142,14 +1063,10 @@ namespace demos
 		}
 	};
 
-	class TextListTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1175,14 +1092,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripDropdownButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1208,14 +1121,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripDropdownButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripMenuTemplate_ : public vl::presentation::templates::GuiMenuTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMenuTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1238,14 +1147,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripMenuTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripSplitArrowTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiSelectableButtonTemplate* self;
@@ -1268,14 +1173,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripSplitArrowTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripSplitButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::controls::GuiSelectableButton* buttonArrow;
@@ -1304,14 +1205,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripSplitButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripSplitterTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 
@@ -1331,14 +1228,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripSplitterTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class ToolstripTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 
@@ -1358,14 +1251,10 @@ namespace demos
 		}
 	};
 
-	class ToolstripTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TooltipTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1388,14 +1277,10 @@ namespace demos
 		}
 	};
 
-	class TooltipTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TopScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -1418,14 +1303,10 @@ namespace demos
 		}
 	};
 
-	class TopScrollButtonTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class TreeViewTemplate_ : public vl::presentation::templates::GuiTreeViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTreeViewTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1451,14 +1332,10 @@ namespace demos
 		}
 	};
 
-	class TreeViewTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class VScrollHandleTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::templates::GuiButtonTemplate* self;
@@ -1481,14 +1358,10 @@ namespace demos
 		}
 	};
 
-	class VScrollHandleTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class VScrollTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiPartialViewComposition* handle;
@@ -1517,14 +1390,10 @@ namespace demos
 		}
 	};
 
-	class VScrollTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class VTrackerTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* handle;
@@ -1550,14 +1419,10 @@ namespace demos
 		}
 	};
 
-	class VTrackerTemplate;
-}
-
-namespace demos
-{
 	template<typename TImpl>
 	class WindowTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
 	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
 		vl::presentation::compositions::GuiBoundsComposition* container;
@@ -1583,9 +1448,7 @@ namespace demos
 		}
 	};
 
-	class WindowTemplate;
 }
-
 namespace vl
 {
 	namespace reflection
@@ -1639,10 +1502,10 @@ namespace vl
 			DECL_TYPE_INFO(demos::VScrollTemplate)
 			DECL_TYPE_INFO(demos::VTrackerTemplate)
 			DECL_TYPE_INFO(demos::WindowTemplate)
+
 		}
 	}
 }
-
 /*
 BottomScrollButtonTemplate.h :
 namespace demos
