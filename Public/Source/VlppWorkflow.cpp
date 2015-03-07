@@ -10663,17 +10663,19 @@ Print (Expression)
 			{
 				if (node->strategy == WfTypeCastingStrategy::Strong)
 				{
-					writer.WriteString(L"cast (");
+					writer.WriteString(L"(cast (");
 					WfPrint(node->type, indent, writer);
 					writer.WriteString(L") ");
 					WfPrint(node->expression, indent, writer);
+					writer.WriteString(L")");
 				}
 				else
 				{
+					writer.WriteString(L"(");
 					WfPrint(node->expression, indent, writer);
 					writer.WriteString(L" as (");
 					WfPrint(node->type, indent, writer);
-					writer.WriteString(L")");
+					writer.WriteString(L"))");
 				}
 			}
 

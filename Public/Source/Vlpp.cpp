@@ -13590,6 +13590,21 @@ description::Value
 				}
 			}
 
+			Value Value::Create(ITypeDescriptor* type)
+			{
+				Array<Value> arguments;
+				return Create(type, arguments);
+			}
+
+			Value Value::Create(ITypeDescriptor* type, collections::Array<Value>& arguments)
+			{
+				IMethodGroupInfo* methodGroup=type->GetConstructorGroup();
+				if(!methodGroup) throw ConstructorNotExistsException(type);
+
+				IMethodInfo* method=SelectMethod(methodGroup, arguments);
+				return method->Invoke(Value(), arguments);
+			}
+
 			Value Value::Create(const WString& typeName)
 			{
 				Array<Value> arguments;
@@ -13598,14 +13613,9 @@ description::Value
 
 			Value Value::Create(const WString& typeName, collections::Array<Value>& arguments)
 			{
-				ITypeDescriptor* type=vl::reflection::description::GetTypeDescriptor(typeName);
+				ITypeDescriptor* type = vl::reflection::description::GetTypeDescriptor(typeName);
 				if(!type) throw TypeNotExistsException(typeName);
-
-				IMethodGroupInfo* methodGroup=type->GetConstructorGroup();
-				if(!methodGroup) throw ConstructorNotExistsException(type);
-
-				IMethodInfo* method=SelectMethod(methodGroup, arguments);
-				return method->Invoke(Value(), arguments);
+				return Create(type, arguments);
 			}
 
 			Value Value::InvokeStatic(const WString& typeName, const WString& name)

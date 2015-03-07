@@ -53,38 +53,5 @@ namespace vl
 		}
 	}
 }
-/*
-MainWindow.h :
-namespace helloworld
-{
-	class MainWindow : public helloworld::MainWindow_<helloworld::MainWindow>
-	{
-		friend class helloworld::MainWindow_<helloworld::MainWindow>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<helloworld::MainWindow>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		MainWindow();
-	};
-}
-
-
-MainWindow.cpp :
-namespace helloworld
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MainWindow::MainWindow()
-	{
-		InitializeComponents();
-	}
-}
-
-
-*/
 
 #endif

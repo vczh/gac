@@ -91,38 +91,5 @@ namespace vl
 		}
 	}
 }
-/*
-SignUpWindow.h :
-namespace helloworld
-{
-	class SignUpWindow : public helloworld::SignUpWindow_<helloworld::SignUpWindow>
-	{
-		friend class helloworld::SignUpWindow_<helloworld::SignUpWindow>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<helloworld::SignUpWindow>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		SignUpWindow(Ptr<helloworld::IViewModel> ViewModel);
-	};
-}
-
-
-SignUpWindow.cpp :
-namespace helloworld
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	SignUpWindow::SignUpWindow(Ptr<helloworld::IViewModel> ViewModel)
-	{
-		InitializeComponents(ViewModel);
-	}
-}
-
-
-*/
 
 #endif

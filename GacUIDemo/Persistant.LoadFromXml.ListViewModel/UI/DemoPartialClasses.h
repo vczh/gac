@@ -100,38 +100,5 @@ namespace vl
 		}
 	}
 }
-/*
-MainWindow.h :
-namespace demos
-{
-	class MainWindow : public demos::MainWindow_<demos::MainWindow>
-	{
-		friend class demos::MainWindow_<demos::MainWindow>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MainWindow>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		MainWindow(Ptr<demos::IViewModel> ViewModel);
-	};
-}
-
-
-MainWindow.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MainWindow::MainWindow(Ptr<demos::IViewModel> ViewModel)
-	{
-		InitializeComponents(ViewModel);
-	}
-}
-
-
-*/
 
 #endif

@@ -2388,6 +2388,9 @@ Rich Content Document (model)
 			
 			DocumentModel();
 
+			static void						MergeStyle(Ptr<DocumentStyleProperties> style, Ptr<DocumentStyleProperties> parent);
+			void							MergeBaselineStyle(Ptr<DocumentModel> baselineDocument, const WString& styleName);
+			void							MergeBaselineStyles(Ptr<DocumentModel> baselineDocument);
 			ResolvedStyle					GetStyle(Ptr<DocumentStyleProperties> sp, const ResolvedStyle& context);
 			ResolvedStyle					GetStyle(const WString& styleName, const ResolvedStyle& context);
 
@@ -4837,6 +4840,189 @@ Scrolls
 				
 				vint									GetMinPosition();
 				vint									GetMaxPosition();
+			};
+
+/***********************************************************************
+Dialogs
+***********************************************************************/
+
+			class GuiDialogBase abstract : public GuiComponent, public Description<GuiDialogBase>
+			{
+			protected:
+				GuiInstanceRootObject*								rootObject = nullptr;
+
+				GuiWindow*											GetHostWindow();
+			public:
+				GuiDialogBase();
+				~GuiDialogBase();
+
+				void												Attach(GuiInstanceRootObject* _rootObject);
+				void												Detach(GuiInstanceRootObject* _rootObject);
+			};
+			
+			class GuiMessageDialog : public GuiDialogBase, public Description<GuiMessageDialog>
+			{
+			protected:
+				INativeDialogService::MessageBoxButtonsInput		input = INativeDialogService::DisplayOK;
+				INativeDialogService::MessageBoxDefaultButton		defaultButton = INativeDialogService::DefaultFirst;
+				INativeDialogService::MessageBoxIcons				icon = INativeDialogService::IconNone;
+				INativeDialogService::MessageBoxModalOptions		modalOption = INativeDialogService::ModalWindow;
+				WString												text;
+				WString												title;
+
+			public:
+				GuiMessageDialog();
+				~GuiMessageDialog();
+
+				INativeDialogService::MessageBoxButtonsInput		GetInput();
+				void												SetInput(INativeDialogService::MessageBoxButtonsInput value);
+				
+				INativeDialogService::MessageBoxDefaultButton		GetDefaultButton();
+				void												SetDefaultButton(INativeDialogService::MessageBoxDefaultButton value);
+
+				INativeDialogService::MessageBoxIcons				GetIcon();
+				void												SetIcon(INativeDialogService::MessageBoxIcons value);
+
+				INativeDialogService::MessageBoxModalOptions		GetModalOption();
+				void												SetModalOption(INativeDialogService::MessageBoxModalOptions value);
+
+				const WString&										GetText();
+				void												SetText(const WString& value);
+
+				const WString&										GetTitle();
+				void												SetTitle(const WString& value);
+				
+				INativeDialogService::MessageBoxButtonsOutput		ShowDialog();
+			};
+			
+			class GuiColorDialog : public GuiDialogBase, public Description<GuiColorDialog>
+			{
+			protected:
+				bool												enabledCustomColor = true;
+				bool												openedCustomColor = false;
+				Color												selectedColor;
+				bool												showSelection = true;
+				collections::List<Color>							customColors;
+
+			public:
+				GuiColorDialog();
+				~GuiColorDialog();
+
+				compositions::GuiNotifyEvent						SelectedColorChanged;
+				
+				bool												GetEnabledCustomColor();
+				void												SetEnabledCustomColor(bool value);
+				
+				bool												GetOpenedCustomColor();
+				void												SetOpenedCustomColor(bool value);
+				
+				Color												GetSelectedColor();
+				void												SetSelectedColor(Color value);
+				
+				collections::List<Color>&							GetCustomColors();
+				
+				bool												ShowDialog();
+			};
+			
+			class GuiFontDialog : public GuiDialogBase, public Description<GuiFontDialog>
+			{
+			protected:
+				FontProperties										selectedFont;
+				Color												selectedColor;
+				bool												showSelection = true;
+				bool												showEffect = true;
+				bool												forceFontExist = true;
+
+			public:
+				GuiFontDialog();
+				~GuiFontDialog();
+
+				compositions::GuiNotifyEvent						SelectedFontChanged;
+				compositions::GuiNotifyEvent						SelectedColorChanged;
+				
+				const FontProperties&								GetSelectedFont();
+				void												SetSelectedFont(const FontProperties& value);
+				
+				Color												GetSelectedColor();
+				void												SetSelectedColor(Color value);
+				
+				bool												GetShowSelection();
+				void												SetShowSelection(bool value);
+				
+				bool												GetShowEffect();
+				void												SetShowEffect(bool value);
+				
+				bool												GetForceFontExist();
+				void												SetForceFontExist(bool value);
+				
+				bool												ShowDialog();
+			};
+			
+			class GuiFileDialogBase abstract : public GuiDialogBase, public Description<GuiFileDialogBase>
+			{
+			protected:
+				WString												filter = L"All Files (*.*)|*.*";
+				vint												filterIndex = 0;
+				bool												enabledPreview = false;
+				WString												title;
+				WString												fileName;
+				WString												directory;
+				WString												defaultExtension;
+				INativeDialogService::FileDialogOptions				options;
+
+			public:
+				GuiFileDialogBase();
+				~GuiFileDialogBase();
+
+				compositions::GuiNotifyEvent						FileNameChanged;
+				compositions::GuiNotifyEvent						FilterIndexChanged;
+				
+				const WString&										GetFilter();
+				void												SetFilter(const WString& value);
+				
+				vint												GetFilterIndex();
+				void												SetFilterIndex(vint value);
+				
+				bool												GetEnabledPreview();
+				void												SetEnabledPreview(bool value);
+				
+				WString												GetTitle();
+				void												SetTitle(const WString& value);
+				
+				WString												GetFileName();
+				void												SetFileName(const WString& value);
+				
+				WString												GetDirectory();
+				void												SetDirectory(const WString& value);
+				
+				WString												GetDefaultExtension();
+				void												SetDefaultExtension(const WString& value);
+				
+				INativeDialogService::FileDialogOptions				GetOptions();
+				void												SetOptions(INativeDialogService::FileDialogOptions value);
+			};
+			
+			class GuiOpenFileDialog : public GuiFileDialogBase, public Description<GuiOpenFileDialog>
+			{
+			protected:
+				collections::List<WString>							fileNames;
+
+			public:
+				GuiOpenFileDialog();
+				~GuiOpenFileDialog();
+				
+				collections::List<WString>&							GetFileNames();
+				
+				bool												ShowDialog();
+			};
+			
+			class GuiSaveFileDialog : public GuiFileDialogBase, public Description<GuiSaveFileDialog>
+			{
+			public:
+				GuiSaveFileDialog();
+				~GuiSaveFileDialog();
+
+				bool												ShowDialog();
 			};
 			
 			namespace list
@@ -9252,6 +9438,7 @@ GuiDocumentCommonInterface
 					Editable,
 				};
 			protected:
+				Ptr<DocumentModel>							baselineDocument;
 				GuiControl*									documentControl;
 				elements::GuiDocumentElement*				documentElement;
 				compositions::GuiBoundsComposition*			documentComposition;
@@ -9286,7 +9473,7 @@ GuiDocumentCommonInterface
 				virtual Point								GetDocumentViewPosition();
 				virtual void								EnsureRectVisible(Rect bounds);
 			public:
-				GuiDocumentCommonInterface();
+				GuiDocumentCommonInterface(Ptr<DocumentModel> _baselineDocument);
 				~GuiDocumentCommonInterface();
 
 				compositions::GuiNotifyEvent				ActiveHyperlinkChanged;
@@ -9361,6 +9548,12 @@ GuiDocumentViewer
 			
 			class GuiDocumentViewer : public GuiScrollContainer, public GuiDocumentCommonInterface, public Description<GuiDocumentViewer>
 			{
+			public:
+				class IStyleProvider : public virtual GuiScrollContainer::IStyleProvider, public Description<IStyleProvider>
+				{
+				public:
+					virtual Ptr<DocumentModel>				GetBaselineDocument() = 0;
+				};
 			protected:
 
 				Point										GetDocumentViewPosition()override;
@@ -9379,6 +9572,12 @@ GuiDocumentViewer
 			
 			class GuiDocumentLabel : public GuiControl, public GuiDocumentCommonInterface, public Description<GuiDocumentLabel>
 			{
+			public:
+				class IStyleController : public virtual GuiControl::IStyleController, public Description<IStyleController>
+				{
+				public:
+					virtual Ptr<DocumentModel>				GetBaselineDocument() = 0;
+				};
 			public:
 				GuiDocumentLabel(GuiDocumentLabel::IStyleController* styleController);
 				~GuiDocumentLabel();
@@ -11672,6 +11871,18 @@ Control Template
 				GuiSinglelineTextBoxTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_DECL)
 			};
 
+			class GuiDocumentLabelTemplate : public GuiControlTemplate, public Description<GuiDocumentLabelTemplate>
+			{
+			public:
+				GuiDocumentLabelTemplate();
+				~GuiDocumentLabelTemplate();
+
+#define GuiDocumentLabelTemplate_PROPERTIES(F)\
+				F(GuiDocumentLabelTemplate, Ptr<DocumentModel>, BaselineDocument)\
+
+				GuiDocumentLabelTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_DECL)
+			};
+
 			class GuiMenuTemplate : public GuiControlTemplate, public Description<GuiMenuTemplate>
 			{
 			public:
@@ -11847,6 +12058,18 @@ Control Template
 				F(GuiMultilineTextBoxTemplate, Color, CaretColor)\
 
 				GuiMultilineTextBoxTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_DECL)
+			};
+
+			class GuiDocumentViewerTemplate : public GuiScrollViewTemplate, public Description<GuiDocumentViewerTemplate>
+			{
+			public:
+				GuiDocumentViewerTemplate();
+				~GuiDocumentViewerTemplate();
+
+#define GuiDocumentViewerTemplate_PROPERTIES(F)\
+				F(GuiDocumentViewerTemplate, Ptr<DocumentModel>, BaselineDocument)\
+
+				GuiDocumentViewerTemplate_PROPERTIES(GUI_TEMPLATE_PROPERTY_DECL)
 			};
 
 			class GuiTextListTemplate : public GuiScrollViewTemplate, public Description<GuiTextListTemplate>
@@ -12052,6 +12275,21 @@ Control Template
 				
 				void															SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
 				compositions::GuiGraphicsComposition*							InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
+			};
+
+			class GuiDocumentLabelTemplate_StyleProvider
+				: public GuiControlTemplate_StyleProvider
+				, public virtual controls::GuiDocumentLabel::IStyleController
+				, public Description<GuiDocumentLabelTemplate_StyleProvider>
+			{
+			protected:
+				GuiDocumentLabelTemplate*										controlTemplate;
+				
+			public:
+				GuiDocumentLabelTemplate_StyleProvider(Ptr<GuiTemplate::IFactory> factory);
+				~GuiDocumentLabelTemplate_StyleProvider();
+				
+				Ptr<DocumentModel>												GetBaselineDocument()override;
 			};
 
 			class GuiMenuTemplate_StyleProvider
@@ -12272,6 +12510,21 @@ Control Template
 				~GuiMultilineTextBoxTemplate_StyleProvider();
 				
 				void															SetFocusableComposition(compositions::GuiGraphicsComposition* value)override;
+			};
+
+			class GuiDocumentViewerTemplate_StyleProvider
+				: public GuiScrollViewTemplate_StyleProvider
+				, public virtual controls::GuiDocumentViewer::IStyleProvider
+				, public Description<GuiDocumentViewerTemplate_StyleProvider>
+			{
+			protected:
+				GuiDocumentViewerTemplate*										controlTemplate;
+				
+			public:
+				GuiDocumentViewerTemplate_StyleProvider(Ptr<GuiTemplate::IFactory> factory);
+				~GuiDocumentViewerTemplate_StyleProvider();
+				
+				Ptr<DocumentModel>												GetBaselineDocument()override;
 			};
 
 			class GuiTextListTemplate_StyleProvider
@@ -13878,6 +14131,27 @@ TextBox
 				void										SetVisuallyEnabled(bool value)override;
 				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
 			};
+			
+#pragma warning(push)
+#pragma warning(disable:4250)
+			class Win7DocumentViewerStyle : public Win7MultilineTextBoxProvider, public virtual controls::GuiDocumentViewer::IStyleProvider, public Description<Win7DocumentViewerStyle>
+			{
+			public:
+				Win7DocumentViewerStyle();
+				~Win7DocumentViewerStyle();
+
+				Ptr<DocumentModel>							GetBaselineDocument()override;
+			};
+
+			class Win7DocumentlabelStyle : public controls::GuiControl::EmptyStyleController, public virtual controls::GuiDocumentLabel::IStyleController, public Description<Win7DocumentlabelStyle>
+			{
+			public:
+				Win7DocumentlabelStyle();
+				~Win7DocumentlabelStyle();
+
+				Ptr<DocumentModel>							GetBaselineDocument()override;
+			};
+#pragma warning(pop)
 		}
 	}
 }
@@ -15097,6 +15371,27 @@ TextBox
 				void										SetVisuallyEnabled(bool value)override;
 				compositions::GuiGraphicsComposition*		InstallBackground(compositions::GuiBoundsComposition* boundsComposition)override;
 			};
+			
+#pragma warning(push)
+#pragma warning(disable:4250)
+			class Win8DocumentViewerStyle : public Win8MultilineTextBoxProvider, public virtual controls::GuiDocumentViewer::IStyleProvider, public Description<Win8DocumentViewerStyle>
+			{
+			public:
+				Win8DocumentViewerStyle();
+				~Win8DocumentViewerStyle();
+
+				Ptr<DocumentModel>							GetBaselineDocument()override;
+			};
+
+			class Win8DocumentlabelStyle : public controls::GuiControl::EmptyStyleController, public virtual controls::GuiDocumentLabel::IStyleController, public Description<Win8DocumentlabelStyle>
+			{
+			public:
+				Win8DocumentlabelStyle();
+				~Win8DocumentlabelStyle();
+
+				Ptr<DocumentModel>							GetBaselineDocument()override;
+			};
+#pragma warning(pop)
 		}
 	}
 }
@@ -15387,7 +15682,7 @@ GacUI Header Files and Common Namespaces
 Global Objects:
 	vl::reflection::description::					GetGlobalTypeManager
 	vl::presentation::								GetParserManager
-	vl::presentation::								ResourceResolverManager
+	vl::presentation::								GetResourceResolverManager
 	vl::presentation::								GetCurrentController
 	vl::presentation::								GetInstanceLoaderManager
 	vl::presentation::elements::					GetGuiGraphicsResourceManager

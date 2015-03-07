@@ -13,7 +13,7 @@ DO NOT MODIFY
 
 #include "..\..\..\Public\Source\GacUIReflection.h"
 
-namespace demos
+namespace darkskin
 {
 	class BottomScrollButtonTemplate;
 	class ButtonTemplate;
@@ -23,6 +23,7 @@ namespace demos
 	class ComboBoxTemplate;
 	class DatePickerTemplate;
 	class DocumentLabelTemplate;
+	class DocumentViewerTemplate;
 	class ExpandingDecoratorTemplate;
 	class GroupBoxTemplate;
 	class HScrollHandleTemplate;
@@ -33,7 +34,6 @@ namespace demos
 	class LeftScrollButtonTemplate;
 	class ListViewColumnHeaderTemplate;
 	class ListViewTemplate;
-	class MainWindow;
 	class MenuBarButtonTemplate;
 	class MenuItemButtonTemplate;
 	class MenuSplitterTemplate;
@@ -62,7 +62,14 @@ namespace demos
 	class VScrollTemplate;
 	class VTrackerTemplate;
 	class WindowTemplate;
+}
+namespace demos
+{
+	class MainWindow;
 
+}
+namespace darkskin
+{
 	template<typename TImpl>
 	class BottomScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
 	{
@@ -83,7 +90,7 @@ namespace demos
 		}
 	public:
 		BottomScrollButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::BottomScrollButtonTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::BottomScrollButtonTemplate")
 			,self(0)
 		{
 		}
@@ -109,7 +116,7 @@ namespace demos
 		}
 	public:
 		ButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::ButtonTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::ButtonTemplate")
 			,self(0)
 		{
 		}
@@ -135,7 +142,7 @@ namespace demos
 		}
 	public:
 		CheckBoxTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::CheckBoxTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::CheckBoxTemplate")
 			,self(0)
 		{
 		}
@@ -163,7 +170,7 @@ namespace demos
 		}
 	public:
 		CheckItemBackgroundTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::CheckItemBackgroundTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::CheckItemBackgroundTemplate")
 			,container(0)
 			,self(0)
 		{
@@ -192,7 +199,7 @@ namespace demos
 		}
 	public:
 		CheckTextListTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>(L"demos::CheckTextListTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>(L"darkskin::CheckTextListTemplate")
 			,container(0)
 			,self(0)
 		{
@@ -221,7 +228,7 @@ namespace demos
 		}
 	public:
 		ComboBoxTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDateComboBoxTemplate>(L"demos::ComboBoxTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDateComboBoxTemplate>(L"darkskin::ComboBoxTemplate")
 			,container(0)
 			,self(0)
 		{
@@ -248,19 +255,19 @@ namespace demos
 		}
 	public:
 		DatePickerTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDatePickerTemplate>(L"demos::DatePickerTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDatePickerTemplate>(L"darkskin::DatePickerTemplate")
 			,self(0)
 		{
 		}
 	};
 
 	template<typename TImpl>
-	class DocumentLabelTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
+	class DocumentLabelTemplate_ : public vl::presentation::templates::GuiDocumentLabelTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDocumentLabelTemplate>, public vl::reflection::Description<TImpl>
 	{
 		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
 	private:
 	protected:
-		vl::presentation::templates::GuiControlTemplate* self;
+		vl::presentation::templates::GuiDocumentLabelTemplate* self;
 
 		void InitializeComponents()
 		{
@@ -274,7 +281,36 @@ namespace demos
 		}
 	public:
 		DocumentLabelTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"demos::DocumentLabelTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDocumentLabelTemplate>(L"darkskin::DocumentLabelTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class DocumentViewerTemplate_ : public vl::presentation::templates::GuiDocumentViewerTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDocumentViewerTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiDocumentViewerTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		DocumentViewerTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiDocumentViewerTemplate>(L"darkskin::DocumentViewerTemplate")
+			,container(0)
 			,self(0)
 		{
 		}
@@ -300,7 +336,7 @@ namespace demos
 		}
 	public:
 		ExpandingDecoratorTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::ExpandingDecoratorTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::ExpandingDecoratorTemplate")
 			,self(0)
 		{
 		}
@@ -330,7 +366,7 @@ namespace demos
 		}
 	public:
 		GroupBoxTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"demos::GroupBoxTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"darkskin::GroupBoxTemplate")
 			,container(0)
 			,self(0)
 			,titleBounds(0)
@@ -358,7 +394,7 @@ namespace demos
 		}
 	public:
 		HScrollHandleTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::HScrollHandleTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::HScrollHandleTemplate")
 			,self(0)
 		{
 		}
@@ -388,7 +424,7 @@ namespace demos
 		}
 	public:
 		HScrollTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"demos::HScrollTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"darkskin::HScrollTemplate")
 			,handle(0)
 			,handleContainer(0)
 			,self(0)
@@ -418,7 +454,7 @@ namespace demos
 		}
 	public:
 		HTrackerTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"demos::HTrackerTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"darkskin::HTrackerTemplate")
 			,handle(0)
 			,self(0)
 		{
@@ -447,7 +483,7 @@ namespace demos
 		}
 	public:
 		ItemBackgroundTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::ItemBackgroundTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::ItemBackgroundTemplate")
 			,container(0)
 			,self(0)
 		{
@@ -474,7 +510,7 @@ namespace demos
 		}
 	public:
 		LabelTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiLabelTemplate>(L"demos::LabelTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiLabelTemplate>(L"darkskin::LabelTemplate")
 			,self(0)
 		{
 		}
@@ -500,7 +536,7 @@ namespace demos
 		}
 	public:
 		LeftScrollButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::LeftScrollButtonTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::LeftScrollButtonTemplate")
 			,self(0)
 		{
 		}
@@ -528,7 +564,7 @@ namespace demos
 		}
 	public:
 		ListViewColumnHeaderTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiListViewColumnHeaderTemplate>(L"demos::ListViewColumnHeaderTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiListViewColumnHeaderTemplate>(L"darkskin::ListViewColumnHeaderTemplate")
 			,buttonArrow(0)
 			,self(0)
 		{
@@ -557,13 +593,786 @@ namespace demos
 		}
 	public:
 		ListViewTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiListViewTemplate>(L"demos::ListViewTemplate")
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiListViewTemplate>(L"darkskin::ListViewTemplate")
 			,container(0)
 			,self(0)
 		{
 		}
 	};
 
+	template<typename TImpl>
+	class MenuBarButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiToolstripButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		MenuBarButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"darkskin::MenuBarButtonTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class MenuItemButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiToolstripButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		MenuItemButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"darkskin::MenuItemButtonTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class MenuSplitterTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+			}
+			else
+			{
+			}
+		}
+	public:
+		MenuSplitterTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"darkskin::MenuSplitterTemplate")
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class MultilineTextBoxTemplate_ : public vl::presentation::templates::GuiMultilineTextBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMultilineTextBoxTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiMultilineTextBoxTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		MultilineTextBoxTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMultilineTextBoxTemplate>(L"darkskin::MultilineTextBoxTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ProgressBarTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiScrollTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ProgressBarTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"darkskin::ProgressBarTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class RadioButtonTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiSelectableButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		RadioButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::RadioButtonTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class RadioTextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiTextListTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		RadioTextListTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>(L"darkskin::RadioTextListTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class RightScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		RightScrollButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::RightScrollButtonTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ScrollViewTemplate_ : public vl::presentation::templates::GuiScrollViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollViewTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiScrollViewTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ScrollViewTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollViewTemplate>(L"darkskin::ScrollViewTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class SinglelineTextBoxTemplate_ : public vl::presentation::templates::GuiSinglelineTextBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSinglelineTextBoxTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiSinglelineTextBoxTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		SinglelineTextBoxTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSinglelineTextBoxTemplate>(L"darkskin::SinglelineTextBoxTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TabDropdownTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TabDropdownTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::TabDropdownTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TabHeaderTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiSelectableButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TabHeaderTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::TabHeaderTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TabTemplate_ : public vl::presentation::templates::GuiTabTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTabTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::compositions::GuiBoundsComposition* header;
+		vl::presentation::templates::GuiTabTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(header);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TabTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTabTemplate>(L"darkskin::TabTemplate")
+			,container(0)
+			,header(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiTextListTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TextListTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>(L"darkskin::TextListTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiToolstripButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"darkskin::ToolstripButtonTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripDropdownButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiToolstripButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripDropdownButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"darkskin::ToolstripDropdownButtonTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripMenuTemplate_ : public vl::presentation::templates::GuiMenuTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMenuTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripMenuTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMenuTemplate>(L"darkskin::ToolstripMenuTemplate")
+			,container(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripSplitArrowTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiSelectableButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripSplitArrowTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"darkskin::ToolstripSplitArrowTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripSplitButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::controls::GuiSelectableButton* buttonArrow;
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiToolstripButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(buttonArrow);
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripSplitButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"darkskin::ToolstripSplitButtonTemplate")
+			,buttonArrow(0)
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripSplitterTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripSplitterTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"darkskin::ToolstripSplitterTemplate")
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class ToolstripTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+			}
+			else
+			{
+			}
+		}
+	public:
+		ToolstripTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"darkskin::ToolstripTemplate")
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TooltipTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TooltipTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>(L"darkskin::TooltipTemplate")
+			,container(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TopScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TopScrollButtonTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::TopScrollButtonTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class TreeViewTemplate_ : public vl::presentation::templates::GuiTreeViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTreeViewTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiTreeViewTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		TreeViewTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTreeViewTemplate>(L"darkskin::TreeViewTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class VScrollHandleTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::templates::GuiButtonTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		VScrollHandleTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"darkskin::VScrollHandleTemplate")
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class VScrollTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiPartialViewComposition* handle;
+		vl::presentation::compositions::GuiBoundsComposition* handleContainer;
+		vl::presentation::templates::GuiScrollTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(handle);
+				GUI_INSTANCE_REFERENCE(handleContainer);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		VScrollTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"darkskin::VScrollTemplate")
+			,handle(0)
+			,handleContainer(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class VTrackerTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* handle;
+		vl::presentation::templates::GuiScrollTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(handle);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		VTrackerTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"darkskin::VTrackerTemplate")
+			,handle(0)
+			,self(0)
+		{
+		}
+	};
+
+	template<typename TImpl>
+	class WindowTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
+	{
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
+	private:
+	protected:
+		vl::presentation::compositions::GuiBoundsComposition* container;
+		vl::presentation::templates::GuiWindowTemplate* self;
+
+		void InitializeComponents()
+		{
+			if (InitializeFromResource())
+			{
+				GUI_INSTANCE_REFERENCE(container);
+				GUI_INSTANCE_REFERENCE(self);
+			}
+			else
+			{
+			}
+		}
+	public:
+		WindowTemplate_()
+			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>(L"darkskin::WindowTemplate")
+			,container(0)
+			,self(0)
+		{
+		}
+	};
+
+}
+namespace demos
+{
 	template<typename TImpl>
 	class MainWindow_ : public vl::presentation::controls::GuiWindow, public vl::presentation::GuiInstancePartialClass<vl::presentation::controls::GuiWindow>, public vl::reflection::Description<TImpl>
 	{
@@ -641,7 +1450,7 @@ namespace demos
 			:vl::presentation::GuiInstancePartialClass<vl::presentation::controls::GuiWindow>(L"demos::MainWindow")
 			,vl::presentation::controls::GuiWindow([](){
 vl::collections::List<vl::reflection::description::ITypeDescriptor*> types;
-types.Add(vl::reflection::description::GetTypeDescriptor<demos::WindowTemplate>());
+types.Add(vl::reflection::description::GetTypeDescriptor<darkskin::WindowTemplate>());
 auto factory = vl::presentation::templates::GuiTemplate::IFactory::CreateTemplateFactory(types);
 auto style = new vl::presentation::templates::GuiWindowTemplate_StyleProvider(factory);
 return style;
@@ -678,776 +1487,6 @@ return style;
 		}
 	};
 
-	template<typename TImpl>
-	class MenuBarButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiToolstripButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		MenuBarButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"demos::MenuBarButtonTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class MenuItemButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiToolstripButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		MenuItemButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"demos::MenuItemButtonTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class MenuSplitterTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-			}
-			else
-			{
-			}
-		}
-	public:
-		MenuSplitterTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"demos::MenuSplitterTemplate")
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class MultilineTextBoxTemplate_ : public vl::presentation::templates::GuiMultilineTextBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMultilineTextBoxTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiMultilineTextBoxTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		MultilineTextBoxTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMultilineTextBoxTemplate>(L"demos::MultilineTextBoxTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ProgressBarTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiScrollTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ProgressBarTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"demos::ProgressBarTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class RadioButtonTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiSelectableButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		RadioButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::RadioButtonTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class RadioTextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiTextListTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		RadioTextListTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>(L"demos::RadioTextListTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class RightScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		RightScrollButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::RightScrollButtonTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ScrollViewTemplate_ : public vl::presentation::templates::GuiScrollViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollViewTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiScrollViewTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ScrollViewTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollViewTemplate>(L"demos::ScrollViewTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class SinglelineTextBoxTemplate_ : public vl::presentation::templates::GuiSinglelineTextBoxTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSinglelineTextBoxTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiSinglelineTextBoxTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		SinglelineTextBoxTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSinglelineTextBoxTemplate>(L"demos::SinglelineTextBoxTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TabDropdownTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TabDropdownTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::TabDropdownTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TabHeaderTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiSelectableButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TabHeaderTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::TabHeaderTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TabTemplate_ : public vl::presentation::templates::GuiTabTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTabTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::compositions::GuiBoundsComposition* header;
-		vl::presentation::templates::GuiTabTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(header);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TabTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTabTemplate>(L"demos::TabTemplate")
-			,container(0)
-			,header(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TextListTemplate_ : public vl::presentation::templates::GuiTextListTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiTextListTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TextListTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTextListTemplate>(L"demos::TextListTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiToolstripButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"demos::ToolstripButtonTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripDropdownButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiToolstripButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripDropdownButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"demos::ToolstripDropdownButtonTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripMenuTemplate_ : public vl::presentation::templates::GuiMenuTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMenuTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripMenuTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiMenuTemplate>(L"demos::ToolstripMenuTemplate")
-			,container(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripSplitArrowTemplate_ : public vl::presentation::templates::GuiSelectableButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiSelectableButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripSplitArrowTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiSelectableButtonTemplate>(L"demos::ToolstripSplitArrowTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripSplitButtonTemplate_ : public vl::presentation::templates::GuiToolstripButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::controls::GuiSelectableButton* buttonArrow;
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiToolstripButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(buttonArrow);
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripSplitButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiToolstripButtonTemplate>(L"demos::ToolstripSplitButtonTemplate")
-			,buttonArrow(0)
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripSplitterTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripSplitterTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"demos::ToolstripSplitterTemplate")
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class ToolstripTemplate_ : public vl::presentation::templates::GuiControlTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-			}
-			else
-			{
-			}
-		}
-	public:
-		ToolstripTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiControlTemplate>(L"demos::ToolstripTemplate")
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TooltipTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TooltipTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>(L"demos::TooltipTemplate")
-			,container(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TopScrollButtonTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TopScrollButtonTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::TopScrollButtonTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class TreeViewTemplate_ : public vl::presentation::templates::GuiTreeViewTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTreeViewTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiTreeViewTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		TreeViewTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiTreeViewTemplate>(L"demos::TreeViewTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class VScrollHandleTemplate_ : public vl::presentation::templates::GuiButtonTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::templates::GuiButtonTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		VScrollHandleTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiButtonTemplate>(L"demos::VScrollHandleTemplate")
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class VScrollTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiPartialViewComposition* handle;
-		vl::presentation::compositions::GuiBoundsComposition* handleContainer;
-		vl::presentation::templates::GuiScrollTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(handle);
-				GUI_INSTANCE_REFERENCE(handleContainer);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		VScrollTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"demos::VScrollTemplate")
-			,handle(0)
-			,handleContainer(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class VTrackerTemplate_ : public vl::presentation::templates::GuiScrollTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* handle;
-		vl::presentation::templates::GuiScrollTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(handle);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		VTrackerTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiScrollTemplate>(L"demos::VTrackerTemplate")
-			,handle(0)
-			,self(0)
-		{
-		}
-	};
-
-	template<typename TImpl>
-	class WindowTemplate_ : public vl::presentation::templates::GuiWindowTemplate, public vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>, public vl::reflection::Description<TImpl>
-	{
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<TImpl>;
-	private:
-	protected:
-		vl::presentation::compositions::GuiBoundsComposition* container;
-		vl::presentation::templates::GuiWindowTemplate* self;
-
-		void InitializeComponents()
-		{
-			if (InitializeFromResource())
-			{
-				GUI_INSTANCE_REFERENCE(container);
-				GUI_INSTANCE_REFERENCE(self);
-			}
-			else
-			{
-			}
-		}
-	public:
-		WindowTemplate_()
-			:vl::presentation::GuiInstancePartialClass<vl::presentation::templates::GuiWindowTemplate>(L"demos::WindowTemplate")
-			,container(0)
-			,self(0)
-		{
-		}
-	};
-
 }
 namespace vl
 {
@@ -1455,65 +1494,64 @@ namespace vl
 	{
 		namespace description
 		{
-			DECL_TYPE_INFO(demos::BottomScrollButtonTemplate)
-			DECL_TYPE_INFO(demos::ButtonTemplate)
-			DECL_TYPE_INFO(demos::CheckBoxTemplate)
-			DECL_TYPE_INFO(demos::CheckItemBackgroundTemplate)
-			DECL_TYPE_INFO(demos::CheckTextListTemplate)
-			DECL_TYPE_INFO(demos::ComboBoxTemplate)
-			DECL_TYPE_INFO(demos::DatePickerTemplate)
-			DECL_TYPE_INFO(demos::DocumentLabelTemplate)
-			DECL_TYPE_INFO(demos::ExpandingDecoratorTemplate)
-			DECL_TYPE_INFO(demos::GroupBoxTemplate)
-			DECL_TYPE_INFO(demos::HScrollHandleTemplate)
-			DECL_TYPE_INFO(demos::HScrollTemplate)
-			DECL_TYPE_INFO(demos::HTrackerTemplate)
-			DECL_TYPE_INFO(demos::ItemBackgroundTemplate)
-			DECL_TYPE_INFO(demos::LabelTemplate)
-			DECL_TYPE_INFO(demos::LeftScrollButtonTemplate)
-			DECL_TYPE_INFO(demos::ListViewColumnHeaderTemplate)
-			DECL_TYPE_INFO(demos::ListViewTemplate)
+			DECL_TYPE_INFO(darkskin::BottomScrollButtonTemplate)
+			DECL_TYPE_INFO(darkskin::ButtonTemplate)
+			DECL_TYPE_INFO(darkskin::CheckBoxTemplate)
+			DECL_TYPE_INFO(darkskin::CheckItemBackgroundTemplate)
+			DECL_TYPE_INFO(darkskin::CheckTextListTemplate)
+			DECL_TYPE_INFO(darkskin::ComboBoxTemplate)
+			DECL_TYPE_INFO(darkskin::DatePickerTemplate)
+			DECL_TYPE_INFO(darkskin::DocumentLabelTemplate)
+			DECL_TYPE_INFO(darkskin::DocumentViewerTemplate)
+			DECL_TYPE_INFO(darkskin::ExpandingDecoratorTemplate)
+			DECL_TYPE_INFO(darkskin::GroupBoxTemplate)
+			DECL_TYPE_INFO(darkskin::HScrollHandleTemplate)
+			DECL_TYPE_INFO(darkskin::HScrollTemplate)
+			DECL_TYPE_INFO(darkskin::HTrackerTemplate)
+			DECL_TYPE_INFO(darkskin::ItemBackgroundTemplate)
+			DECL_TYPE_INFO(darkskin::LabelTemplate)
+			DECL_TYPE_INFO(darkskin::LeftScrollButtonTemplate)
+			DECL_TYPE_INFO(darkskin::ListViewColumnHeaderTemplate)
+			DECL_TYPE_INFO(darkskin::ListViewTemplate)
+			DECL_TYPE_INFO(darkskin::MenuBarButtonTemplate)
+			DECL_TYPE_INFO(darkskin::MenuItemButtonTemplate)
+			DECL_TYPE_INFO(darkskin::MenuSplitterTemplate)
+			DECL_TYPE_INFO(darkskin::MultilineTextBoxTemplate)
+			DECL_TYPE_INFO(darkskin::ProgressBarTemplate)
+			DECL_TYPE_INFO(darkskin::RadioButtonTemplate)
+			DECL_TYPE_INFO(darkskin::RadioTextListTemplate)
+			DECL_TYPE_INFO(darkskin::RightScrollButtonTemplate)
+			DECL_TYPE_INFO(darkskin::ScrollViewTemplate)
+			DECL_TYPE_INFO(darkskin::SinglelineTextBoxTemplate)
+			DECL_TYPE_INFO(darkskin::TabDropdownTemplate)
+			DECL_TYPE_INFO(darkskin::TabHeaderTemplate)
+			DECL_TYPE_INFO(darkskin::TabTemplate)
+			DECL_TYPE_INFO(darkskin::TextListTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripButtonTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripDropdownButtonTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripMenuTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripSplitArrowTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripSplitButtonTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripSplitterTemplate)
+			DECL_TYPE_INFO(darkskin::ToolstripTemplate)
+			DECL_TYPE_INFO(darkskin::TooltipTemplate)
+			DECL_TYPE_INFO(darkskin::TopScrollButtonTemplate)
+			DECL_TYPE_INFO(darkskin::TreeViewTemplate)
+			DECL_TYPE_INFO(darkskin::VScrollHandleTemplate)
+			DECL_TYPE_INFO(darkskin::VScrollTemplate)
+			DECL_TYPE_INFO(darkskin::VTrackerTemplate)
+			DECL_TYPE_INFO(darkskin::WindowTemplate)
 			DECL_TYPE_INFO(demos::MainWindow)
-			DECL_TYPE_INFO(demos::MenuBarButtonTemplate)
-			DECL_TYPE_INFO(demos::MenuItemButtonTemplate)
-			DECL_TYPE_INFO(demos::MenuSplitterTemplate)
-			DECL_TYPE_INFO(demos::MultilineTextBoxTemplate)
-			DECL_TYPE_INFO(demos::ProgressBarTemplate)
-			DECL_TYPE_INFO(demos::RadioButtonTemplate)
-			DECL_TYPE_INFO(demos::RadioTextListTemplate)
-			DECL_TYPE_INFO(demos::RightScrollButtonTemplate)
-			DECL_TYPE_INFO(demos::ScrollViewTemplate)
-			DECL_TYPE_INFO(demos::SinglelineTextBoxTemplate)
-			DECL_TYPE_INFO(demos::TabDropdownTemplate)
-			DECL_TYPE_INFO(demos::TabHeaderTemplate)
-			DECL_TYPE_INFO(demos::TabTemplate)
-			DECL_TYPE_INFO(demos::TextListTemplate)
-			DECL_TYPE_INFO(demos::ToolstripButtonTemplate)
-			DECL_TYPE_INFO(demos::ToolstripDropdownButtonTemplate)
-			DECL_TYPE_INFO(demos::ToolstripMenuTemplate)
-			DECL_TYPE_INFO(demos::ToolstripSplitArrowTemplate)
-			DECL_TYPE_INFO(demos::ToolstripSplitButtonTemplate)
-			DECL_TYPE_INFO(demos::ToolstripSplitterTemplate)
-			DECL_TYPE_INFO(demos::ToolstripTemplate)
-			DECL_TYPE_INFO(demos::TooltipTemplate)
-			DECL_TYPE_INFO(demos::TopScrollButtonTemplate)
-			DECL_TYPE_INFO(demos::TreeViewTemplate)
-			DECL_TYPE_INFO(demos::VScrollHandleTemplate)
-			DECL_TYPE_INFO(demos::VScrollTemplate)
-			DECL_TYPE_INFO(demos::VTrackerTemplate)
-			DECL_TYPE_INFO(demos::WindowTemplate)
 
 		}
 	}
 }
-/*
-BottomScrollButtonTemplate.h :
-namespace demos
+namespace darkskin
 {
-	class BottomScrollButtonTemplate : public demos::BottomScrollButtonTemplate_<demos::BottomScrollButtonTemplate>
+	class BottomScrollButtonTemplate : public darkskin::BottomScrollButtonTemplate_<darkskin::BottomScrollButtonTemplate>
 	{
-		friend class demos::BottomScrollButtonTemplate_<demos::BottomScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::BottomScrollButtonTemplate>;
+		friend class darkskin::BottomScrollButtonTemplate_<darkskin::BottomScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::BottomScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1524,27 +1562,12 @@ namespace demos
 }
 
 
-BottomScrollButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	BottomScrollButtonTemplate::BottomScrollButtonTemplate()
+	class ButtonTemplate : public darkskin::ButtonTemplate_<darkskin::ButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ButtonTemplate.h :
-namespace demos
-{
-	class ButtonTemplate : public demos::ButtonTemplate_<demos::ButtonTemplate>
-	{
-		friend class demos::ButtonTemplate_<demos::ButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ButtonTemplate>;
+		friend class darkskin::ButtonTemplate_<darkskin::ButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1555,27 +1578,12 @@ namespace demos
 }
 
 
-ButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ButtonTemplate::ButtonTemplate()
+	class CheckBoxTemplate : public darkskin::CheckBoxTemplate_<darkskin::CheckBoxTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-CheckBoxTemplate.h :
-namespace demos
-{
-	class CheckBoxTemplate : public demos::CheckBoxTemplate_<demos::CheckBoxTemplate>
-	{
-		friend class demos::CheckBoxTemplate_<demos::CheckBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::CheckBoxTemplate>;
+		friend class darkskin::CheckBoxTemplate_<darkskin::CheckBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::CheckBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1586,27 +1594,12 @@ namespace demos
 }
 
 
-CheckBoxTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	CheckBoxTemplate::CheckBoxTemplate()
+	class CheckItemBackgroundTemplate : public darkskin::CheckItemBackgroundTemplate_<darkskin::CheckItemBackgroundTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-CheckItemBackgroundTemplate.h :
-namespace demos
-{
-	class CheckItemBackgroundTemplate : public demos::CheckItemBackgroundTemplate_<demos::CheckItemBackgroundTemplate>
-	{
-		friend class demos::CheckItemBackgroundTemplate_<demos::CheckItemBackgroundTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::CheckItemBackgroundTemplate>;
+		friend class darkskin::CheckItemBackgroundTemplate_<darkskin::CheckItemBackgroundTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::CheckItemBackgroundTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1617,27 +1610,12 @@ namespace demos
 }
 
 
-CheckItemBackgroundTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	CheckItemBackgroundTemplate::CheckItemBackgroundTemplate()
+	class CheckTextListTemplate : public darkskin::CheckTextListTemplate_<darkskin::CheckTextListTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-CheckTextListTemplate.h :
-namespace demos
-{
-	class CheckTextListTemplate : public demos::CheckTextListTemplate_<demos::CheckTextListTemplate>
-	{
-		friend class demos::CheckTextListTemplate_<demos::CheckTextListTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::CheckTextListTemplate>;
+		friend class darkskin::CheckTextListTemplate_<darkskin::CheckTextListTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::CheckTextListTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1648,27 +1626,12 @@ namespace demos
 }
 
 
-CheckTextListTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	CheckTextListTemplate::CheckTextListTemplate()
+	class ComboBoxTemplate : public darkskin::ComboBoxTemplate_<darkskin::ComboBoxTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ComboBoxTemplate.h :
-namespace demos
-{
-	class ComboBoxTemplate : public demos::ComboBoxTemplate_<demos::ComboBoxTemplate>
-	{
-		friend class demos::ComboBoxTemplate_<demos::ComboBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ComboBoxTemplate>;
+		friend class darkskin::ComboBoxTemplate_<darkskin::ComboBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ComboBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1679,27 +1642,12 @@ namespace demos
 }
 
 
-ComboBoxTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ComboBoxTemplate::ComboBoxTemplate()
+	class DatePickerTemplate : public darkskin::DatePickerTemplate_<darkskin::DatePickerTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-DatePickerTemplate.h :
-namespace demos
-{
-	class DatePickerTemplate : public demos::DatePickerTemplate_<demos::DatePickerTemplate>
-	{
-		friend class demos::DatePickerTemplate_<demos::DatePickerTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::DatePickerTemplate>;
+		friend class darkskin::DatePickerTemplate_<darkskin::DatePickerTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::DatePickerTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1710,27 +1658,12 @@ namespace demos
 }
 
 
-DatePickerTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	DatePickerTemplate::DatePickerTemplate()
+	class DocumentLabelTemplate : public darkskin::DocumentLabelTemplate_<darkskin::DocumentLabelTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-DocumentLabelTemplate.h :
-namespace demos
-{
-	class DocumentLabelTemplate : public demos::DocumentLabelTemplate_<demos::DocumentLabelTemplate>
-	{
-		friend class demos::DocumentLabelTemplate_<demos::DocumentLabelTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::DocumentLabelTemplate>;
+		friend class darkskin::DocumentLabelTemplate_<darkskin::DocumentLabelTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::DocumentLabelTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1741,27 +1674,28 @@ namespace demos
 }
 
 
-DocumentLabelTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	DocumentLabelTemplate::DocumentLabelTemplate()
+	class DocumentViewerTemplate : public darkskin::DocumentViewerTemplate_<darkskin::DocumentViewerTemplate>
 	{
-		InitializeComponents();
-	}
+		friend class darkskin::DocumentViewerTemplate_<darkskin::DocumentViewerTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::DocumentViewerTemplate>;
+	protected:
+
+		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
+		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
+	public:
+		DocumentViewerTemplate();
+	};
 }
 
 
-ExpandingDecoratorTemplate.h :
-namespace demos
+namespace darkskin
 {
-	class ExpandingDecoratorTemplate : public demos::ExpandingDecoratorTemplate_<demos::ExpandingDecoratorTemplate>
+	class ExpandingDecoratorTemplate : public darkskin::ExpandingDecoratorTemplate_<darkskin::ExpandingDecoratorTemplate>
 	{
-		friend class demos::ExpandingDecoratorTemplate_<demos::ExpandingDecoratorTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ExpandingDecoratorTemplate>;
+		friend class darkskin::ExpandingDecoratorTemplate_<darkskin::ExpandingDecoratorTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ExpandingDecoratorTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1772,27 +1706,12 @@ namespace demos
 }
 
 
-ExpandingDecoratorTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ExpandingDecoratorTemplate::ExpandingDecoratorTemplate()
+	class GroupBoxTemplate : public darkskin::GroupBoxTemplate_<darkskin::GroupBoxTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-GroupBoxTemplate.h :
-namespace demos
-{
-	class GroupBoxTemplate : public demos::GroupBoxTemplate_<demos::GroupBoxTemplate>
-	{
-		friend class demos::GroupBoxTemplate_<demos::GroupBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::GroupBoxTemplate>;
+		friend class darkskin::GroupBoxTemplate_<darkskin::GroupBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::GroupBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1803,27 +1722,12 @@ namespace demos
 }
 
 
-GroupBoxTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	GroupBoxTemplate::GroupBoxTemplate()
+	class HScrollHandleTemplate : public darkskin::HScrollHandleTemplate_<darkskin::HScrollHandleTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-HScrollHandleTemplate.h :
-namespace demos
-{
-	class HScrollHandleTemplate : public demos::HScrollHandleTemplate_<demos::HScrollHandleTemplate>
-	{
-		friend class demos::HScrollHandleTemplate_<demos::HScrollHandleTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::HScrollHandleTemplate>;
+		friend class darkskin::HScrollHandleTemplate_<darkskin::HScrollHandleTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::HScrollHandleTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1834,119 +1738,12 @@ namespace demos
 }
 
 
-HScrollHandleTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	HScrollHandleTemplate::HScrollHandleTemplate()
+	class ItemBackgroundTemplate : public darkskin::ItemBackgroundTemplate_<darkskin::ItemBackgroundTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-HScrollTemplate.h :
-namespace demos
-{
-	class HScrollTemplate : public demos::HScrollTemplate_<demos::HScrollTemplate>
-	{
-		friend class demos::HScrollTemplate_<demos::HScrollTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::HScrollTemplate>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		void OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		HScrollTemplate();
-	};
-}
-
-
-HScrollTemplate.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	void HScrollTemplate::OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void HScrollTemplate::OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void HScrollTemplate::OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	HScrollTemplate::HScrollTemplate()
-	{
-		InitializeComponents();
-	}
-}
-
-
-HTrackerTemplate.h :
-namespace demos
-{
-	class HTrackerTemplate : public demos::HTrackerTemplate_<demos::HTrackerTemplate>
-	{
-		friend class demos::HTrackerTemplate_<demos::HTrackerTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::HTrackerTemplate>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		void OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		HTrackerTemplate();
-	};
-}
-
-
-HTrackerTemplate.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	void HTrackerTemplate::OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void HTrackerTemplate::OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void HTrackerTemplate::OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	HTrackerTemplate::HTrackerTemplate()
-	{
-		InitializeComponents();
-	}
-}
-
-
-ItemBackgroundTemplate.h :
-namespace demos
-{
-	class ItemBackgroundTemplate : public demos::ItemBackgroundTemplate_<demos::ItemBackgroundTemplate>
-	{
-		friend class demos::ItemBackgroundTemplate_<demos::ItemBackgroundTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ItemBackgroundTemplate>;
+		friend class darkskin::ItemBackgroundTemplate_<darkskin::ItemBackgroundTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ItemBackgroundTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1957,27 +1754,12 @@ namespace demos
 }
 
 
-ItemBackgroundTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ItemBackgroundTemplate::ItemBackgroundTemplate()
+	class LabelTemplate : public darkskin::LabelTemplate_<darkskin::LabelTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-LabelTemplate.h :
-namespace demos
-{
-	class LabelTemplate : public demos::LabelTemplate_<demos::LabelTemplate>
-	{
-		friend class demos::LabelTemplate_<demos::LabelTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::LabelTemplate>;
+		friend class darkskin::LabelTemplate_<darkskin::LabelTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::LabelTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -1988,27 +1770,12 @@ namespace demos
 }
 
 
-LabelTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	LabelTemplate::LabelTemplate()
+	class LeftScrollButtonTemplate : public darkskin::LeftScrollButtonTemplate_<darkskin::LeftScrollButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-LeftScrollButtonTemplate.h :
-namespace demos
-{
-	class LeftScrollButtonTemplate : public demos::LeftScrollButtonTemplate_<demos::LeftScrollButtonTemplate>
-	{
-		friend class demos::LeftScrollButtonTemplate_<demos::LeftScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::LeftScrollButtonTemplate>;
+		friend class darkskin::LeftScrollButtonTemplate_<darkskin::LeftScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::LeftScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2019,27 +1786,12 @@ namespace demos
 }
 
 
-LeftScrollButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	LeftScrollButtonTemplate::LeftScrollButtonTemplate()
+	class ListViewColumnHeaderTemplate : public darkskin::ListViewColumnHeaderTemplate_<darkskin::ListViewColumnHeaderTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ListViewColumnHeaderTemplate.h :
-namespace demos
-{
-	class ListViewColumnHeaderTemplate : public demos::ListViewColumnHeaderTemplate_<demos::ListViewColumnHeaderTemplate>
-	{
-		friend class demos::ListViewColumnHeaderTemplate_<demos::ListViewColumnHeaderTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ListViewColumnHeaderTemplate>;
+		friend class darkskin::ListViewColumnHeaderTemplate_<darkskin::ListViewColumnHeaderTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ListViewColumnHeaderTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2050,27 +1802,12 @@ namespace demos
 }
 
 
-ListViewColumnHeaderTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ListViewColumnHeaderTemplate::ListViewColumnHeaderTemplate()
+	class ListViewTemplate : public darkskin::ListViewTemplate_<darkskin::ListViewTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ListViewTemplate.h :
-namespace demos
-{
-	class ListViewTemplate : public demos::ListViewTemplate_<demos::ListViewTemplate>
-	{
-		friend class demos::ListViewTemplate_<demos::ListViewTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ListViewTemplate>;
+		friend class darkskin::ListViewTemplate_<darkskin::ListViewTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ListViewTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2081,58 +1818,12 @@ namespace demos
 }
 
 
-ListViewTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ListViewTemplate::ListViewTemplate()
+	class MenuBarButtonTemplate : public darkskin::MenuBarButtonTemplate_<darkskin::MenuBarButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-MainWindow.h :
-namespace demos
-{
-	class MainWindow : public demos::MainWindow_<demos::MainWindow>
-	{
-		friend class demos::MainWindow_<demos::MainWindow>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MainWindow>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		MainWindow();
-	};
-}
-
-
-MainWindow.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MainWindow::MainWindow()
-	{
-		InitializeComponents();
-	}
-}
-
-
-MenuBarButtonTemplate.h :
-namespace demos
-{
-	class MenuBarButtonTemplate : public demos::MenuBarButtonTemplate_<demos::MenuBarButtonTemplate>
-	{
-		friend class demos::MenuBarButtonTemplate_<demos::MenuBarButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MenuBarButtonTemplate>;
+		friend class darkskin::MenuBarButtonTemplate_<darkskin::MenuBarButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::MenuBarButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2143,27 +1834,12 @@ namespace demos
 }
 
 
-MenuBarButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MenuBarButtonTemplate::MenuBarButtonTemplate()
+	class MenuItemButtonTemplate : public darkskin::MenuItemButtonTemplate_<darkskin::MenuItemButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-MenuItemButtonTemplate.h :
-namespace demos
-{
-	class MenuItemButtonTemplate : public demos::MenuItemButtonTemplate_<demos::MenuItemButtonTemplate>
-	{
-		friend class demos::MenuItemButtonTemplate_<demos::MenuItemButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MenuItemButtonTemplate>;
+		friend class darkskin::MenuItemButtonTemplate_<darkskin::MenuItemButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::MenuItemButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2174,27 +1850,12 @@ namespace demos
 }
 
 
-MenuItemButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MenuItemButtonTemplate::MenuItemButtonTemplate()
+	class MenuSplitterTemplate : public darkskin::MenuSplitterTemplate_<darkskin::MenuSplitterTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-MenuSplitterTemplate.h :
-namespace demos
-{
-	class MenuSplitterTemplate : public demos::MenuSplitterTemplate_<demos::MenuSplitterTemplate>
-	{
-		friend class demos::MenuSplitterTemplate_<demos::MenuSplitterTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MenuSplitterTemplate>;
+		friend class darkskin::MenuSplitterTemplate_<darkskin::MenuSplitterTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::MenuSplitterTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2205,27 +1866,12 @@ namespace demos
 }
 
 
-MenuSplitterTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MenuSplitterTemplate::MenuSplitterTemplate()
+	class MultilineTextBoxTemplate : public darkskin::MultilineTextBoxTemplate_<darkskin::MultilineTextBoxTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-MultilineTextBoxTemplate.h :
-namespace demos
-{
-	class MultilineTextBoxTemplate : public demos::MultilineTextBoxTemplate_<demos::MultilineTextBoxTemplate>
-	{
-		friend class demos::MultilineTextBoxTemplate_<demos::MultilineTextBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::MultilineTextBoxTemplate>;
+		friend class darkskin::MultilineTextBoxTemplate_<darkskin::MultilineTextBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::MultilineTextBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2236,27 +1882,12 @@ namespace demos
 }
 
 
-MultilineTextBoxTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	MultilineTextBoxTemplate::MultilineTextBoxTemplate()
+	class ProgressBarTemplate : public darkskin::ProgressBarTemplate_<darkskin::ProgressBarTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ProgressBarTemplate.h :
-namespace demos
-{
-	class ProgressBarTemplate : public demos::ProgressBarTemplate_<demos::ProgressBarTemplate>
-	{
-		friend class demos::ProgressBarTemplate_<demos::ProgressBarTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ProgressBarTemplate>;
+		friend class darkskin::ProgressBarTemplate_<darkskin::ProgressBarTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ProgressBarTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2267,27 +1898,12 @@ namespace demos
 }
 
 
-ProgressBarTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ProgressBarTemplate::ProgressBarTemplate()
+	class RadioButtonTemplate : public darkskin::RadioButtonTemplate_<darkskin::RadioButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-RadioButtonTemplate.h :
-namespace demos
-{
-	class RadioButtonTemplate : public demos::RadioButtonTemplate_<demos::RadioButtonTemplate>
-	{
-		friend class demos::RadioButtonTemplate_<demos::RadioButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::RadioButtonTemplate>;
+		friend class darkskin::RadioButtonTemplate_<darkskin::RadioButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::RadioButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2298,27 +1914,12 @@ namespace demos
 }
 
 
-RadioButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	RadioButtonTemplate::RadioButtonTemplate()
+	class RadioTextListTemplate : public darkskin::RadioTextListTemplate_<darkskin::RadioTextListTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-RadioTextListTemplate.h :
-namespace demos
-{
-	class RadioTextListTemplate : public demos::RadioTextListTemplate_<demos::RadioTextListTemplate>
-	{
-		friend class demos::RadioTextListTemplate_<demos::RadioTextListTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::RadioTextListTemplate>;
+		friend class darkskin::RadioTextListTemplate_<darkskin::RadioTextListTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::RadioTextListTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2329,27 +1930,12 @@ namespace demos
 }
 
 
-RadioTextListTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	RadioTextListTemplate::RadioTextListTemplate()
+	class RightScrollButtonTemplate : public darkskin::RightScrollButtonTemplate_<darkskin::RightScrollButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-RightScrollButtonTemplate.h :
-namespace demos
-{
-	class RightScrollButtonTemplate : public demos::RightScrollButtonTemplate_<demos::RightScrollButtonTemplate>
-	{
-		friend class demos::RightScrollButtonTemplate_<demos::RightScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::RightScrollButtonTemplate>;
+		friend class darkskin::RightScrollButtonTemplate_<darkskin::RightScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::RightScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2360,27 +1946,12 @@ namespace demos
 }
 
 
-RightScrollButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	RightScrollButtonTemplate::RightScrollButtonTemplate()
+	class ScrollViewTemplate : public darkskin::ScrollViewTemplate_<darkskin::ScrollViewTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ScrollViewTemplate.h :
-namespace demos
-{
-	class ScrollViewTemplate : public demos::ScrollViewTemplate_<demos::ScrollViewTemplate>
-	{
-		friend class demos::ScrollViewTemplate_<demos::ScrollViewTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ScrollViewTemplate>;
+		friend class darkskin::ScrollViewTemplate_<darkskin::ScrollViewTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ScrollViewTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2391,27 +1962,12 @@ namespace demos
 }
 
 
-ScrollViewTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ScrollViewTemplate::ScrollViewTemplate()
+	class SinglelineTextBoxTemplate : public darkskin::SinglelineTextBoxTemplate_<darkskin::SinglelineTextBoxTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-SinglelineTextBoxTemplate.h :
-namespace demos
-{
-	class SinglelineTextBoxTemplate : public demos::SinglelineTextBoxTemplate_<demos::SinglelineTextBoxTemplate>
-	{
-		friend class demos::SinglelineTextBoxTemplate_<demos::SinglelineTextBoxTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::SinglelineTextBoxTemplate>;
+		friend class darkskin::SinglelineTextBoxTemplate_<darkskin::SinglelineTextBoxTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::SinglelineTextBoxTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2422,27 +1978,12 @@ namespace demos
 }
 
 
-SinglelineTextBoxTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	SinglelineTextBoxTemplate::SinglelineTextBoxTemplate()
+	class TabDropdownTemplate : public darkskin::TabDropdownTemplate_<darkskin::TabDropdownTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TabDropdownTemplate.h :
-namespace demos
-{
-	class TabDropdownTemplate : public demos::TabDropdownTemplate_<demos::TabDropdownTemplate>
-	{
-		friend class demos::TabDropdownTemplate_<demos::TabDropdownTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TabDropdownTemplate>;
+		friend class darkskin::TabDropdownTemplate_<darkskin::TabDropdownTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TabDropdownTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2453,27 +1994,12 @@ namespace demos
 }
 
 
-TabDropdownTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TabDropdownTemplate::TabDropdownTemplate()
+	class TabHeaderTemplate : public darkskin::TabHeaderTemplate_<darkskin::TabHeaderTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TabHeaderTemplate.h :
-namespace demos
-{
-	class TabHeaderTemplate : public demos::TabHeaderTemplate_<demos::TabHeaderTemplate>
-	{
-		friend class demos::TabHeaderTemplate_<demos::TabHeaderTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TabHeaderTemplate>;
+		friend class darkskin::TabHeaderTemplate_<darkskin::TabHeaderTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TabHeaderTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2484,27 +2010,12 @@ namespace demos
 }
 
 
-TabHeaderTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TabHeaderTemplate::TabHeaderTemplate()
+	class TabTemplate : public darkskin::TabTemplate_<darkskin::TabTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TabTemplate.h :
-namespace demos
-{
-	class TabTemplate : public demos::TabTemplate_<demos::TabTemplate>
-	{
-		friend class demos::TabTemplate_<demos::TabTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TabTemplate>;
+		friend class darkskin::TabTemplate_<darkskin::TabTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TabTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2515,27 +2026,12 @@ namespace demos
 }
 
 
-TabTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TabTemplate::TabTemplate()
+	class TextListTemplate : public darkskin::TextListTemplate_<darkskin::TextListTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TextListTemplate.h :
-namespace demos
-{
-	class TextListTemplate : public demos::TextListTemplate_<demos::TextListTemplate>
-	{
-		friend class demos::TextListTemplate_<demos::TextListTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TextListTemplate>;
+		friend class darkskin::TextListTemplate_<darkskin::TextListTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TextListTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2546,27 +2042,12 @@ namespace demos
 }
 
 
-TextListTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TextListTemplate::TextListTemplate()
+	class ToolstripButtonTemplate : public darkskin::ToolstripButtonTemplate_<darkskin::ToolstripButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripButtonTemplate.h :
-namespace demos
-{
-	class ToolstripButtonTemplate : public demos::ToolstripButtonTemplate_<demos::ToolstripButtonTemplate>
-	{
-		friend class demos::ToolstripButtonTemplate_<demos::ToolstripButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripButtonTemplate>;
+		friend class darkskin::ToolstripButtonTemplate_<darkskin::ToolstripButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2577,27 +2058,12 @@ namespace demos
 }
 
 
-ToolstripButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripButtonTemplate::ToolstripButtonTemplate()
+	class ToolstripDropdownButtonTemplate : public darkskin::ToolstripDropdownButtonTemplate_<darkskin::ToolstripDropdownButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripDropdownButtonTemplate.h :
-namespace demos
-{
-	class ToolstripDropdownButtonTemplate : public demos::ToolstripDropdownButtonTemplate_<demos::ToolstripDropdownButtonTemplate>
-	{
-		friend class demos::ToolstripDropdownButtonTemplate_<demos::ToolstripDropdownButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripDropdownButtonTemplate>;
+		friend class darkskin::ToolstripDropdownButtonTemplate_<darkskin::ToolstripDropdownButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripDropdownButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2608,27 +2074,12 @@ namespace demos
 }
 
 
-ToolstripDropdownButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripDropdownButtonTemplate::ToolstripDropdownButtonTemplate()
+	class ToolstripMenuTemplate : public darkskin::ToolstripMenuTemplate_<darkskin::ToolstripMenuTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripMenuTemplate.h :
-namespace demos
-{
-	class ToolstripMenuTemplate : public demos::ToolstripMenuTemplate_<demos::ToolstripMenuTemplate>
-	{
-		friend class demos::ToolstripMenuTemplate_<demos::ToolstripMenuTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripMenuTemplate>;
+		friend class darkskin::ToolstripMenuTemplate_<darkskin::ToolstripMenuTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripMenuTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2639,27 +2090,12 @@ namespace demos
 }
 
 
-ToolstripMenuTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripMenuTemplate::ToolstripMenuTemplate()
+	class ToolstripSplitArrowTemplate : public darkskin::ToolstripSplitArrowTemplate_<darkskin::ToolstripSplitArrowTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripSplitArrowTemplate.h :
-namespace demos
-{
-	class ToolstripSplitArrowTemplate : public demos::ToolstripSplitArrowTemplate_<demos::ToolstripSplitArrowTemplate>
-	{
-		friend class demos::ToolstripSplitArrowTemplate_<demos::ToolstripSplitArrowTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripSplitArrowTemplate>;
+		friend class darkskin::ToolstripSplitArrowTemplate_<darkskin::ToolstripSplitArrowTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripSplitArrowTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2670,27 +2106,12 @@ namespace demos
 }
 
 
-ToolstripSplitArrowTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripSplitArrowTemplate::ToolstripSplitArrowTemplate()
+	class ToolstripSplitButtonTemplate : public darkskin::ToolstripSplitButtonTemplate_<darkskin::ToolstripSplitButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripSplitButtonTemplate.h :
-namespace demos
-{
-	class ToolstripSplitButtonTemplate : public demos::ToolstripSplitButtonTemplate_<demos::ToolstripSplitButtonTemplate>
-	{
-		friend class demos::ToolstripSplitButtonTemplate_<demos::ToolstripSplitButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripSplitButtonTemplate>;
+		friend class darkskin::ToolstripSplitButtonTemplate_<darkskin::ToolstripSplitButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripSplitButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2701,27 +2122,12 @@ namespace demos
 }
 
 
-ToolstripSplitButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripSplitButtonTemplate::ToolstripSplitButtonTemplate()
+	class ToolstripSplitterTemplate : public darkskin::ToolstripSplitterTemplate_<darkskin::ToolstripSplitterTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripSplitterTemplate.h :
-namespace demos
-{
-	class ToolstripSplitterTemplate : public demos::ToolstripSplitterTemplate_<demos::ToolstripSplitterTemplate>
-	{
-		friend class demos::ToolstripSplitterTemplate_<demos::ToolstripSplitterTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripSplitterTemplate>;
+		friend class darkskin::ToolstripSplitterTemplate_<darkskin::ToolstripSplitterTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripSplitterTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2732,27 +2138,12 @@ namespace demos
 }
 
 
-ToolstripSplitterTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripSplitterTemplate::ToolstripSplitterTemplate()
+	class ToolstripTemplate : public darkskin::ToolstripTemplate_<darkskin::ToolstripTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-ToolstripTemplate.h :
-namespace demos
-{
-	class ToolstripTemplate : public demos::ToolstripTemplate_<demos::ToolstripTemplate>
-	{
-		friend class demos::ToolstripTemplate_<demos::ToolstripTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::ToolstripTemplate>;
+		friend class darkskin::ToolstripTemplate_<darkskin::ToolstripTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::ToolstripTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2763,27 +2154,12 @@ namespace demos
 }
 
 
-ToolstripTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	ToolstripTemplate::ToolstripTemplate()
+	class TooltipTemplate : public darkskin::TooltipTemplate_<darkskin::TooltipTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TooltipTemplate.h :
-namespace demos
-{
-	class TooltipTemplate : public demos::TooltipTemplate_<demos::TooltipTemplate>
-	{
-		friend class demos::TooltipTemplate_<demos::TooltipTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TooltipTemplate>;
+		friend class darkskin::TooltipTemplate_<darkskin::TooltipTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TooltipTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2794,27 +2170,12 @@ namespace demos
 }
 
 
-TooltipTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TooltipTemplate::TooltipTemplate()
+	class TopScrollButtonTemplate : public darkskin::TopScrollButtonTemplate_<darkskin::TopScrollButtonTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TopScrollButtonTemplate.h :
-namespace demos
-{
-	class TopScrollButtonTemplate : public demos::TopScrollButtonTemplate_<demos::TopScrollButtonTemplate>
-	{
-		friend class demos::TopScrollButtonTemplate_<demos::TopScrollButtonTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TopScrollButtonTemplate>;
+		friend class darkskin::TopScrollButtonTemplate_<darkskin::TopScrollButtonTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TopScrollButtonTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2825,27 +2186,12 @@ namespace demos
 }
 
 
-TopScrollButtonTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TopScrollButtonTemplate::TopScrollButtonTemplate()
+	class TreeViewTemplate : public darkskin::TreeViewTemplate_<darkskin::TreeViewTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-TreeViewTemplate.h :
-namespace demos
-{
-	class TreeViewTemplate : public demos::TreeViewTemplate_<demos::TreeViewTemplate>
-	{
-		friend class demos::TreeViewTemplate_<demos::TreeViewTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::TreeViewTemplate>;
+		friend class darkskin::TreeViewTemplate_<darkskin::TreeViewTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::TreeViewTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2856,27 +2202,12 @@ namespace demos
 }
 
 
-TreeViewTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	TreeViewTemplate::TreeViewTemplate()
+	class VScrollHandleTemplate : public darkskin::VScrollHandleTemplate_<darkskin::VScrollHandleTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-VScrollHandleTemplate.h :
-namespace demos
-{
-	class VScrollHandleTemplate : public demos::VScrollHandleTemplate_<demos::VScrollHandleTemplate>
-	{
-		friend class demos::VScrollHandleTemplate_<demos::VScrollHandleTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::VScrollHandleTemplate>;
+		friend class darkskin::VScrollHandleTemplate_<darkskin::VScrollHandleTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::VScrollHandleTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -2887,119 +2218,12 @@ namespace demos
 }
 
 
-VScrollHandleTemplate.cpp :
-namespace demos
+namespace darkskin
 {
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	VScrollHandleTemplate::VScrollHandleTemplate()
+	class WindowTemplate : public darkskin::WindowTemplate_<darkskin::WindowTemplate>
 	{
-		InitializeComponents();
-	}
-}
-
-
-VScrollTemplate.h :
-namespace demos
-{
-	class VScrollTemplate : public demos::VScrollTemplate_<demos::VScrollTemplate>
-	{
-		friend class demos::VScrollTemplate_<demos::VScrollTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::VScrollTemplate>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		void OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		VScrollTemplate();
-	};
-}
-
-
-VScrollTemplate.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	void VScrollTemplate::OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void VScrollTemplate::OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void VScrollTemplate::OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	VScrollTemplate::VScrollTemplate()
-	{
-		InitializeComponents();
-	}
-}
-
-
-VTrackerTemplate.h :
-namespace demos
-{
-	class VTrackerTemplate : public demos::VTrackerTemplate_<demos::VTrackerTemplate>
-	{
-		friend class demos::VTrackerTemplate_<demos::VTrackerTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::VTrackerTemplate>;
-	protected:
-
-		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-		void OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		void OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments);
-		// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-	public:
-		VTrackerTemplate();
-	};
-}
-
-
-VTrackerTemplate.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	void VTrackerTemplate::OnHandleMouseDown(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void VTrackerTemplate::OnHandleMouseMove(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	void VTrackerTemplate::OnHandleMouseUp(GuiGraphicsComposition* sender, vl::presentation::compositions::GuiMouseEventArgs& arguments)
-	{
-	}
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	VTrackerTemplate::VTrackerTemplate()
-	{
-		InitializeComponents();
-	}
-}
-
-
-WindowTemplate.h :
-namespace demos
-{
-	class WindowTemplate : public demos::WindowTemplate_<demos::WindowTemplate>
-	{
-		friend class demos::WindowTemplate_<demos::WindowTemplate>;
-		friend struct vl::reflection::description::CustomTypeDescriptorSelector<demos::WindowTemplate>;
+		friend class darkskin::WindowTemplate_<darkskin::WindowTemplate>;
+		friend struct vl::reflection::description::CustomTypeDescriptorSelector<darkskin::WindowTemplate>;
 	protected:
 
 		// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
@@ -3010,20 +2234,5 @@ namespace demos
 }
 
 
-WindowTemplate.cpp :
-namespace demos
-{
-	// #region CLASS_MEMBER_GUIEVENT_HANDLER (DO NOT PUT OTHER CONTENT IN THIS #region.)
-
-	// #endregion CLASS_MEMBER_GUIEVENT_HANDLER
-
-	WindowTemplate::WindowTemplate()
-	{
-		InitializeComponents();
-	}
-}
-
-
-*/
 
 #endif

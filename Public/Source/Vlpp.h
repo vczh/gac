@@ -7402,6 +7402,8 @@ Value
 				static Value					From(const WString& value, ITypeDescriptor* type);
 
 				static IMethodInfo*				SelectMethod(IMethodGroupInfo* methodGroup, collections::Array<Value>& arguments);
+				static Value					Create(ITypeDescriptor* type);
+				static Value					Create(ITypeDescriptor* type, collections::Array<Value>& arguments);
 				static Value					Create(const WString& typeName);
 				static Value					Create(const WString& typeName, collections::Array<Value>& arguments);
 				static Value					InvokeStatic(const WString& typeName, const WString& name);
@@ -11508,6 +11510,12 @@ Enumerable Wrappers
 
 			template<typename T>
 			collections::LazyList<T> GetLazyList(Ptr<IValueList> value)
+			{
+				return GetLazyList<T>(Ptr<IValueReadonlyList>(value));
+			}
+
+			template<typename T>
+			collections::LazyList<T> GetLazyList(Ptr<IValueObservableList> value)
 			{
 				return GetLazyList<T>(Ptr<IValueReadonlyList>(value));
 			}
