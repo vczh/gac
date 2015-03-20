@@ -105,9 +105,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.Item
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.ControlTemplate", "Persistant.LoadFromXml.ControlTemplate\Persistant.LoadFromXml.ControlTemplate.vcxproj", "{6CC8D8EE-BF3A-463F-844F-FBD151E0CBFB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Persistant.LoadFromXml.DataGridModel", "Persistant.LoadFromXml.DataGridModel\Persistant.LoadFromXml.DataGridModel.vcxproj", "{A1AFC612-4220-48FC-9337-18D68B3AB4E1}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 44
+		SccNumberOfProjects = 45
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs02
 		SccLocalPath0 = .
@@ -278,6 +280,10 @@ Global
 		SccProjectTopLevelParentUniqueName43 = GacUIDemo.sln
 		SccProjectName43 = Persistant.LoadFromXml.ControlTemplate
 		SccLocalPath43 = Persistant.LoadFromXml.ControlTemplate
+		SccProjectUniqueName44 = Persistant.LoadFromXml.DataGridModel\\Persistant.LoadFromXml.DataGridModel.vcxproj
+		SccProjectTopLevelParentUniqueName44 = GacUIDemo.sln
+		SccProjectName44 = Persistant.LoadFromXml.DataGridModel
+		SccLocalPath44 = Persistant.LoadFromXml.DataGridModel
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -456,6 +462,10 @@ Global
 		{6CC8D8EE-BF3A-463F-844F-FBD151E0CBFB}.Debug|Win32.Build.0 = Debug|Win32
 		{6CC8D8EE-BF3A-463F-844F-FBD151E0CBFB}.Release|Win32.ActiveCfg = Release|Win32
 		{6CC8D8EE-BF3A-463F-844F-FBD151E0CBFB}.Release|Win32.Build.0 = Release|Win32
+		{A1AFC612-4220-48FC-9337-18D68B3AB4E1}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A1AFC612-4220-48FC-9337-18D68B3AB4E1}.Debug|Win32.Build.0 = Debug|Win32
+		{A1AFC612-4220-48FC-9337-18D68B3AB4E1}.Release|Win32.ActiveCfg = Release|Win32
+		{A1AFC612-4220-48FC-9337-18D68B3AB4E1}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -493,6 +503,7 @@ Global
 		{CF3F2637-4CAE-46DB-BB9D-BE23242BC9C2} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{3426FAB0-4CA6-4623-8BCD-B89626EE7B0F} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{6CC8D8EE-BF3A-463F-844F-FBD151E0CBFB} = {52446C02-0696-4691-95FD-5E737EECBE67}
+		{A1AFC612-4220-48FC-9337-18D68B3AB4E1} = {52446C02-0696-4691-95FD-5E737EECBE67}
 		{D5B762A4-3BDB-4D7C-8EB4-533B2BAE6EB6} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{46F8C4C0-3B85-412F-B1A9-F9CD63AA9BB4} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}
 		{728C31C9-EBEC-4C01-8658-DC1BA60BE40F} = {EBECB34C-801E-43D7-9FDF-EDE249CF053D}

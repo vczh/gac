@@ -1624,13 +1624,9 @@ Type List
 			F(presentation::controls::GuiDocumentLabel)\
 			F(presentation::controls::GuiDocumentLabel::IStyleController)\
 			F(presentation::controls::GuiTextBoxCommonInterface)\
-			F(presentation::controls::ILanguageProvider)\
-			F(presentation::controls::RepeatingParsingExecutor)\
 			F(presentation::controls::GuiTextBoxColorizerBase)\
 			F(presentation::controls::GuiTextBoxRegexColorizer)\
-			F(presentation::controls::GuiGrammarColorizer)\
 			F(presentation::controls::GuiTextBoxAutoCompleteBase)\
-			F(presentation::controls::GuiGrammarAutoComplete)\
 			F(presentation::controls::GuiMultilineTextBox)\
 			F(presentation::controls::GuiSinglelineTextBox)\
 			F(presentation::controls::GuiSinglelineTextBox::IStyleProvider)\
@@ -3531,35 +3527,6 @@ Interface Proxy
 					Ptr<DocumentModel> GetBaselineDocument()override
 					{
 						return INVOKEGET_INTERFACE_PROXY_NOPARAMS(GetBaselineDocument);
-					}
-				};
-
-				class controls_ILanguageProvider : public ValueInterfaceRoot, public virtual ILanguageProvider
-				{
-				public:
-					controls_ILanguageProvider(Ptr<IValueInterfaceProxy> _proxy)
-						:ValueInterfaceRoot(_proxy)
-					{
-					}
-
-					static Ptr<ILanguageProvider> Create(Ptr<IValueInterfaceProxy> _proxy)
-					{
-						return new controls_ILanguageProvider(_proxy);
-					}
-
-					Ptr<parsing::ParsingScopeSymbol> CreateSymbolFromNode(Ptr<parsing::ParsingTreeObject> obj, RepeatingParsingExecutor* executor, parsing::ParsingScopeFinder* finder)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(CreateSymbolFromNode, obj, executor, finder);
-					}
-
-					collections::LazyList<Ptr<parsing::ParsingScopeSymbol>> FindReferencedSymbols(parsing::ParsingTreeObject* obj, parsing::ParsingScopeFinder* finder)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(FindReferencedSymbols, obj, finder);
-					}
-
-					collections::LazyList<Ptr<parsing::ParsingScopeSymbol>> FindPossibleSymbols(parsing::ParsingTreeObject* obj, const WString& field, parsing::ParsingScopeFinder* finder)override
-					{
-						return INVOKEGET_INTERFACE_PROXY(FindPossibleSymbols, obj, field, finder);
 					}
 				};
 			}

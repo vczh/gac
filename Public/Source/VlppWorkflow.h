@@ -1643,6 +1643,12 @@ namespace vl
 {
 	namespace workflow
 	{
+		extern void			WfPrint(Ptr<WfType> node, const WString& indent, parsing::ParsingWriter& writer);
+		extern void			WfPrint(Ptr<WfExpression> node, const WString& indent, parsing::ParsingWriter& writer);
+		extern void			WfPrint(Ptr<WfStatement> node, const WString& indent, parsing::ParsingWriter& writer);
+		extern void			WfPrint(Ptr<WfDeclaration> node, const WString& indent, parsing::ParsingWriter& writer);
+		extern void			WfPrint(Ptr<WfModule> node, const WString& indent, parsing::ParsingWriter& writer);
+
 		extern void			WfPrint(Ptr<WfType> node, const WString& indent, stream::TextWriter& writer);
 		extern void			WfPrint(Ptr<WfExpression> node, const WString& indent, stream::TextWriter& writer);
 		extern void			WfPrint(Ptr<WfStatement> node, const WString& indent, stream::TextWriter& writer);
@@ -1673,6 +1679,9 @@ namespace vl
 	{
 		namespace runtime
 		{
+			struct WfRuntimeThreadContext;
+			class IWfDebuggerCallback;
+			class WfDebugger;
 
 /***********************************************************************
 Instruction
@@ -1882,6 +1891,10 @@ Instruction
 				#undef CTOR_TYPE
 			};
 
+/***********************************************************************
+Assembly
+***********************************************************************/
+
 			class WfAssemblyFunction : public Object
 			{
 			public:
@@ -1893,12 +1906,25 @@ Instruction
 				vint												lastInstruction = -1;
 			};
 
+			class WfInstructionDebugInfo : public Object
+			{
+			public:
+
+				collections::List<WString>							moduleCodes;				// codeIndex -> code
+				collections::List<parsing::ParsingTextRange>		instructionCodeMapping;		// instruction -> range
+				collections::Group<Tuple<vint, vint>, vint>			codeInstructionMapping;		// (codeIndex, row) -> instruction [generated]
+
+				void												Initialize();
+			};
+
 			class WfAssembly : public Object, public reflection::Description<WfAssembly>
 			{
 			protected:
 				template<typename TIO>
 				void IO(TIO& io);
 			public:
+				Ptr<WfInstructionDebugInfo>							insBeforeCodegen;
+				Ptr<WfInstructionDebugInfo>							insAfterCodegen;
 				collections::List<WString>							variableNames;
 				collections::Group<WString, vint>					functionByName;
 				collections::List<Ptr<WfAssemblyFunction>>			functions;
@@ -1906,12 +1932,13 @@ Instruction
 
 				WfAssembly();
 				WfAssembly(stream::IStream& input);
-
+				
+				void												Initialize();
 				void												Serialize(stream::IStream& output);
 			};
 
 /***********************************************************************
-Runtime
+RuntimeEnvironment
 ***********************************************************************/
 
 			class WfRuntimeVariableContext : public Object
@@ -1947,6 +1974,98 @@ Runtime
 				vint							instructionIndex = -1;
 				vint							stackPatternCount = -1;
 			};
+
+/***********************************************************************
+RuntimeException
+***********************************************************************/
+
+			class WfRuntimeCallStackInfo : public Object, public virtual reflection::description::IValueCallStack
+			{
+				using IValueReadonlyDictionary = reflection::description::IValueReadonlyDictionary;
+			protected:
+				Ptr<IValueReadonlyDictionary>	cachedLocalVariables;
+				Ptr<IValueReadonlyDictionary>	cachedLocalArguments;
+				Ptr<IValueReadonlyDictionary>	cachedCapturedVariables;
+				Ptr<IValueReadonlyDictionary>	cachedGlobalVariables;
+
+				Ptr<IValueReadonlyDictionary>	GetVariables(collections::List<WString>& names, Ptr<WfRuntimeVariableContext> context, Ptr<IValueReadonlyDictionary>& cache);
+			public:
+				WfRuntimeCallStackInfo();
+				WfRuntimeCallStackInfo(WfRuntimeThreadContext* context, const WfRuntimeStackFrame& stackFrame);
+				~WfRuntimeCallStackInfo();
+
+				Ptr<WfAssembly>					assembly;
+				Ptr<WfRuntimeVariableContext>	global;
+				Ptr<WfRuntimeVariableContext>	captured;
+				Ptr<WfRuntimeVariableContext>	arguments;
+				Ptr<WfRuntimeVariableContext>	localVariables;
+				vint							functionIndex = -1;
+				vint							instruction = -1;
+
+				Ptr<IValueReadonlyDictionary>	GetLocalVariables()override;
+				Ptr<IValueReadonlyDictionary>	GetLocalArguments()override;
+				Ptr<IValueReadonlyDictionary>	GetCapturedVariables()override;
+				Ptr<IValueReadonlyDictionary>	GetGlobalVariables()override;
+				WString							GetFunctionName()override;
+				WString							GetSourceCodeBeforeCodegen()override;
+				WString							GetSourceCodeAfterCodegen()override;
+				vint							GetRowBeforeCodegen()override;
+				vint							GetRowAfterCodegen()override;
+			};
+
+			class WfRuntimeExceptionInfo : public Object, public virtual reflection::description::IValueException
+			{
+				typedef collections::List<Ptr<WfRuntimeCallStackInfo>>		CallStackList;
+				using IValueReadonlyList = reflection::description::IValueReadonlyList;
+			protected:
+				Ptr<IValueReadonlyList>			cachedCallStack;
+
+			public:
+				WString							message;
+				bool							fatal = false;
+				CallStackList					callStack;
+
+				WfRuntimeExceptionInfo(const WString& _message, bool _fatal);
+				~WfRuntimeExceptionInfo();
+				
+				WString							GetMessage()override;
+				bool							GetFatal()override;
+				Ptr<IValueReadonlyList>			GetCallStack()override;
+			};
+
+			class WfRuntimeException : public reflection::description::TypeDescriptorException
+			{
+			protected:
+				Ptr<WfRuntimeExceptionInfo>		info;
+				bool							fatal = false;
+			public:
+				WfRuntimeException(Ptr<WfRuntimeExceptionInfo> _info)
+					:reflection::description::TypeDescriptorException(_info->message)
+					, info(_info)
+					, fatal(_info->fatal)
+				{
+				}
+
+				WfRuntimeException(const WString& _message, bool _fatal)
+					:reflection::description::TypeDescriptorException(_message)
+					, fatal(_fatal)
+				{
+				}
+
+				Ptr<WfRuntimeExceptionInfo> GetInfo()const
+				{
+					return info;
+				}
+
+				bool IsFatal()const
+				{
+					return fatal;
+				}
+			};
+
+/***********************************************************************
+RuntimeThreadContext
+***********************************************************************/
 
 			enum class WfRuntimeExecutionStatus
 			{
@@ -1988,7 +2107,7 @@ Runtime
 				typedef collections::List<WfRuntimeTrapFrame>					TrapFrameList;
 
 				Ptr<WfRuntimeGlobalContext>		globalContext;
-				WString							exceptionValue;
+				Ptr<WfRuntimeExceptionInfo>		exceptionInfo;
 				VariableList					stack;
 				StackFrameList					stackFrames;
 				TrapFrameList					trapFrames;
@@ -2005,7 +2124,8 @@ Runtime
 				WfRuntimeThreadContextError		PopTrapFrame(vint saveStackPatternCount);
 				WfRuntimeThreadContextError		PushValue(const reflection::description::Value& value);
 				WfRuntimeThreadContextError		PopValue(reflection::description::Value& value);
-				WfRuntimeThreadContextError		RaiseException(const WString& exception, bool fatalError);
+				WfRuntimeThreadContextError		RaiseException(const WString& exception, bool fatalError, bool skipDebugger = false);
+				WfRuntimeThreadContextError		RaiseException(Ptr<WfRuntimeExceptionInfo> info, bool skipDebugger = false);
 
 				WfRuntimeThreadContextError		LoadStackValue(vint stackItemIndex, reflection::description::Value& value);
 				WfRuntimeThreadContextError		LoadGlobalVariable(vint variableIndex, reflection::description::Value& value);
@@ -2014,9 +2134,220 @@ Runtime
 				WfRuntimeThreadContextError		LoadLocalVariable(vint variableIndex, reflection::description::Value& value);
 				WfRuntimeThreadContextError		StoreLocalVariable(vint variableIndex, const reflection::description::Value& value);
 
-				WfRuntimeExecutionAction		Execute();
+				WfRuntimeExecutionAction		ExecuteInternal(WfInstruction& ins, WfRuntimeStackFrame& stackFrame, IWfDebuggerCallback* callback);
+				WfRuntimeExecutionAction		Execute(IWfDebuggerCallback* callback);
 				void							ExecuteToEnd();
 			};
+
+/***********************************************************************
+Debugger
+***********************************************************************/
+
+			class IWfBreakPointAction : public virtual Interface
+			{
+			public:
+				virtual bool					EvaluateCondition(WfDebugger* debugger) = 0;
+				virtual void					PostAction(WfDebugger* debugger) = 0;
+			};
+
+			struct WfBreakPoint
+			{
+				enum Type
+				{
+					Instruction,	// assembly, instruction
+					ReadGlobalVar,	// assembly, variable
+					WriteGlobalVar,	// assembly, variable
+					GetProperty,	// [thisObject], propertyInfo
+					SetProperty,	// [thisObject], propertyInfo
+					AttachEvent,	// [thisObject], eventInfo
+					DetachEvent,	// [thisObject], eventInfo
+					InvokeMethod,	// [thisObject], methodInfo
+					CreateObject,	// typeDescriptor
+				};
+
+				vint											id = -1;
+				bool											available = false;
+				bool											enabled = false;
+				Ptr<IWfBreakPointAction>						action;
+
+				Type											type;
+				WfAssembly*										assembly = nullptr;
+				union
+				{
+					vint										instruction = -1;
+					vint										variable;
+				};
+
+				reflection::DescriptableObject*					thisObject = nullptr;
+				union
+				{
+					reflection::description::IPropertyInfo*		propertyInfo = nullptr;
+					reflection::description::IEventInfo*		eventInfo;
+					reflection::description::IMethodInfo*		methodInfo;
+					reflection::description::ITypeDescriptor*	typeDescriptor;
+				};
+
+				static WfBreakPoint								Ins(WfAssembly* assembly, vint instruction);
+				static WfBreakPoint								Read(WfAssembly* assembly, vint variable);
+				static WfBreakPoint								Write(WfAssembly* assembly, vint variable);
+				static WfBreakPoint								Get(reflection::DescriptableObject* thisObject, reflection::description::IPropertyInfo* propertyInfo);
+				static WfBreakPoint								Set(reflection::DescriptableObject* thisObject, reflection::description::IPropertyInfo* propertyInfo);
+				static WfBreakPoint								Attach(reflection::DescriptableObject* thisObject, reflection::description::IEventInfo* eventInfo);
+				static WfBreakPoint								Detach(reflection::DescriptableObject* thisObject, reflection::description::IEventInfo* eventInfo);
+				static WfBreakPoint								Invoke(reflection::DescriptableObject* thisObject, reflection::description::IMethodInfo* methodInfo);
+				static WfBreakPoint								Create(reflection::description::ITypeDescriptor* typeDescriptor);
+			};
+
+			class IWfDebuggerCallback : public virtual Interface
+			{
+			public:
+				virtual void					EnterThreadContext(WfRuntimeThreadContext* context) = 0;
+				virtual void					LeaveThreadContext(WfRuntimeThreadContext* context) = 0;
+				virtual bool					BreakIns(WfAssembly* assembly, vint instruction) = 0;
+				virtual bool					BreakRead(WfAssembly* assembly, vint variable) = 0;
+				virtual bool					BreakWrite(WfAssembly* assembly, vint variable) = 0;
+				virtual bool					BreakGet(reflection::DescriptableObject* thisObject, reflection::description::IPropertyInfo* propertyInfo) = 0;
+				virtual bool					BreakSet(reflection::DescriptableObject* thisObject, reflection::description::IPropertyInfo* propertyInfo) = 0;
+				virtual bool					BreakAttach(reflection::DescriptableObject* thisObject, reflection::description::IEventInfo* eventInfo) = 0;
+				virtual bool					BreakDetach(reflection::DescriptableObject* thisObject, reflection::description::IEventInfo* eventInfo) = 0;
+				virtual bool					BreakInvoke(reflection::DescriptableObject* thisObject, reflection::description::IMethodInfo* methodInfo) = 0;
+				virtual bool					BreakCreate(reflection::description::ITypeDescriptor* typeDescriptor) = 0;
+				virtual bool					BreakException(Ptr<WfRuntimeExceptionInfo> info) = 0;
+				virtual bool					WaitForContinue() = 0;
+			};
+
+			class WfDebugger : public Object, protected virtual IWfDebuggerCallback
+			{
+				friend IWfDebuggerCallback* GetDebuggerCallback(WfDebugger* debugger);
+
+				typedef collections::List<WfBreakPoint>					BreakPointList;
+				typedef collections::List<WfRuntimeThreadContext*>		ThreadContextList;
+
+				typedef Tuple<WfAssembly*, vint>														AssemblyKey;
+				typedef Tuple<reflection::DescriptableObject*, reflection::description::IPropertyInfo*>	PropertyKey;
+				typedef Tuple<reflection::DescriptableObject*, reflection::description::IEventInfo*>	EventKey;
+				typedef Tuple<reflection::DescriptableObject*, reflection::description::IMethodInfo*>	MethodKey;
+				typedef reflection::description::ITypeDescriptor*										TypeKey;
+
+				typedef collections::Dictionary<AssemblyKey, vint>		AssemblyBreakPointMap;
+				typedef collections::Dictionary<PropertyKey, vint>		PropertyBreakPointMap;
+				typedef collections::Dictionary<EventKey, vint>			EventBreakPointMap;
+				typedef collections::Dictionary<MethodKey, vint>		MethodBreakPointMap;
+				typedef collections::Dictionary<TypeKey, vint>			TypeBreakPointMap;
+			public:
+				enum State
+				{						//		Run		Pause	Stop	StepOver	StepInto
+					Running,			// R			*RTP	*RTS
+					PauseByOperation,	// PBO	*C				*RTS	*C			*C
+					PauseByBreakPoint,	// PBB	*C				*RTS	*C			*C
+					Stopped,			// S			*RTP			*			*
+					Continue,			// C	soon becomes Running
+					RequiredToPause,	// RTP	soon becomes PauseByOperation
+					RequiredToStop,		// RTS	soon becomes Stop
+				};
+
+				enum RunningType
+				{
+					RunUntilBreakPoint,
+					RunStepOver,
+					RunStepInto,
+				};
+
+				struct InstructionLocation
+				{
+					vint								contextIndex = -1;
+					WfAssembly*							assembly = nullptr;
+					vint								stackFrameIndex = -1;
+					vint								instruction = -1;
+
+					bool								BreakStepOver(const InstructionLocation& il, bool beforeCodegen);
+					bool								BreakStepInto(const InstructionLocation& il, bool beforeCodegen);
+				};
+
+				static const vint						InvalidBreakPoint = -1;
+				static const vint						PauseBreakPoint = -2;
+			protected:
+				BreakPointList							breakPoints;
+				collections::List<vint>					freeBreakPointIndices;
+				volatile bool							evaluatingBreakPoint = false;
+				volatile bool							breakException = false;
+
+				ThreadContextList						threadContexts;
+
+				volatile State							state = Stopped;
+				volatile RunningType					runningType = RunUntilBreakPoint;
+				volatile vint							lastActivatedBreakPoint = InvalidBreakPoint;
+				bool									stepBeforeCodegen = true;
+				InstructionLocation						instructionLocation;
+
+				AssemblyBreakPointMap					insBreakPoints;
+				AssemblyBreakPointMap					getGlobalVarBreakPoints;
+				AssemblyBreakPointMap					setGlobalVarBreakPoints;
+				PropertyBreakPointMap					getPropertyBreakPoints;
+				PropertyBreakPointMap					setPropertyBreakPoints;
+				EventBreakPointMap						attachEventBreakPoints;
+				EventBreakPointMap						detachEventBreakPoints;
+				MethodBreakPointMap						invokeMethodBreakPoints;
+				TypeBreakPointMap						createObjectBreakPoints;
+
+				virtual void							OnBlockExecution();
+				virtual void							OnStartExecution();
+				virtual void							OnStopExecution();
+				
+				InstructionLocation						MakeCurrentInstructionLocation();
+				template<typename TKey>
+				bool									HandleBreakPoint(const TKey& key, collections::Dictionary<TKey, vint>& breakPointMap);
+				bool									SetBreakPoint(const WfBreakPoint& breakPoint, bool available, vint index);
+				
+				void									EnterThreadContext(WfRuntimeThreadContext* context)override;
+				void									LeaveThreadContext(WfRuntimeThreadContext* context)override;
+				bool									BreakIns(WfAssembly* assembly, vint instruction)override;
+				bool									BreakRead(WfAssembly* assembly, vint variable)override;
+				bool									BreakWrite(WfAssembly* assembly, vint variable)override;
+				bool									BreakGet(reflection::DescriptableObject* thisObject, reflection::description::IPropertyInfo* propertyInfo)override;
+				bool									BreakSet(reflection::DescriptableObject* thisObject, reflection::description::IPropertyInfo* propertyInfo)override;
+				bool									BreakAttach(reflection::DescriptableObject* thisObject, reflection::description::IEventInfo* eventInfo)override;
+				bool									BreakDetach(reflection::DescriptableObject* thisObject, reflection::description::IEventInfo* eventInfo)override;
+				bool									BreakInvoke(reflection::DescriptableObject* thisObject, reflection::description::IMethodInfo* methodInfo)override;
+				bool									BreakCreate(reflection::description::ITypeDescriptor* typeDescriptor)override;
+				bool									BreakException(Ptr<WfRuntimeExceptionInfo> info)override;
+				bool									WaitForContinue()override;
+			public:
+				WfDebugger();
+				~WfDebugger();
+
+				vint									AddBreakPoint(const WfBreakPoint& breakPoint);
+				vint									AddCodeLineBreakPoint(WfAssembly* assembly, vint codeIndex, vint row, bool beforeCodegen = true);
+				vint									GetBreakPointCount();
+				const WfBreakPoint&						GetBreakPoint(vint index);
+				bool									RemoveBreakPoint(vint index);
+				bool									EnableBreakPoint(vint index, bool enabled);
+				bool									GetBreakException();
+				void									SetBreakException(bool value);
+
+				bool									Run();
+				bool									Pause();
+				bool									Stop();
+				bool									StepOver(bool beforeCodegen = true);
+				bool									StepInto(bool beforeCodegen = true);
+				State									GetState();
+				RunningType								GetRunningType();
+				vint									GetLastActivatedBreakPoint();
+
+				const ThreadContextList&				GetThreadContexts();
+				WfRuntimeThreadContext*					GetCurrentThreadContext();
+				const parsing::ParsingTextRange&		GetCurrentPosition(bool beforeCodegen = true, WfRuntimeThreadContext* context = nullptr, vint callStackIndex = -1);
+				reflection::description::Value			GetValueByName(const WString& name, WfRuntimeThreadContext* context = nullptr, vint callStackIndex = -1);
+			};
+
+			extern IWfDebuggerCallback*					GetDebuggerCallback();
+			extern IWfDebuggerCallback*					GetDebuggerCallback(WfDebugger* debugger);
+			extern Ptr<WfDebugger>						GetDebuggerForCurrentThread();
+			extern void									SetDebugferForCurrentThread(Ptr<WfDebugger> debugger);
+
+/***********************************************************************
+Helper Functions
+***********************************************************************/
 
 			extern Ptr<reflection::description::IValueFunctionProxy>		LoadFunction(Ptr<WfRuntimeGlobalContext> context, const WString& name);
 
@@ -2154,6 +2485,7 @@ Scope Manager
 			class WfLexicalScopeManager : public Object
 			{
 				typedef collections::List<Ptr<WfModule>>													ModuleList;
+				typedef collections::List<WString>															ModuleCodeList;
 				typedef collections::List<Ptr<parsing::ParsingError>>										ParsingErrorList;
 				typedef collections::Dictionary<Ptr<WfNamespaceDeclaration>, Ptr<WfLexicalScopeName>>		NamespaceNameMap;
 				typedef collections::SortedList<Ptr<WfLexicalScope>>										ScopeSortedList;
@@ -2164,7 +2496,11 @@ Scope Manager
 				typedef collections::Dictionary<Ptr<WfExpression>, ResolveExpressionResult>					ExpressionResolvingMap;
 				typedef collections::Group<WfFunctionDeclaration*, Ptr<WfLexicalSymbol>>					FunctionLambdaCaptureGroup;
 				typedef collections::Group<WfOrderedLambdaExpression*, Ptr<WfLexicalSymbol>>				OrderedLambdaCaptureGroup;
+
 			protected:
+				ModuleList									modules;
+				ModuleCodeList								moduleCodes;
+				vint										usedCodeIndex = 0;
 
 				void										BuildGlobalNameFromTypeDescriptors();
 				void										BuildGlobalNameFromModules();
@@ -2172,7 +2508,6 @@ Scope Manager
 				void										ValidateScopeName(Ptr<WfLexicalScopeName> name);
 			public:
 				Ptr<parsing::tabling::ParsingTable>			parsingTable;
-				ModuleList									modules;
 				ParsingErrorList							errors;
 
 				Ptr<WfLexicalScopeName>						globalName;
@@ -2190,7 +2525,11 @@ Scope Manager
 				WfLexicalScopeManager(Ptr<parsing::tabling::ParsingTable> _parsingTable);
 				~WfLexicalScopeManager();
 				
-				Ptr<WfModule>								AddModule(const WString& moduleCode, vint codeIndex = -1);
+				vint										AddModule(const WString& moduleCode);
+				vint										AddModule(Ptr<WfModule> module);
+				ModuleList&									GetModules();
+				ModuleCodeList&								GetModuleCodes();
+
 				void										Clear(bool keepTypeDescriptorNames, bool deleteModules);
 				bool										CheckScopes();
 				void										Rebuild(bool keepTypeDescriptorNames);
@@ -2346,12 +2685,15 @@ Code Generation
 			{
 				typedef collections::List<vint>										InstructionIndexList;
 				typedef collections::List<runtime::WfInstruction>					InstructionList;
+				typedef collections::List<parsing::ParsingTextRange>				RangeMap;
 			public:
 				WfCodegenScopeType					type = WfCodegenScopeType::Function;
 				InstructionIndexList				continueInstructions;
 				InstructionIndexList				breakInstructions;
 				
 				InstructionList						exitInstructions;
+				RangeMap							instructionCodeMappingBeforeCodegen;
+				RangeMap							instructionCodeMappingAfterCodegen;
 				Ptr<WfStatement>					exitStatement;
 			};
 
@@ -2378,16 +2720,23 @@ Code Generation
 
 			class WfCodegenContext : public Object
 			{
-				typedef collections::Dictionary<WfLexicalSymbol*, vint>				VariableIndexMap;
-				typedef collections::Dictionary<WfLexicalSymbol*, vint>				FunctionIndexMap;
+				typedef collections::Dictionary<WfLexicalSymbol*, vint>											VariableIndexMap;
+				typedef collections::Dictionary<WfLexicalSymbol*, vint>											FunctionIndexMap;
+				typedef collections::Dictionary<parsing::ParsingTreeCustomBase*, parsing::ParsingTextRange>		NodePositionMap;
 			public:
 				Ptr<runtime::WfAssembly>			assembly;
 				WfLexicalScopeManager*				manager;
 				VariableIndexMap					globalVariables;
 				FunctionIndexMap					globalFunctions;
 				Ptr<WfCodegenFunctionContext>		functionContext;
+				NodePositionMap						nodePositionsBeforeCodegen;
+				NodePositionMap						nodePositionsAfterCodegen;
 
 				WfCodegenContext(Ptr<runtime::WfAssembly> _assembly, WfLexicalScopeManager* _manager);
+
+				vint								AddInstruction(parsing::ParsingTreeCustomBase* node, const runtime::WfInstruction& ins);
+				void								AddExitInstruction(parsing::ParsingTreeCustomBase* node, const runtime::WfInstruction& ins);
+				void								ApplyExitInstructions(Ptr<WfCodegenScopeContext> scopeContext);
 			};
 
 			extern void										GenerateGlobalDeclarationMetadata(WfCodegenContext& context, Ptr<WfDeclaration> declaration, const WString& namePrefix = L"");
@@ -2396,8 +2745,8 @@ Code Generation
 			extern void										GenerateDeclarationInstructions(WfCodegenContext& context, Ptr<WfDeclaration> declaration);
 			extern void										GenerateStatementInstructions(WfCodegenContext& context, Ptr<WfStatement> statement);
 			extern Ptr<reflection::description::ITypeInfo>	GenerateExpressionInstructions(WfCodegenContext& context, Ptr<WfExpression> expression, Ptr<reflection::description::ITypeInfo> expectedType = 0);
-			extern void										GenerateTypeCastInstructions(WfCodegenContext& context, Ptr<reflection::description::ITypeInfo> expectedType, bool strongCast);
-			extern void										GenerateTypeTestingInstructions(WfCodegenContext& context, Ptr<reflection::description::ITypeInfo> expectedType);
+			extern void										GenerateTypeCastInstructions(WfCodegenContext& context, Ptr<reflection::description::ITypeInfo> expectedType, bool strongCast, WfExpression* node);
+			extern void										GenerateTypeTestingInstructions(WfCodegenContext& context, Ptr<reflection::description::ITypeInfo> expectedType, WfExpression* node);
 			extern runtime::WfInsType						GetInstructionTypeArgument(Ptr<reflection::description::ITypeInfo> expectedType);
 			extern Ptr<runtime::WfAssembly>					GenerateAssembly(WfLexicalScopeManager* manager);
 			extern Ptr<runtime::WfAssembly>					Compile(Ptr<parsing::tabling::ParsingTable> table, WfLexicalScopeManager* manager, collections::List<WString>& moduleCodes, collections::List<Ptr<parsing::ParsingError>>& errors);

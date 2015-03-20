@@ -1,5 +1,5 @@
-#include "..\CommonLibrary\FileSystemInformation.h"
 #include "..\..\Public\Source\GacUIReflection.h"
+#include "..\CommonLibrary\FileSystemInformation.h"
 
 using namespace vl::collections;
 using namespace vl::reflection::description;

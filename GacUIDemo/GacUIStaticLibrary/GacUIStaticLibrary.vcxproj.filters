@@ -55,6 +55,9 @@
     <None Include="..\Resources\XmlWindowResourceControlTemplate.precompiled.bin">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\Resources\XmlWindowDataGridModel.precompiled.compressed">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Public\Source\GacUI.cpp">

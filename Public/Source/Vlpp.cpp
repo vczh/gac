@@ -97,7 +97,7 @@ DateTime
 		return systemTime;
 	}
 #elif defined VCZH_GCC
-	DateTime ConvertTMToDateTime(tm* timeinfo, bool rewriteMilliseconds)
+	DateTime ConvertTMToDateTime(tm* timeinfo, vint milliseconds)
 	{
 		time_t timer = mktime(timeinfo);
 		DateTime dt;
@@ -108,18 +108,17 @@ DateTime
 		dt.hour = timeinfo->tm_hour;
 		dt.minute = timeinfo->tm_min;
 		dt.second = timeinfo->tm_sec;
-
-		struct timeval tv;
-		gettimeofday(&tv, 0);
-
-		dt.milliseconds = tv.tv_usec / 1000;
-        dt.filetime = (vuint64_t)timer * 1000 + tv.tv_usec / 1000;
-		
-		if (rewriteMilliseconds)
-		{
-			dt.totalMilliseconds = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-		}
+		dt.milliseconds = milliseconds;
+        dt.filetime = (vuint64_t)timer * 1000 + milliseconds;
+		dt.totalMilliseconds = (vuint64_t)timer * 1000 + milliseconds;
 		return dt;
+	}
+
+	vint GetCurrentMilliseconds()
+	{
+		struct timeval tv;
+		gettimeofday(&tv, nullptr);
+		return tv.tv_usec / 1000;
 	}
 #endif
 
@@ -132,7 +131,7 @@ DateTime
 #elif defined VCZH_GCC
 		time_t timer = time(nullptr);
 		tm* timeinfo = localtime(&timer);
-		return ConvertTMToDateTime(timeinfo, true);
+		return ConvertTMToDateTime(timeinfo, GetCurrentMilliseconds());
 #endif
 	}
 
@@ -145,7 +144,7 @@ DateTime
 #elif defined VCZH_GCC
 		time_t timer = time(nullptr);
 		tm* timeinfo = gmtime(&timer);
-		return ConvertTMToDateTime(timeinfo, true);
+		return ConvertTMToDateTime(timeinfo, GetCurrentMilliseconds());
 #endif
 	}
 
@@ -172,13 +171,12 @@ DateTime
 		timeinfo.tm_year = _year-1900;
 		timeinfo.tm_mon = _month-1;
 		timeinfo.tm_mday = _day;
+		timeinfo.tm_hour = _hour;
+		timeinfo.tm_min = _minute;
+		timeinfo.tm_sec = _second;
+		timeinfo.tm_isdst = -1;
 
-		auto dt = ConvertTMToDateTime(&timeinfo, false);
-		dt.hour = _hour;
-		dt.minute = _minute;
-		dt.second = _second;
-		dt.milliseconds = _milliseconds;
-		return dt;
+		return ConvertTMToDateTime(&timeinfo, _milliseconds);
 #endif
 	}
 
@@ -197,10 +195,7 @@ DateTime
 #elif defined VCZH_GCC
 		time_t timer = (time_t)(filetime / 1000);
 		tm* timeinfo = localtime(&timer);
-		DateTime t = ConvertTMToDateTime(timeinfo, true);
-        t.filetime = filetime;
-        t.milliseconds = 0;
-        return t;
+		return ConvertTMToDateTime(timeinfo, filetime % 1000);
 #endif
 	}
 
@@ -229,9 +224,7 @@ DateTime
 		time_t timer = (time_t)(filetime / 1000) + localTimer - utcTimer;
 		tm* timeinfo = localtime(&timer);
 
-		auto dt = ConvertTMToDateTime(timeinfo, false);
-		dt.milliseconds = milliseconds;
-		return dt;
+		return ConvertTMToDateTime(timeinfo, milliseconds);
 #endif
 	}
 
@@ -246,9 +239,7 @@ DateTime
 		time_t timer = (time_t)(filetime / 1000);
 		tm* timeinfo = gmtime(&timer);
 
-		auto dt = ConvertTMToDateTime(timeinfo, false);
-		dt.milliseconds = milliseconds;
-		return dt;
+		return ConvertTMToDateTime(timeinfo, milliseconds);
 #endif
 	}
 
@@ -3770,53 +3761,6 @@ Type Declaration
 				CLASS_MEMBER_METHOD_RENAME(GetCount, Count, NO_PARAMETER)
 				CLASS_MEMBER_PROPERTY_READONLY(Count, GetCount)
 			END_CLASS_MEMBER(ParsingTreeArray)
-
-			BEGIN_CLASS_MEMBER(ParsingScope)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ParsingScope>(ParsingScopeSymbol*), {L"ownerSymbol"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(OwnerSymbol)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SymbolNames)
-
-				CLASS_MEMBER_METHOD(AddSymbol, {L"value"})
-				CLASS_MEMBER_METHOD(RemoveSymbol, {L"value"})
-				CLASS_MEMBER_METHOD(GetSymbols, {L"name"})
-			END_CLASS_MEMBER(ParsingScope)
-
-			BEGIN_CLASS_MEMBER(ParsingScopeSymbol)
-				CLASS_MEMBER_CONSTRUCTOR(Ptr<ParsingScopeSymbol>(const WString&, vint), {L"name" _ L"semanticId"})
-
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(ParentScope)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Name)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(SemanticIds)
-				CLASS_MEMBER_PROPERTY_FAST(Node)
-				CLASS_MEMBER_PROPERTY_READONLY_FAST(Scope)
-
-				CLASS_MEMBER_METHOD(AddSemanticId, {L"semanticId"})
-				CLASS_MEMBER_METHOD(CreateScope, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(DestroyScope, NO_PARAMETER)
-				CLASS_MEMBER_METHOD(GetDisplay, {L"semanticId"})
-			END_CLASS_MEMBER(ParsingScopeSymbol)
-
-			typedef collections::LazyList<Ptr<ParsingScopeSymbol>> LazySymbolList;
-
-			BEGIN_CLASS_MEMBER(ParsingScopeFinder)
-				CLASS_MEMBER_METHOD_OVERLOAD(ParentNode, {L"node"}, ParsingTreeNode*(ParsingScopeFinder::*)(ParsingTreeNode*))
-				CLASS_MEMBER_METHOD_OVERLOAD(ParentNode, {L"node"}, ParsingTreeNode*(ParsingScopeFinder::*)(Ptr<ParsingTreeNode>))
-				CLASS_MEMBER_METHOD_OVERLOAD(Node, {L"node"}, ParsingTreeNode*(ParsingScopeFinder::*)(ParsingTreeNode*))
-				CLASS_MEMBER_METHOD_OVERLOAD(Node, {L"node"}, Ptr<ParsingTreeNode>(ParsingScopeFinder::*)(Ptr<ParsingTreeNode>))
-				CLASS_MEMBER_METHOD_OVERLOAD(ParentScope, {L"symbol"}, ParsingScope*(ParsingScopeFinder::*)(ParsingScopeSymbol*))
-				CLASS_MEMBER_METHOD_OVERLOAD(ParentScope, {L"symbol"}, ParsingScope*(ParsingScopeFinder::*)(Ptr<ParsingScopeSymbol>))
-				CLASS_MEMBER_METHOD_OVERLOAD(Symbol, {L"symbol"}, ParsingScopeSymbol*(ParsingScopeFinder::*)(ParsingScopeSymbol*))
-				CLASS_MEMBER_METHOD_OVERLOAD(Symbol, {L"symbol"}, Ptr<ParsingScopeSymbol>(ParsingScopeFinder::*)(Ptr<ParsingScopeSymbol>))
-				CLASS_MEMBER_METHOD(Symbols, {L"symbols"})
-
-				CLASS_MEMBER_METHOD(GetSymbolFromNode, {L"node"})
-				CLASS_MEMBER_METHOD(GetScopeFromNode, {L"node"})
-				CLASS_MEMBER_METHOD_OVERLOAD(GetSymbols, {L"scope" _ L"name"}, LazySymbolList(ParsingScopeFinder::*)(ParsingScope*, const WString&))
-				CLASS_MEMBER_METHOD_OVERLOAD(GetSymbols, {L"scope"}, LazySymbolList(ParsingScopeFinder::*)(ParsingScope*))
-				CLASS_MEMBER_METHOD_OVERLOAD(GetSymbolsRecursively, {L"scope" _ L"name"}, LazySymbolList(ParsingScopeFinder::*)(ParsingScope*, const WString&))
-				CLASS_MEMBER_METHOD_OVERLOAD(GetSymbolsRecursively, {L"scope"}, LazySymbolList(ParsingScopeFinder::*)(ParsingScope*))
-			END_CLASS_MEMBER(ParsingScopeFinder)
 
 			BEGIN_CLASS_MEMBER(ParsingTreeCustomBase)
 				CLASS_MEMBER_FIELD(codeRange)
@@ -9081,7 +9025,7 @@ Logger (Automaton)
 					writer.WriteString(symbol->GetName());
 
 					WString regex=symbol->GetDescriptorString();
-					if(regex_internal::IsRegexEscapedListeralString(regex))
+					if(regex_internal::IsRegexEscapedLiteralString(regex))
 					{
 						writer.WriteString(L" ");
 						definitions::LogString(regex_internal::UnescapeTextForRegex(regex), writer);
@@ -11797,402 +11741,150 @@ ParsingError
 		}
 
 /***********************************************************************
-ParsingScope
+ParsingEmptyPrintNodeRecorder
 ***********************************************************************/
 
-		const ParsingScope::SymbolList ParsingScope::emptySymbolList;
-
-		ParsingScope::ParsingScope(ParsingScopeSymbol* _ownerSymbol)
-			:ownerSymbol(_ownerSymbol)
+		ParsingEmptyPrintNodeRecorder::ParsingEmptyPrintNodeRecorder()
 		{
 		}
 
-		ParsingScope::~ParsingScope()
+		ParsingEmptyPrintNodeRecorder::~ParsingEmptyPrintNodeRecorder()
 		{
 		}
 
-		ParsingScopeSymbol* ParsingScope::GetOwnerSymbol()
+		void ParsingEmptyPrintNodeRecorder::Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)
 		{
-			return ownerSymbol;
-		}
-
-		bool ParsingScope::AddSymbol(Ptr<ParsingScopeSymbol> value)
-		{
-			if(!value) return false;
-			if(value->parentScope) return false;
-			symbols.Add(value->GetName(), value);
-			value->parentScope=this;
-			return true;
-		}
-
-		bool ParsingScope::RemoveSymbol(Ptr<ParsingScopeSymbol> value)
-		{
-			if(!value) return false;
-			if(value->parentScope!=this) return false;
-			vint index=symbols.Keys().IndexOf(value->GetName());
-			if(index==-1) return false;
-			const SymbolList& values=symbols.GetByIndex(index);
-			index=values.IndexOf(value.Obj());
-			if(index==-1) return false;
-			symbols.Remove(value->GetName(), value.Obj());
-			value->parentScope=0;
-			return true;
-		}
-
-		const ParsingScope::SymbolKeyList& ParsingScope::GetSymbolNames()
-		{
-			return symbols.Keys();
-		}
-
-		const ParsingScope::SymbolList& ParsingScope::GetSymbols(const WString& name)
-		{
-			vint index=symbols.Keys().IndexOf(name);
-			return index==-1
-				?emptySymbolList
-				:symbols.GetByIndex(index);
 		}
 
 /***********************************************************************
-ParsingScopeSymbol
+ParsingMultiplePrintNodeRecorder
 ***********************************************************************/
 
-		WString ParsingScopeSymbol::GetDisplayInternal(vint semanticId)
+		ParsingMultiplePrintNodeRecorder::ParsingMultiplePrintNodeRecorder()
 		{
-			return name;
 		}
 
-		ParsingScopeSymbol::ParsingScopeSymbol(const WString& _name, vint _semanticId)
-			:parentScope(0)
-			,name(_name)
+		ParsingMultiplePrintNodeRecorder::~ParsingMultiplePrintNodeRecorder()
 		{
-			if(_semanticId!=-1)
+		}
+
+		void ParsingMultiplePrintNodeRecorder::AddRecorder(Ptr<IParsingPrintNodeRecorder> recorder)
+		{
+			recorders.Add(recorder);
+		}
+
+		void ParsingMultiplePrintNodeRecorder::Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)
+		{
+			FOREACH(Ptr<IParsingPrintNodeRecorder>, recorder, recorders)
 			{
-				semanticIds.Add(_semanticId);
+				recorder->Record(node, range);
 			}
-		}
-
-		ParsingScopeSymbol::~ParsingScopeSymbol()
-		{
-		}
-
-		ParsingScope* ParsingScopeSymbol::GetParentScope()
-		{
-			return parentScope;
-		}
-
-		const WString& ParsingScopeSymbol::GetName()
-		{
-			return name;
-		}
-
-		const collections::List<vint>& ParsingScopeSymbol::GetSemanticIds()
-		{
-			return semanticIds;
-		}
-
-		bool ParsingScopeSymbol::AddSemanticId(vint semanticId)
-		{
-			if(semanticId==-1 || semanticIds.Contains(semanticId)) return false;
-			semanticIds.Add(semanticId);
-			return true;
-		}
-
-		Ptr<ParsingTreeObject> ParsingScopeSymbol::GetNode()
-		{
-			return node;
-		}
-
-		void ParsingScopeSymbol::SetNode(Ptr<ParsingTreeObject> value)
-		{
-			node=value;
-		}
-
-		bool ParsingScopeSymbol::CreateScope()
-		{
-			if(scope) return false;
-			scope=new ParsingScope(this);
-			return true;
-		}
-
-		bool ParsingScopeSymbol::DestroyScope()
-		{
-			if(!scope) return false;
-			scope=0;
-			return true;
-		}
-
-		ParsingScope* ParsingScopeSymbol::GetScope()
-		{
-			return scope.Obj();
-		}
-
-		WString ParsingScopeSymbol::GetDisplay(vint semanticId)
-		{
-			return semanticIds.Contains(semanticId)?GetDisplayInternal(semanticId):L"";
 		}
 
 /***********************************************************************
-ParsingScopeFinder::DirectSymbolMapper
+ParsingEmptyPrintNodeRecorder
 ***********************************************************************/
 
-		ParsingScopeFinder::DirectSymbolMapper::DirectSymbolMapper()
+		ParsingOriginalLocationRecorder::ParsingOriginalLocationRecorder(Ptr<IParsingPrintNodeRecorder> _recorder)
+			:recorder(_recorder)
 		{
 		}
 
-		ParsingScopeFinder::DirectSymbolMapper::~DirectSymbolMapper()
+		ParsingOriginalLocationRecorder::~ParsingOriginalLocationRecorder()
 		{
 		}
 
-		ParsingTreeNode* ParsingScopeFinder::DirectSymbolMapper::ParentNode(ParsingTreeNode* node)
+		void ParsingOriginalLocationRecorder::Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)
 		{
-			return node->GetParent();
-		}
-
-		ParsingTreeNode* ParsingScopeFinder::DirectSymbolMapper::Node(ParsingTreeNode* node)
-		{
-			return node;
-		}
-
-		ParsingScope* ParsingScopeFinder::DirectSymbolMapper::ParentScope(ParsingScopeSymbol* symbol)
-		{
-			return symbol->GetParentScope();
-		}
-
-		ParsingScopeSymbol* ParsingScopeFinder::DirectSymbolMapper::Symbol(ParsingScopeSymbol* symbol)
-		{
-			return symbol;
+			auto codeRange = node->codeRange;
+			codeRange.codeIndex = range.codeIndex;
+			recorder->Record(node, codeRange);
 		}
 
 /***********************************************************************
-ParsingScopeFinder::IndirectSymbolMapper
+ParsingEmptyPrintNodeRecorder
 ***********************************************************************/
 
-		ParsingScopeFinder::IndirectSymbolMapper::IndirectSymbolMapper(ParsingScopeSymbol* _originalSymbol, ParsingScopeSymbol* _replacedSymbol, ParsingTreeNode* _originalNode, ParsingTreeNode* _replacedNode)
-			:originalSymbol(_originalSymbol)
-			,replacedSymbol(_replacedSymbol)
-			,originalNode(_originalNode)
-			,replacedNode(_replacedNode)
+		ParsingGeneratedLocationRecorder::ParsingGeneratedLocationRecorder(RangeMap& _rangeMap)
+			:rangeMap(_rangeMap)
 		{
 		}
 
-		ParsingScopeFinder::IndirectSymbolMapper::~IndirectSymbolMapper()
+		ParsingGeneratedLocationRecorder::~ParsingGeneratedLocationRecorder()
 		{
 		}
 
-		ParsingTreeNode* ParsingScopeFinder::IndirectSymbolMapper::ParentNode(ParsingTreeNode* node)
+		void ParsingGeneratedLocationRecorder::Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)
 		{
-			return (node==replacedNode?originalNode:node)->GetParent();
-		}
-
-		ParsingTreeNode* ParsingScopeFinder::IndirectSymbolMapper::Node(ParsingTreeNode* node)
-		{
-			return node==originalNode?replacedNode:node;
-		}
-
-		ParsingScope* ParsingScopeFinder::IndirectSymbolMapper::ParentScope(ParsingScopeSymbol* symbol)
-		{
-			return (symbol==replacedSymbol?originalSymbol:symbol)->GetParentScope();
-		}
-
-		ParsingScopeSymbol* ParsingScopeFinder::IndirectSymbolMapper::Symbol(ParsingScopeSymbol* symbol)
-		{
-			return symbol==originalSymbol?replacedSymbol:symbol;
+			rangeMap.Add(node, range);
 		}
 
 /***********************************************************************
-ParsingScopeFinder::Traversal Functions
+ParsingWriter
 ***********************************************************************/
 
-		ParsingTreeNode* ParsingScopeFinder::ParentNode(ParsingTreeNode* node)
+		void ParsingWriter::HandleChar(wchar_t c)
 		{
-			return symbolMapper->ParentNode(node);
-		}
-
-		ParsingTreeNode* ParsingScopeFinder::ParentNode(Ptr<ParsingTreeNode> node)
-		{
-			return symbolMapper->ParentNode(node.Obj());
-		}
-
-		ParsingTreeNode* ParsingScopeFinder::Node(ParsingTreeNode* node)
-		{
-			return symbolMapper->Node(node);
-		}
-
-		Ptr<ParsingTreeNode> ParsingScopeFinder::Node(Ptr<ParsingTreeNode> node)
-		{
-			return symbolMapper->Node(node.Obj());
-		}
-
-		ParsingScope* ParsingScopeFinder::ParentScope(ParsingScopeSymbol* symbol)
-		{
-			return symbolMapper->ParentScope(symbol);
-		}
-
-		ParsingScope* ParsingScopeFinder::ParentScope(Ptr<ParsingScopeSymbol> symbol)
-		{
-			return symbolMapper->ParentScope(symbol.Obj());
-		}
-
-		ParsingScopeSymbol* ParsingScopeFinder::Symbol(ParsingScopeSymbol* symbol)
-		{
-			return symbolMapper->Symbol(symbol);
-		}
-
-		Ptr<ParsingScopeSymbol> ParsingScopeFinder::Symbol(Ptr<ParsingScopeSymbol> symbol)
-		{
-			return symbolMapper->Symbol(symbol.Obj());
-		}
-
-		ParsingScopeFinder::LazySymbolList ParsingScopeFinder::Symbols(const ParsingScope::SymbolList& symbols)
-		{
-			return From(symbols).Select([this](Ptr<ParsingScopeSymbol> symbol)
+			lastPos = currentPos;
+			switch (c)
 			{
-				return Symbol(symbol);
-			});
-		}
-
-/***********************************************************************
-ParsingScopeFinder
-***********************************************************************/
-
-		void ParsingScopeFinder::InitializeQueryCacheInternal(ParsingScopeSymbol* symbol)
-		{
-			if(ParsingTreeObject* obj=Obj(symbol->GetNode().Obj()))
-			{
-				nodeSymbols.Add(obj, symbol);
-			}
-			if(symbol->GetScope())
-			{
-				ParsingScope* scope=symbol->GetScope();
-				FOREACH(WString, name, scope->GetSymbolNames())
-				{
-					FOREACH(Ptr<ParsingScopeSymbol>, subSymbol, Symbols(scope->GetSymbols(name)))
-					{
-						InitializeQueryCacheInternal(subSymbol.Obj());
-					}
-				}
+			case L'\n':
+				currentPos.index++;
+				currentPos.row++;
+				currentPos.column = 0;
+				break;
+			default:
+				currentPos.index++;
+				currentPos.column++;
 			}
 		}
 
-		ParsingScopeFinder::ParsingScopeFinder( Ptr<SymbolMapper> _symbolMapper)
-			:symbolMapper(_symbolMapper)
-			,previousFinder(0)
+		ParsingWriter::ParsingWriter(stream::TextWriter& _writer, Ptr<IParsingPrintNodeRecorder> _recorder, vint _codeIndex)
+			:writer(_writer)
+			, recorder(_recorder)
+			, codeIndex(_codeIndex)
+			, lastPos(-1, 0, -1)
+			, currentPos(0, 0, 0)
 		{
 		}
 
-		ParsingScopeFinder::~ParsingScopeFinder()
+		ParsingWriter::~ParsingWriter()
 		{
 		}
 
-		void ParsingScopeFinder::InitializeQueryCache(ParsingScopeSymbol* symbol, ParsingScopeFinder* _previousFinder)
+		void ParsingWriter::WriteChar(wchar_t c)
 		{
-			previousFinder=_previousFinder;
-			InitializeQueryCacheInternal(symbol);
+			writer.WriteChar(c);
+			if (!recorder) return;
+			HandleChar(c);
 		}
 
-		ParsingScopeSymbol* ParsingScopeFinder::GetSymbolFromNode(ParsingTreeObject* node)
+		void ParsingWriter::WriteString(const wchar_t* string, vint charCount)
 		{
-			vint index=nodeSymbols.Keys().IndexOf(node);
-			if(index!=-1)
+			writer.WriteString(string, charCount);
+			if (!recorder) return;
+			for (vint i = 0; i < charCount; i++)
 			{
-				return nodeSymbols.Values()[index];
-			}
-			else if(previousFinder)
-			{
-				return previousFinder->GetSymbolFromNode(node);
-			}
-			else
-			{
-				return 0;
+				HandleChar(string[i]);
 			}
 		}
 
-		ParsingScope* ParsingScopeFinder::GetScopeFromNode(ParsingTreeNode* node)
+		void ParsingWriter::BeforePrint(ParsingTreeCustomBase* node)
 		{
-			while(node)
-			{
-				ParsingTreeObject* obj=dynamic_cast<ParsingTreeObject*>(node);
-				if(obj)
-				{
-					ParsingScopeSymbol* symbol=GetSymbolFromNode(obj);
-					if(symbol && symbol->GetScope())
-					{
-						return symbol->GetScope();
-					}
-				}
-				node=ParentNode(node);
-			}
-			if(previousFinder)
-			{
-				return previousFinder->GetScopeFromNode(node);
-			}
-			else
-			{
-				return 0;
-			}
+			if (!recorder) return;
+			nodePositions.Add(NodePosPair(node, currentPos));
 		}
 
-		ParsingScopeFinder::LazySymbolList ParsingScopeFinder::GetSymbols(ParsingScope* scope, const WString& name)
+		void ParsingWriter::AfterPrint(ParsingTreeCustomBase* node)
 		{
-			if(!scope) return LazySymbolList();
-			return Symbols(scope->GetSymbols(name));
-		}
+			if (!recorder) return;
 
-		ParsingScopeFinder::LazySymbolList ParsingScopeFinder::GetSymbols(ParsingScope* scope)
-		{
-			if(!scope) return LazySymbolList();
-			return From(scope->GetSymbolNames())
-				.SelectMany([=](const WString& name)
-				{
-					return Symbols(scope->GetSymbols(name));
-				});
-		}
+			auto pair = nodePositions[nodePositions.Count() - 1];
+			nodePositions.RemoveAt(nodePositions.Count() - 1);
+			CHECK_ERROR(pair.key == node, L"vl::parsing::ParsingWriter::AfterPrint(ParsingTreeNode*)#BeforePrint and AfterPrint should be call in pairs.");
 
-		ParsingScopeFinder::LazySymbolList ParsingScopeFinder::GetSymbolsRecursively(ParsingScope* scope, const WString& name)
-		{
-			if(!scope) return LazySymbolList();
-			while(scope)
-			{
-				const ParsingScope::SymbolList& symbols=scope->GetSymbols(name);
-				if(symbols.Count()>0) return Symbols(symbols);
-
-				if(scope->ownerSymbol)
-				{
-					scope=ParentScope(scope->ownerSymbol);
-				}
-				else
-				{
-					break;
-				}
-			}
-			if(previousFinder)
-			{
-				return previousFinder->GetSymbols(scope, name);
-			}
-			else
-			{
-				return ParsingScope::emptySymbolList;
-			}
-		}
-
-		ParsingScopeFinder::LazySymbolList ParsingScopeFinder::GetSymbolsRecursively(ParsingScope* scope)
-		{
-			if(!scope) return LazySymbolList();
-			LazySymbolList result;
-			while(scope)
-			{
-				result=result.Concat(GetSymbols(scope));
-
-				if(scope->ownerSymbol)
-				{
-					scope=ParentScope(scope->ownerSymbol);
-				}
-				else
-				{
-					break;
-				}
-			}
-			return result;
+			ParsingTextRange range(pair.value, lastPos, codeIndex);
+			recorder->Record(node, range);
 		}
 	}
 }
@@ -15429,6 +15121,8 @@ TypeName
 			IMPL_TYPE_INFO_RENAME(vl::reflection::description::IValueFunctionProxy,			system::Function)
 			IMPL_TYPE_INFO_RENAME(vl::reflection::description::IValueListener,				system::Listener)
 			IMPL_TYPE_INFO_RENAME(vl::reflection::description::IValueSubscription,			system::Subscription)
+			IMPL_TYPE_INFO_RENAME(vl::reflection::description::IValueCallStack,				system::CallStack)
+			IMPL_TYPE_INFO_RENAME(vl::reflection::description::IValueException,				system::Exception)
 
 			IMPL_TYPE_INFO_RENAME(vl::reflection::description::IValueSerializer,			system::reflection::ValueSerializer)
 			IMPL_TYPE_INFO_RENAME(vl::reflection::description::ITypeInfo,					system::reflection::TypeInfo)
@@ -16289,6 +15983,31 @@ Collections
 				CLASS_MEMBER_METHOD(Close, NO_PARAMETER)
 			END_CLASS_MEMBER(IValueSubscription)
 
+			BEGIN_CLASS_MEMBER(IValueCallStack)
+				CLASS_MEMBER_BASE(IDescriptable)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(LocalVariables)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(LocalArguments)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(CapturedVariables)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(GlobalVariables)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(FunctionName)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(SourceCodeBeforeCodegen)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(SourceCodeAfterCodegen)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowBeforeCodegen)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(RowAfterCodegen)
+			END_CLASS_MEMBER(IValueCallStack)
+
+			BEGIN_CLASS_MEMBER(IValueException)
+				CLASS_MEMBER_BASE(IDescriptable)
+#pragma push_macro("GetMessage")
+#if defined GetMessage
+#undef GetMessage
+#endif
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Message)
+#pragma pop_macro("GetMessage")
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(Fatal)
+				CLASS_MEMBER_PROPERTY_READONLY_FAST(CallStack)
+			END_CLASS_MEMBER(IValueException)
+
 			BEGIN_CLASS_MEMBER(IValueSerializer)
 				CLASS_MEMBER_BASE(IDescriptable)
 
@@ -16477,6 +16196,9 @@ LoadPredefinedTypes
 					
 					ADD_TYPE_INFO(IValueListener)
 					ADD_TYPE_INFO(IValueSubscription)
+					ADD_TYPE_INFO(IValueCallStack)
+					ADD_TYPE_INFO(IValueException)
+
 					ADD_TYPE_INFO(IValueSerializer)
 					ADD_TYPE_INFO(ITypeInfo)
 					ADD_TYPE_INFO(ITypeInfo::Decorator)
@@ -19464,7 +19186,7 @@ namespace vl
 			return result;
 		}
 
-		bool IsRegexEscapedListeralString(const WString& regex)
+		bool IsRegexEscapedLiteralString(const WString& regex)
 		{
 			for(vint i=0;i<regex.Length();i++)
 			{
@@ -23978,7 +23700,18 @@ Thread
 		protected:
 			void Run()
 			{
-				procedure(this, argument);
+				ThreadLocalStorage::FixStorages();
+				try
+				{
+					procedure(this, argument);
+					threadState=Thread::Stopped;
+					ThreadLocalStorage::ClearStorages();
+				}
+				catch (...)
+				{
+					ThreadLocalStorage::ClearStorages();
+					throw;
+				}
 				if(deleteAfterStopped)
 				{
 					delete this;
@@ -24002,7 +23735,18 @@ Thread
 		protected:
 			void Run()
 			{
-				procedure();
+				ThreadLocalStorage::FixStorages();
+				try
+				{
+					procedure();
+					threadState=Thread::Stopped;
+					ThreadLocalStorage::ClearStorages();
+				}
+				catch (...)
+				{
+					ThreadLocalStorage::ClearStorages();
+					throw;
+				}
 				if(deleteAfterStopped)
 				{
 					delete this;
@@ -24020,7 +23764,6 @@ Thread
 	void InternalThreadProc(Thread* thread)
 	{
 		thread->Run();
-		thread->threadState=Thread::Stopped;
 	}
 
 	DWORD WINAPI InternalThreadProcWrapper(LPVOID lpParameter)
@@ -24377,14 +24120,32 @@ ThreadPoolLite
 		DWORD WINAPI ThreadPoolQueueProc(void* argument)
 		{
 			Ptr<ThreadPoolQueueProcArgument> proc=(ThreadPoolQueueProcArgument*)argument;
-			proc->proc(proc->argument);
+			ThreadLocalStorage::FixStorages();
+			try
+			{
+				proc->proc(proc->argument);
+				ThreadLocalStorage::ClearStorages();
+			}
+			catch (...)
+			{
+				ThreadLocalStorage::ClearStorages();
+			}
 			return 0;
 		}
 
 		DWORD WINAPI ThreadPoolQueueFunc(void* argument)
 		{
 			Ptr<Func<void()>> proc=(Func<void()>*)argument;
-			(*proc.Obj())();
+			ThreadLocalStorage::FixStorages();
+			try
+			{
+				(*proc.Obj())();
+				ThreadLocalStorage::ClearStorages();
+			}
+			catch (...)
+			{
+				ThreadLocalStorage::ClearStorages();
+			}
 			return 0;
 		}
 
@@ -24655,8 +24416,120 @@ SpinLock
 	{
 		_InterlockedExchange(&token, 0);
 	}
+
+/***********************************************************************
+ThreadLocalStorage
+***********************************************************************/
+
+#define KEY ((DWORD&)key)
+
+	ThreadLocalStorage::ThreadLocalStorage(Destructor _destructor)
+		:destructor(_destructor)
+	{
+		static_assert(sizeof(key) >= sizeof(DWORD), "ThreadLocalStorage's key storage is not large enouth.");
+		PushStorage(this);
+		KEY = TlsAlloc();
+		CHECK_ERROR(KEY != TLS_OUT_OF_INDEXES, L"vl::ThreadLocalStorage::ThreadLocalStorage()#Failed to alloc new thread local storage index.");
+	}
+
+	ThreadLocalStorage::~ThreadLocalStorage()
+	{
+		TlsFree(KEY);
+	}
+
+	void* ThreadLocalStorage::Get()
+	{
+		CHECK_ERROR(!disposed, L"vl::ThreadLocalStorage::Get()#Cannot access a disposed ThreadLocalStorage.");
+		return TlsGetValue(KEY);
+	}
+
+	void ThreadLocalStorage::Set(void* data)
+	{
+		CHECK_ERROR(!disposed, L"vl::ThreadLocalStorage::Set()#Cannot access a disposed ThreadLocalStorage.");
+		TlsSetValue(KEY, data);
+	}
+
+#undef KEY
 }
 #endif
+
+/***********************************************************************
+ThreadLocalStorage Common Implementations
+***********************************************************************/
+
+namespace vl
+{
+	void ThreadLocalStorage::Clear()
+	{
+		CHECK_ERROR(!disposed, L"vl::ThreadLocalStorage::Clear()#Cannot access a disposed ThreadLocalStorage.");
+		if(destructor)
+		{
+			if (auto data = Get())
+			{
+				destructor(data);
+			}
+		}
+		Set(nullptr);
+	}
+
+	void ThreadLocalStorage::Dispose()
+	{
+		CHECK_ERROR(!disposed, L"vl::ThreadLocalStorage::Dispose()#Cannot access a disposed ThreadLocalStorage.");
+		Clear();
+		disposed = true;
+	}
+
+	struct TlsStorageLink
+	{
+		ThreadLocalStorage*		storage = nullptr;
+		TlsStorageLink*			next = nullptr;
+	};
+
+	volatile bool				tlsFixed = false;
+	TlsStorageLink*				tlsHead = nullptr;
+	TlsStorageLink**			tlsTail = &tlsHead;
+
+	void ThreadLocalStorage::PushStorage(ThreadLocalStorage* storage)
+	{
+		CHECK_ERROR(!tlsFixed, L"vl::ThreadLocalStorage::PushStorage(ThreadLocalStorage*)#Cannot create new ThreadLocalStorage instance after calling ThreadLocalStorage::FixStorages().");
+		auto link = new TlsStorageLink;
+		link->storage = storage;
+		*tlsTail = link;
+		tlsTail = &link->next;
+	}
+
+	void ThreadLocalStorage::FixStorages()
+	{
+		tlsFixed = true;
+	}
+
+	void ThreadLocalStorage::ClearStorages()
+	{
+		FixStorages();
+		auto current = tlsHead;
+		while (current)
+		{
+			current->storage->Clear();
+			current = current->next;
+		}
+	}
+
+	void ThreadLocalStorage::DisposeStorages()
+	{
+		FixStorages();
+		auto current = tlsHead;
+		tlsHead = nullptr;
+		tlsTail = nullptr;
+		while (current)
+		{
+			current->storage->Dispose();
+
+			auto temp = current;
+			current = current->next;
+			delete temp;
+		}
+	}
+}
 
 /***********************************************************************
 ThreadingLinux.cpp
@@ -24667,12 +24540,10 @@ ThreadingLinux.cpp
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <semaphore.h>
-
-
+#include <errno.h>
 #if defined(__APPLE__) || defined(__APPLE_CC__)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
-
 
 namespace vl
 {
@@ -24702,7 +24573,19 @@ Thread
 		protected:
 			void Run()
 			{
-				procedure(this, argument);
+				ThreadLocalStorage::FixStorages();
+				try
+				{
+					procedure(this, argument);
+					threadState=Thread::Stopped;
+					internalData->ev.Signal();
+					ThreadLocalStorage::ClearStorages();
+				}
+				catch (...)
+				{
+					ThreadLocalStorage::ClearStorages();
+					throw;
+				}
 				if(deleteAfterStopped)
 				{
 					delete this;
@@ -24726,7 +24609,19 @@ Thread
 		protected:
 			void Run()
 			{
-				procedure();
+				ThreadLocalStorage::FixStorages();
+				try
+				{
+					procedure();
+					threadState=Thread::Stopped;
+					internalData->ev.Signal();
+					ThreadLocalStorage::ClearStorages();
+				}
+				catch (...)
+				{
+					ThreadLocalStorage::ClearStorages();
+					throw;
+				}
 				if(deleteAfterStopped)
 				{
 					delete this;
@@ -24744,8 +24639,6 @@ Thread
 	void InternalThreadProc(Thread* thread)
 	{
 		thread->Run();
-		thread->threadState=Thread::Stopped;
-		thread->internalData->ev.Signal();
 	}
 
 	void* InternalThreadProcWrapper(void* lpParameter)
@@ -24807,7 +24700,14 @@ Thread
 
 	void Thread::Sleep(vint ms)
 	{
-		sleep((ms+999)/1000);
+		if (ms >= 1000)
+		{
+			sleep(ms / 1000);
+		}
+		if (ms % 1000)
+		{
+			usleep((ms % 1000) * 1000);
+		}
 	}
 	
 	vint Thread::GetCPUCount()
@@ -25194,7 +25094,16 @@ ThreadPoolLite
 
 				if (task)
 				{
-					task->task();
+					ThreadLocalStorage::FixStorages();
+					try
+					{
+						task->task();
+						ThreadLocalStorage::ClearStorages();
+					}
+					catch (...)
+					{
+						ThreadLocalStorage::ClearStorages();
+					}
 				}
 				else if (threadPoolData->stopping)
 				{
@@ -25502,5 +25411,39 @@ SpinLock
 	{
 		__sync_lock_test_and_set(&token, 0);
 	}
+
+/***********************************************************************
+ThreadLocalStorage
+***********************************************************************/
+
+#define KEY ((pthread_key_t&)key)
+
+	ThreadLocalStorage::ThreadLocalStorage(Destructor _destructor)
+		:destructor(_destructor)
+	{
+		static_assert(sizeof(key) >= sizeof(pthread_key_t), "ThreadLocalStorage's key storage is not large enouth.");
+		PushStorage(this);
+		auto error = pthread_key_create(&KEY, destructor);
+		CHECK_ERROR(error != EAGAIN && error != ENOMEM, L"vl::ThreadLocalStorage::ThreadLocalStorage()#Failed to create a thread local storage index.");
+	}
+
+	ThreadLocalStorage::~ThreadLocalStorage()
+	{
+		pthread_key_delete(KEY);
+	}
+
+	void* ThreadLocalStorage::Get()
+	{
+		CHECK_ERROR(!disposed, L"vl::ThreadLocalStorage::Get()#Cannot access a disposed ThreadLocalStorage.");
+		return pthread_getspecific(KEY);
+	}
+
+	void ThreadLocalStorage::Set(void* data)
+	{
+		CHECK_ERROR(!disposed, L"vl::ThreadLocalStorage::Set()#Cannot access a disposed ThreadLocalStorage.");
+		pthread_setspecific(KEY, data);
+	}
+
+#undef KEY
 }
 #endif

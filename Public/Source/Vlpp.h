@@ -7252,10 +7252,14 @@ Attribute
 			class IParameterInfo;
 			class IMethodInfo;
 			class IMethodGroupInfo;
+
 			class IValueFunctionProxy;
 			class IValueInterfaceProxy;
 			class IValueListener;
 			class IValueSubscription;
+
+			class IValueCallStack;
+			class IValueException;
 		}
 
 		class DescriptableObject
@@ -7740,10 +7744,36 @@ Interface Implementation Proxy (Implement)
 			};
 
 /***********************************************************************
+Runtime Exception
+***********************************************************************/
+
+			class IValueCallStack : public virtual IDescriptable, public Description<IValueCallStack>
+			{
+			public:
+				virtual Ptr<IValueReadonlyDictionary>	GetLocalVariables() = 0;
+				virtual Ptr<IValueReadonlyDictionary>	GetLocalArguments() = 0;
+				virtual Ptr<IValueReadonlyDictionary>	GetCapturedVariables() = 0;
+				virtual Ptr<IValueReadonlyDictionary>	GetGlobalVariables() = 0;
+				virtual WString							GetFunctionName() = 0;
+				virtual WString							GetSourceCodeBeforeCodegen() = 0;
+				virtual WString							GetSourceCodeAfterCodegen() = 0;
+				virtual vint							GetRowBeforeCodegen() = 0;
+				virtual vint							GetRowAfterCodegen() = 0;
+			};
+
+			class IValueException : public virtual IDescriptable, public Description<IValueException>
+			{
+			public:
+				virtual WString							GetMessage() = 0;
+				virtual bool							GetFatal() = 0;
+				virtual Ptr<IValueReadonlyList>			GetCallStack() = 0;
+			};
+
+/***********************************************************************
 Exceptions
 ***********************************************************************/
 
-			class TypeDescriptorException : public Exception
+			class TypeDescriptorException abstract : public Exception
 			{
 			public:
 				TypeDescriptorException(const WString& message)
@@ -7891,7 +7921,7 @@ namespace vl
 	{
 
 /***********************************************************************
-位置信息
+Location
 ***********************************************************************/
 
 		struct ParsingTextPos
@@ -7996,9 +8026,30 @@ namespace vl
 			bool Contains(const ParsingTextPos& pos)const{return start<=pos && pos<=end;}
 			bool Contains(const ParsingTextRange& range)const{return start<=range.start && range.end<=end;}
 		};
+	}
 
+	namespace stream
+	{
+		namespace internal
+		{
+			BEGIN_SERIALIZATION(parsing::ParsingTextPos)
+				SERIALIZE(index)
+				SERIALIZE(row)
+				SERIALIZE(column)
+			END_SERIALIZATION
+			
+			BEGIN_SERIALIZATION(parsing::ParsingTextRange)
+				SERIALIZE(start)
+				SERIALIZE(end)
+				SERIALIZE(codeIndex)
+			END_SERIALIZATION
+		}
+	}
+
+	namespace parsing
+	{
 /***********************************************************************
-通用语法树
+General Syntax Tree
 ***********************************************************************/
 
 		class ParsingTreeNode;
@@ -8151,12 +8202,6 @@ namespace vl
 		};
 
 /***********************************************************************
-辅助函数
-***********************************************************************/
-
-		extern void								Log(ParsingTreeNode* node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
-
-/***********************************************************************
 语法树基础设施
 ***********************************************************************/
 
@@ -8192,7 +8237,7 @@ namespace vl
 		};
 
 /***********************************************************************
-语法树构造
+Syntax Tree Serialization Helper
 ***********************************************************************/
 
 		class ParsingTreeConverter : public Object
@@ -8253,147 +8298,88 @@ namespace vl
 		};
 
 /***********************************************************************
-符号表
+Logging
 ***********************************************************************/
 
-		class ParsingScope;
-		class ParsingScopeSymbol;
-		class ParsingScopeFinder;
-
-		class ParsingScope : public Object, public reflection::Description<ParsingScope>
+		class IParsingPrintNodeRecorder : public virtual Interface
 		{
-			typedef collections::SortedList<WString>							SymbolKeyList;
-			typedef collections::List<Ptr<ParsingScopeSymbol>>					SymbolList;
-			typedef collections::Group<WString, Ptr<ParsingScopeSymbol>>		SymbolGroup;
-
-			friend class ParsingScopeSymbol;
-			friend class ParsingScopeFinder;
-		protected:
-			static const SymbolList					emptySymbolList;
-
-			ParsingScopeSymbol*						ownerSymbol;
-			SymbolGroup								symbols;
-
 		public:
-			ParsingScope(ParsingScopeSymbol* _ownerSymbol);
-			~ParsingScope();
-
-			ParsingScopeSymbol*						GetOwnerSymbol();
-			bool									AddSymbol(Ptr<ParsingScopeSymbol> value);
-			bool									RemoveSymbol(Ptr<ParsingScopeSymbol> value);
-			const SymbolKeyList&					GetSymbolNames();
-			const SymbolList&						GetSymbols(const WString& name);
+			virtual void						Record(ParsingTreeCustomBase* node, const ParsingTextRange& range) = 0;
 		};
 
-		class ParsingScopeSymbol : public Object, public reflection::Description<ParsingScopeSymbol>
+		class ParsingEmptyPrintNodeRecorder : public Object, public virtual IParsingPrintNodeRecorder
 		{
-			friend class ParsingScope;
-		protected:
-			ParsingScope*							parentScope;
-			WString									name;
-			collections::List<vint>					semanticIds;
-			Ptr<ParsingTreeObject>					node;
-			Ptr<ParsingScope>						scope;
-
-			virtual WString							GetDisplayInternal(vint semanticId);
 		public:
-			ParsingScopeSymbol(const WString& _name=L"", vint _semanticId=-1);
-			~ParsingScopeSymbol();
+			ParsingEmptyPrintNodeRecorder();
+			~ParsingEmptyPrintNodeRecorder();
 
-			ParsingScope*							GetParentScope();
-			const WString&							GetName();
-			const collections::List<vint>&			GetSemanticIds();
-			bool									AddSemanticId(vint semanticId);
-			Ptr<ParsingTreeObject>					GetNode();
-			void									SetNode(Ptr<ParsingTreeObject> value);
-			bool									CreateScope();
-			bool									DestroyScope();
-			ParsingScope*							GetScope();
-			WString									GetDisplay(vint semanticId);
+			void								Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)override;
 		};
 
-		class ParsingScopeFinder : public Object, public reflection::Description<ParsingScopeFinder>
+		class ParsingMultiplePrintNodeRecorder : public Object, public virtual IParsingPrintNodeRecorder
 		{
-			typedef collections::Dictionary<ParsingTreeObject*, ParsingScopeSymbol*>			NodeSymbolMap;
-			typedef collections::LazyList<Ptr<ParsingScopeSymbol>>								LazySymbolList;
-		public:
-			class SymbolMapper : public Object, public reflection::Description<SymbolMapper>
-			{
-			public:
-				virtual ParsingTreeNode*			ParentNode(ParsingTreeNode* node)=0;
-				virtual ParsingTreeNode*			Node(ParsingTreeNode* node)=0;
-				virtual ParsingScope*				ParentScope(ParsingScopeSymbol* symbol)=0;
-				virtual ParsingScopeSymbol*			Symbol(ParsingScopeSymbol* symbol)=0;
-			};
-
-			class DirectSymbolMapper : public SymbolMapper, public reflection::Description<DirectSymbolMapper>
-			{
-			public:
-				DirectSymbolMapper();
-				~DirectSymbolMapper();
-
-				ParsingTreeNode*					ParentNode(ParsingTreeNode* node)override;
-				ParsingTreeNode*					Node(ParsingTreeNode* node)override;
-				ParsingScope*						ParentScope(ParsingScopeSymbol* symbol)override;
-				ParsingScopeSymbol*					Symbol(ParsingScopeSymbol* symbol)override;
-			};
-
-			class IndirectSymbolMapper  : public SymbolMapper, public reflection::Description<IndirectSymbolMapper>
-			{
-			protected:
-				ParsingScopeSymbol*					originalSymbol;
-				ParsingScopeSymbol*					replacedSymbol;
-				ParsingTreeNode*					originalNode;
-				ParsingTreeNode*					replacedNode;
-			public:
-				IndirectSymbolMapper(ParsingScopeSymbol* _originalSymbol, ParsingScopeSymbol* _replacedSymbol, ParsingTreeNode* _originalNode, ParsingTreeNode* _replacedNode);
-				~IndirectSymbolMapper();
-
-				ParsingTreeNode*					ParentNode(ParsingTreeNode* node)override;
-				ParsingTreeNode*					Node(ParsingTreeNode* node)override;
-				ParsingScope*						ParentScope(ParsingScopeSymbol* symbol)override;
-				ParsingScopeSymbol*					Symbol(ParsingScopeSymbol* symbol)override;
-			};
+			typedef collections::List<Ptr<IParsingPrintNodeRecorder>>				RecorderList;
 		protected:
-			NodeSymbolMap							nodeSymbols;
-			Ptr<SymbolMapper>						symbolMapper;
-			ParsingScopeFinder*						previousFinder;
+			RecorderList						recorders;
 
-			void									InitializeQueryCacheInternal(ParsingScopeSymbol* symbol);
 		public:
-			ParsingScopeFinder(Ptr<SymbolMapper> _symbolMapper=new DirectSymbolMapper);
-			~ParsingScopeFinder();
+			ParsingMultiplePrintNodeRecorder();
+			~ParsingMultiplePrintNodeRecorder();
 
-			ParsingTreeNode*						ParentNode(ParsingTreeNode* node);
-			ParsingTreeNode*						ParentNode(Ptr<ParsingTreeNode> node);
-			ParsingTreeNode*						Node(ParsingTreeNode* node);
-			Ptr<ParsingTreeNode>					Node(Ptr<ParsingTreeNode> node);
-			ParsingScope*							ParentScope(ParsingScopeSymbol* symbol);
-			ParsingScope*							ParentScope(Ptr<ParsingScopeSymbol> symbol);
-			ParsingScopeSymbol*						Symbol(ParsingScopeSymbol* symbol);
-			Ptr<ParsingScopeSymbol>					Symbol(Ptr<ParsingScopeSymbol> symbol);
-			LazySymbolList							Symbols(const ParsingScope::SymbolList& symbols);
-
-			template<typename T>
-			T* Obj(T* node)
-			{
-				return dynamic_cast<T*>(Node(node));
-			}
-
-			template<typename T>
-			Ptr<T> Obj(Ptr<T> node)
-			{
-				return Node(node).template Cast<T>();
-			}
-			
-			void									InitializeQueryCache(ParsingScopeSymbol* symbol, ParsingScopeFinder* _previousFinder=0);
-			ParsingScopeSymbol*						GetSymbolFromNode(ParsingTreeObject* node);
-			ParsingScope*							GetScopeFromNode(ParsingTreeNode* node);
-			LazySymbolList							GetSymbols(ParsingScope* scope, const WString& name);
-			LazySymbolList							GetSymbols(ParsingScope* scope);
-			LazySymbolList							GetSymbolsRecursively(ParsingScope* scope, const WString& name);
-			LazySymbolList							GetSymbolsRecursively(ParsingScope* scope);
+			void								AddRecorder(Ptr<IParsingPrintNodeRecorder> recorder);
+			void								Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)override;
 		};
+
+		class ParsingOriginalLocationRecorder : public Object, public virtual IParsingPrintNodeRecorder
+		{
+		protected:
+			Ptr<IParsingPrintNodeRecorder>		recorder;
+
+		public:
+			ParsingOriginalLocationRecorder(Ptr<IParsingPrintNodeRecorder> _recorder);
+			~ParsingOriginalLocationRecorder();
+
+			void								Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)override;
+		};
+
+		class ParsingGeneratedLocationRecorder : public Object, public virtual IParsingPrintNodeRecorder
+		{
+			typedef collections::Dictionary<ParsingTreeCustomBase*, ParsingTextRange>		RangeMap;
+		protected:
+			RangeMap&							rangeMap;
+
+		public:
+			ParsingGeneratedLocationRecorder(RangeMap& _rangeMap);
+			~ParsingGeneratedLocationRecorder();
+
+			void								Record(ParsingTreeCustomBase* node, const ParsingTextRange& range)override;
+		};
+
+		class ParsingWriter : public stream::TextWriter
+		{
+			typedef collections::Pair<ParsingTreeCustomBase*, ParsingTextPos>				NodePosPair;
+			typedef collections::List<NodePosPair>											NodePosList;
+		protected:
+			stream::TextWriter&					writer;
+			Ptr<IParsingPrintNodeRecorder>		recorder;
+			vint								codeIndex;
+			ParsingTextPos						lastPos;
+			ParsingTextPos						currentPos;
+			NodePosList							nodePositions;
+
+			void								HandleChar(wchar_t c);
+		public:
+			ParsingWriter(stream::TextWriter& _writer, Ptr<IParsingPrintNodeRecorder> _recorder = nullptr, vint _codeIndex = -1);
+			~ParsingWriter();
+
+			using stream::TextWriter::WriteString;
+			void								WriteChar(wchar_t c)override;
+			void								WriteString(const wchar_t* string, vint charCount)override;
+			void								BeforePrint(ParsingTreeCustomBase* node);
+			void								AfterPrint(ParsingTreeCustomBase* node);
+		};
+
+		extern void								Log(ParsingTreeNode* node, const WString& originalInput, stream::TextWriter& writer, const WString& prefix=L"");
 	}
 }
 
@@ -9469,6 +9455,8 @@ Predefined Types
 			DECL_TYPE_INFO(IValueFunctionProxy)
 			DECL_TYPE_INFO(IValueListener)
 			DECL_TYPE_INFO(IValueSubscription)
+			DECL_TYPE_INFO(IValueCallStack)
+			DECL_TYPE_INFO(IValueException)
 
 			DECL_TYPE_INFO(IValueSerializer)
 			DECL_TYPE_INFO(ITypeInfo)
@@ -12561,9 +12549,6 @@ namespace vl
 			F(parsing::ParsingTreeToken)\
 			F(parsing::ParsingTreeObject)\
 			F(parsing::ParsingTreeArray)\
-			F(parsing::ParsingScope)\
-			F(parsing::ParsingScopeSymbol)\
-			F(parsing::ParsingScopeFinder)\
 			F(parsing::ParsingTreeCustomBase)\
 			F(parsing::ParsingToken)\
 			F(parsing::ParsingError)\
@@ -14281,7 +14266,7 @@ namespace vl
 		extern WString					EscapeTextForRegex(const WString& literalString);
 		extern WString					UnescapeTextForRegex(const WString& escapedText);
 		extern WString					NormalizeEscapedTextForRegex(const WString& escapedText);
-		extern bool						IsRegexEscapedListeralString(const WString& regex);
+		extern bool						IsRegexEscapedLiteralString(const WString& regex);
 	}
 }
 
@@ -14979,7 +14964,6 @@ namespace vl
 		struct MutexData;
 		struct SemaphoreData;
 		struct EventData;
-
 		struct CriticalSectionData;
 		struct ReaderWriterLockData;
 		struct ConditionVariableData;
@@ -15021,15 +15005,14 @@ namespace vl
 		};
 
 		typedef void(*ThreadProcedure)(Thread*, void*);
-	private:
+	protected:
 		threading_internal::ThreadData*				internalData;
 		volatile ThreadState						threadState;
 
-	protected:
-
 		virtual void								Run()=0;
-	public:
+
 		Thread();
+	public:
 		~Thread();
 
 		static Thread*								CreateAndStart(ThreadProcedure procedure, void* argument=0, bool deleteAfterStopped=true);
@@ -15253,6 +15236,118 @@ namespace vl
 #define CS_LOCK(LOCK) SCOPE_VARIABLE(const CriticalSection::Scope&, scope, LOCK)
 #define READER_LOCK(LOCK) SCOPE_VARIABLE(const ReaderWriterLock::ReaderScope&, scope, LOCK)
 #define WRITER_LOCK(LOCK) SCOPE_VARIABLE(const ReaderWriterLock::WriterScope&, scope, LOCK)
+
+/***********************************************************************
+Thread Local Storage
+
+ThreadLocalStorage and ThreadVariable<T> are designed to be used as global value types only.
+Dynamically create instances of them are undefined behavior.
+***********************************************************************/
+
+	class ThreadLocalStorage : public Object, private NotCopyable
+	{
+		typedef void(*Destructor)(void*);
+	protected:
+		vuint64_t								key;
+		Destructor								destructor;
+		volatile bool							disposed = false;
+		
+		static void								PushStorage(ThreadLocalStorage* storage);
+	public:
+		ThreadLocalStorage(Destructor _destructor);
+		~ThreadLocalStorage();
+
+		void*									Get();
+		void									Set(void* data);
+		void									Clear();
+		void									Dispose();
+
+		static void								FixStorages();
+		static void								ClearStorages();
+		static void								DisposeStorages();
+	};
+
+	template<typename T>
+	class ThreadVariable : public Object, private NotCopyable
+	{
+	protected:
+		ThreadLocalStorage						storage;
+
+		static void Destructor(void* data)
+		{
+			if (data)
+			{
+				delete (T*)data;
+			}
+		}
+	public:
+		ThreadVariable()
+			:storage(&Destructor)
+		{
+		}
+
+		~ThreadVariable()
+		{
+		}
+
+		bool HasData()
+		{
+			return storage.Get() != nullptr;
+		}
+
+		void Clear()
+		{
+			storage.Clear();
+		}
+
+		T& Get()
+		{
+			return *(T*)storage.Get();
+		}
+
+		void Set(const T& value)
+		{
+			storage.Clear();
+			storage.Set(new T(value));
+		}
+	};
+
+	template<typename T>
+	class ThreadVariable<T*> : public Object, private NotCopyable
+	{
+	protected:
+		ThreadLocalStorage						storage;
+
+	public:
+		ThreadVariable()
+			:storage(nullptr)
+		{
+		}
+
+		~ThreadVariable()
+		{
+		}
+
+		bool HasData()
+		{
+			return storage.Get() != nullptr;
+		}
+
+		void Clear()
+		{
+			storage.Set(nullptr);
+		}
+
+		T* Get()
+		{
+			return (T*)storage.Get();
+		}
+
+		void Set(T* value)
+		{
+			storage.Set((void*)value);
+		}
+	};
 
 /***********************************************************************
 RepeatingTaskExecutor
