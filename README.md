@@ -5,7 +5,7 @@ GPU Accelerated C++ User Interface/Script Engine (using MS-PL license)
 
 Website for this project: http://www.gaclib.net/
 
-This repository contains the latest release for the GacUI project, including packed library source codes, development tools, demos and documents. Complete source code can be accessed in http://gac.codeplex.com/ .
+This repository contains the latest release for the GacUI project, including packed library source codes, development tools, demos and documents. Complete source code can be accessed in https://github.com/vczh-libraries .
 
 Here is a simple description to the code
 * **GacUIDemo** Demo solution and projects
