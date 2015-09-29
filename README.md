@@ -1,1 +1,1 @@
-# This repo has already deprecated, please visit [vczh-libraries/Release](https://github.com/vczh-libraries/Release) for the latest release.
+# This repo has already been deprecated, please visit [vczh-libraries/Release](https://github.com/vczh-libraries/Release) for the latest release.
